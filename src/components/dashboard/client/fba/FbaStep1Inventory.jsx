@@ -126,7 +126,145 @@ const STEP1_COPY = {
     retryStep1: 'Retry Step 1',
     waitingPlan: 'Waiting for Amazon plan',
     addUnits: 'Add units',
-    continueToPacking: 'Continue to packing'
+    continueToPacking: 'Continue to packing',
+    step1Title: 'Step 1 - Confirmed inventory to send',
+    skusConfirmedShort: 'SKUs confirmed ({count})',
+    ignoredLinesShort: 'Ignored lines ({count})',
+    closeAdd: 'Close add',
+    addProduct: 'Add product',
+    searchSkuAsinName: 'Search SKU / ASIN / product name',
+    searchInventoryHint: 'Search in inventory and add product into this shipment request.',
+    searchingInventory: 'Searching inventory...',
+    noInventoryResults: 'No inventory results.',
+    hiddenInRequest: 'Already in request (hidden)',
+    noHiddenProducts: 'No hidden products in this request.',
+    add: 'Add',
+    shipFromLabel: 'Ship from',
+    marketplaceDestinationCountry: 'Marketplace destination (Country)',
+    addAllUnitsOneBox: 'Add all units to one box',
+    tableSkuDetails: 'SKU details',
+    tablePackingDetails: 'Packing details',
+    tableInfoAction: 'Information / action',
+    tableQuantityToSend: 'Quantity to send',
+    tableServices: 'Services',
+    waitingSkusAndShipments: 'Waiting for Amazon response for SKUs and shipments...',
+    noSkusToDisplay: 'No SKUs to display.',
+    storageLabel: 'Storage',
+    optionIndividualUnits: 'Individual units',
+    optionCasePacked: 'Case packed',
+    optionSingleSkuPallet: 'Single SKU pallet',
+    optionCreatePackingTemplate: 'Create packing template',
+    labelOwner: 'Label owner',
+    expirationDateRequired: 'Expiration date required',
+    printSkuLabels: 'Print SKU labels',
+    moreInputs: 'More inputs',
+    rechecking: 'Rechecking...',
+    recheckAssign: 'Recheck assign',
+    templateLabel: 'Template',
+    unitsPerBoxShort: 'Units/box',
+    casePackUnitsPerBox: 'Case pack - Units/box',
+    amazonNeedsPackageAttrs: 'Amazon needs product package attributes for this SKU.',
+    sendProductAttrs: 'Send product attributes to Amazon',
+    sending: 'Sending...',
+    noChangesToSend: 'No changes to send.',
+    completeProductDimensions: 'Complete product dimensions (L/W/H).',
+    completeProductWeight: 'Complete product weight.',
+    couldNotSendAttrs: 'Could not send attributes to Amazon.',
+    boxes: 'Boxes',
+    box: 'Box',
+    units: 'Units',
+    remove: 'Remove',
+    assigned: 'Assigned',
+    addService: '+ Add service',
+    allServicesAdded: 'All services already added.',
+    noBoxServicesSelected: 'No box services selected.',
+    unit: 'Unit',
+    qty: 'Qty',
+    total: 'Total',
+    boxDetailsStep1: 'Box details (Step 1)',
+    putAllInOneBoxRo: 'Put everything in one box',
+    ignored: 'Ignored',
+    skuMissing: 'SKU: missing',
+    blockedUntilSkuCompleted: 'Blocked until SKU is completed.',
+    excludedFromStep1bShipping: 'This line is excluded from Step 1b and Shipping.',
+    servicesLockedIgnored: 'Services locked for ignored line.',
+    missingCompanyIdTemplate: 'Missing companyId in plan; cannot save template.',
+    setNameOrUnitsTemplate: 'Set a name or units per box for the template.',
+    unitsPerBoxGreaterThanZero: 'Units per box must be greater than 0 for case pack.',
+    couldNotSaveTemplate: 'Could not save template.',
+    prepareFbaItems: 'Prepare your FBA items',
+    close: 'Close',
+    prepGuidance: 'Prep guidance',
+    useManufacturerBarcode: 'Use manufacturer barcode',
+    choosePrepCategory: 'Choose prep category',
+    selectPlaceholder: 'Select...',
+    guidance: 'Guidance',
+    notEligibleManufacturerBarcode: 'This SKU is not eligible to use manufacturer barcode for tracking.',
+    eligibleManufacturerBarcode: 'This SKU can use manufacturer barcode.',
+    useManufacturerBarcodeTracking: 'Use manufacturer barcode for tracking',
+    cancel: 'Cancel',
+    save: 'Save',
+    fulfillmentStorageType: 'Fulfilment by Amazon storage type',
+    choosePrintingFormat: 'Choose printing format',
+    thermalPrinting: 'Thermal printing',
+    standardFormats: 'Standard formats',
+    widthMm: 'Width (mm)',
+    heightMm: 'Height (mm)',
+    printLabels: 'Print labels',
+    downloading: 'Downloading…',
+    downloadLabels: 'Download labels',
+    couldNotRequestLabels: 'Could not request labels from Amazon.',
+    labelRequestSentRetry: 'Label request sent to Amazon; try again in a few seconds if the PDF did not open.',
+    missingDownloadUrlOrOperationId: 'Amazon response missing downloadUrl/operationId',
+    couldNotDownloadLabels: 'Could not download Amazon labels.',
+    couldNotLoadTemplates: 'Could not load packing templates.',
+    packGroupsPreviewTitle: 'Pack groups preview (Step 1)',
+    loadingGroupingAmazon: 'Loading grouping from Amazon…',
+    noPackingGroupsYet: 'No packing groups yet. Continue to Step 1b or reload the plan.',
+    groupedAboveNotice: 'Products are grouped above in the list by pack groups.',
+    packN: 'Pack {index}',
+    skusConfirmedToSendSummary: 'SKUs confirmed to send: {count} ({units} units)',
+    noBoxesYet: 'No boxes yet.',
+    totalSkus: 'Total SKUs',
+    unitsBoxed: 'Units boxed',
+    enterBoxContentsHint: 'Enter the box contents above and the box weights and dimensions below',
+    boxWeightKg: 'Box weight (kg)',
+    boxDimensionsCm: 'Box dimensions (cm)',
+    addAnotherBoxDimension: '+ Add another box dimension',
+    allItems: 'All items',
+    singleBox: 'Single box',
+    unassigned: 'Unassigned',
+    packGroupN: 'Pack group {index}',
+    itemsBelowPackedTogether: 'Items below can be packed together.',
+    packingDetailsTitle: 'Packing details',
+    templateName: 'Template name',
+    templateNameExample: 'e.g. 12/box',
+    type: 'Type',
+    skuLabelShort: 'SKU',
+    asinLabelShort: 'ASIN',
+    stockLabelShort: 'Stock',
+    ofWord: 'of',
+    genericSkuLabel: 'SKU',
+    weightKg: 'Weight (kg)',
+    dimensionsCm: 'Dimensions (cm)',
+    dimLcmPlaceholder: 'L (cm)',
+    dimWcmPlaceholder: 'W (cm)',
+    dimHcmPlaceholder: 'H (cm)',
+    dimLPlaceholder: 'L',
+    dimWPlaceholder: 'W',
+    dimHPlaceholder: 'H',
+    zeroPlaceholder: '0',
+    zeroDecimalPlaceholder: '0.0',
+    removeBoxNAria: 'Remove box {index}',
+    removeBoxDimensionsNAria: 'Remove box dimensions {index}',
+    packPrefix: 'pack',
+    prep: 'Prep',
+    noPrepNeeded: 'No prep needed',
+    prepFragileGlass: 'Fragile/glass',
+    prepLiquidsNonGlass: 'Liquids (non glass)',
+    prepPerforatedPackaging: 'Perforated packaging',
+    prepPowderPelletsGranular: 'Powder, pellets and granular',
+    prepSmall: 'Small'
   },
   ro: {
     opDefaultIssue: 'Amazon a raportat o problemă pentru acest SKU. Verifică și încearcă din nou.',
@@ -165,7 +303,145 @@ const STEP1_COPY = {
     retryStep1: 'Reîncearcă Pasul 1',
     waitingPlan: 'Se așteaptă planul Amazon',
     addUnits: 'Adaugă unități',
-    continueToPacking: 'Continuă la împachetare'
+    continueToPacking: 'Continuă la împachetare',
+    step1Title: 'Pasul 1 - Inventar confirmat pentru trimitere',
+    skusConfirmedShort: 'SKU-uri confirmate ({count})',
+    ignoredLinesShort: 'Linii ignorate ({count})',
+    closeAdd: 'Închide adăugarea',
+    addProduct: 'Adaugă produs',
+    searchSkuAsinName: 'Caută SKU / ASIN / nume produs',
+    searchInventoryHint: 'Caută în inventar și adaugă produsul în această cerere.',
+    searchingInventory: 'Se caută în inventar...',
+    noInventoryResults: 'Niciun rezultat în inventar.',
+    hiddenInRequest: 'Deja în cerere (ascunse)',
+    noHiddenProducts: 'Nu există produse ascunse în această cerere.',
+    add: 'Adaugă',
+    shipFromLabel: 'Expeditor',
+    marketplaceDestinationCountry: 'Marketplace destinație (Țară)',
+    addAllUnitsOneBox: 'Adaugă toate unitățile într-o cutie',
+    tableSkuDetails: 'Detalii SKU',
+    tablePackingDetails: 'Detalii împachetare',
+    tableInfoAction: 'Informații / acțiune',
+    tableQuantityToSend: 'Cantitate de trimis',
+    tableServices: 'Servicii',
+    waitingSkusAndShipments: 'Se așteaptă răspunsul Amazon pentru SKU-uri și shipment-uri...',
+    noSkusToDisplay: 'Nu există SKU-uri de afișat.',
+    storageLabel: 'Depozitare',
+    optionIndividualUnits: 'Unități individuale',
+    optionCasePacked: 'Case pack',
+    optionSingleSkuPallet: 'Palet SKU unic',
+    optionCreatePackingTemplate: 'Creează șablon de împachetare',
+    labelOwner: 'Proprietar etichetă',
+    expirationDateRequired: 'Data expirării este necesară',
+    printSkuLabels: 'Printează etichete SKU',
+    moreInputs: 'Mai multe inputuri',
+    rechecking: 'Se reverifică...',
+    recheckAssign: 'Reverifică alocarea',
+    templateLabel: 'Șablon',
+    unitsPerBoxShort: 'Unități/cutie',
+    casePackUnitsPerBox: 'Case pack - Unități/cutie',
+    amazonNeedsPackageAttrs: 'Amazon are nevoie de atributele pachetului pentru acest SKU.',
+    sendProductAttrs: 'Trimite atributele produsului la Amazon',
+    sending: 'Se trimite...',
+    noChangesToSend: 'Nu există modificări de trimis.',
+    completeProductDimensions: 'Completează dimensiunile produsului (L/l/H).',
+    completeProductWeight: 'Completează greutatea produsului.',
+    couldNotSendAttrs: 'Nu s-au putut trimite atributele la Amazon.',
+    boxes: 'Cutii',
+    box: 'Cutie',
+    units: 'Unități',
+    remove: 'Șterge',
+    assigned: 'Alocate',
+    addService: '+ Adaugă serviciu',
+    allServicesAdded: 'Toate serviciile au fost deja adăugate.',
+    noBoxServicesSelected: 'Nu există servicii de cutii selectate.',
+    unit: 'Unitar',
+    qty: 'Cant.',
+    total: 'Total',
+    boxDetailsStep1: 'Detalii cutii (Pasul 1)',
+    putAllInOneBoxRo: 'Pune totul într-o singură cutie',
+    ignored: 'Ignorat',
+    skuMissing: 'SKU: lipsă',
+    blockedUntilSkuCompleted: 'Blocat până la completarea SKU.',
+    excludedFromStep1bShipping: 'Această linie este exclusă din Pasul 1b și Shipping.',
+    servicesLockedIgnored: 'Servicii blocate pentru linia ignorată.',
+    missingCompanyIdTemplate: 'Lipsește companyId în plan; șablonul nu poate fi salvat.',
+    setNameOrUnitsTemplate: 'Setează un nume sau unități/cutie pentru șablon.',
+    unitsPerBoxGreaterThanZero: 'Unitățile per cutie trebuie să fie mai mari ca 0 pentru case pack.',
+    couldNotSaveTemplate: 'Nu s-a putut salva șablonul.',
+    prepareFbaItems: 'Pregătește articolele FBA',
+    close: 'Închide',
+    prepGuidance: 'Ghid prep',
+    useManufacturerBarcode: 'Folosește codul producătorului',
+    choosePrepCategory: 'Alege categoria prep',
+    selectPlaceholder: 'Selectează...',
+    guidance: 'Ghidaj',
+    notEligibleManufacturerBarcode: 'Acest SKU nu este eligibil pentru codul producătorului.',
+    eligibleManufacturerBarcode: 'Acest SKU poate folosi codul producătorului.',
+    useManufacturerBarcodeTracking: 'Folosește codul producătorului pentru tracking',
+    cancel: 'Anulează',
+    save: 'Salvează',
+    fulfillmentStorageType: 'Tip stocare Fulfilment by Amazon',
+    choosePrintingFormat: 'Alege formatul de printare',
+    thermalPrinting: 'Printare termică',
+    standardFormats: 'Formate standard',
+    widthMm: 'Lățime (mm)',
+    heightMm: 'Înălțime (mm)',
+    printLabels: 'Printează etichete',
+    downloading: 'Se descarcă…',
+    downloadLabels: 'Descarcă etichete',
+    couldNotRequestLabels: 'Nu s-au putut solicita etichetele de la Amazon.',
+    labelRequestSentRetry: 'Cererea de etichete a fost trimisă; reîncearcă în câteva secunde dacă PDF-ul nu s-a deschis.',
+    missingDownloadUrlOrOperationId: 'Răspuns Amazon fără downloadUrl/operationId',
+    couldNotDownloadLabels: 'Nu s-au putut descărca etichetele Amazon.',
+    couldNotLoadTemplates: 'Nu s-au putut încărca șabloanele.',
+    packGroupsPreviewTitle: 'Previzualizare grupuri de împachetare (Pasul 1)',
+    loadingGroupingAmazon: 'Se încarcă gruparea de la Amazon…',
+    noPackingGroupsYet: 'Nu există încă packing groups. Continuă la Pasul 1b sau reîncarcă planul.',
+    groupedAboveNotice: 'Produsele sunt grupate mai sus în listă după pack groups.',
+    packN: 'Pachet {index}',
+    skusConfirmedToSendSummary: 'SKU-uri confirmate pentru trimitere: {count} ({units} unități)',
+    noBoxesYet: 'Nu există încă cutii.',
+    totalSkus: 'Total SKU-uri',
+    unitsBoxed: 'Unități în cutii',
+    enterBoxContentsHint: 'Introdu conținutul cutiilor mai sus și greutățile/dimensiunile mai jos',
+    boxWeightKg: 'Greutate cutie (kg)',
+    boxDimensionsCm: 'Dimensiuni cutie (cm)',
+    addAnotherBoxDimension: '+ Adaugă alt set de dimensiuni',
+    allItems: 'Toate produsele',
+    singleBox: 'Cutie unică',
+    unassigned: 'Nealocat',
+    packGroupN: 'Grup pachet {index}',
+    itemsBelowPackedTogether: 'Produsele de mai jos pot fi împachetate împreună.',
+    packingDetailsTitle: 'Detalii împachetare',
+    templateName: 'Nume șablon',
+    templateNameExample: 'ex. 12/cutie',
+    type: 'Tip',
+    skuLabelShort: 'SKU',
+    asinLabelShort: 'ASIN',
+    stockLabelShort: 'Stoc',
+    ofWord: 'din',
+    genericSkuLabel: 'SKU',
+    weightKg: 'Greutate (kg)',
+    dimensionsCm: 'Dimensiuni (cm)',
+    dimLcmPlaceholder: 'L (cm)',
+    dimWcmPlaceholder: 'l (cm)',
+    dimHcmPlaceholder: 'H (cm)',
+    dimLPlaceholder: 'L',
+    dimWPlaceholder: 'l',
+    dimHPlaceholder: 'H',
+    zeroPlaceholder: '0',
+    zeroDecimalPlaceholder: '0,0',
+    removeBoxNAria: 'Elimină cutia {index}',
+    removeBoxDimensionsNAria: 'Elimină dimensiunile cutiei {index}',
+    packPrefix: 'pachet',
+    prep: 'Prep',
+    noPrepNeeded: 'Fără prep necesar',
+    prepFragileGlass: 'Fragil/sticlă',
+    prepLiquidsNonGlass: 'Lichide (fără sticlă)',
+    prepPerforatedPackaging: 'Ambalaj perforat',
+    prepPowderPelletsGranular: 'Pulbere, pelete și granule',
+    prepSmall: 'Mic'
   },
   fr: {
     opDefaultIssue: 'Amazon a signalé un problème pour ce SKU. Vérifiez et réessayez.',
@@ -204,7 +480,145 @@ const STEP1_COPY = {
     retryStep1: 'Réessayer l’étape 1',
     waitingPlan: 'En attente du plan Amazon',
     addUnits: 'Ajouter des unités',
-    continueToPacking: 'Continuer vers l’emballage'
+    continueToPacking: 'Continuer vers l’emballage',
+    step1Title: 'Étape 1 - Inventaire confirmé à expédier',
+    skusConfirmedShort: 'SKU confirmés ({count})',
+    ignoredLinesShort: 'Lignes ignorées ({count})',
+    closeAdd: 'Fermer l’ajout',
+    addProduct: 'Ajouter un produit',
+    searchSkuAsinName: 'Rechercher SKU / ASIN / nom produit',
+    searchInventoryHint: 'Recherchez dans le stock et ajoutez le produit à cette demande.',
+    searchingInventory: 'Recherche dans le stock...',
+    noInventoryResults: 'Aucun résultat dans le stock.',
+    hiddenInRequest: 'Déjà dans la demande (masqués)',
+    noHiddenProducts: 'Aucun produit masqué dans cette demande.',
+    add: 'Ajouter',
+    shipFromLabel: 'Expéditeur',
+    marketplaceDestinationCountry: 'Marketplace de destination (Pays)',
+    addAllUnitsOneBox: 'Mettre toutes les unités dans une boîte',
+    tableSkuDetails: 'Détails SKU',
+    tablePackingDetails: 'Détails d’emballage',
+    tableInfoAction: 'Information / action',
+    tableQuantityToSend: 'Quantité à envoyer',
+    tableServices: 'Services',
+    waitingSkusAndShipments: 'En attente de la réponse Amazon pour les SKU et expéditions...',
+    noSkusToDisplay: 'Aucun SKU à afficher.',
+    storageLabel: 'Stockage',
+    optionIndividualUnits: 'Unités individuelles',
+    optionCasePacked: 'Case pack',
+    optionSingleSkuPallet: 'Palette SKU unique',
+    optionCreatePackingTemplate: 'Créer un modèle d’emballage',
+    labelOwner: 'Propriétaire des étiquettes',
+    expirationDateRequired: 'Date d’expiration requise',
+    printSkuLabels: 'Imprimer les étiquettes SKU',
+    moreInputs: 'Plus de champs',
+    rechecking: 'Vérification...',
+    recheckAssign: 'Revérifier l’affectation',
+    templateLabel: 'Modèle',
+    unitsPerBoxShort: 'Unités/boîte',
+    casePackUnitsPerBox: 'Case pack - Unités/boîte',
+    amazonNeedsPackageAttrs: 'Amazon exige les attributs de colis pour ce SKU.',
+    sendProductAttrs: 'Envoyer les attributs produit à Amazon',
+    sending: 'Envoi...',
+    noChangesToSend: 'Aucun changement à envoyer.',
+    completeProductDimensions: 'Complétez les dimensions produit (L/l/H).',
+    completeProductWeight: 'Complétez le poids du produit.',
+    couldNotSendAttrs: 'Impossible d’envoyer les attributs à Amazon.',
+    boxes: 'Boîtes',
+    box: 'Boîte',
+    units: 'Unités',
+    remove: 'Supprimer',
+    assigned: 'Affectées',
+    addService: '+ Ajouter un service',
+    allServicesAdded: 'Tous les services ont déjà été ajoutés.',
+    noBoxServicesSelected: 'Aucun service de boîte sélectionné.',
+    unit: 'Unité',
+    qty: 'Qté',
+    total: 'Total',
+    boxDetailsStep1: 'Détails des boîtes (Étape 1)',
+    putAllInOneBoxRo: 'Mettre tout dans une seule boîte',
+    ignored: 'Ignoré',
+    skuMissing: 'SKU : manquant',
+    blockedUntilSkuCompleted: 'Bloqué jusqu’à compléter le SKU.',
+    excludedFromStep1bShipping: 'Cette ligne est exclue de l’étape 1b et du transport.',
+    servicesLockedIgnored: 'Services verrouillés pour la ligne ignorée.',
+    missingCompanyIdTemplate: 'companyId manquant dans le plan ; impossible de sauvegarder le modèle.',
+    setNameOrUnitsTemplate: 'Définissez un nom ou des unités/boîte pour le modèle.',
+    unitsPerBoxGreaterThanZero: 'Les unités par boîte doivent être supérieures à 0 pour case pack.',
+    couldNotSaveTemplate: 'Impossible de sauvegarder le modèle.',
+    prepareFbaItems: 'Préparer vos articles FBA',
+    close: 'Fermer',
+    prepGuidance: 'Guide prep',
+    useManufacturerBarcode: 'Utiliser le code fabricant',
+    choosePrepCategory: 'Choisir une catégorie prep',
+    selectPlaceholder: 'Sélectionner...',
+    guidance: 'Guide',
+    notEligibleManufacturerBarcode: 'Ce SKU n’est pas éligible au code fabricant.',
+    eligibleManufacturerBarcode: 'Ce SKU peut utiliser le code fabricant.',
+    useManufacturerBarcodeTracking: 'Utiliser le code fabricant pour le suivi',
+    cancel: 'Annuler',
+    save: 'Enregistrer',
+    fulfillmentStorageType: 'Type de stockage Fulfilment by Amazon',
+    choosePrintingFormat: 'Choisir le format d’impression',
+    thermalPrinting: 'Impression thermique',
+    standardFormats: 'Formats standards',
+    widthMm: 'Largeur (mm)',
+    heightMm: 'Hauteur (mm)',
+    printLabels: 'Imprimer les étiquettes',
+    downloading: 'Téléchargement…',
+    downloadLabels: 'Télécharger les étiquettes',
+    couldNotRequestLabels: 'Impossible de demander les étiquettes à Amazon.',
+    labelRequestSentRetry: 'Demande envoyée à Amazon ; réessayez dans quelques secondes si le PDF ne s’ouvre pas.',
+    missingDownloadUrlOrOperationId: 'Réponse Amazon sans downloadUrl/operationId',
+    couldNotDownloadLabels: 'Impossible de télécharger les étiquettes Amazon.',
+    couldNotLoadTemplates: 'Impossible de charger les modèles d’emballage.',
+    packGroupsPreviewTitle: 'Aperçu des groupes d’emballage (Étape 1)',
+    loadingGroupingAmazon: 'Chargement du regroupement Amazon…',
+    noPackingGroupsYet: 'Aucun groupe d’emballage pour le moment. Continuez à l’étape 1b ou rechargez le plan.',
+    groupedAboveNotice: 'Les produits sont regroupés ci-dessus dans la liste par groupes d’emballage.',
+    packN: 'Colis {index}',
+    skusConfirmedToSendSummary: 'SKU confirmés à envoyer : {count} ({units} unités)',
+    noBoxesYet: 'Aucune boîte pour le moment.',
+    totalSkus: 'Total SKU',
+    unitsBoxed: 'Unités en boîtes',
+    enterBoxContentsHint: 'Saisissez le contenu des boîtes ci-dessus, puis poids et dimensions ci-dessous',
+    boxWeightKg: 'Poids de la boîte (kg)',
+    boxDimensionsCm: 'Dimensions de la boîte (cm)',
+    addAnotherBoxDimension: '+ Ajouter une autre dimension de boîte',
+    allItems: 'Tous les articles',
+    singleBox: 'Boîte unique',
+    unassigned: 'Non assigné',
+    packGroupN: 'Groupe de colis {index}',
+    itemsBelowPackedTogether: 'Les articles ci-dessous peuvent être emballés ensemble.',
+    packingDetailsTitle: 'Détails d’emballage',
+    templateName: 'Nom du modèle',
+    templateNameExample: 'ex. 12/boîte',
+    type: 'Type',
+    skuLabelShort: 'SKU',
+    asinLabelShort: 'ASIN',
+    stockLabelShort: 'Stock',
+    ofWord: 'sur',
+    genericSkuLabel: 'SKU',
+    weightKg: 'Poids (kg)',
+    dimensionsCm: 'Dimensions (cm)',
+    dimLcmPlaceholder: 'L (cm)',
+    dimWcmPlaceholder: 'l (cm)',
+    dimHcmPlaceholder: 'H (cm)',
+    dimLPlaceholder: 'L',
+    dimWPlaceholder: 'l',
+    dimHPlaceholder: 'H',
+    zeroPlaceholder: '0',
+    zeroDecimalPlaceholder: '0,0',
+    removeBoxNAria: 'Supprimer la boîte {index}',
+    removeBoxDimensionsNAria: 'Supprimer les dimensions de la boîte {index}',
+    packPrefix: 'colis',
+    prep: 'Prep',
+    noPrepNeeded: 'Aucun prep requis',
+    prepFragileGlass: 'Fragile/verre',
+    prepLiquidsNonGlass: 'Liquides (hors verre)',
+    prepPerforatedPackaging: 'Emballage perforé',
+    prepPowderPelletsGranular: 'Poudre, granulés et matières granuleuses',
+    prepSmall: 'Petit'
   },
   de: {
     opDefaultIssue: 'Amazon hat ein Problem für diese SKU gemeldet. Prüfen und erneut versuchen.',
@@ -243,7 +657,145 @@ const STEP1_COPY = {
     retryStep1: 'Schritt 1 wiederholen',
     waitingPlan: 'Warte auf Amazon-Plan',
     addUnits: 'Einheiten hinzufügen',
-    continueToPacking: 'Zum Packen weiter'
+    continueToPacking: 'Zum Packen weiter',
+    step1Title: 'Schritt 1 - Bestätigter Bestand zum Versand',
+    skusConfirmedShort: 'Bestätigte SKUs ({count})',
+    ignoredLinesShort: 'Ignorierte Zeilen ({count})',
+    closeAdd: 'Hinzufügen schließen',
+    addProduct: 'Produkt hinzufügen',
+    searchSkuAsinName: 'SKU / ASIN / Produktname suchen',
+    searchInventoryHint: 'Im Bestand suchen und Produkt zu dieser Anfrage hinzufügen.',
+    searchingInventory: 'Bestand wird durchsucht...',
+    noInventoryResults: 'Keine Bestandsergebnisse.',
+    hiddenInRequest: 'Bereits in Anfrage (ausgeblendet)',
+    noHiddenProducts: 'Keine ausgeblendeten Produkte in dieser Anfrage.',
+    add: 'Hinzufügen',
+    shipFromLabel: 'Versand von',
+    marketplaceDestinationCountry: 'Ziel-Marketplace (Land)',
+    addAllUnitsOneBox: 'Alle Einheiten in eine Box',
+    tableSkuDetails: 'SKU-Details',
+    tablePackingDetails: 'Packdetails',
+    tableInfoAction: 'Information / Aktion',
+    tableQuantityToSend: 'Menge zum Versand',
+    tableServices: 'Services',
+    waitingSkusAndShipments: 'Warte auf Amazon-Antwort für SKUs und Sendungen...',
+    noSkusToDisplay: 'Keine SKUs zum Anzeigen.',
+    storageLabel: 'Lagerung',
+    optionIndividualUnits: 'Einzelne Einheiten',
+    optionCasePacked: 'Case Pack',
+    optionSingleSkuPallet: 'Einzel-SKU-Palette',
+    optionCreatePackingTemplate: 'Packvorlage erstellen',
+    labelOwner: 'Label-Eigentümer',
+    expirationDateRequired: 'Ablaufdatum erforderlich',
+    printSkuLabels: 'SKU-Labels drucken',
+    moreInputs: 'Weitere Eingaben',
+    rechecking: 'Prüfe erneut...',
+    recheckAssign: 'Zuweisung neu prüfen',
+    templateLabel: 'Vorlage',
+    unitsPerBoxShort: 'Einheiten/Box',
+    casePackUnitsPerBox: 'Case Pack - Einheiten/Box',
+    amazonNeedsPackageAttrs: 'Amazon benötigt Paketattribute für diese SKU.',
+    sendProductAttrs: 'Produktattribute an Amazon senden',
+    sending: 'Senden...',
+    noChangesToSend: 'Keine Änderungen zum Senden.',
+    completeProductDimensions: 'Produktmaße (L/B/H) vervollständigen.',
+    completeProductWeight: 'Produktgewicht vervollständigen.',
+    couldNotSendAttrs: 'Attribute konnten nicht an Amazon gesendet werden.',
+    boxes: 'Boxen',
+    box: 'Box',
+    units: 'Einheiten',
+    remove: 'Entfernen',
+    assigned: 'Zugewiesen',
+    addService: '+ Service hinzufügen',
+    allServicesAdded: 'Alle Services wurden bereits hinzugefügt.',
+    noBoxServicesSelected: 'Keine Box-Services ausgewählt.',
+    unit: 'Einheit',
+    qty: 'Menge',
+    total: 'Gesamt',
+    boxDetailsStep1: 'Boxdetails (Schritt 1)',
+    putAllInOneBoxRo: 'Alles in eine einzige Box legen',
+    ignored: 'Ignoriert',
+    skuMissing: 'SKU: fehlt',
+    blockedUntilSkuCompleted: 'Blockiert, bis SKU ergänzt ist.',
+    excludedFromStep1bShipping: 'Diese Zeile ist von Schritt 1b und Versand ausgeschlossen.',
+    servicesLockedIgnored: 'Services für ignorierte Zeile gesperrt.',
+    missingCompanyIdTemplate: 'companyId im Plan fehlt; Vorlage kann nicht gespeichert werden.',
+    setNameOrUnitsTemplate: 'Name oder Einheiten/Box für die Vorlage setzen.',
+    unitsPerBoxGreaterThanZero: 'Einheiten pro Box müssen bei Case Pack größer als 0 sein.',
+    couldNotSaveTemplate: 'Vorlage konnte nicht gespeichert werden.',
+    prepareFbaItems: 'FBA-Artikel vorbereiten',
+    close: 'Schließen',
+    prepGuidance: 'Prep-Hinweis',
+    useManufacturerBarcode: 'Herstellerbarcode verwenden',
+    choosePrepCategory: 'Prep-Kategorie wählen',
+    selectPlaceholder: 'Auswählen...',
+    guidance: 'Hinweis',
+    notEligibleManufacturerBarcode: 'Diese SKU ist für Herstellerbarcode nicht geeignet.',
+    eligibleManufacturerBarcode: 'Diese SKU kann Herstellerbarcode verwenden.',
+    useManufacturerBarcodeTracking: 'Herstellerbarcode für Tracking verwenden',
+    cancel: 'Abbrechen',
+    save: 'Speichern',
+    fulfillmentStorageType: 'Fulfilment by Amazon Lagertyp',
+    choosePrintingFormat: 'Druckformat wählen',
+    thermalPrinting: 'Thermodruck',
+    standardFormats: 'Standardformate',
+    widthMm: 'Breite (mm)',
+    heightMm: 'Höhe (mm)',
+    printLabels: 'Labels drucken',
+    downloading: 'Wird heruntergeladen…',
+    downloadLabels: 'Labels herunterladen',
+    couldNotRequestLabels: 'Labels konnten nicht bei Amazon angefordert werden.',
+    labelRequestSentRetry: 'Label-Anfrage an Amazon gesendet; in einigen Sekunden erneut versuchen, falls PDF nicht öffnet.',
+    missingDownloadUrlOrOperationId: 'Amazon-Antwort ohne downloadUrl/operationId',
+    couldNotDownloadLabels: 'Amazon-Labels konnten nicht heruntergeladen werden.',
+    couldNotLoadTemplates: 'Packvorlagen konnten nicht geladen werden.',
+    packGroupsPreviewTitle: 'Packgruppen-Vorschau (Schritt 1)',
+    loadingGroupingAmazon: 'Amazon-Gruppierung wird geladen…',
+    noPackingGroupsYet: 'Noch keine Packgruppen. Mit Schritt 1b fortfahren oder Plan neu laden.',
+    groupedAboveNotice: 'Produkte sind oben in der Liste nach Packgruppen gruppiert.',
+    packN: 'Pack {index}',
+    skusConfirmedToSendSummary: 'Bestätigte SKUs zum Versand: {count} ({units} Einheiten)',
+    noBoxesYet: 'Noch keine Boxen.',
+    totalSkus: 'Gesamt-SKUs',
+    unitsBoxed: 'Einheiten in Boxen',
+    enterBoxContentsHint: 'Boxinhalt oben eingeben, unten Gewichte und Maße',
+    boxWeightKg: 'Boxgewicht (kg)',
+    boxDimensionsCm: 'Boxmaße (cm)',
+    addAnotherBoxDimension: '+ Weitere Boxmaße hinzufügen',
+    allItems: 'Alle Artikel',
+    singleBox: 'Einzelbox',
+    unassigned: 'Nicht zugewiesen',
+    packGroupN: 'Packgruppe {index}',
+    itemsBelowPackedTogether: 'Die folgenden Artikel können zusammen verpackt werden.',
+    packingDetailsTitle: 'Packdetails',
+    templateName: 'Vorlagenname',
+    templateNameExample: 'z. B. 12/Box',
+    type: 'Typ',
+    skuLabelShort: 'SKU',
+    asinLabelShort: 'ASIN',
+    stockLabelShort: 'Bestand',
+    ofWord: 'von',
+    genericSkuLabel: 'SKU',
+    weightKg: 'Gewicht (kg)',
+    dimensionsCm: 'Maße (cm)',
+    dimLcmPlaceholder: 'L (cm)',
+    dimWcmPlaceholder: 'B (cm)',
+    dimHcmPlaceholder: 'H (cm)',
+    dimLPlaceholder: 'L',
+    dimWPlaceholder: 'B',
+    dimHPlaceholder: 'H',
+    zeroPlaceholder: '0',
+    zeroDecimalPlaceholder: '0,0',
+    removeBoxNAria: 'Box {index} entfernen',
+    removeBoxDimensionsNAria: 'Boxmaße {index} entfernen',
+    packPrefix: 'Pack',
+    prep: 'Prep',
+    noPrepNeeded: 'Kein Prep erforderlich',
+    prepFragileGlass: 'Zerbrechlich/Glas',
+    prepLiquidsNonGlass: 'Flüssigkeiten (ohne Glas)',
+    prepPerforatedPackaging: 'Perforierte Verpackung',
+    prepPowderPelletsGranular: 'Pulver, Pellets und Granulat',
+    prepSmall: 'Klein'
   },
   it: {
     opDefaultIssue: 'Amazon ha segnalato un problema per questo SKU. Controlla e riprova.',
@@ -376,7 +928,10 @@ export default function FbaStep1Inventory({
     (key, fallback = '', vars = {}) => {
       const path = `Wizard.${key}`;
       const fromDashboard = t(path);
-      const template = fromDashboard !== path ? fromDashboard : copy[key] || fallback || key;
+      const template =
+        fromDashboard !== path
+          ? fromDashboard
+          : copy[key] || STEP1_COPY.en[key] || fallback || key;
       return String(template).replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? `{${varKey}}`));
     },
     [copy, t]
@@ -896,7 +1451,7 @@ export default function FbaStep1Inventory({
   }, [safeBoxPlan.groups]);
   const packGroupMeta = useMemo(() => {
     if (!hasPackGroups) {
-      return [{ groupId: 'ungrouped', label: 'All items' }];
+      return [{ groupId: 'ungrouped', label: tr('allItems') }];
     }
     return normalizedPackGroups
       .map((group, idx) => {
@@ -916,7 +1471,7 @@ export default function FbaStep1Inventory({
         const single = safeBoxPlan.groups?.['single-box'];
         if (single) {
           return {
-            groupLabel: single.groupLabel || labelFallback || 'Single box',
+            groupLabel: single.groupLabel || labelFallback || tr('singleBox'),
             boxes: Array.isArray(single.boxes) ? single.boxes : [],
             boxItems: Array.isArray(single.boxItems) ? single.boxItems : [],
             dimension_sets: Array.isArray(single.dimension_sets) ? single.dimension_sets : [],
@@ -1005,7 +1560,7 @@ export default function FbaStep1Inventory({
     if (hasPackGroups) {
       normalizedPackGroups.forEach((group, idx) => {
         const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
-        const groupLabel = `Pack group ${idx + 1}`;
+        const groupLabel = tr('packGroupN', '', { index: idx + 1 });
         const items = Array.isArray(group?.items) ? group.items : [];
         items.forEach((item) => {
           const keys = getItemCandidateKeys(item);
@@ -1029,7 +1584,7 @@ export default function FbaStep1Inventory({
     skus.forEach((sku, idx) => {
       const token = getSkuToken(sku, idx);
       if (usedTokens.has(token)) return;
-      assignSku(sku, 'ungrouped', 'All items');
+      assignSku(sku, 'ungrouped', tr('allItems'));
     });
 
     updateBoxPlan(nextGroups);
@@ -1524,7 +2079,7 @@ export default function FbaStep1Inventory({
         type: 'sku',
         sku,
         groupId: 'ungrouped',
-        groupLabel: 'All items'
+        groupLabel: tr('allItems')
       }));
     }
     const tokenToSku = new Map();
@@ -1545,8 +2100,8 @@ export default function FbaStep1Inventory({
       const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
       rows.push({
         type: 'group',
-        label: `Pack group ${idx + 1}`,
-        subtitle: 'Items below can be packed together.',
+        label: tr('packGroupN', '', { index: idx + 1 }),
+        subtitle: tr('itemsBelowPackedTogether'),
         key: groupId,
         groupId
       });
@@ -1569,21 +2124,21 @@ export default function FbaStep1Inventory({
             sku: matched,
             key: matched.id,
             groupId,
-            groupLabel: `Pack group ${idx + 1}`
+            groupLabel: tr('packGroupN', '', { index: idx + 1 })
           });
         }
       });
     });
     const unassigned = skus.filter((sku, idx) => !usedTokens.has(getSkuToken(sku, idx)));
     if (unassigned.length) {
-      rows.push({ type: 'group', label: 'Unassigned', key: 'pack-unassigned', groupId: 'pack-unassigned' });
+      rows.push({ type: 'group', label: tr('unassigned'), key: 'pack-unassigned', groupId: 'pack-unassigned' });
       unassigned.forEach((sku) =>
         rows.push({
           type: 'sku',
           sku,
           key: sku.id,
           groupId: 'pack-unassigned',
-          groupLabel: 'Unassigned'
+          groupLabel: tr('unassigned')
         })
       );
     }
@@ -1592,7 +2147,7 @@ export default function FbaStep1Inventory({
 
   const planGroupsForDisplay = useMemo(() => {
     if (singleBoxMode) {
-      return [{ groupId: 'single-box', label: 'Single box' }];
+      return [{ groupId: 'single-box', label: tr('singleBox') }];
     }
     const groupRows = groupedRows
       .filter((row) => row.type === 'group')
@@ -1609,7 +2164,7 @@ export default function FbaStep1Inventory({
       const map = new Map();
       groupedRows.forEach((row) => {
         if (row.type === 'sku') {
-          map.set(row.sku.id, { groupId: 'single-box', groupLabel: 'Single box' });
+          map.set(row.sku.id, { groupId: 'single-box', groupLabel: tr('singleBox') });
         }
       });
       return map;
@@ -1619,7 +2174,7 @@ export default function FbaStep1Inventory({
       if (row.type === 'sku') {
         map.set(row.sku.id, {
           groupId: row.groupId || 'ungrouped',
-          groupLabel: row.groupLabel || 'All items'
+          groupLabel: row.groupLabel || tr('allItems')
         });
       }
     });
@@ -1644,7 +2199,7 @@ export default function FbaStep1Inventory({
     skus.forEach((sku) => {
       const units = Number(sku.units || 0);
       if (units <= 0) return;
-      const groupInfo = skuGroupMap.get(sku.id) || { groupId: 'ungrouped', groupLabel: 'All items' };
+      const groupInfo = skuGroupMap.get(sku.id) || { groupId: 'ungrouped', groupLabel: tr('allItems') };
       const groupPlan = getGroupPlan(groupInfo.groupId, groupInfo.groupLabel);
       const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
       const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
@@ -1713,7 +2268,7 @@ export default function FbaStep1Inventory({
     (!allowNoInboundPlan && !boxPlanValidation.isValid) ||
     (loadingPlan && skus.length === 0);
 
-  const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = 'All items') => {
+  const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = tr('allItems')) => {
     const status = statusForSku(sku);
     const state = String(status.state || '').toLowerCase();
     const prepSelection = prepSelections[sku.id] || {};
@@ -1783,7 +2338,7 @@ export default function FbaStep1Inventory({
         : Math.min(Math.max(0, Number(activeIndexRaw) || 0), Math.max(maxBoxIndex, 0));
 
     const servicesForSku = Array.isArray(skuServicesById?.[sku.id]) ? skuServicesById[sku.id] : [];
-    const canRecheckAssignment = typeof onRecheckAssignment === 'function' && (groupLabel === 'Unassigned' || state === 'unknown');
+    const canRecheckAssignment = typeof onRecheckAssignment === 'function' && (groupLabel === tr('unassigned') || state === 'unknown');
     const isRechecking = recheckingSkuId === sku.id;
     const skuReqKey = normalizeKey(sku?.sku || sku?.msku || sku?.SellerSKU || sku?.sellerSku || sku?.asin || sku?.id || '');
     const listingAttrReq = listingAttrRequirementsBySku.get(skuReqKey) || null;
@@ -1838,9 +2393,9 @@ export default function FbaStep1Inventory({
               <div className="font-semibold text-slate-900 hover:text-blue-700 cursor-pointer">
                 {sku.title}
               </div>
-              <div className="text-xs text-slate-500">SKU: {sku.sku}</div>
+              <div className="text-xs text-slate-500">{tr('skuLabelShort')}: {sku.sku}</div>
               <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
-              <div className="text-xs text-slate-500">Storage: {sku.storageType}</div>
+              <div className="text-xs text-slate-500">{tr('storageLabel')}: {sku.storageType}</div>
               <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
                 {badgeLabel}
                 {status.reason ? <span className="text-slate-500">· {status.reason}</span> : null}
@@ -1903,17 +2458,17 @@ export default function FbaStep1Inventory({
                   {t.name}
                 </option>
               ))}
-            <option value="individual">Individual units</option>
-            <option value="case">Case packed</option>
-            <option value="single_sku_pallet">Single SKU pallet</option>
-            <option value="__template__">Create packing template</option>
+            <option value="individual">{tr('optionIndividualUnits')}</option>
+            <option value="case">{tr('optionCasePacked')}</option>
+            <option value="single_sku_pallet">{tr('optionSingleSkuPallet')}</option>
+            <option value="__template__">{tr('optionCreatePackingTemplate')}</option>
           </select>
         </td>
         <td className="py-3">
           <div className="space-y-1">
             {labelOwner && (
               <div className="text-xs text-slate-500">
-                Label owner: <span className="font-semibold">{labelOwner}</span>
+                {tr('labelOwner')}: <span className="font-semibold">{labelOwner}</span>
               </div>
             )}
             {needsPrepNotice && (
@@ -1921,21 +2476,21 @@ export default function FbaStep1Inventory({
                 {prepNoticeText}
               </div>
             )}
-            {needsExpiry && <div className="text-xs text-amber-700">Expiration date required</div>}
+            {needsExpiry && <div className="text-xs text-amber-700">{tr('expirationDateRequired')}</div>}
             <div className="flex flex-col items-start gap-1">
               {showLabelButton && (
                 <button
                   className="text-xs text-blue-600 underline"
                   onClick={() => openLabelModal(sku)}
                 >
-                  Print SKU labels
+                  {tr('printSkuLabels')}
                 </button>
               )}
               <button
                 className="text-xs text-blue-600 underline"
                 onClick={() => openPrepModal(sku, sku.manufacturerBarcodeEligible !== false)}
               >
-                More inputs
+                {tr('moreInputs')}
               </button>
               {canRecheckAssignment && (
                 <button
@@ -1950,7 +2505,7 @@ export default function FbaStep1Inventory({
                     }
                   }}
                 >
-                  {isRechecking ? 'Rechecking...' : 'Recheck assign'}
+                  {isRechecking ? tr('rechecking') : tr('recheckAssign')}
                 </button>
               )}
             </div>
@@ -1961,29 +2516,29 @@ export default function FbaStep1Inventory({
             )}
             {sku.packingTemplateName && (
               <div className="text-[11px] text-slate-600">
-                Template: <span className="font-semibold">{sku.packingTemplateName}</span>
-                {unitsPerBox ? ` · Units/box: ${unitsPerBox}` : ''}
+                {tr('templateLabel')}: <span className="font-semibold">{sku.packingTemplateName}</span>
+                {unitsPerBox ? ` · ${tr('unitsPerBoxShort')}: ${unitsPerBox}` : ''}
               </div>
             )}
             {!sku.packingTemplateName && isCasePacked && unitsPerBox && (
               <div className="text-[11px] text-slate-600">
-                Case pack · Units/box: <span className="font-semibold">{unitsPerBox}</span>
+                {tr('casePackUnitsPerBox')}: <span className="font-semibold">{unitsPerBox}</span>
               </div>
             )}
             {!sku.packingTemplateName && normalizedPackingType === PACKING_TYPE.SINGLE_SKU_PALLET && (
-              <div className="text-[11px] text-slate-600">Single SKU pallet</div>
+              <div className="text-[11px] text-slate-600">{tr('optionSingleSkuPallet')}</div>
             )}
             {listingAttrReq && (
               <div className="mt-2 p-2 border border-amber-200 rounded-md bg-amber-50 space-y-2">
                 <div className="text-[11px] font-semibold text-amber-800">
-                  Amazon needs product package attributes for this SKU.
+                  {tr('amazonNeedsPackageAttrs')}
                 </div>
                 {listingAttrReq.needsDimensions && (
                   <div className="flex items-center gap-1">
                     <input
                       type="text"
                       inputMode="decimal"
-                      placeholder="L (cm)"
+                      placeholder={tr('dimLcmPlaceholder')}
                       value={listingDraft.length_cm}
                       onChange={(e) =>
                         setListingAttrDraftsBySku((prev) => ({
@@ -2000,7 +2555,7 @@ export default function FbaStep1Inventory({
                     <input
                       type="text"
                       inputMode="decimal"
-                      placeholder="W (cm)"
+                      placeholder={tr('dimWcmPlaceholder')}
                       value={listingDraft.width_cm}
                       onChange={(e) =>
                         setListingAttrDraftsBySku((prev) => ({
@@ -2017,7 +2572,7 @@ export default function FbaStep1Inventory({
                     <input
                       type="text"
                       inputMode="decimal"
-                      placeholder="H (cm)"
+                      placeholder={tr('dimHcmPlaceholder')}
                       value={listingDraft.height_cm}
                       onChange={(e) =>
                         setListingAttrDraftsBySku((prev) => ({
@@ -2036,7 +2591,7 @@ export default function FbaStep1Inventory({
                   <input
                     type="text"
                     inputMode="decimal"
-                    placeholder="Weight (kg)"
+                    placeholder={tr('weightKg')}
                     value={listingDraft.weight_kg}
                     onChange={(e) =>
                       setListingAttrDraftsBySku((prev) => ({
@@ -2064,13 +2619,13 @@ export default function FbaStep1Inventory({
                         const w = Number(payload.width_cm || 0);
                         const h = Number(payload.height_cm || 0);
                         if (!(l > 0 && w > 0 && h > 0)) {
-                          throw new Error('Complete product dimensions (L/W/H).');
+                          throw new Error(tr('completeProductDimensions'));
                         }
                       }
                       if (listingAttrReq.needsWeight) {
                         const weight = Number(payload.weight_kg || 0);
                         if (!(weight > 0)) {
-                          throw new Error('Complete product weight.');
+                          throw new Error(tr('completeProductWeight'));
                         }
                       }
                       if (typeof onSubmitListingAttributes === 'function') {
@@ -2083,17 +2638,17 @@ export default function FbaStep1Inventory({
                     } catch (e) {
                       setListingAttrErrorBySku((prev) => ({
                         ...(prev || {}),
-                        [skuReqKey]: e?.message || 'Could not send attributes to Amazon.'
+                        [skuReqKey]: e?.message || tr('couldNotSendAttrs')
                       }));
                     } finally {
                       setListingAttrSavingBySku((prev) => ({ ...(prev || {}), [skuReqKey]: false }));
                     }
                   }}
                 >
-                  {listingSaving ? 'Sending...' : 'Send product attributes to Amazon'}
+                  {listingSaving ? tr('sending') : tr('sendProductAttrs')}
                 </button>
                 {!listingSaving && !hasListingAttrChanges ? (
-                  <div className="text-[11px] text-slate-600">No changes to send.</div>
+                  <div className="text-[11px] text-slate-600">{tr('noChangesToSend')}</div>
                 ) : null}
                 {listingError ? <div className="text-[11px] text-red-700">{listingError}</div> : null}
               </div>
@@ -2170,7 +2725,7 @@ export default function FbaStep1Inventory({
             </button>
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
-                <span>Boxes</span>
+                <span>{tr('boxes')}</span>
                 <button
                   className="text-blue-600 underline"
                   type="button"
@@ -2183,7 +2738,7 @@ export default function FbaStep1Inventory({
                     setActiveBoxIndex(groupId, targetIdx);
                   }}
                 >
-                  + Add box
+                  {tr('addBox', '+ Add box')}
                 </button>
               </div>
               {assignedEntries.length === 0 && boxes.length === 0 && (
@@ -2237,7 +2792,7 @@ export default function FbaStep1Inventory({
                 };
                 return (
                 <div key={`${skuKey}-box-${entry.boxIdx}`} className="flex items-center gap-2 mt-2">
-                  <span className="text-xs text-slate-500">Box</span>
+                  <span className="text-xs text-slate-500">{tr('box')}</span>
                   <input
                     type="number"
                     min={1}
@@ -2261,7 +2816,7 @@ export default function FbaStep1Inventory({
                     }}
                     className="w-16 border rounded-md px-2 py-1 text-xs"
                   />
-                  <span className="text-xs text-slate-500">Units</span>
+                  <span className="text-xs text-slate-500">{tr('units')}</span>
                   {(() => {
                     const qtyDraftKey = `${groupId}::${skuKey}::${entry.boxIdx}::qty`;
                     const draftValue = boxQtyDrafts[qtyDraftKey];
@@ -2308,7 +2863,7 @@ export default function FbaStep1Inventory({
                     className="text-xs text-red-600"
                     type="button"
                     onClick={() => updateBoxItemQty(groupId, entry.boxIdx, skuKey, 0, groupLabel)}
-                    title="Remove"
+                    title={tr('remove')}
                   >
                     ✕
                   </button>
@@ -2316,7 +2871,7 @@ export default function FbaStep1Inventory({
               );
               })}
               <div className={`text-xs mt-2 ${assignedMismatch ? 'text-amber-700' : 'text-slate-500'}`}>
-                Assigned: {assignedTotal} / {Number(sku.units || 0)}
+                {tr('assigned')}: {assignedTotal} / {Number(sku.units || 0)}
               </div>
             </div>
           </div>
@@ -2374,16 +2929,16 @@ export default function FbaStep1Inventory({
                       className="text-xs text-red-600"
                       onClick={() => handleRemoveSkuService(sku.id, idx)}
                     >
-                      Remove
+                      {tr('remove')}
                     </button>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-slate-600">
                     <div className="flex items-center gap-1">
-                      <span>Unit</span>
+                      <span>{tr('unit')}</span>
                       <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span>Qty</span>
+                      <span>{tr('qty')}</span>
                       <input
                         type="number"
                         min={0}
@@ -2397,7 +2952,7 @@ export default function FbaStep1Inventory({
                       />
                     </div>
                     <div className="flex items-center gap-1">
-                      <span>Total</span>
+                      <span>{tr('total')}</span>
                       <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
                     </div>
                   </div>
@@ -2413,10 +2968,10 @@ export default function FbaStep1Inventory({
                   schedulePersist();
                 }}
               >
-                + Add service
+                {tr('addService')}
               </button>
             ) : (
-              <div className="text-[11px] text-slate-500">All services already added.</div>
+              <div className="text-[11px] text-slate-500">{tr('allServicesAdded')}</div>
             )}
           </div>
         </td>
@@ -2429,7 +2984,7 @@ export default function FbaStep1Inventory({
     const title = item?.product_name || `Line ${idx + 1}`;
     const asin = item?.asin || '—';
     const units = Number(item?.units || 0) || 0;
-    const reason = item?.reason || 'Missing SKU';
+    const reason = item?.reason || tr('skuMissing');
     return (
       <tr key={`ignored-${itemId}`} className="align-top bg-slate-50 opacity-80">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -2441,22 +2996,22 @@ export default function FbaStep1Inventory({
             />
             <div>
               <div className="font-semibold text-slate-900">{title}</div>
-              <div className="text-xs text-slate-500">SKU: missing</div>
+              <div className="text-xs text-slate-500">{tr('skuMissing')}</div>
               <div className="text-xs text-slate-500">ASIN: {asin}</div>
               <div className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded text-amber-800 bg-amber-50 border-amber-200">
-                Ignored
+                {tr('ignored')}
                 <span className="text-slate-500">· {reason}</span>
               </div>
             </div>
           </div>
         </td>
-        <td className="py-3 text-xs text-slate-500">Blocked until SKU is completed.</td>
-        <td className="py-3 text-xs text-slate-500">This line is excluded from Step 1b and Shipping.</td>
+        <td className="py-3 text-xs text-slate-500">{tr('blockedUntilSkuCompleted')}</td>
+        <td className="py-3 text-xs text-slate-500">{tr('excludedFromStep1bShipping')}</td>
         <td className="py-3">
           <div className="text-sm text-slate-600">{units}</div>
         </td>
         <td className="py-3 w-[320px] min-w-[320px]">
-          <div className="text-xs text-slate-500">Services locked for ignored line.</div>
+          <div className="text-xs text-slate-500">{tr('servicesLockedIgnored')}</div>
         </td>
       </tr>
     );
@@ -2502,16 +3057,16 @@ export default function FbaStep1Inventory({
     if (!packingModal.sku) return;
     setTemplateError('');
     const derivedName =
-      packingModal.templateName || (packingModal.unitsPerBox ? `pack ${packingModal.unitsPerBox}` : '');
+      packingModal.templateName || (packingModal.unitsPerBox ? `${tr('packPrefix')} ${packingModal.unitsPerBox}` : '');
     if (!derivedName) {
-      setTemplateError('Set a name or units per box for the template.');
+      setTemplateError(tr('setNameOrUnitsTemplate'));
       return;
     }
 
     const templateType = normalizePackingType(packingModal.templateType);
     const unitsPerBox = parsePositiveInteger(packingModal.unitsPerBox);
     if (templateType === PACKING_TYPE.CASE && !unitsPerBox) {
-      setTemplateError('Units per box must be greater than 0 for case pack.');
+      setTemplateError(tr('unitsPerBoxGreaterThanZero'));
       return;
     }
     const boxLengthCm = parsePositiveLocalizedDecimal(packingModal.boxL);
@@ -2526,7 +3081,7 @@ export default function FbaStep1Inventory({
     // Persist template if we have a name and companyId.
     // Keep modal open on any error so user can continue editing.
     if (!data?.companyId) {
-      setTemplateError('Missing companyId in plan; cannot save template.');
+      setTemplateError(tr('missingCompanyIdTemplate'));
       return;
     }
     try {
@@ -2582,7 +3137,7 @@ export default function FbaStep1Inventory({
         .eq('marketplace_id', marketplaceId);
       setTemplates(Array.isArray(rows) ? rows : []);
     } catch (e) {
-      setTemplateError(e?.message || 'Could not save template.');
+      setTemplateError(e?.message || tr('couldNotSaveTemplate'));
       return;
     }
 
@@ -2678,7 +3233,7 @@ export default function FbaStep1Inventory({
 
       const { data: resp, error } = await supabase.functions.invoke('fba-labels', { body: payload });
       if (error) {
-        throw new Error(error.message || 'Could not request labels from Amazon.');
+        throw new Error(error.message || tr('couldNotRequestLabels'));
       }
       if (resp?.error) {
         throw new Error(resp.error);
@@ -2689,13 +3244,13 @@ export default function FbaStep1Inventory({
         return;
       }
       if (resp?.operationId) {
-        setLabelError('Label request sent to Amazon; try again in a few seconds if the PDF did not open.');
+        setLabelError(tr('labelRequestSentRetry'));
         return;
       }
-      throw new Error('Amazon response missing downloadUrl/operationId');
+      throw new Error(tr('missingDownloadUrlOrOperationId'));
     } catch (err) {
       console.error('fba-labels error', err);
-      setLabelError(err?.message || 'Could not download Amazon labels.');
+      setLabelError(err?.message || tr('couldNotDownloadLabels'));
     } finally {
       setLabelLoading(false);
     }
@@ -2704,18 +3259,18 @@ export default function FbaStep1Inventory({
   const prepCategoryLabel = (value) => {
     switch (value) {
       case 'fragile':
-        return 'Fragile/glass';
+        return tr('prepFragileGlass');
       case 'liquids':
-        return 'Liquids (non glass)';
+        return tr('prepLiquidsNonGlass');
       case 'perforated':
-        return 'Perforated packaging';
+        return tr('prepPerforatedPackaging');
       case 'powder':
-        return 'Powder, pellets and granular';
+        return tr('prepPowderPelletsGranular');
       case 'small':
-        return 'Small';
+        return tr('prepSmall');
       case 'none':
       default:
-        return 'No prep needed';
+        return tr('noPrepNeeded');
     }
   };
 
@@ -2734,7 +3289,7 @@ export default function FbaStep1Inventory({
         if (error) throw error;
         setTemplates(Array.isArray(rows) ? rows : []);
       } catch (e) {
-        setTemplateError(e?.message || 'Could not load packing templates.');
+        setTemplateError(e?.message || tr('couldNotLoadTemplates'));
       } finally {
         setLoadingTemplates(false);
       }
@@ -2747,10 +3302,10 @@ export default function FbaStep1Inventory({
       <div className="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center gap-3 justify-between">
         <div className="flex items-center gap-3 flex-wrap">
           <CheckCircle className="w-5 h-5 text-emerald-600" />
-          <div className="font-semibold text-slate-900">Step 1 - Confirmed inventory to send</div>
+          <div className="font-semibold text-slate-900">{tr('step1Title')}</div>
           <div className="text-sm text-slate-500">
-            SKUs confirmed ({skus.length})
-            {ignoredItems.length > 0 ? ` · Ignored lines (${ignoredItems.length})` : ''}
+            {tr('skusConfirmedShort', '', { count: skus.length })}
+            {ignoredItems.length > 0 ? ` · ${tr('ignoredLinesShort', '', { count: ignoredItems.length })}` : ''}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -2759,7 +3314,7 @@ export default function FbaStep1Inventory({
             className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md shadow-sm"
             onClick={() => setAddSkuOpen((prev) => !prev)}
           >
-            {addSkuOpen ? 'Close add' : 'Add product'}
+            {addSkuOpen ? tr('closeAdd') : tr('addProduct')}
           </button>
         </div>
       </div>
@@ -2770,13 +3325,13 @@ export default function FbaStep1Inventory({
               type="text"
               value={addSkuQuery}
               onChange={(e) => setAddSkuQuery(e.target.value)}
-              placeholder="Search SKU / ASIN / product name"
+              placeholder={tr('searchSkuAsinName')}
               className="border rounded-md px-3 py-2 text-sm w-full md:w-[420px] bg-white"
             />
-            <div className="text-xs text-slate-500">Search in inventory and add product into this shipment request.</div>
+            <div className="text-xs text-slate-500">{tr('searchInventoryHint')}</div>
             <div className="max-h-56 overflow-auto border border-slate-200 rounded-md bg-white">
               {inventoryLoading && (
-                <div className="px-3 py-2 text-xs text-slate-500">Searching inventory...</div>
+                <div className="px-3 py-2 text-xs text-slate-500">{tr('searchingInventory')}</div>
               )}
               {!inventoryLoading && inventoryResults.map((item) => {
                 const key = `inventory-${item.id}`;
@@ -2786,7 +3341,9 @@ export default function FbaStep1Inventory({
                   <div key={key} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0 bg-emerald-50/40">
                     <div className="min-w-0">
                       <div className="text-sm text-slate-800 truncate">{item.name || item.sku || item.asin}</div>
-                      <div className="text-xs text-slate-500 truncate">SKU: {item.sku || '—'} · ASIN: {item.asin || '—'} · Stock: {stockQty}</div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {tr('skuLabelShort')}: {item.sku || '—'} · {tr('asinLabelShort')}: {item.asin || '—'} · {tr('stockLabelShort')}: {stockQty}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -2808,27 +3365,29 @@ export default function FbaStep1Inventory({
                         }
                       }}
                     >
-                      Add
+                      {tr('add')}
                     </button>
                   </div>
                 );
               })}
               {!inventoryLoading && addSkuQuery.trim().length >= 2 && inventoryResults.length === 0 && (
-                <div className="px-3 py-2 text-xs text-slate-500 border-b">No inventory results.</div>
+                <div className="px-3 py-2 text-xs text-slate-500 border-b">{tr('noInventoryResults')}</div>
               )}
               {addSkuCandidates.length > 0 && (
                 <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 bg-slate-50 border-b">
-                  Already in request (hidden)
+                  {tr('hiddenInRequest')}
                 </div>
               )}
               {addSkuCandidates.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-500">No hidden products in this request.</div>
+                <div className="px-3 py-2 text-xs text-slate-500">{tr('noHiddenProducts')}</div>
               ) : (
                 addSkuCandidates.slice(0, 50).map((sku) => (
                   <div key={`add-${sku.id}`} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0">
                     <div className="min-w-0">
                       <div className="text-sm text-slate-800 truncate">{sku.title || sku.product_name || sku.sku || sku.asin}</div>
-                      <div className="text-xs text-slate-500 truncate">SKU: {sku.sku || '—'} · ASIN: {sku.asin || '—'}</div>
+                      <div className="text-xs text-slate-500 truncate">
+                        {tr('skuLabelShort')}: {sku.sku || '—'} · {tr('asinLabelShort')}: {sku.asin || '—'}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -2844,7 +3403,7 @@ export default function FbaStep1Inventory({
                         }
                       }}
                     >
-                      Add
+                      {tr('add')}
                     </button>
                   </div>
                 ))
@@ -2895,12 +3454,12 @@ export default function FbaStep1Inventory({
       )}
 
       <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 border-b border-slate-200">
-        <FieldLabel label="Ship from">
+        <FieldLabel label={tr('shipFromLabel')}>
           <div className="text-slate-800">{shipFrom.name || '—'}</div>
           <div className="text-slate-600 text-sm">{shipFrom.address || '—'}</div>
         </FieldLabel>
         <FieldLabel
-          label="Marketplace destination (Country)"
+          label={tr('marketplaceDestinationCountry')}
           action={
             hasUnits ? (
               <button
@@ -2908,7 +3467,7 @@ export default function FbaStep1Inventory({
                 onClick={applySingleBox}
                 className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md shadow-sm flex items-center gap-1"
               >
-                Add all units to one box
+                {tr('addAllUnitsOneBox')}
               </button>
             ) : null
           }
@@ -2934,11 +3493,11 @@ export default function FbaStep1Inventory({
           </colgroup>
           <thead>
             <tr className="text-left text-slate-500 uppercase text-xs">
-              <th className="py-2">SKU details</th>
-              <th className="py-2">Packing details</th>
-              <th className="py-2">Information / action</th>
-              <th className="py-2">Quantity to send</th>
-              <th className="py-2 text-center w-[320px] min-w-[320px]">Services</th>
+              <th className="py-2">{tr('tableSkuDetails')}</th>
+              <th className="py-2">{tr('tablePackingDetails')}</th>
+              <th className="py-2">{tr('tableInfoAction')}</th>
+              <th className="py-2">{tr('tableQuantityToSend')}</th>
+              <th className="py-2 text-center w-[320px] min-w-[320px]">{tr('tableServices')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -2946,8 +3505,8 @@ export default function FbaStep1Inventory({
               <tr>
                 <td colSpan={5} className="py-4 text-center text-slate-500">
                   {loadingPlan
-                    ? 'Waiting for Amazon response for SKUs and shipments...'
-                    : 'No SKUs to display.'}
+                    ? tr('waitingSkusAndShipments')
+                    : tr('noSkusToDisplay')}
                 </td>
               </tr>
             )}
@@ -2977,7 +3536,7 @@ export default function FbaStep1Inventory({
       <div className="px-6 py-4 border-t border-slate-200 space-y-4">
         <div className="border border-slate-200 rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="font-semibold text-slate-800">Boxes</div>
+            <div className="font-semibold text-slate-800">{tr('boxes')}</div>
             <button
               type="button"
               className="text-xs text-blue-600 underline"
@@ -2986,11 +3545,11 @@ export default function FbaStep1Inventory({
                 schedulePersist();
               }}
             >
-              + Add box
+              {tr('addBox', '+ Add box')}
             </button>
           </div>
           {boxServices.length === 0 && (
-            <div className="text-xs text-slate-500">No box services selected.</div>
+            <div className="text-xs text-slate-500">{tr('noBoxServicesSelected')}</div>
           )}
           {boxServices.map((svc, idx) => {
             const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
@@ -3030,10 +3589,10 @@ export default function FbaStep1Inventory({
                   ))}
                 </select>
                 <div className="text-xs text-slate-600">
-                  Unit <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
+                  {tr('unit')} <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center gap-1 text-xs text-slate-600">
-                  <span>Qty</span>
+                  <span>{tr('qty')}</span>
                   <input
                     type="number"
                     min={0}
@@ -3050,7 +3609,7 @@ export default function FbaStep1Inventory({
                   />
                 </div>
                 <div className="text-xs text-slate-600">
-                  Total <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
+                  {tr('total')} <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
                 </div>
                 <button
                   type="button"
@@ -3060,21 +3619,21 @@ export default function FbaStep1Inventory({
                     setBoxes(next);
                   }}
                 >
-                  Remove
+                  {tr('remove')}
                 </button>
               </div>
             );
           })}
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="font-semibold text-slate-900">Box details (Step 1)</div>
+          <div className="font-semibold text-slate-900">{tr('boxDetailsStep1')}</div>
           {hasUnits && (
             <button
               type="button"
               onClick={applySingleBox}
               className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
             >
-              Pune totul într-o singură cutie
+              {tr('putAllInOneBoxRo')}
             </button>
           )}
         </div>
@@ -3106,18 +3665,18 @@ export default function FbaStep1Inventory({
               <div className="flex items-center justify-between">
                 <div className="font-semibold text-slate-800">{group.label}</div>
               </div>
-              {boxes.length === 0 && <div className="text-sm text-slate-500">No boxes yet.</div>}
+              {boxes.length === 0 && <div className="text-sm text-slate-500">{tr('noBoxesYet')}</div>}
               {boxes.length > 0 && (
                 <div className="border border-slate-200 rounded-md bg-white" data-box-details>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2 px-3 py-2 text-xs text-slate-600 border-b border-slate-200">
                     <div>
-                      <span className="font-semibold text-slate-800">Total SKUs:</span> {groupSkus.length}
+                      <span className="font-semibold text-slate-800">{tr('totalSkus')}:</span> {groupSkus.length}
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-800">Units boxed:</span> {boxedUnits} of {totalUnits}
+                      <span className="font-semibold text-slate-800">{tr('unitsBoxed')}:</span> {boxedUnits} {tr('ofWord')} {totalUnits}
                     </div>
                     <div className="text-slate-500">
-                      Enter the box contents above and the box weights and dimensions below
+                      {tr('enterBoxContentsHint')}
                     </div>
                   </div>
 
@@ -3151,12 +3710,12 @@ export default function FbaStep1Inventory({
                               className="sticky top-0 z-10 bg-slate-50 border-b border-slate-200 px-3 py-2 text-center min-w-[100px]"
                             >
                               <div className="flex items-center justify-center gap-2">
-                                <span className="font-semibold text-slate-700">Box {idx + 1}</span>
+                                <span className="font-semibold text-slate-700">{tr('box')} {idx + 1}</span>
                                 <button
                                   type="button"
                                   className="text-slate-400 hover:text-red-600 text-xs"
                                   onClick={() => removeBoxFromGroup(group.groupId, idx, group.label)}
-                                  aria-label={`Remove box ${idx + 1}`}
+                                  aria-label={tr('removeBoxNAria', { index: idx + 1 })}
                                 >
                                   ×
                                 </button>
@@ -3168,7 +3727,7 @@ export default function FbaStep1Inventory({
                       <tbody>
                         <tr>
                           <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2">
-                            <div className="text-xs font-semibold text-slate-700">Box weight (kg)</div>
+                            <div className="text-xs font-semibold text-slate-700">{tr('boxWeightKg')}</div>
                           </td>
                           {boxes.map((box, idx) => {
                             const buildKey = (field) => getDimDraftKey(group.groupId, idx, field);
@@ -3213,7 +3772,7 @@ export default function FbaStep1Inventory({
                                   }
                                   onBlur={(e) => commitDim('weight_kg', e.target.value)}
                                   className="w-20 h-8 border rounded-sm px-2 py-1 text-xs text-center"
-                                  placeholder="0"
+                                  placeholder={tr('zeroPlaceholder')}
                                 />
                               </td>
                             );
@@ -3256,14 +3815,14 @@ export default function FbaStep1Inventory({
                               <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2 align-top">
                                 <div className="flex items-center justify-between gap-2">
                                   <div className="text-xs font-semibold text-slate-700">
-                                    Box dimensions (cm){setIdx > 0 ? ` ${setIdx + 1}` : ''}
+                                    {tr('boxDimensionsCm')}{setIdx > 0 ? ` ${setIdx + 1}` : ''}
                                   </div>
                                   {setIdx > 0 && dimensionSets.length > 1 && (
                                     <button
                                       type="button"
                                       className="text-xs text-slate-400 hover:text-red-600"
                                       onClick={() => removeDimensionSet(group.groupId, set.id, group.label)}
-                                      aria-label={`Remove box dimensions ${setIdx + 1}`}
+                                      aria-label={tr('removeBoxDimensionsNAria', { index: setIdx + 1 })}
                                     >
                                       x
                                     </button>
@@ -3285,7 +3844,7 @@ export default function FbaStep1Inventory({
                                     }
                                     onBlur={(e) => commitSet('length_cm', e.target.value)}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
-                                    placeholder="L"
+                                    placeholder={tr('dimLPlaceholder')}
                                   />
                                   <span className="text-slate-400 text-[10px]">x</span>
                                   <input
@@ -3303,7 +3862,7 @@ export default function FbaStep1Inventory({
                                     }
                                     onBlur={(e) => commitSet('width_cm', e.target.value)}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
-                                    placeholder="W"
+                                    placeholder={tr('dimWPlaceholder')}
                                   />
                                   <span className="text-slate-400 text-[10px]">x</span>
                                   <input
@@ -3321,7 +3880,7 @@ export default function FbaStep1Inventory({
                                     }
                                     onBlur={(e) => commitSet('height_cm', e.target.value)}
                                     className="w-16 h-8 border rounded-sm px-2 py-1 text-xs text-center"
-                                    placeholder="H"
+                                    placeholder={tr('dimHPlaceholder')}
                                   />
                                 </div>
                                 {setIdx === 0 && (
@@ -3330,7 +3889,7 @@ export default function FbaStep1Inventory({
                                     className="mt-1 text-xs text-blue-700 hover:text-blue-800"
                                     onClick={() => addDimensionSet(group.groupId, group.label)}
                                   >
-                                    + Add another box dimension
+                                    {tr('addAnotherBoxDimension')}
                                   </button>
                                 )}
                               </td>
@@ -3384,9 +3943,9 @@ export default function FbaStep1Inventory({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-3">
-        <div className="font-semibold text-slate-900">Pack groups preview (Step 1)</div>
+        <div className="font-semibold text-slate-900">{tr('packGroupsPreviewTitle')}</div>
         {packGroupsPreviewLoading && (
-          <div className="text-sm text-slate-600">Loading grouping from Amazon…</div>
+          <div className="text-sm text-slate-600">{tr('loadingGroupingAmazon')}</div>
         )}
         {!packGroupsPreviewLoading && packGroupsPreviewError && (
           <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-md">
@@ -3395,12 +3954,12 @@ export default function FbaStep1Inventory({
         )}
         {!packGroupsPreviewLoading && !packGroupsPreviewError && (!packGroupsPreview || packGroupsPreview.length === 0) && (
           <div className="text-sm text-slate-600">
-            No packing groups yet. Continue to Step 1b or reload the plan.
+            {tr('noPackingGroupsYet')}
           </div>
         )}
         {!packGroupsPreviewLoading && hasPackGroups && (
           <div className="text-sm text-slate-600">
-            Products are grouped above in the list by pack groups.
+            {tr('groupedAboveNotice')}
           </div>
         )}
         {!packGroupsPreviewLoading && Array.isArray(packGroupsPreview) && packGroupsPreview.length > 0 && !hasPackGroups && (
@@ -3409,10 +3968,10 @@ export default function FbaStep1Inventory({
               const items = Array.isArray(group.items) ? group.items : [];
               return (
                 <div key={group.packingGroupId || group.id || `pack-${idx + 1}`} className="px-4 py-3">
-                  <div className="font-semibold text-slate-900">Pack {idx + 1}</div>
+                  <div className="font-semibold text-slate-900">{tr('packN', '', { index: idx + 1 })}</div>
                   <div className="mt-2 space-y-1 text-sm text-slate-700">
                     {items.map((it, itemIdx) => {
-                      const label = it.title || it.name || it.sku || it.asin || 'SKU';
+                      const label = it.title || it.name || it.sku || it.asin || tr('genericSkuLabel');
                       const skuLabel = it.sku || it.msku || it.SellerSKU || it.asin || '—';
                       const qty = Number(it.quantity || 0) || 0;
                       return (
@@ -3436,7 +3995,7 @@ export default function FbaStep1Inventory({
 
       <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-t border-slate-200">
         <div className="text-sm text-slate-600">
-          SKUs confirmed to send: {skus.length} ({totalUnits} units)
+          {tr('skusConfirmedToSendSummary', '', { count: skus.length, units: totalUnits })}
         </div>
         <div className="flex gap-3 justify-end flex-wrap">
           {/* removed inboundPlan missing/wait banners */}
@@ -3490,8 +4049,8 @@ export default function FbaStep1Inventory({
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/25 px-4 pt-20">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[70vh] overflow-y-auto">
             <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-sm font-semibold text-slate-900">Packing details</div>
-              <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-xs">Close</button>
+              <div className="text-sm font-semibold text-slate-900">{tr('packingDetailsTitle')}</div>
+              <button onClick={closePackingModal} className="text-slate-500 hover:text-slate-700 text-xs">{tr('close')}</button>
             </div>
               <div className="px-3 py-2.5 space-y-2.5">
               {templateError ? (
@@ -3508,39 +4067,39 @@ export default function FbaStep1Inventory({
                   />
                   <div className="text-[11px] text-slate-800 min-w-0">
                     <div className="font-semibold text-slate-900 truncate">{packingModal.sku.title}</div>
-                    <div className="text-xs text-slate-600">SKU: {packingModal.sku.sku}</div>
+                    <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {packingModal.sku.sku}</div>
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-800">Template name</label>
+                  <label className="text-[11px] font-semibold text-slate-800">{tr('templateName')}</label>
                   <input
                     type="text"
                     value={packingModal.templateName}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateName: e.target.value }))}
                     className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
-                    placeholder="e.g. 12/box"
+                    placeholder={tr('templateNameExample')}
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-800">Type</label>
+                  <label className="text-[11px] font-semibold text-slate-800">{tr('type')}</label>
                   <select
                     value={packingModal.templateType}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, templateType: e.target.value }))}
                     className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
                   >
-                    <option value="case">Case pack</option>
-                    <option value="individual">Individual units</option>
-                    <option value="single_sku_pallet">Single SKU pallet</option>
+                    <option value="case">{tr('optionCasePacked')}</option>
+                    <option value="individual">{tr('optionIndividualUnits')}</option>
+                    <option value="single_sku_pallet">{tr('optionSingleSkuPallet')}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-800">Units/box</label>
+                  <label className="text-[11px] font-semibold text-slate-800">{tr('unitsPerBoxShort')}</label>
                   <input
                     type="number"
                     min={0}
@@ -3550,20 +4109,20 @@ export default function FbaStep1Inventory({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-800">Weight (kg)</label>
+                  <label className="text-[11px] font-semibold text-slate-800">{tr('weightKg')}</label>
                   <input
                     type="number"
                     min={0}
                     value={packingModal.boxWeight}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxWeight: e.target.value }))}
                     className="mt-1 w-full border rounded-md px-2 py-1 text-xs"
-                    placeholder="0.0"
+                    placeholder={tr('zeroDecimalPlaceholder')}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-semibold text-slate-800">Dimensions (cm)</label>
+                <label className="text-[11px] font-semibold text-slate-800">{tr('dimensionsCm')}</label>
                 <div className="mt-1 grid grid-cols-3 gap-1.5">
                   <input
                     type="number"
@@ -3571,7 +4130,7 @@ export default function FbaStep1Inventory({
                     value={packingModal.boxL}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxL: e.target.value }))}
                     className="border rounded-md px-2 py-1 text-xs"
-                    placeholder="L"
+                    placeholder={tr('dimLPlaceholder')}
                   />
                   <input
                     type="number"
@@ -3579,7 +4138,7 @@ export default function FbaStep1Inventory({
                     value={packingModal.boxW}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxW: e.target.value }))}
                     className="border rounded-md px-2 py-1 text-xs"
-                    placeholder="W"
+                    placeholder={tr('dimWPlaceholder')}
                   />
                   <input
                     type="number"
@@ -3587,25 +4146,25 @@ export default function FbaStep1Inventory({
                     value={packingModal.boxH}
                     onChange={(e) => setPackingModal((prev) => ({ ...prev, boxH: e.target.value }))}
                     className="border rounded-md px-2 py-1 text-xs"
-                    placeholder="H"
+                    placeholder={tr('dimHPlaceholder')}
                   />
                 </div>
               </div>
 
               <div className="text-[11px] text-slate-600">
-                <span className="font-semibold text-slate-800">Prep:</span> No prep needed
+                <span className="font-semibold text-slate-800">{tr('prep')}:</span> {tr('noPrepNeeded')}
               </div>
             </div>
 
             <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
               <button onClick={closePackingModal} className="px-2.5 py-1 rounded-md border border-slate-300 text-slate-700 text-xs">
-                Cancel
+                {tr('cancel')}
               </button>
               <button
                 onClick={savePackingTemplate}
                 className="px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm"
               >
-                Save
+                {tr('save')}
               </button>
             </div>
           </div>
@@ -3616,8 +4175,8 @@ export default function FbaStep1Inventory({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-lg font-semibold text-slate-900">Prepare your FBA items</div>
-              <button onClick={closePrepModal} className="text-slate-500 hover:text-slate-700 text-sm">Close</button>
+              <div className="text-lg font-semibold text-slate-900">{tr('prepareFbaItems')}</div>
+              <button onClick={closePrepModal} className="text-slate-500 hover:text-slate-700 text-sm">{tr('close')}</button>
             </div>
 
             <div className="px-6 py-5 space-y-5">
@@ -3630,9 +4189,9 @@ export default function FbaStep1Inventory({
                   />
                   <div className="text-sm text-slate-800">
                     <div className="font-semibold text-slate-900 leading-snug">{prepModal.sku.title}</div>
-                    <div className="text-xs text-slate-600">SKU: {prepModal.sku.sku}</div>
-                    <div className="text-xs text-slate-600">ASIN: {prepModal.sku.asin}</div>
-                    <div className="text-xs text-slate-600">Storage: {prepModal.sku.storageType}</div>
+                    <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {prepModal.sku.sku}</div>
+                    <div className="text-xs text-slate-600">{tr('asinLabelShort')}: {prepModal.sku.asin}</div>
+                    <div className="text-xs text-slate-600">{tr('storageLabel')}: {prepModal.sku.storageType}</div>
                   </div>
                 </div>
               )}
@@ -3642,37 +4201,37 @@ export default function FbaStep1Inventory({
                   onClick={() => setPrepTab('prep')}
                   className={`px-4 py-2 text-sm font-semibold ${prepTab === 'prep' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-slate-600'}`}
                 >
-                  Prep guidance
+                  {tr('prepGuidance')}
                 </button>
                 <button
                   onClick={() => setPrepTab('barcode')}
                   className={`px-4 py-2 text-sm font-semibold ${prepTab === 'barcode' ? 'border-b-2 border-blue-600 text-blue-700' : 'text-slate-600'}`}
                 >
-                  Use manufacturer barcode
+                  {tr('useManufacturerBarcode')}
                 </button>
               </div>
 
               {prepTab === 'prep' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="text-sm font-semibold text-slate-800">Choose prep category</label>
+                    <label className="text-sm font-semibold text-slate-800">{tr('choosePrepCategory')}</label>
                     <select
                       value={prepModal.prepCategory}
                       onChange={(e) => setPrepModal((prev) => ({ ...prev, prepCategory: e.target.value }))}
                       className="mt-1 w-full border rounded-md px-3 py-2 text-sm"
                     >
-                      <option value="">Select...</option>
-                      <option value="fragile">Fragile/glass</option>
-                      <option value="liquids">Liquids (non glass)</option>
-                      <option value="perforated">Perforated packaging</option>
-                      <option value="powder">Powder, pellets and granular</option>
-                      <option value="small">Small</option>
-                      <option value="none">No prep needed</option>
+                      <option value="">{tr('selectPlaceholder')}</option>
+                      <option value="fragile">{tr('prepFragileGlass')}</option>
+                      <option value="liquids">{tr('prepLiquidsNonGlass')}</option>
+                      <option value="perforated">{tr('prepPerforatedPackaging')}</option>
+                      <option value="powder">{tr('prepPowderPelletsGranular')}</option>
+                      <option value="small">{tr('prepSmall')}</option>
+                      <option value="none">{tr('noPrepNeeded')}</option>
                     </select>
                   </div>
                   {formatPrepList(prepModal.sku?.prepInstructions || prepModal.sku?.prepNotes || []).length > 0 && (
                     <div className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                      Guidance: {formatPrepList(prepModal.sku?.prepInstructions || prepModal.sku?.prepNotes || []).join(', ')}
+                      {tr('guidance')}: {formatPrepList(prepModal.sku?.prepInstructions || prepModal.sku?.prepNotes || []).join(', ')}
                     </div>
                   )}
                 </div>
@@ -3682,10 +4241,10 @@ export default function FbaStep1Inventory({
                 <div className="space-y-3">
                   {!prepModal.manufacturerBarcodeEligible ? (
                     <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
-                      This SKU is not eligible to use manufacturer barcode for tracking.
+                      {tr('notEligibleManufacturerBarcode')}
                     </div>
                   ) : (
-                    <div className="text-sm text-slate-700">This SKU can use manufacturer barcode.</div>
+                    <div className="text-sm text-slate-700">{tr('eligibleManufacturerBarcode')}</div>
                   )}
                   <label className="inline-flex items-center gap-2 text-sm text-slate-800">
                     <input
@@ -3693,7 +4252,7 @@ export default function FbaStep1Inventory({
                       checked={prepModal.useManufacturerBarcode}
                       onChange={(e) => setPrepModal((prev) => ({ ...prev, useManufacturerBarcode: e.target.checked }))}
                     />
-                    Use manufacturer barcode for tracking
+                    {tr('useManufacturerBarcodeTracking')}
                   </label>
                 </div>
               )}
@@ -3701,13 +4260,13 @@ export default function FbaStep1Inventory({
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
               <button onClick={closePrepModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
-                Cancel
+                {tr('cancel')}
               </button>
               <button
                 onClick={savePrepModal}
                 className="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm"
               >
-                Save
+                {tr('save')}
               </button>
             </div>
           </div>
@@ -3718,8 +4277,8 @@ export default function FbaStep1Inventory({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-lg font-semibold text-slate-900">Print SKU labels</div>
-              <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-sm">Close</button>
+              <div className="text-lg font-semibold text-slate-900">{tr('printSkuLabels')}</div>
+              <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-sm">{tr('close')}</button>
             </div>
 
             <div className="px-6 py-5 space-y-4">
@@ -3732,16 +4291,16 @@ export default function FbaStep1Inventory({
                   />
                   <div className="text-sm text-slate-800">
                     <div className="font-semibold text-slate-900 leading-snug">{labelModal.sku.title}</div>
-                    <div className="text-xs text-slate-600">SKU: {labelModal.sku.sku}</div>
-                    <div className="text-xs text-slate-600">ASIN: {labelModal.sku.asin}</div>
-                    <div className="text-xs text-slate-600">Fulfilment by Amazon storage type: {labelModal.sku.storageType}</div>
+                    <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
+                    <div className="text-xs text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
+                    <div className="text-xs text-slate-600">{tr('fulfillmentStorageType')}: {labelModal.sku.storageType}</div>
                   </div>
                 </div>
               )}
 
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">Choose printing format</label>
+                  <label className="text-sm font-semibold text-slate-800">{tr('choosePrintingFormat')}</label>
                   <select
                     value={labelModal.format}
                     onChange={(e) => {
@@ -3756,12 +4315,12 @@ export default function FbaStep1Inventory({
                     }}
                     className="border rounded-md px-3 py-2 text-sm"
                   >
-                    <option value="thermal">Thermal printing</option>
-                    <option value="standard">Standard formats</option>
+                    <option value="thermal">{tr('thermalPrinting')}</option>
+                    <option value="standard">{tr('standardFormats')}</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">Width (mm)</label>
+                  <label className="text-sm font-semibold text-slate-800">{tr('widthMm')}</label>
                   <input
                     type="number"
                     min={1}
@@ -3771,7 +4330,7 @@ export default function FbaStep1Inventory({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">Height (mm)</label>
+                  <label className="text-sm font-semibold text-slate-800">{tr('heightMm')}</label>
                   <input
                     type="number"
                     min={1}
@@ -3783,7 +4342,7 @@ export default function FbaStep1Inventory({
               </div>
 
               <div className="border border-slate-200 rounded-md">
-                <div className="px-4 py-3 text-sm font-semibold text-slate-800 border-b border-slate-200">SKU details</div>
+                <div className="px-4 py-3 text-sm font-semibold text-slate-800 border-b border-slate-200">{tr('tableSkuDetails')}</div>
                 {labelModal.sku && (
                   <div className="px-4 py-3 flex items-center gap-3">
                     <img
@@ -3793,11 +4352,11 @@ export default function FbaStep1Inventory({
                     />
                     <div className="flex-1 text-sm text-slate-800">
                       <div className="font-semibold text-slate-900 leading-snug line-clamp-2">{labelModal.sku.title}</div>
-                      <div className="text-xs text-slate-600">SKU: {labelModal.sku.sku}</div>
-                      <div className="text-xs text-slate-600">ASIN: {labelModal.sku.asin}</div>
+                      <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
+                      <div className="text-xs text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
-                      <label className="text-xs text-slate-600">Print labels</label>
+                      <label className="text-xs text-slate-600">{tr('printLabels')}</label>
                       <input
                         type="number"
                         min={1}
@@ -3813,14 +4372,14 @@ export default function FbaStep1Inventory({
 
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
               <button onClick={closeLabelModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
-                Cancel
+                {tr('cancel')}
               </button>
               <button
                 onClick={handleDownloadLabels}
                 disabled={labelLoading}
                 className={`px-4 py-2 rounded-md text-white text-sm font-semibold shadow-sm ${labelLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
-                {labelLoading ? 'Downloading…' : 'Download labels'}
+                {labelLoading ? tr('downloading') : tr('downloadLabels')}
               </button>
             </div>
             {labelError && (
