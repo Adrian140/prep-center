@@ -757,6 +757,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
+  const step1BoxPlanPersistTimerRef = useRef(null);
+  const lastStep1BoxPlanPersistedRef = useRef("");
   const sanitizePackingOptions = useCallback((options) => {
     const list = Array.isArray(options) ? options : [];
     const filtered = list.filter((opt) => {
@@ -832,6 +834,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (planData && typeof planData === 'object') return planData;
     return { groups: {} };
   }, [step1BoxPlanByMarket, currentMarket]);
+  const hasStep1BoxPlanData = useCallback((planByMarket) => {
+    if (!planByMarket || typeof planByMarket !== 'object') return false;
+    return Object.values(planByMarket).some((marketPlan) => {
+      const groups = marketPlan?.groups && typeof marketPlan.groups === 'object' ? marketPlan.groups : {};
+      return Object.values(groups).some((group) => {
+        const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+        const boxItems = Array.isArray(group?.boxItems) ? group.boxItems : [];
+        const dimensionSets = Array.isArray(group?.dimension_sets) ? group.dimension_sets : [];
+        const assignments =
+          group?.dimension_assignments && typeof group.dimension_assignments === 'object'
+            ? Object.keys(group.dimension_assignments)
+            : [];
+        return boxes.length > 0 || boxItems.length > 0 || dimensionSets.length > 0 || assignments.length > 0;
+      });
+    });
+  }, []);
   const step1PlanGroupsData = useMemo(() => {
     const groups = step1BoxPlanForMarket?.groups || {};
     const ordered = Object.entries(groups)
@@ -1855,16 +1873,40 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || null;
     if (!planBoxPlan || typeof planBoxPlan !== 'object') return;
     setStep1BoxPlanByMarket((prev) => {
-      if (prev && Object.keys(prev).length) return prev;
-      return planBoxPlan;
+      const incomingHasData = hasStep1BoxPlanData(planBoxPlan);
+      const prevHasData = hasStep1BoxPlanData(prev);
+      if (!incomingHasData && prevHasData) return prev;
+      if (!incomingHasData) return prev && Object.keys(prev).length ? prev : planBoxPlan;
+      return {
+        ...(prev || {}),
+        ...planBoxPlan
+      };
     });
-  }, [plan?.step1BoxPlan, plan?.step1_box_plan]);
-  // Când primim un nou inboundPlanId, resetăm box plan-ul ca să nu păstrăm grupuri vechi (evităm mismatch de packingGroupId).
+  }, [hasStep1BoxPlanData, plan?.step1BoxPlan, plan?.step1_box_plan]);
+
   useEffect(() => {
-    if (!plan?.inboundPlanId && !plan?.inbound_plan_id) return;
-    const planBoxPlan = plan?.step1BoxPlan || plan?.step1_box_plan || {};
-    setStep1BoxPlanByMarket(planBoxPlan && typeof planBoxPlan === 'object' ? planBoxPlan : {});
-  }, [plan?.inboundPlanId, plan?.inbound_plan_id]);
+    const requestId = resolveRequestId();
+    if (!requestId) return;
+    const nextPlan = step1BoxPlanByMarket && typeof step1BoxPlanByMarket === 'object' ? step1BoxPlanByMarket : {};
+    const serialized = JSON.stringify(nextPlan);
+    if (serialized === lastStep1BoxPlanPersistedRef.current) return;
+    if (step1BoxPlanPersistTimerRef.current) clearTimeout(step1BoxPlanPersistTimerRef.current);
+    step1BoxPlanPersistTimerRef.current = setTimeout(async () => {
+      try {
+        const { error } = await supabase
+          .from('prep_requests')
+          .update({ step1_box_plan: nextPlan })
+          .eq('id', requestId);
+        if (error) throw error;
+        lastStep1BoxPlanPersistedRef.current = serialized;
+      } catch (e) {
+        console.warn('Persist step1_box_plan failed', e);
+      }
+    }, 700);
+    return () => {
+      if (step1BoxPlanPersistTimerRef.current) clearTimeout(step1BoxPlanPersistTimerRef.current);
+    };
+  }, [resolveRequestId, step1BoxPlanByMarket]);
 
   useEffect(() => {
     const requestId = resolveRequestId();
