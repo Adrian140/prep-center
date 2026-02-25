@@ -2301,7 +2301,7 @@ createPrepItem: async (requestId, item) => {
       withCompany(
         supabase
           .from('fba_lines')
-          .select('total, unit_price, units, service_date, prep_request_id')
+          .select('id, total, unit_price, units, service_date, prep_request_id, obs_admin')
       )
     )
       .is('prep_request_id', null)
@@ -2312,7 +2312,7 @@ createPrepItem: async (requestId, item) => {
       withCompany(
         supabase
           .from('prep_requests')
-          .select('id, completed_at, step4_confirmed_at, confirmed_at')
+          .select('id, fba_shipment_id, completed_at, step4_confirmed_at, confirmed_at')
           .eq('status', 'confirmed')
       )
     )
@@ -2364,7 +2364,7 @@ createPrepItem: async (requestId, item) => {
         withCompany(
           supabase
             .from('fba_lines')
-            .select('total, unit_price, units, service_date')
+            .select('id, total, unit_price, units, service_date, obs_admin')
         )
       )
         .gte('service_date', dateFrom)
@@ -2376,7 +2376,7 @@ createPrepItem: async (requestId, item) => {
         withCompany(
           supabase
             .from('prep_requests')
-            .select('id, step4_confirmed_at, confirmed_at')
+            .select('id, fba_shipment_id, step4_confirmed_at, confirmed_at')
             .eq('status', 'confirmed')
         )
       )
@@ -2528,10 +2528,14 @@ createPrepItem: async (requestId, item) => {
     const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
     const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
     const fbaFinalizedDateByRequestId = new Map();
+    const fbaFinalizedDateByShipmentId = new Map();
     finalizedPrepRequestsRows.forEach((row) => {
       const effectiveDate = row?.completed_at || row?.step4_confirmed_at || row?.confirmed_at || null;
       if (!effectiveDate) return;
-      fbaFinalizedDateByRequestId.set(row.id, String(effectiveDate).slice(0, 10));
+      const day = String(effectiveDate).slice(0, 10);
+      fbaFinalizedDateByRequestId.set(row.id, day);
+      const shipmentId = (row?.fba_shipment_id || '').trim();
+      if (shipmentId) fbaFinalizedDateByShipmentId.set(shipmentId, day);
     });
 
     const fbaPrepRequestIds = Array.from(fbaFinalizedDateByRequestId.keys());
@@ -2543,7 +2547,7 @@ createPrepItem: async (requestId, item) => {
         let chunkQuery = withCompany(
           supabase
             .from('fba_lines')
-            .select('total, unit_price, units, service_date, prep_request_id')
+            .select('id, total, unit_price, units, service_date, prep_request_id, obs_admin')
         )
           .in('prep_request_id', idChunk)
           .limit(20000);
@@ -2557,16 +2561,43 @@ createPrepItem: async (requestId, item) => {
       }
     }
 
+    const fbaLegacyLinesByShipment = [];
+    const shipmentIds = Array.from(fbaFinalizedDateByShipmentId.keys());
+    if (shipmentIds.length) {
+      const chunkSize = 500;
+      for (let i = 0; i < shipmentIds.length; i += chunkSize) {
+        const shipmentChunk = shipmentIds.slice(i, i + chunkSize);
+        const chunkRes = await withCompany(
+          supabase
+            .from('fba_lines')
+            .select('id, total, unit_price, units, service_date, prep_request_id, obs_admin')
+        )
+          .is('prep_request_id', null)
+          .in('obs_admin', shipmentChunk)
+          .limit(20000);
+        if (chunkRes?.error) throw chunkRes.error;
+        fbaLegacyLinesByShipment.push(...(Array.isArray(chunkRes.data) ? chunkRes.data : []));
+      }
+    }
+
     const isDateWithinRange = (value) => {
       if (!value) return false;
       const d = String(value).slice(0, 10);
       return d >= dateFrom && d <= dateTo;
     };
-    const fbaLinesForFinance = [...fbaStandaloneLines, ...fbaPrepRequestLines].map((row) => {
+    const dedupedFbaLines = Array.from(
+      new Map(
+        [...fbaStandaloneLines, ...fbaPrepRequestLines, ...fbaLegacyLinesByShipment].map((row) => [row?.id || JSON.stringify(row), row])
+      ).values()
+    );
+    const fbaLinesForFinance = dedupedFbaLines.map((row) => {
       const requestId = row?.prep_request_id || null;
       const finalizedDate = requestId ? fbaFinalizedDateByRequestId.get(requestId) : null;
-      if (!finalizedDate) return row;
-      return { ...row, service_date: finalizedDate };
+      if (finalizedDate) return { ...row, service_date: finalizedDate };
+      const shipmentId = String(row?.obs_admin || '').trim();
+      const shipmentFinalizedDate = shipmentId ? fbaFinalizedDateByShipmentId.get(shipmentId) : null;
+      if (shipmentFinalizedDate) return { ...row, service_date: shipmentFinalizedDate };
+      return row;
     }).filter((row) => isDateWithinRange(row?.service_date));
 
     const filterCompanyJoin = (rows, extractor) => {
