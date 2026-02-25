@@ -2540,12 +2540,10 @@ createPrepItem: async (requestId, item) => {
       const chunkSize = 500;
       for (let i = 0; i < fbaPrepRequestIds.length; i += chunkSize) {
         const idChunk = fbaPrepRequestIds.slice(i, i + chunkSize);
-        let chunkQuery = withCountry(
-          withCompany(
-            supabase
-              .from('fba_lines')
-              .select('total, unit_price, units, service_date, prep_request_id')
-          )
+        let chunkQuery = withCompany(
+          supabase
+            .from('fba_lines')
+            .select('total, unit_price, units, service_date, prep_request_id')
         )
           .in('prep_request_id', idChunk)
           .limit(20000);
