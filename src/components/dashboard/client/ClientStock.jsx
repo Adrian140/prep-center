@@ -46,6 +46,43 @@ const COUNTRY_LABEL_LOOKUP = SALES_COUNTRIES.reduce((acc, item) => {
   acc[item.value] = item.label;
   return acc;
 }, {});
+const PREP_COUNTRY_PRIORITY = ['FR', 'DE', 'IT', 'ES', 'RO', 'UK', 'GB'];
+
+const normalizePrepCountryCode = (code) => {
+  const upper = String(code || '').trim().toUpperCase();
+  if (!upper) return '';
+  if (upper === 'GB') return 'UK';
+  return upper;
+};
+
+const getPrepCountryEntries = (row) => {
+  const map =
+    row?.prep_qty_by_country && typeof row.prep_qty_by_country === 'object' && !Array.isArray(row.prep_qty_by_country)
+      ? row.prep_qty_by_country
+      : {};
+  const normalized = Object.entries(map).reduce((acc, [country, rawQty]) => {
+    const code = normalizePrepCountryCode(country);
+    if (!code) return acc;
+    const qty = Number(rawQty || 0);
+    if (!Number.isFinite(qty) || qty <= 0) return acc;
+    acc[code] = (acc[code] || 0) + qty;
+    return acc;
+  }, {});
+
+  return Object.entries(normalized).sort((a, b) => {
+    const aIdx = PREP_COUNTRY_PRIORITY.indexOf(a[0]);
+    const bIdx = PREP_COUNTRY_PRIORITY.indexOf(b[0]);
+    if (aIdx !== -1 || bIdx !== -1) {
+      if (aIdx === -1) return 1;
+      if (bIdx === -1) return -1;
+      return aIdx - bIdx;
+    }
+    return a[0].localeCompare(b[0]);
+  });
+};
+
+const getPrepTotal = (row) =>
+  getPrepCountryEntries(row).reduce((sum, [, qty]) => sum + Number(qty || 0), 0);
 
 const formatSalesTimestamp = (value) => {
   if (!value) return '';
@@ -1279,7 +1316,7 @@ useEffect(() => {
           const getSortValue = (row) => {
             if (sortSpec.key === 'sales') return getSalesTotal(row);
             if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
-            if (sortSpec.key === 'prep') return Number(row.qty || 0);
+            if (sortSpec.key === 'prep') return Number(row.qty_total ?? getPrepTotal(row) ?? 0);
             if (sortSpec.key === 'photo') {
               return Number(Number(photoCounts[row.id] || 0) > 0);
             }
@@ -1305,7 +1342,7 @@ useEffect(() => {
         const getSortValue = (row) => {
           if (sortSpec.key === 'sales') return getSalesTotal(row);
           if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
-          if (sortSpec.key === 'prep') return Number(row.qty || 0);
+          if (sortSpec.key === 'prep') return Number(row.qty_total ?? getPrepTotal(row) ?? 0);
           if (sortSpec.key === 'photo') {
             return Number(Number(photoCounts[row.id] || 0) > 0);
           }
@@ -1826,8 +1863,23 @@ const resetReceptionForm = () => {
     }
   };
   const renderQtyCell = (row) => {
+    const prepByCountry = getPrepCountryEntries(row);
+    const prepTotal = Number(row.qty_total ?? getPrepTotal(row) ?? 0);
     if (!enableQtyAdjust) {
-      return <span>{row.qty != null ? row.qty : '—'}</span>;
+      return (
+        <div className="text-right">
+          <div className="font-semibold text-gray-800">{prepTotal}</div>
+          {prepByCountry.length > 0 && (
+            <div className="mt-1 text-[11px] leading-4 space-y-0.5">
+              {prepByCountry.map(([code, qty]) => (
+                <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
+                  {code}-{qty}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
     }
     const inputs = qtyInputs[row.id] || { dec: '', inc: '' };
     const buildInput = (field, placeholder) => (
@@ -1852,12 +1904,23 @@ const resetReceptionForm = () => {
       />
     );
     return (
-      <div className="flex items-center justify-end gap-2">
-        {buildInput('dec', '-')}
-        <div className="min-w-[3.5rem] text-center font-semibold">
-          {Number(row.qty ?? 0)}
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center justify-end gap-2">
+          {buildInput('dec', '-')}
+          <div className="min-w-[3.5rem] text-center font-semibold">
+            {Number(row.qty ?? 0)}
+          </div>
+          {buildInput('inc', '+')}
         </div>
-        {buildInput('inc', '+')}
+        {prepByCountry.length > 0 && (
+          <div className="text-[11px] leading-4 space-y-0.5 text-right">
+            {prepByCountry.map(([code, qty]) => (
+              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
+                {code}-{qty}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };

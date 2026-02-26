@@ -36,5 +36,6 @@ export const buildPrepQtyPatch = (row, market, nextQty) => {
 export const mapStockRowsForMarket = (rows, market) =>
   (rows || []).map((row) => ({
     ...row,
-    qty: getPrepQtyForMarket(row, market)
+    qty: getPrepQtyForMarket(row, market),
+    qty_total: sumMap(ensureMap(row.prep_qty_by_country))
   }));
