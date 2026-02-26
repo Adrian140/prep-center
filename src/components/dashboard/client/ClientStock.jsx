@@ -55,12 +55,12 @@ const normalizePrepCountryCode = (code) => {
   return upper;
 };
 
-const getPrepCountryEntries = (row) => {
-  const map =
-    row?.prep_qty_by_country && typeof row.prep_qty_by_country === 'object' && !Array.isArray(row.prep_qty_by_country)
-      ? row.prep_qty_by_country
+const getPrepCountryEntries = (map) => {
+  const source =
+    map && typeof map === 'object' && !Array.isArray(map)
+      ? map
       : {};
-  const normalized = Object.entries(map).reduce((acc, [country, rawQty]) => {
+  const normalized = Object.entries(source).reduce((acc, [country, rawQty]) => {
     const code = normalizePrepCountryCode(country);
     if (!code) return acc;
     const qty = Number(rawQty || 0);
@@ -80,9 +80,6 @@ const getPrepCountryEntries = (row) => {
     return a[0].localeCompare(b[0]);
   });
 };
-
-const getPrepTotal = (row) =>
-  getPrepCountryEntries(row).reduce((sum, [, qty]) => sum + Number(qty || 0), 0);
 
 const formatSalesTimestamp = (value) => {
   if (!value) return '';
@@ -816,6 +813,7 @@ export default function ClientStock({
 const [rows, setRows] = useState([]);
 const [loading, setLoading] = useState(true);
 const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
+const [destinationStockByItemId, setDestinationStockByItemId] = useState({});
 
 useEffect(() => {
   let cancelled = false;
@@ -1051,6 +1049,7 @@ const refreshStockData = useCallback(async () => {
     setQtyInputs({});
     setPhotoCounts({});
     setSalesSummary({});
+    setDestinationStockByItemId({});
     return;
   }
 
@@ -1098,6 +1097,61 @@ const refreshStockData = useCallback(async () => {
   const mappedAll = mapStockRowsForMarket(all, currentMarket);
   setRows(moveNoAsinRowsToEnd(mappedAll));
   setLoading(false);
+
+  // Informative-only destination breakdown (from receiving log), per SKU.
+  try {
+    const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+    if (stockIds.length === 0) {
+      setDestinationStockByItemId({});
+    } else {
+      let logsQuery = supabase
+        .from('receiving_to_stock_log')
+        .select(
+          'stock_item_id, quantity_moved, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id, user_id, destination_country))'
+        )
+        .in('stock_item_id', stockIds)
+        .limit(50000);
+      if (profile?.company_id) {
+        logsQuery = logsQuery.eq('receiving_items.receiving_shipments.company_id', profile.company_id);
+      } else {
+        logsQuery = logsQuery.eq('receiving_items.receiving_shipments.user_id', profile.id);
+      }
+      const { data: logs, error: logsError } = await logsQuery;
+      if (logsError) {
+        setDestinationStockByItemId({});
+      } else {
+        const nextMap = {};
+        (logs || []).forEach((entry) => {
+          const stockId = entry?.stock_item_id;
+          if (!stockId) return;
+          const rel = Array.isArray(entry.receiving_items)
+            ? entry.receiving_items[0]
+            : entry.receiving_items;
+          const ship = Array.isArray(rel?.receiving_shipments)
+            ? rel.receiving_shipments[0]
+            : rel?.receiving_shipments;
+          const country = normalizePrepCountryCode(ship?.destination_country || 'FR') || 'FR';
+          const delta = Number(entry?.quantity_moved || 0);
+          if (!Number.isFinite(delta) || delta === 0) return;
+          if (!nextMap[stockId]) nextMap[stockId] = {};
+          nextMap[stockId][country] = (Number(nextMap[stockId][country] || 0) || 0) + delta;
+        });
+        Object.keys(nextMap).forEach((stockId) => {
+          Object.keys(nextMap[stockId]).forEach((country) => {
+            if (nextMap[stockId][country] <= 0) {
+              delete nextMap[stockId][country];
+            }
+          });
+          if (Object.keys(nextMap[stockId]).length === 0) {
+            delete nextMap[stockId];
+          }
+        });
+        setDestinationStockByItemId(nextMap);
+      }
+    }
+  } catch {
+    setDestinationStockByItemId({});
+  }
 
   const seed = {};
   for (const r of mappedAll) {
@@ -1864,19 +1918,20 @@ const resetReceptionForm = () => {
     }
   };
   const renderQtyCell = (row) => {
-    const marketCode = normalizePrepCountryCode(currentMarket || 'FR') || 'FR';
     const marketQty = Math.max(0, Number(row.qty || 0));
-    if (!enableQtyAdjust && marketQty <= 0) {
+    const informativeEntries = getPrepCountryEntries(destinationStockByItemId?.[row.id] || {});
+    if (!enableQtyAdjust && informativeEntries.length === 0) {
       return null;
     }
-    const marketLabel = `${marketCode}-${marketQty}`;
     if (!enableQtyAdjust) {
       return (
         <div className="text-right">
           <div className="mt-1 text-[11px] leading-4 space-y-0.5">
-            <div key={`${row.id}-${marketCode}`} className="font-semibold text-red-600">
-              {marketLabel}
-            </div>
+            {informativeEntries.map(([code, qty]) => (
+              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
+                {code}-{qty}
+              </div>
+            ))}
           </div>
         </div>
       );
@@ -1910,11 +1965,15 @@ const resetReceptionForm = () => {
           {Number(row.qty ?? 0)}
         </div>
         <div className="col-start-3">{buildInput('inc', '+')}</div>
-        <div className="col-start-1 text-[11px] leading-4 space-y-0.5 text-left">
-          <div key={`${row.id}-${marketCode}`} className="font-semibold text-red-600">
-            {marketLabel}
+        {informativeEntries.length > 0 && (
+          <div className="col-start-1 text-[11px] leading-4 space-y-0.5 text-left">
+            {informativeEntries.map(([code, qty]) => (
+              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
+                {code}-{qty}
+              </div>
+            ))}
           </div>
-        </div>
+        )}
       </div>
     );
   };
