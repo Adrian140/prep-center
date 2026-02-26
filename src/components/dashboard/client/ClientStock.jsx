@@ -1999,6 +1999,30 @@ const resetReceptionForm = () => {
               </div>
             ))}
           </div>
+          {marketQty > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const base =
+                  Object.keys(manualMap).length > 0 ? manualMap : destinationStockByItemId?.[row.id] || {};
+                const values = {};
+                DESTINATION_ALLOCATION_COUNTRIES.forEach((code) => {
+                  values[code] = String(Math.max(0, Number(base?.[code] || 0)));
+                });
+                setDestinationEditor({
+                  open: true,
+                  rowId: row.id,
+                  values,
+                  stock: marketQty,
+                  saving: false,
+                  error: ''
+                });
+              }}
+              className="mt-1 text-[11px] text-primary hover:underline"
+            >
+              {tr('ClientStock.destinationEditor.edit', 'Edit')}
+            </button>
+          )}
         </div>
       );
     }
