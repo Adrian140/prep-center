@@ -917,6 +917,7 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   const [returnLabelFiles, setReturnLabelFiles] = useState([]);
   const [returnNotes, setReturnNotes] = useState('');
   const [returnError, setReturnError] = useState('');
+  const [selectionActionError, setSelectionActionError] = useState('');
   const [savingReturn, setSavingReturn] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -2104,6 +2105,7 @@ const openReception = async () => {
 };
 
 const openPrep = async () => {
+  setSelectionActionError('');
   const selectedRows = rows.filter(r => selectedIds.has(r.id));
 
   if (selectedRows.length === 0) {
@@ -2114,14 +2116,34 @@ const openPrep = async () => {
   // verificare dacă au stoc în Prep Center (>0)
   const noPrepStock = selectedRows.filter(r => Number(r.qty || 0) <= 0);
   if (noPrepStock.length > 0) {
-    setToast({
-      type: 'error',
-      text: tp('ClientStock.errors.noPrepStock', {
-        products: noPrepStock
-          .map(r => r.name || r.asin || r.sku || r.ean || 'Unknown')
-          .join(', ')
-      }),
+    const errorText = tp('ClientStock.errors.noPrepStock', {
+      products: noPrepStock
+        .map(r => r.name || r.asin || r.sku || r.ean || 'Unknown')
+        .join(', ')
     });
+    setSelectionActionError(errorText);
+    setToast({ type: 'error', text: errorText });
+    return;
+  }
+
+  // blocăm trimiterea către prep dacă lipsește SKU pe produse selectate cu stoc disponibil
+  const missingSkuRows = selectedRows.filter((r) => {
+    const skuCandidate =
+      (rowEdits?.[r.id]?.sku != null ? rowEdits[r.id].sku : r.sku) ||
+      '';
+    return !String(skuCandidate).trim();
+  });
+  if (missingSkuRows.length > 0) {
+    const asinList = Array.from(
+      new Set(
+        missingSkuRows.map((r) => String(r.asin || r.ean || r.name || r.id || '').trim()).filter(Boolean)
+      )
+    ).join(', ');
+    const errorText = tp('ClientStock.errors.missingSkuForPrep', {
+      asins: asinList || '—'
+    });
+    setSelectionActionError(errorText);
+    setToast({ type: 'error', text: errorText });
     return;
   }
 
@@ -2143,21 +2165,29 @@ const openPrep = async () => {
 
   const invalid = payload.items.some(i => !i.units_requested || i.units_requested < 1);
   if (invalid) {
-    setToast({ type: 'error', text: 'Enter valid quantities before sending to prep.' });
+    const errorText = 'Enter valid quantities before sending to prep.';
+    setSelectionActionError(errorText);
+    setToast({ type: 'error', text: errorText });
     return;
   }
 
   try {
     const { error } = await supabaseHelpers.createPrepRequest(payload);
     if (error) throw error;
+    setSelectionActionError('');
     setToast({ type: 'success', text: 'Preparation request sent successfully.' });
     resetSelectionsAndUnits();
     setSelectedIdList([]);
   } catch (err) {
     console.error('Prep error:', err);
+    setSelectionActionError(supportError);
     setToast({ type: 'error', text: supportError });
   }
 };
+
+useEffect(() => {
+  setSelectionActionError('');
+}, [submitType, selectedIdList.length, currentMarket]);
 
 // ===== Request Editor logic =====
 const openReqEditor = async (requestId) => {
@@ -2472,8 +2502,12 @@ const saveReqChanges = async () => {
         openReturn={openReturnModal}
         onDelete={openDeleteListings}
         deleteInProgress={deleteInProgress}
-        clearSelection={() => setSelectedIdList([])}
+        clearSelection={() => {
+          setSelectionActionError('');
+          setSelectedIdList([]);
+        }}
         returnError={returnError}
+        actionError={selectionActionError}
         returnNotes={returnNotes}
         onReturnNotesChange={setReturnNotes}
         returnInsideFiles={returnInsideFiles}
