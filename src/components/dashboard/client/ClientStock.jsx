@@ -1865,7 +1865,7 @@ const resetReceptionForm = () => {
   const renderQtyCell = (row) => {
     const marketCode = normalizePrepCountryCode(currentMarket || 'FR') || 'FR';
     const marketQty = Math.max(0, Number(row.qty || 0));
-    if (marketQty <= 0) {
+    if (!enableQtyAdjust && marketQty <= 0) {
       return null;
     }
     const marketLabel = `${marketCode}-${marketQty}`;
