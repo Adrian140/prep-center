@@ -1316,7 +1316,7 @@ useEffect(() => {
           const getSortValue = (row) => {
             if (sortSpec.key === 'sales') return getSalesTotal(row);
             if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
-            if (sortSpec.key === 'prep') return Number(row.qty_total ?? getPrepTotal(row) ?? 0);
+            if (sortSpec.key === 'prep') return Number(row.qty || 0);
             if (sortSpec.key === 'photo') {
               return Number(Number(photoCounts[row.id] || 0) > 0);
             }
@@ -1342,7 +1342,7 @@ useEffect(() => {
         const getSortValue = (row) => {
           if (sortSpec.key === 'sales') return getSalesTotal(row);
           if (sortSpec.key === 'inventory') return Number(row.amazon_stock || 0);
-          if (sortSpec.key === 'prep') return Number(row.qty_total ?? getPrepTotal(row) ?? 0);
+          if (sortSpec.key === 'prep') return Number(row.qty || 0);
           if (sortSpec.key === 'photo') {
             return Number(Number(photoCounts[row.id] || 0) > 0);
           }
@@ -1863,20 +1863,19 @@ const resetReceptionForm = () => {
     }
   };
   const renderQtyCell = (row) => {
-    const prepByCountry = getPrepCountryEntries(row);
-    const prepTotal = Number(row.qty_total ?? getPrepTotal(row) ?? 0);
-    if (prepTotal <= 0) {
+    const marketCode = normalizePrepCountryCode(currentMarket || 'FR') || 'FR';
+    const marketQty = Math.max(0, Number(row.qty || 0));
+    if (marketQty <= 0) {
       return null;
     }
+    const marketLabel = `${marketCode}-${marketQty}`;
     if (!enableQtyAdjust) {
       return (
         <div className="text-right">
           <div className="mt-1 text-[11px] leading-4 space-y-0.5">
-            {prepByCountry.map(([code, qty]) => (
-              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
-                {code}-{qty}
-              </div>
-            ))}
+            <div key={`${row.id}-${marketCode}`} className="font-semibold text-red-600">
+              {marketLabel}
+            </div>
           </div>
         </div>
       );
@@ -1910,15 +1909,11 @@ const resetReceptionForm = () => {
           {Number(row.qty ?? 0)}
         </div>
         <div className="col-start-3">{buildInput('inc', '+')}</div>
-        {prepByCountry.length > 0 && (
-          <div className="col-start-1 text-[11px] leading-4 space-y-0.5 text-left">
-            {prepByCountry.map(([code, qty]) => (
-              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
-                {code}-{qty}
-              </div>
-            ))}
+        <div className="col-start-1 text-[11px] leading-4 space-y-0.5 text-left">
+          <div key={`${row.id}-${marketCode}`} className="font-semibold text-red-600">
+            {marketLabel}
           </div>
-        )}
+        </div>
       </div>
     );
   };
