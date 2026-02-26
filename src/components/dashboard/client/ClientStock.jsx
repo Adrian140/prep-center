@@ -81,6 +81,40 @@ const getPrepCountryEntries = (map) => {
   });
 };
 
+const normalizeDestinationSplitToStock = (map, stockQty) => {
+  const target = Math.max(0, Math.floor(Number(stockQty || 0)));
+  if (!target) return {};
+  const entries = getPrepCountryEntries(map).map(([code, qty]) => [code, Math.max(0, Math.floor(Number(qty || 0)))]);
+  if (entries.length === 0) return {};
+  const sum = entries.reduce((acc, [, qty]) => acc + qty, 0);
+  if (sum === target) {
+    return Object.fromEntries(entries);
+  }
+  const next = Object.fromEntries(entries);
+  if (sum > target) {
+    let excess = sum - target;
+    const order = entries
+      .slice()
+      .sort((a, b) => b[1] - a[1])
+      .map(([code]) => code);
+    for (const code of order) {
+      if (excess <= 0) break;
+      const current = Number(next[code] || 0);
+      if (current <= 0) continue;
+      const delta = Math.min(current, excess);
+      next[code] = current - delta;
+      excess -= delta;
+    }
+  } else {
+    const firstCode = entries[0][0];
+    next[firstCode] = Number(next[firstCode] || 0) + (target - sum);
+  }
+  Object.keys(next).forEach((code) => {
+    if (Number(next[code] || 0) <= 0) delete next[code];
+  });
+  return next;
+};
+
 const formatSalesTimestamp = (value) => {
   if (!value) return '';
   try {
@@ -1919,6 +1953,14 @@ const resetReceptionForm = () => {
     const next = field === 'dec' ? Math.max(0, current - delta) : current + delta;
     try {
       const patch = buildPrepQtyPatch(row, currentMarket, next);
+      if (next <= 0) {
+        patch.destination_qty_by_country = {};
+      } else {
+        patch.destination_qty_by_country = normalizeDestinationSplitToStock(
+          row?.destination_qty_by_country || destinationStockByItemId?.[row.id] || {},
+          next
+        );
+      }
       const { error } = await supabase.from('stock_items').update(patch).eq('id', row.id);
       if (error) throw error;
       setRows((prev) =>
@@ -1943,7 +1985,9 @@ const resetReceptionForm = () => {
         : {};
     const informativeMap =
       Object.keys(manualMap).length > 0 ? manualMap : destinationStockByItemId?.[row.id] || {};
-    const informativeEntries = getPrepCountryEntries(informativeMap);
+    const informativeEntries = getPrepCountryEntries(
+      normalizeDestinationSplitToStock(informativeMap, marketQty)
+    );
     if (!enableQtyAdjust && informativeEntries.length === 0) {
       return null;
     }
@@ -2019,7 +2063,7 @@ const resetReceptionForm = () => {
             }}
             className="col-start-3 justify-self-end text-[11px] text-primary hover:underline"
           >
-            {t('common.edit') || 'Edit'}
+            {tr('ClientStock.destinationEditor.edit', 'Edit')}
           </button>
         )}
       </div>

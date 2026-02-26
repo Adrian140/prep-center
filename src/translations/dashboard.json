@@ -469,6 +469,17 @@
         "noPrepStock": "Some selected products have no Prep Center stock available: {products}",
         "missingSkuForPrep": "Some selected products cannot be sent to Prep because SKU is missing (ASIN: {asins}). Please add a SKU for each destination market. If this stock belongs to another SKU, contact support."
       },
+      "destinationEditor": {
+        "title": "Edit destination split",
+        "edit": "Edit",
+        "save": "Save split",
+        "stockHint": "Available stock in this warehouse: {stock}",
+        "totalHint": "Allocated: {total} / {stock}",
+        "errors": {
+          "rowMissing": "Product not found.",
+          "mustMatchStock": "Destination split must equal available stock ({stock})."
+        }
+      },
       "countries": {
         "FR": "France",
         "DE": "Germany",
@@ -1571,6 +1582,17 @@
         "noPrepStock": "Unele produse selectate nu au stoc în Prep Center: {products}",
         "missingSkuForPrep": "Unele produse selectate nu pot fi trimise la Prep deoarece SKU-ul lipsește (ASIN: {asins}). Te rugăm să adaugi SKU pentru fiecare piață de destinație. Dacă acest stoc aparține altui SKU, contactează administratorul."
       },
+      "destinationEditor": {
+        "title": "Editează distribuția pe destinații",
+        "edit": "Modifică",
+        "save": "Salvează distribuția",
+        "stockHint": "Stoc disponibil în acest depozit: {stock}",
+        "totalHint": "Alocat: {total} / {stock}",
+        "errors": {
+          "rowMissing": "Produsul nu a fost găsit.",
+          "mustMatchStock": "Distribuția pe destinații trebuie să fie egală cu stocul disponibil ({stock})."
+        }
+      },
       "createProduct": {
         "button": "Creează produs",
         "title": "Creează produs",
@@ -2624,6 +2646,17 @@
         "noPrepStock": "Certains produits sélectionnés n'ont pas de stock disponible au Prep Center : {products}",
         "missingSkuForPrep": "Certains produits sélectionnés ne peuvent pas être envoyés au Prep car le SKU est manquant (ASIN : {asins}). Veuillez ajouter un SKU pour chaque marché de destination. Si ce stock appartient à un autre SKU, contactez l'administrateur."
       },
+      "destinationEditor": {
+        "title": "Modifier la répartition par destination",
+        "edit": "Modifier",
+        "save": "Enregistrer la répartition",
+        "stockHint": "Stock disponible dans cet entrepôt : {stock}",
+        "totalHint": "Réparti : {total} / {stock}",
+        "errors": {
+          "rowMissing": "Produit introuvable.",
+          "mustMatchStock": "La répartition par destination doit être égale au stock disponible ({stock})."
+        }
+      },
       "createProduct": {
         "button": "Créer un produit",
         "title": "Créer un produit",
@@ -3546,6 +3579,17 @@
       "errors": {
         "noPrepStock": "Einige ausgewählte Produkte haben keinen Bestand im Prep-Center: {products}",
         "missingSkuForPrep": "Einige ausgewählte Produkte können nicht an Prep gesendet werden, weil die SKU fehlt (ASIN: {asins}). Bitte fügen Sie für jeden Zielmarkt eine SKU hinzu. Wenn dieser Bestand zu einer anderen SKU gehört, kontaktieren Sie den Administrator."
+      },
+      "destinationEditor": {
+        "title": "Zielaufteilung bearbeiten",
+        "edit": "Bearbeiten",
+        "save": "Aufteilung speichern",
+        "stockHint": "Verfügbarer Bestand in diesem Lager: {stock}",
+        "totalHint": "Zugewiesen: {total} / {stock}",
+        "errors": {
+          "rowMissing": "Produkt nicht gefunden.",
+          "mustMatchStock": "Die Zielaufteilung muss dem verfügbaren Bestand entsprechen ({stock})."
+        }
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -4470,6 +4514,17 @@
         "noPrepStock": "Alcuni prodotti selezionati non hanno stock disponibile nel Prep Center: {products}",
         "missingSkuForPrep": "Alcuni prodotti selezionati non possono essere inviati al Prep perché manca lo SKU (ASIN: {asins}). Aggiungi uno SKU per ogni mercato di destinazione. Se questo stock appartiene a un altro SKU, contatta l'amministratore."
       },
+      "destinationEditor": {
+        "title": "Modifica ripartizione destinazioni",
+        "edit": "Modifica",
+        "save": "Salva ripartizione",
+        "stockHint": "Stock disponibile in questo magazzino: {stock}",
+        "totalHint": "Allocato: {total} / {stock}",
+        "errors": {
+          "rowMissing": "Prodotto non trovato.",
+          "mustMatchStock": "La ripartizione per destinazione deve essere uguale allo stock disponibile ({stock})."
+        }
+      },
       "createProduct": {
         "button": "Crea prodotto",
         "title": "Crea prodotto",
@@ -5392,6 +5447,17 @@
       "errors": {
         "noPrepStock": "Algunos productos seleccionados no tienen stock disponible en el Prep Center: {products}",
         "missingSkuForPrep": "Algunos productos seleccionados no se pueden enviar a Prep porque falta el SKU (ASIN: {asins}). Agrega un SKU para cada mercado de destino. Si este stock pertenece a otro SKU, contacta al administrador."
+      },
+      "destinationEditor": {
+        "title": "Editar reparto por destino",
+        "edit": "Editar",
+        "save": "Guardar reparto",
+        "stockHint": "Stock disponible en este almacén: {stock}",
+        "totalHint": "Asignado: {total} / {stock}",
+        "errors": {
+          "rowMissing": "Producto no encontrado.",
+          "mustMatchStock": "El reparto por destino debe ser igual al stock disponible ({stock})."
+        }
       },
       "createProduct": {
         "button": "Crear producto",
