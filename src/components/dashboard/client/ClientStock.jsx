@@ -1871,16 +1871,13 @@ const resetReceptionForm = () => {
     if (!enableQtyAdjust) {
       return (
         <div className="text-right">
-          <div className="font-semibold text-gray-800">{prepTotal}</div>
-          {prepByCountry.length > 0 && (
-            <div className="mt-1 text-[11px] leading-4 space-y-0.5">
-              {prepByCountry.map(([code, qty]) => (
-                <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
-                  {code}-{qty}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="mt-1 text-[11px] leading-4 space-y-0.5">
+            {prepByCountry.map(([code, qty]) => (
+              <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
+                {code}-{qty}
+              </div>
+            ))}
+          </div>
         </div>
       );
     }
