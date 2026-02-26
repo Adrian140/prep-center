@@ -1904,16 +1904,14 @@ const resetReceptionForm = () => {
       />
     );
     return (
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center justify-end gap-2">
-          {buildInput('dec', '-')}
-          <div className="min-w-[3.5rem] text-center font-semibold">
-            {Number(row.qty ?? 0)}
-          </div>
-          {buildInput('inc', '+')}
+      <div className="grid grid-cols-[3.5rem_3.5rem_3.5rem] justify-end gap-x-2 gap-y-1">
+        <div className="col-start-1">{buildInput('dec', '-')}</div>
+        <div className="col-start-2 min-w-[3.5rem] text-center font-semibold self-center">
+          {Number(row.qty ?? 0)}
         </div>
+        <div className="col-start-3">{buildInput('inc', '+')}</div>
         {prepByCountry.length > 0 && (
-          <div className="text-[11px] leading-4 space-y-0.5 text-right">
+          <div className="col-start-1 text-[11px] leading-4 space-y-0.5 text-left">
             {prepByCountry.map(([code, qty]) => (
               <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
                 {code}-{qty}
