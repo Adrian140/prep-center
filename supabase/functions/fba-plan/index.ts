@@ -1305,7 +1305,7 @@ async function checkSkuStatus(params: {
         return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol).", canonicalSku, fnsku: canonicalFnsku };
       }
       if (!statusList.length) {
-        return { state: "missing", reason: "Listing lipsă pe marketplace (status absent).", canonicalSku, fnsku: canonicalFnsku };
+        return { state: "inactive", reason: "Listing găsit, dar fără status în summaries.", canonicalSku, fnsku: canonicalFnsku };
       }
       if (hasBuyable) {
         return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku, fnsku: canonicalFnsku };
