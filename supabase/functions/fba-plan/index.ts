@@ -1265,7 +1265,9 @@ async function checkSkuStatus(params: {
   try {
     for (const candidateSku of skuCandidates) {
       const listingsPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(candidateSku)}`;
-      const listingsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`;
+      const listingsQuery =
+        `marketplaceIds=${encodeURIComponent(marketplaceId)}` +
+        `&includedData=attributes,summaries,issues,offers,fulfillmentAvailability`;
       const { res, json, text } = await spapiGet({
         host,
         region,
@@ -1290,10 +1292,21 @@ async function checkSkuStatus(params: {
 
       canonicalSku = candidateSku;
       const summaries = json?.payload?.summaries || json?.summaries || [];
+      const issues = json?.payload?.issues || json?.issues || [];
+      const offers = json?.payload?.offers || json?.offers || [];
+      const fulfillmentAvailability =
+        json?.payload?.fulfillmentAvailability ||
+        json?.payload?.fulfillment_availability ||
+        json?.fulfillmentAvailability ||
+        json?.fulfillment_availability ||
+        [];
+      const listingAttributes = json?.payload?.attributes || json?.attributes || {};
       let status = "";
+      let summaryAsin = "";
       if (Array.isArray(summaries)) {
         const s = summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId));
         status = String(s?.status || s?.Status || "");
+        summaryAsin = String(s?.asin || "").trim();
         canonicalFnsku = String(s?.fnSku || s?.fnsku || s?.FNSKU || "").trim() || null;
       }
 
@@ -1305,7 +1318,50 @@ async function checkSkuStatus(params: {
         return { state: "missing", reason: "Listing lipsă pe marketplace (summaries gol).", canonicalSku, fnsku: canonicalFnsku };
       }
       if (!statusList.length) {
-        return { state: "inactive", reason: "Listing găsit, dar fără status în summaries.", canonicalSku, fnsku: canonicalFnsku };
+        const issueList = Array.isArray(issues) ? issues : [];
+        const blockingIssue = issueList.find((it: any) => {
+          const sev = String(it?.severity || "").toUpperCase();
+          const actions = Array.isArray(it?.enforcements?.actions) ? it.enforcements.actions : [];
+          const actionCodes = actions.map((a: any) => String(a?.action || "").toUpperCase());
+          return (
+            sev === "ERROR" &&
+            (actionCodes.includes("CATALOG_ITEM_REMOVED") ||
+              actionCodes.includes("LISTING_SUPPRESSED") ||
+              actionCodes.includes("ATTRIBUTE_SUPPRESSED"))
+          );
+        });
+        if (blockingIssue) {
+          return {
+            state: "inactive",
+            reason: "Listing găsit, dar are probleme de publicare (issues/enforcements).",
+            canonicalSku,
+            fnsku: canonicalFnsku
+          };
+        }
+
+        const hasSummaryIdentity = Boolean(summaryAsin || canonicalFnsku);
+        const hasOfferData = Array.isArray(offers) && offers.length > 0;
+        const hasFulfillmentData = Array.isArray(fulfillmentAvailability) && fulfillmentAvailability.length > 0;
+        const hasAttributeOffer =
+          (Array.isArray(listingAttributes?.purchasable_offer) && listingAttributes.purchasable_offer.length > 0) ||
+          (Array.isArray(listingAttributes?.fulfillment_availability) && listingAttributes.fulfillment_availability.length > 0);
+
+        if (hasSummaryIdentity || hasOfferData || hasFulfillmentData || hasAttributeOffer) {
+          return {
+            state: "ok",
+            reason:
+              "Listing găsit, dar fără status explicit în summaries (Amazon poate omite BUYABLE/DISCOVERABLE, ex. lipsă stoc).",
+            canonicalSku,
+            fnsku: canonicalFnsku
+          };
+        }
+
+        return {
+          state: "unknown",
+          reason: "Listing răspunde 200, dar fără status și fără indicatori clari de ofertă/publicare.",
+          canonicalSku,
+          fnsku: canonicalFnsku
+        };
       }
       if (hasBuyable) {
         return { state: "ok", reason: `Listing găsit cu status ${statusList.join(",")}`, canonicalSku, fnsku: canonicalFnsku };
