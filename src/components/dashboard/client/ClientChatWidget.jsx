@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Paperclip, Send } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
@@ -7,6 +7,8 @@ import ChatThread from '@/components/chat/ChatThread';
 
 const SUPPORTED_CHAT_MARKETS = ['FR', 'DE'];
 const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
+const MAX_B2B_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_B2B_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 const buildClientName = (profile, user) => {
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
@@ -60,11 +62,14 @@ export default function ClientChatWidget() {
   const [activeB2bConversationId, setActiveB2bConversationId] = useState(null);
   const [b2bMessages, setB2bMessages] = useState([]);
   const [b2bInput, setB2bInput] = useState('');
+  const [b2bFiles, setB2bFiles] = useState([]);
+  const [b2bAttachmentUrls, setB2bAttachmentUrls] = useState({});
   const [b2bSending, setB2bSending] = useState(false);
   const [b2bSendError, setB2bSendError] = useState('');
 
   const widgetRef = useRef(null);
   const b2bScrollRef = useRef(null);
+  const b2bFileInputRef = useRef(null);
   const b2bReadStorageKey = useMemo(
     () => (user?.id ? `client_b2b_read_v1_${user.id}` : ''),
     [user?.id]
@@ -358,13 +363,15 @@ export default function ClientChatWidget() {
   }, []);
 
   const sendB2bMessage = async () => {
-    if (!activeB2bConversationId || !user?.id || !b2bInput.trim() || b2bSending) return;
+    if (!activeB2bConversationId || !user?.id || b2bSending) return;
+    const body = b2bInput.trim();
+    if (!body && b2bFiles.length === 0) return;
     setB2bSending(true);
     setB2bSendError('');
     const res = await supabaseHelpers.sendClientMarketMessage({
       conversationId: activeB2bConversationId,
       senderUserId: user.id,
-      body: b2bInput
+      body: body || 'Attachment'
     });
     if (res?.error) {
       console.error('Failed to send B2B message:', res.error);
@@ -372,11 +379,70 @@ export default function ClientChatWidget() {
       setB2bSending(false);
       return;
     }
+    if (res?.data?.id && b2bFiles.length > 0) {
+      for (const file of b2bFiles) {
+        const uploadRes = await supabaseHelpers.uploadClientMarketAttachment({
+          conversationId: activeB2bConversationId,
+          messageId: res.data.id,
+          file
+        });
+        if (uploadRes?.error) {
+          console.error('Failed to upload B2B attachment:', uploadRes.error);
+          setB2bSendError(uploadRes.error.message || 'Could not upload attachment.');
+          break;
+        }
+      }
+    }
     setB2bInput('');
+    setB2bFiles([]);
+    if (b2bFileInputRef.current) b2bFileInputRef.current.value = '';
     await loadB2bMessages(activeB2bConversationId);
     await loadB2bConversations({ silent: true });
     markB2bConversationRead(activeB2bConversationId);
     setB2bSending(false);
+  };
+
+  useEffect(() => {
+    const pending = [];
+    b2bMessages.forEach((msg) => {
+      const attachments = Array.isArray(msg?.client_market_message_attachments)
+        ? msg.client_market_message_attachments
+        : [];
+      attachments.forEach((att) => {
+        if (att?.id && att?.storage_path && !b2bAttachmentUrls[att.id]) {
+          pending.push(att);
+        }
+      });
+    });
+    if (!pending.length) return;
+    let cancelled = false;
+    const fetchUrls = async () => {
+      const updates = {};
+      for (const att of pending) {
+        const res = await supabaseHelpers.getClientMarketAttachmentUrl({
+          path: att.storage_path
+        });
+        if (res?.data?.signedUrl) updates[att.id] = res.data.signedUrl;
+      }
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setB2bAttachmentUrls((prev) => ({ ...prev, ...updates }));
+      }
+    };
+    fetchUrls();
+    return () => {
+      cancelled = true;
+    };
+  }, [b2bMessages, b2bAttachmentUrls]);
+
+  const handleB2bFiles = (event) => {
+    const selected = Array.from(event.target.files || []);
+    const valid = selected.filter(
+      (file) =>
+        ALLOWED_B2B_FILE_TYPES.includes(file.type) &&
+        Number(file.size || 0) > 0 &&
+        Number(file.size || 0) <= MAX_B2B_FILE_SIZE
+    );
+    setB2bFiles(valid);
   };
 
   if (!user || !companyId || isAdmin) return null;
@@ -565,10 +631,38 @@ export default function ClientChatWidget() {
                     )}
                     {b2bMessages.map((msg) => {
                       const mine = msg.sender_user_id === user.id;
+                      const attachments = Array.isArray(msg?.client_market_message_attachments)
+                        ? msg.client_market_message_attachments
+                        : [];
                       return (
                         <div key={msg.id} className={`mb-2 flex ${mine ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs ${mine ? 'bg-primary text-white' : 'bg-slate-100 text-slate-900'}`}>
                             <div className="whitespace-pre-wrap">{msg.body}</div>
+                            {attachments.map((att) => {
+                              const url = b2bAttachmentUrls[att.id];
+                              if (!url) return null;
+                              if (String(att.mime_type || '').startsWith('image/')) {
+                                return (
+                                  <img
+                                    key={att.id}
+                                    src={url}
+                                    alt={att.file_name || 'attachment'}
+                                    className="mt-2 max-h-36 rounded border border-slate-200"
+                                  />
+                                );
+                              }
+                              return (
+                                <a
+                                  key={att.id}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`mt-2 block underline ${mine ? 'text-white' : 'text-primary'}`}
+                                >
+                                  {att.file_name || 'Attachment'}
+                                </a>
+                              );
+                            })}
                             <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-500'}`}>
                               {formatMessageTime(msg.created_at)}
                             </div>
@@ -577,8 +671,22 @@ export default function ClientChatWidget() {
                       );
                     })}
                   </div>
-                  <div className="border-t border-slate-200 p-2">
+                  <div className="shrink-0 border-t border-slate-200 p-2">
+                    {b2bFiles.length > 0 && (
+                      <div className="mb-1 text-[11px] text-slate-500">{b2bFiles.length} attachment(s) ready</div>
+                    )}
                     <div className="flex items-end gap-2">
+                      <label className="cursor-pointer rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-50">
+                        <Paperclip size={14} />
+                        <input
+                          ref={b2bFileInputRef}
+                          type="file"
+                          accept=".jpg,.jpeg,.png,.pdf"
+                          multiple
+                          className="hidden"
+                          onChange={handleB2bFiles}
+                        />
+                      </label>
                       <textarea
                         value={b2bInput}
                         onChange={(e) => setB2bInput(e.target.value)}
@@ -588,13 +696,16 @@ export default function ClientChatWidget() {
                       />
                       <button
                         onClick={sendB2bMessage}
-                        disabled={!activeB2bConversationId || !b2bInput.trim() || b2bSending}
+                        disabled={
+                          !activeB2bConversationId || (b2bInput.trim().length === 0 && b2bFiles.length === 0) || b2bSending
+                        }
                         className="rounded-lg bg-primary px-2.5 py-2 text-white hover:bg-primary/90 disabled:opacity-50"
                         aria-label="Send"
                       >
                         <Send size={14} />
                       </button>
                     </div>
+                    <div className="mt-1 text-[11px] text-slate-400">Files: JPG, PNG, PDF up to 10MB</div>
                     {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
                     {!!b2bSendError && <div className="mt-1 text-[11px] text-rose-600">{b2bSendError}</div>}
                   </div>

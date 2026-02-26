@@ -152,12 +152,12 @@ export default function AdminChatWidget() {
     <div ref={widgetRef} className="fixed bottom-6 right-6 z-50">
       {open && (
         <div className="mb-3 h-[560px] w-[760px] max-w-[96vw] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <div className="border-r border-slate-200 p-3">
+          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <div className="flex min-h-0 flex-col border-r border-slate-200 p-3">
               <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                 Conversations
               </div>
-              <div className="space-y-2 overflow-y-auto pr-1" style={{ maxHeight: '510px' }}>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                 {loading && conversations.length === 0 && (
                   <div className="text-sm text-slate-500">Loading...</div>
                 )}
@@ -198,7 +198,7 @@ export default function AdminChatWidget() {
                 })}
               </div>
             </div>
-            <div className="h-full">
+            <div className="h-full min-h-0">
               {activeConversation ? (
                 <ChatThread
                   conversation={activeConversation}

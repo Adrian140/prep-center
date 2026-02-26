@@ -4393,7 +4393,9 @@ getAllReceivingShipments: async (options = {}) => {
     if (!conversationId) return { data: [], error: null };
     const res = await supabase
       .from('client_market_messages')
-      .select('id, conversation_id, sender_user_id, body, created_at')
+      .select(
+        'id, conversation_id, sender_user_id, body, created_at, client_market_message_attachments(id, storage_path, file_name, mime_type, size_bytes)'
+      )
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(limit);
@@ -4424,6 +4426,44 @@ getAllReceivingShipments: async (options = {}) => {
       })
       .select('*')
       .single();
+  },
+
+  uploadClientMarketAttachment: async ({ conversationId, messageId, file }) => {
+    if (!conversationId || !messageId || !file) {
+      return { data: null, error: new Error('Missing marketplace attachment data') };
+    }
+    const safeName = String(file.name || 'attachment')
+      .replace(/[^\w.\-]+/g, '_')
+      .slice(0, 120);
+    const path = `client-market/${conversationId}/${messageId}/${Date.now()}_${safeName}`;
+    const upload = await supabase
+      .storage
+      .from('client-market-attachments')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'application/octet-stream'
+      });
+    if (upload.error) return upload;
+    return await supabase
+      .from('client_market_message_attachments')
+      .insert({
+        message_id: messageId,
+        storage_path: path,
+        file_name: file.name || 'attachment',
+        mime_type: file.type || null,
+        size_bytes: Number(file.size || 0) || null
+      })
+      .select('*')
+      .single();
+  },
+
+  getClientMarketAttachmentUrl: async ({ path, expiresIn = 3600 }) => {
+    if (!path) return { data: null, error: null };
+    return await supabase
+      .storage
+      .from('client-market-attachments')
+      .createSignedUrl(path, expiresIn);
   }
 };
 
