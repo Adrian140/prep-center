@@ -1865,6 +1865,9 @@ const resetReceptionForm = () => {
   const renderQtyCell = (row) => {
     const prepByCountry = getPrepCountryEntries(row);
     const prepTotal = Number(row.qty_total ?? getPrepTotal(row) ?? 0);
+    if (prepTotal <= 0) {
+      return null;
+    }
     if (!enableQtyAdjust) {
       return (
         <div className="text-right">
