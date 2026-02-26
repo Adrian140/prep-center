@@ -1988,12 +1988,10 @@ const resetReceptionForm = () => {
     const informativeEntries = getPrepCountryEntries(
       normalizeDestinationSplitToStock(informativeMap, marketQty)
     );
-    if (!enableQtyAdjust && informativeEntries.length === 0) {
-      return null;
-    }
     if (!enableQtyAdjust) {
       return (
         <div className="text-right">
+          <div className="font-semibold">{marketQty}</div>
           <div className="mt-1 text-[11px] leading-4 space-y-0.5">
             {informativeEntries.map(([code, qty]) => (
               <div key={`${row.id}-${code}`} className="font-semibold text-red-600">
