@@ -236,6 +236,7 @@ export default function AdminUPS() {
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [rateQuote, setRateQuote] = useState(null);
+  const [rateQuoteMeta, setRateQuoteMeta] = useState(null);
   const [promoMessage, setPromoMessage] = useState('');
   const [form, setForm] = useState(buildInitialForm());
   const countryByCode = useMemo(
@@ -490,6 +491,7 @@ export default function AdminUPS() {
   useEffect(() => {
     if (!isClientWindowOpen) return;
     setRateQuote(null);
+    setRateQuoteMeta(null);
   }, [
     isClientWindowOpen,
     form.service_code,
@@ -511,6 +513,7 @@ export default function AdminUPS() {
     setForm((prev) => ({ ...buildInitialForm(), integration_id: integrationId, warehouse_country: prev.warehouse_country }));
     setSenderTouched(false);
     setRateQuote(null);
+    setRateQuoteMeta(null);
     setPromoMessage('');
     setIsClientWindowOpen(true);
   };
@@ -519,6 +522,7 @@ export default function AdminUPS() {
     setIsClientWindowOpen(false);
     setOpenedIntegrationId('');
     setRateQuote(null);
+    setRateQuoteMeta(null);
     setPromoMessage('');
   };
 
@@ -575,6 +579,8 @@ export default function AdminUPS() {
 
     setQuoteLoading(true);
     setPromoMessage('');
+    setRateQuote(null);
+    setRateQuoteMeta(null);
     try {
       const res = await supabaseHelpers.getUpsRateQuote({
         integration_id: selectedIntegration?.id,
@@ -600,8 +606,19 @@ export default function AdminUPS() {
 
       const err = res?.error || res?.data?.error;
       if (err) throw new Error(typeof err === 'string' ? err : err.message || 'Nu am putut obține estimarea UPS.');
+      if (res?.data?.quote?.amount == null) {
+        const upsMessages = Array.isArray(res?.data?.ups_messages) ? res.data.ups_messages.filter(Boolean) : [];
+        const suffix = upsMessages.length ? ` Detalii UPS: ${upsMessages.join(' | ')}` : '';
+        throw new Error(`UPS nu a returnat un preț valid pentru acest colet.${suffix}`);
+      }
 
       setRateQuote(res.data?.quote || null);
+      setRateQuoteMeta({
+        quote_source: res?.data?.quote_source || null,
+        trans_id: res?.data?.trans_id || null,
+        token_source: res?.data?.token_source || null,
+        at: new Date().toISOString()
+      });
       if (promoTriggered) {
         if (form.promo_code) {
           setPromoMessage('UPS nu expune validare promo code în Rating API; prețul afișat este cel returnat de contul UPS conectat.');
@@ -751,6 +768,7 @@ export default function AdminUPS() {
         declared_currency: 'EUR'
       }));
       setRateQuote(null);
+      setRateQuoteMeta(null);
       await refresh();
     } catch (error) {
       setError(error.message || 'Nu am putut crea comanda UPS.');
@@ -1131,6 +1149,8 @@ export default function AdminUPS() {
                     <div><b>Reference:</b> {form.reference_code || '-'}</div>
                     <div><b>Promo:</b> {form.promo_code || '-'}</div>
                     <div><b>Estimated:</b> {rateQuote?.amount != null ? `${Number(rateQuote.amount).toFixed(2)} ${rateQuote.currency || 'EUR'}` : '-'}</div>
+                    <div><b>Quote source:</b> {rateQuoteMeta?.quote_source || '-'}</div>
+                    <div><b>Request ID:</b> {rateQuoteMeta?.trans_id || '-'}</div>
                   </div>
                   <button
                     type="button"

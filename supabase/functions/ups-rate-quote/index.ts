@@ -128,136 +128,169 @@ async function fetchUpsToken({
   return { token: accessToken, source: "client_credentials", payload: json };
 }
 
+function extractUpsErrorMessages(payload: any) {
+  const out: string[] = [];
+  const pushIf = (value: unknown) => {
+    const text = String(value || "").trim();
+    if (text && !out.includes(text)) out.push(text);
+  };
+
+  const faultErrors = payload?.Fault?.detail?.Errors;
+  const faultList = Array.isArray(faultErrors) ? faultErrors : faultErrors ? [faultErrors] : [];
+  faultList.forEach((err: any) => {
+    pushIf(err?.Code);
+    pushIf(err?.Message);
+  });
+
+  const responseErrors = payload?.response?.errors;
+  const responseList = Array.isArray(responseErrors) ? responseErrors : responseErrors ? [responseErrors] : [];
+  responseList.forEach((err: any) => {
+    pushIf(err?.code);
+    pushIf(err?.message);
+  });
+
+  return out;
+}
+
+function safeJson(value: unknown, fallback = null) {
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
-    return jsonResponse({ error: "Missing Supabase environment variables." }, 500);
-  }
-  if (!UPS_CLIENT_ID || !UPS_CLIENT_SECRET) {
-    return jsonResponse({ error: "Missing UPS_CLIENT_ID / UPS_CLIENT_SECRET." }, 500);
-  }
+  try {
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+      return jsonResponse({ error: "Missing Supabase environment variables." }, 500);
+    }
+    if (!UPS_CLIENT_ID || !UPS_CLIENT_SECRET) {
+      return jsonResponse({ error: "Missing UPS_CLIENT_ID / UPS_CLIENT_SECRET." }, 500);
+    }
 
-  const authHeader = req.headers.get("authorization") || "";
-  if (!authHeader) return jsonResponse({ error: "Missing auth header." }, 401);
+    const authHeader = req.headers.get("authorization") || "";
+    if (!authHeader) return jsonResponse({ error: "Missing auth header." }, 401);
 
-  const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } }
-  });
-  const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  const {
-    data: { user },
-    error: authError
-  } = await anonClient.auth.getUser();
-  if (authError || !user) return jsonResponse({ error: "Not authenticated." }, 401);
+    const {
+      data: { user },
+      error: authError
+    } = await anonClient.auth.getUser();
+    if (authError || !user) return jsonResponse({ error: "Not authenticated." }, 401);
 
-  const body = await req.json().catch(() => ({}));
-  const integrationId = String(body?.integration_id || "").trim();
-  if (!integrationId) return jsonResponse({ error: "Missing integration_id." }, 400);
+    const body = await req.json().catch(() => ({}));
+    const integrationId = String(body?.integration_id || "").trim();
+    if (!integrationId) return jsonResponse({ error: "Missing integration_id." }, 400);
 
-  const shipFrom = body?.ship_from || {};
-  const shipTo = body?.ship_to || {};
-  const packageData = body?.package_data || {};
-  const serviceCode = String(body?.service_code || "11").trim();
+    const shipFrom = body?.ship_from || {};
+    const shipTo = body?.ship_to || {};
+    const packageData = body?.package_data || {};
+    const serviceCode = String(body?.service_code || "11").trim();
 
-  const required = [
-    shipFrom?.postal_code,
-    shipFrom?.country_code,
-    shipTo?.postal_code,
-    shipTo?.country_code,
-    packageData?.weight_kg
-  ];
-  if (required.some((x) => String(x || "").trim() === "")) {
-    return jsonResponse({ error: "Missing required fields for rate quote (from/to postal+country, weight)." }, 400);
-  }
+    const required = [
+      shipFrom?.postal_code,
+      shipFrom?.country_code,
+      shipTo?.postal_code,
+      shipTo?.country_code,
+      packageData?.weight_kg
+    ];
+    if (required.some((x) => String(x || "").trim() === "")) {
+      return jsonResponse({ error: "Missing required fields for rate quote (from/to postal+country, weight)." }, 400);
+    }
 
-  const { data: integration, error: integrationError } = await serviceClient
-    .from("ups_integrations")
-    .select("*")
-    .eq("id", integrationId)
-    .maybeSingle();
-
-  if (integrationError || !integration) {
-    return jsonResponse({ error: integrationError?.message || "UPS integration not found." }, 404);
-  }
-
-  const { data: requesterProfile } = await serviceClient
-    .from("profiles")
-    .select("is_admin, is_limited_admin, company_id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const isAdmin = Boolean(requesterProfile?.is_admin && !requesterProfile?.is_limited_admin);
-  const sameOwner = user.id === integration.user_id;
-  const sameCompany = Boolean(requesterProfile?.company_id && requesterProfile.company_id === integration.company_id);
-  if (!isAdmin && !sameOwner && !sameCompany) {
-    return jsonResponse({ error: "Not authorized for this UPS integration." }, 403);
-  }
-
-  const oauthMeta = integration?.metadata?.ups_oauth || {};
-  const tokenEncrypted = Boolean(oauthMeta?.encrypted);
-  let accessToken = await decryptMaybe(UPS_ENC_KEY, oauthMeta?.access_token || null, tokenEncrypted);
-  const refreshToken = await decryptMaybe(UPS_ENC_KEY, oauthMeta?.refresh_token || null, tokenEncrypted);
-
-  const tokenExpiresAt = oauthMeta?.expires_at ? new Date(oauthMeta.expires_at).getTime() : 0;
-  const tokenValid = accessToken && tokenExpiresAt && tokenExpiresAt > Date.now() + 60_000;
-  let tokenSource = "cached";
-  let tokenPayload: any = null;
-
-  if (!tokenValid) {
-    const fetched = await fetchUpsToken({ refreshToken });
-    accessToken = fetched.token;
-    tokenSource = fetched.source;
-    tokenPayload = fetched.payload;
-
-    const expiresIn = Number(tokenPayload?.expires_in || tokenPayload?.expiresIn || 0) || null;
-    const refreshExpiresIn = Number(tokenPayload?.refresh_expires_in || tokenPayload?.refreshExpiresIn || 0) || null;
-    const nextAccessExp = expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null;
-    const nextRefreshExp = refreshExpiresIn ? new Date(Date.now() + refreshExpiresIn * 1000).toISOString() : oauthMeta?.refresh_expires_at || null;
-    const nextRefresh = String(tokenPayload?.refresh_token || tokenPayload?.refreshToken || "").trim() || refreshToken;
-
-    const encAccess = await encryptMaybe(UPS_ENC_KEY, accessToken);
-    const encRefresh = await encryptMaybe(UPS_ENC_KEY, nextRefresh || null);
-
-    const metadata = {
-      ...(integration?.metadata || {}),
-      ups_oauth: {
-        ...(oauthMeta || {}),
-        access_token: encAccess.value,
-        refresh_token: encRefresh.value,
-        encrypted: Boolean(encAccess.encrypted || encRefresh.encrypted),
-        token_type: tokenPayload?.token_type || oauthMeta?.token_type || "Bearer",
-        scope: tokenPayload?.scope || oauthMeta?.scope || null,
-        expires_at: nextAccessExp,
-        refresh_expires_at: nextRefreshExp,
-        updated_at: new Date().toISOString()
-      }
-    };
-
-    await serviceClient
+    const { data: integration, error: integrationError } = await serviceClient
       .from("ups_integrations")
-      .update({
-        metadata,
-        status: "active",
-        oauth_scope: tokenPayload?.scope || integration?.oauth_scope || null,
-        last_error: null,
-        last_synced_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", integration.id);
-  }
+      .select("*")
+      .eq("id", integrationId)
+      .maybeSingle();
 
-  if (!accessToken) return jsonResponse({ error: "Failed to obtain UPS access token." }, 502);
+    if (integrationError || !integration) {
+      return jsonResponse({ error: integrationError?.message || "UPS integration not found." }, 404);
+    }
 
-  const weight = Math.max(0.01, Number(packageData?.weight_kg || 0.01));
-  const length = asNumberOrNull(packageData?.length_cm);
-  const width = asNumberOrNull(packageData?.width_cm);
-  const height = asNumberOrNull(packageData?.height_cm);
+    const { data: requesterProfile } = await serviceClient
+      .from("profiles")
+      .select("is_admin, is_limited_admin, company_id")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  const requestPayload = {
-    RateRequest: {
+    const isAdmin = Boolean(requesterProfile?.is_admin && !requesterProfile?.is_limited_admin);
+    const sameOwner = user.id === integration.user_id;
+    const sameCompany = Boolean(requesterProfile?.company_id && requesterProfile.company_id === integration.company_id);
+    if (!isAdmin && !sameOwner && !sameCompany) {
+      return jsonResponse({ error: "Not authorized for this UPS integration." }, 403);
+    }
+
+    const oauthMeta = integration?.metadata?.ups_oauth || {};
+    const tokenEncrypted = Boolean(oauthMeta?.encrypted);
+    let accessToken = await decryptMaybe(UPS_ENC_KEY, oauthMeta?.access_token || null, tokenEncrypted);
+    const refreshToken = await decryptMaybe(UPS_ENC_KEY, oauthMeta?.refresh_token || null, tokenEncrypted);
+
+    const tokenExpiresAt = oauthMeta?.expires_at ? new Date(oauthMeta.expires_at).getTime() : 0;
+    const tokenValid = accessToken && tokenExpiresAt && tokenExpiresAt > Date.now() + 60_000;
+    let tokenSource = "cached";
+    let tokenPayload: any = null;
+
+    if (!tokenValid) {
+      const fetched = await fetchUpsToken({ refreshToken });
+      accessToken = fetched.token;
+      tokenSource = fetched.source;
+      tokenPayload = fetched.payload;
+
+      const expiresIn = Number(tokenPayload?.expires_in || tokenPayload?.expiresIn || 0) || null;
+      const refreshExpiresIn = Number(tokenPayload?.refresh_expires_in || tokenPayload?.refreshExpiresIn || 0) || null;
+      const nextAccessExp = expiresIn ? new Date(Date.now() + expiresIn * 1000).toISOString() : null;
+      const nextRefreshExp = refreshExpiresIn ? new Date(Date.now() + refreshExpiresIn * 1000).toISOString() : oauthMeta?.refresh_expires_at || null;
+      const nextRefresh = String(tokenPayload?.refresh_token || tokenPayload?.refreshToken || "").trim() || refreshToken;
+
+      const encAccess = await encryptMaybe(UPS_ENC_KEY, accessToken);
+      const encRefresh = await encryptMaybe(UPS_ENC_KEY, nextRefresh || null);
+
+      const metadata = {
+        ...(integration?.metadata || {}),
+        ups_oauth: {
+          ...(oauthMeta || {}),
+          access_token: encAccess.value,
+          refresh_token: encRefresh.value,
+          encrypted: Boolean(encAccess.encrypted || encRefresh.encrypted),
+          token_type: tokenPayload?.token_type || oauthMeta?.token_type || "Bearer",
+          scope: tokenPayload?.scope || oauthMeta?.scope || null,
+          expires_at: nextAccessExp,
+          refresh_expires_at: nextRefreshExp,
+          updated_at: new Date().toISOString()
+        }
+      };
+
+      await serviceClient
+        .from("ups_integrations")
+        .update({
+          metadata,
+          status: "active",
+          oauth_scope: tokenPayload?.scope || integration?.oauth_scope || null,
+          last_error: null,
+          last_synced_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", integration.id);
+    }
+
+    if (!accessToken) return jsonResponse({ error: "Failed to obtain UPS access token." }, 502);
+
+    const weight = Math.max(0.01, Number(packageData?.weight_kg || 0.01));
+    const length = asNumberOrNull(packageData?.length_cm);
+    const width = asNumberOrNull(packageData?.width_cm);
+    const height = asNumberOrNull(packageData?.height_cm);
+
+    const requestPayload = {
+      RateRequest: {
       Request: {
         RequestOption: "Rate",
         TransactionReference: {
@@ -313,45 +346,123 @@ serve(async (req) => {
     }
   };
 
-  const response = await fetch(`${UPS_BASE_URL}/api/rating/v2409/Rate`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
-      transId: crypto.randomUUID(),
-      transactionSrc: "prep-center"
-    },
-    body: JSON.stringify(requestPayload)
-  });
+    const transId = crypto.randomUUID();
+    const requestLogPayload = {
+      integration_id: integration.id,
+      has_shipper_number: Boolean(integration.ups_account_number),
+      ship_from_country: String(shipFrom?.country_code || "").trim().toUpperCase(),
+      ship_to_country: String(shipTo?.country_code || "").trim().toUpperCase(),
+      ship_from_postal: String(shipFrom?.postal_code || "").trim(),
+      ship_to_postal: String(shipTo?.postal_code || "").trim(),
+      service_code: serviceCode,
+      packaging_type: String(body?.packaging_type || packageData?.packaging_type || "02"),
+      token_source: tokenSource,
+      request_payload: requestPayload
+    };
+    console.log("ups-rate-quote request", requestLogPayload);
 
-  const responseText = await response.text();
-  let responseJson: any = null;
-  try {
-    responseJson = responseText ? JSON.parse(responseText) : null;
-  } catch {
-    responseJson = { raw: responseText };
-  }
+    const response = await fetch(`${UPS_BASE_URL}/api/rating/v2409/Rate`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+        transId,
+        transactionSrc: "prep-center"
+      },
+      body: JSON.stringify(requestPayload)
+    });
 
-  if (!response.ok) {
+    const responseText = await response.text();
+    let responseJson: any = null;
+    try {
+      responseJson = responseText ? JSON.parse(responseText) : null;
+    } catch {
+      responseJson = { raw: responseText };
+    }
+
+    console.log("ups-rate-quote upstream-response", {
+      integration_id: integration.id,
+      status: response.status,
+      trans_id: transId,
+      response_json: safeJson(responseJson, { raw: responseText }),
+      response_text: responseText
+    });
+
+    if (!response.ok) {
+      const upsMessages = extractUpsErrorMessages(responseJson);
+      console.error("ups-rate-quote upstream error", {
+        integration_id: integration.id,
+        status: response.status,
+        trans_id: transId,
+        ups_messages: upsMessages
+      });
+      return jsonResponse(
+        {
+          error: responseText || `UPS Rating API error (${response.status})`,
+          status: response.status,
+          quote_source: "ups_api_rating_v2409",
+          trans_id: transId,
+          token_source: tokenSource,
+          promo_supported: false,
+          ups_messages: upsMessages
+        },
+        502
+      );
+    }
+
+    const quote = extractRateQuote(responseJson, serviceCode);
+    const upsMessages = extractUpsErrorMessages(responseJson);
+    if (!quote || quote.amount == null) {
+      console.error("ups-rate-quote missing quote", {
+        integration_id: integration.id,
+        trans_id: transId,
+        ups_messages: upsMessages,
+        response_shape: Object.keys(responseJson || {}),
+        response_json: safeJson(responseJson)
+      });
+      return jsonResponse(
+        {
+          error: "UPS did not return a valid rate quote for this shipment.",
+          quote_source: "ups_api_rating_v2409",
+          trans_id: transId,
+          token_source: tokenSource,
+          promo_supported: false,
+          ups_messages: upsMessages,
+          details: {
+            service_code: serviceCode,
+            has_shipper_number: Boolean(integration.ups_account_number)
+          }
+        },
+        502
+      );
+    }
+
+    console.log("ups-rate-quote parsed-quote", {
+      integration_id: integration.id,
+      trans_id: transId,
+      quote_source: "ups_api_rating_v2409",
+      quote
+    });
+
+    return jsonResponse({
+      ok: true,
+      quote,
+      quote_source: "ups_api_rating_v2409",
+      trans_id: transId,
+      token_source: tokenSource,
+      promo_supported: false,
+      promo_note:
+        "UPS Rating/Shipping API does not expose a dedicated promo-code validation field. Final charge is based on account rates/negotiated rates."
+    });
+  } catch (error) {
+    console.error("ups-rate-quote unhandled error", {
+      error: error instanceof Error ? error.message : String(error)
+    });
     return jsonResponse(
       {
-        error: responseText || `UPS Rating API error (${response.status})`,
-        status: response.status,
-        token_source: tokenSource,
-        promo_supported: false
+        error: error instanceof Error ? error.message : "Unexpected error while requesting UPS rate quote."
       },
-      502
+      500
     );
   }
-
-  const quote = extractRateQuote(responseJson, serviceCode);
-  return jsonResponse({
-    ok: true,
-    quote,
-    token_source: tokenSource,
-    promo_supported: false,
-    promo_note:
-      "UPS Rating/Shipping API does not expose a dedicated promo-code validation field. Final charge is based on account rates/negotiated rates."
-  });
 });
-
