@@ -98,6 +98,7 @@ const formatSalesTimestamp = (value) => {
 const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
+const DESTINATION_ALLOCATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 
 // Stock guides are now handled via the generic UserGuidePlayer component.
 
@@ -758,6 +759,13 @@ export default function ClientStock({
   enableQtyAdjust = false
 } = {}) {
   const { t, tp } = useDashboardTranslation();
+  const tr = useCallback(
+    (key, fallback) => {
+      const value = t(key);
+      return value === key ? fallback : value;
+    },
+    [t]
+  );
   const supportError = t('common.supportError');
   const [deleteInProgress, setDeleteInProgress] = useState(false);
   const priceColumnNote = t('ClientStock.priceColumn.note');
@@ -814,6 +822,14 @@ const [rows, setRows] = useState([]);
 const [loading, setLoading] = useState(true);
 const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
 const [destinationStockByItemId, setDestinationStockByItemId] = useState({});
+const [destinationEditor, setDestinationEditor] = useState({
+  open: false,
+  rowId: null,
+  values: {},
+  stock: 0,
+  saving: false,
+  error: ''
+});
 
 useEffect(() => {
   let cancelled = false;
@@ -1919,7 +1935,15 @@ const resetReceptionForm = () => {
   };
   const renderQtyCell = (row) => {
     const marketQty = Math.max(0, Number(row.qty || 0));
-    const informativeEntries = getPrepCountryEntries(destinationStockByItemId?.[row.id] || {});
+    const manualMap =
+      row?.destination_qty_by_country &&
+      typeof row.destination_qty_by_country === 'object' &&
+      !Array.isArray(row.destination_qty_by_country)
+        ? row.destination_qty_by_country
+        : {};
+    const informativeMap =
+      Object.keys(manualMap).length > 0 ? manualMap : destinationStockByItemId?.[row.id] || {};
+    const informativeEntries = getPrepCountryEntries(informativeMap);
     if (!enableQtyAdjust && informativeEntries.length === 0) {
       return null;
     }
@@ -1973,6 +1997,30 @@ const resetReceptionForm = () => {
               </div>
             ))}
           </div>
+        )}
+        {marketQty > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              const base =
+                Object.keys(manualMap).length > 0 ? manualMap : destinationStockByItemId?.[row.id] || {};
+              const values = {};
+              DESTINATION_ALLOCATION_COUNTRIES.forEach((code) => {
+                values[code] = String(Math.max(0, Number(base?.[code] || 0)));
+              });
+              setDestinationEditor({
+                open: true,
+                rowId: row.id,
+                values,
+                stock: marketQty,
+                saving: false,
+                error: ''
+              });
+            }}
+            className="col-start-3 justify-self-end text-[11px] text-primary hover:underline"
+          >
+            {t('common.edit') || 'Edit'}
+          </button>
         )}
       </div>
     );
@@ -3175,6 +3223,141 @@ const saveReqChanges = async () => {
           });
         }}
       />
+      {destinationEditor.open && (
+        <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-text-primary">
+                {tr('ClientStock.destinationEditor.title', 'Edit destination split')}
+              </h4>
+              <button
+                type="button"
+                className="text-sm text-text-secondary hover:text-text-primary"
+                onClick={() => setDestinationEditor({ open: false, rowId: null, values: {}, stock: 0, saving: false, error: '' })}
+              >
+                {t('common.cancel') || 'Close'}
+              </button>
+            </div>
+            <p className="text-xs text-text-secondary">
+              {tr('ClientStock.destinationEditor.stockHint', 'Available stock in this warehouse: {stock}')
+                .replace('{stock}', String(destinationEditor.stock || 0))}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {DESTINATION_ALLOCATION_COUNTRIES.map((code) => (
+                <label key={code} className="flex items-center gap-2 text-sm">
+                  <span className="w-10 font-semibold">{code}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={destinationEditor.values?.[code] ?? '0'}
+                    onChange={(e) =>
+                      setDestinationEditor((prev) => ({
+                        ...prev,
+                        values: {
+                          ...prev.values,
+                          [code]: e.target.value
+                        },
+                        error: ''
+                      }))
+                    }
+                    className="w-full border rounded px-2 py-1 text-right"
+                  />
+                </label>
+              ))}
+            </div>
+            {(() => {
+              const total = DESTINATION_ALLOCATION_COUNTRIES.reduce(
+                (sum, code) => sum + Math.max(0, Number(destinationEditor.values?.[code] || 0)),
+                0
+              );
+              return (
+                <p className="text-xs text-text-secondary">
+                  {tr('ClientStock.destinationEditor.totalHint', 'Allocated: {total} / {stock}')
+                    .replace('{total}', String(total))
+                    .replace('{stock}', String(destinationEditor.stock || 0))}
+                </p>
+              );
+            })()}
+            {destinationEditor.error ? (
+              <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded px-2 py-1">
+                {destinationEditor.error}
+              </div>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-sm border rounded"
+                onClick={() => setDestinationEditor({ open: false, rowId: null, values: {}, stock: 0, saving: false, error: '' })}
+              >
+                {t('common.cancel') || 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={destinationEditor.saving}
+                className="px-3 py-1.5 text-sm bg-primary text-white rounded disabled:opacity-50"
+                onClick={async () => {
+                  const row = rows.find((r) => r.id === destinationEditor.rowId);
+                  if (!row) {
+                    setDestinationEditor((prev) => ({
+                      ...prev,
+                      error: tr('ClientStock.destinationEditor.errors.rowMissing', 'Product not found.')
+                    }));
+                    return;
+                  }
+                  const stock = Math.max(0, Number(destinationEditor.stock || 0));
+                  const cleaned = {};
+                  let total = 0;
+                  DESTINATION_ALLOCATION_COUNTRIES.forEach((code) => {
+                    const value = Math.max(0, Math.floor(Number(destinationEditor.values?.[code] || 0)));
+                    if (value > 0) cleaned[code] = value;
+                    total += value;
+                  });
+                  if (total !== stock) {
+                    setDestinationEditor((prev) => ({
+                      ...prev,
+                      error:
+                        tr(
+                          'ClientStock.destinationEditor.errors.mustMatchStock',
+                          'Destination split must equal available stock ({stock}).'
+                        ).replace(
+                          '{stock}',
+                          String(stock)
+                        )
+                    }));
+                    return;
+                  }
+                  setDestinationEditor((prev) => ({ ...prev, saving: true, error: '' }));
+                  const { error } = await supabase
+                    .from('stock_items')
+                    .update({ destination_qty_by_country: cleaned })
+                    .eq('id', row.id);
+                  if (error) {
+                    setDestinationEditor((prev) => ({
+                      ...prev,
+                      saving: false,
+                      error: error.message || supportError
+                    }));
+                    return;
+                  }
+                  setRows((prev) =>
+                    prev.map((item) =>
+                      item.id === row.id
+                        ? { ...item, destination_qty_by_country: cleaned }
+                        : item
+                    )
+                  );
+                  setDestinationEditor({ open: false, rowId: null, values: {}, stock: 0, saving: false, error: '' });
+                }}
+              >
+                {destinationEditor.saving
+                  ? t('ClientStock.table.saving') || 'Saving...'
+                  : tr('ClientStock.destinationEditor.save', 'Save split')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
