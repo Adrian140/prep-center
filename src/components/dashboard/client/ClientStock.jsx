@@ -1940,9 +1940,12 @@ const resetReceptionForm = () => {
       return { ...prev, [rowId]: { ...current, [field]: value } };
     });
   };
-  const commitQtyAdjust = async (row, field) => {
+  const commitQtyAdjust = async (row, field, rawOverride = null) => {
     const inputs = qtyInputs[row.id] || {};
-    const raw = String(inputs[field] || '').trim();
+    const raw =
+      rawOverride == null
+        ? String(inputs[field] || '').trim()
+        : String(rawOverride || '').trim();
     if (!raw) return;
     const delta = Number(raw.replace(',', '.'));
     if (!Number.isFinite(delta) || delta <= 0) {
@@ -2042,10 +2045,10 @@ const resetReceptionForm = () => {
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
-            commitQtyAdjust(row, field);
+            commitQtyAdjust(row, field, e.currentTarget.value);
           }
         }}
-        onBlur={() => commitQtyAdjust(row, field)}
+        onBlur={(e) => commitQtyAdjust(row, field, e.currentTarget.value)}
       />
     );
     return (
