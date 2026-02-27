@@ -1510,9 +1510,15 @@ async function fetchPrepGuidance(params: {
   const asins = items.map((it) => normalizeSku(it.asin)).filter(Boolean) as string[];
   if (!skus.length && !asins.length) return { map: {}, warning: null };
 
+  // fba/inbound/v0/prepInstructions parsează SellerSKUList ca listă delimitată de virgulă.
+  // SKU-uri valide care conțin virgulă (ex: "..., 7,80€") sunt fragmentate greșit de API.
+  // Pentru acestea evităm SellerSKUList și lăsăm rezolvarea prin ASINList.
+  const skuListForPrepApi = skus.filter((sku) => !sku.includes(","));
+  const skippedSkuWithComma = skus.length - skuListForPrepApi.length;
+
   const searchParams = new URLSearchParams();
   searchParams.set("ShipToCountryCode", shipToCountry || shipFromCountry);
-  for (const sku of skus) searchParams.append("SellerSKUList", sku);
+  for (const sku of skuListForPrepApi) searchParams.append("SellerSKUList", sku);
   for (const asin of asins) searchParams.append("ASINList", asin);
 
   const prep = await signedFetch({
@@ -1587,7 +1593,10 @@ async function fetchPrepGuidance(params: {
       barcodeInstruction
     };
   }
-  return { map, warning: null };
+  const warning = skippedSkuWithComma
+    ? `Am omis ${skippedSkuWithComma} SKU-uri cu virgulă din SellerSKUList (limitare Amazon prepInstructions); folosim ASIN fallback.`
+    : null;
+  return { map, warning };
 }
 
 // Fetch Listings Item attributes pentru a determina dacă SKU cere expirare (IEDP sau shelf-life)

@@ -303,8 +303,16 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       };
     }
 
-    let packingGroups = [];
-    let packingOptionId = null;
+    const packingGroups = Array.isArray(plan?.packGroups)
+      ? plan.packGroups
+      : Array.isArray(plan?.packingGroups)
+      ? plan.packingGroups
+      : [];
+    const packingOptionId =
+      plan?.packingOptionId ||
+      plan?.packing_option_id ||
+      data?.packingOptionId ||
+      null;
     return {
       ...plan,
       prepRequestId: row.id, // păstrăm id-ul intern pentru step2
