@@ -86,6 +86,39 @@ const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
     : `EcomPrepHub France ${counterValue}`;
 };
 
+const normalizeItemKeyPart = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const aggregateInvoiceItems = (items = []) => {
+  const map = new Map();
+  for (const raw of Array.isArray(items) ? items : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const service = String(raw.service || '').trim();
+    const unitPrice = roundMoney(raw.unitPrice || 0);
+    const vatRate = Number(raw.vatRate ?? 0);
+    const units = Number(raw.units || 0);
+    const total = roundMoney(raw.total ?? unitPrice * units);
+    if (!service) continue;
+    const key = `${normalizeItemKeyPart(service)}|${unitPrice}|${vatRate}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        service,
+        units: 0,
+        unitPrice,
+        total: 0,
+        vatRate
+      });
+    }
+    const entry = map.get(key);
+    entry.units = roundMoney(Number(entry.units || 0) + units);
+    entry.total = roundMoney(Number(entry.total || 0) + total);
+  }
+  return Array.from(map.values());
+};
+
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
   const { currentMarket, availableMarkets } = useMarket();
@@ -393,13 +426,15 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         invoice_date: invoiceDate,
         total_amount: totals?.gross ?? 0,
         lines,
-        items: items || []
+        items: aggregateInvoiceItems(items || [])
       });
       if (error) {
         setBillingError(error.message || 'Nu am putut salva factura.');
         setBillingSaving(false);
         return { error };
       }
+
+      const aggregatedItems = aggregateInvoiceItems(items || []);
 
       const pdfBlob = await buildInvoicePdfBlob({
         documentType: normalizedDocType,
@@ -410,7 +445,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         customer: billingProfile,
         customerEmail,
         customerPhone,
-        items: items || [],
+        items: aggregatedItems,
         totals: {
           net: roundMoney(totals?.net ?? 0),
           vat: roundMoney(totals?.vat ?? 0),
@@ -452,7 +487,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
           billingProfile,
           customerEmail,
           customerPhone,
-          items: items || [],
+          items: aggregatedItems,
           totals: {
             net: roundMoney(totals?.net ?? 0),
             vat: roundMoney(totals?.vat ?? 0),
@@ -569,7 +604,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         customer: billingProfile,
         customerEmail,
         customerPhone,
-        items: items || [],
+        items: aggregateInvoiceItems(items || []),
         totals: {
           net: roundMoney(totals?.net ?? 0),
           vat: roundMoney(totals?.vat ?? 0),
