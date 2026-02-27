@@ -1282,6 +1282,7 @@ serve(async (req) => {
 
       const diagnostics: any[] = [];
       let best: { id: string; score: number } | null = null;
+      let bestPartnered: { id: string; score: number } | null = null;
 
       const probeTransportOptions = async (placementId: string, shipmentId: string | null) => {
         const params = new URLSearchParams();
@@ -1354,13 +1355,25 @@ serve(async (req) => {
           score
         });
         if (!best || score > best.score) best = { id: candidate.id, score };
+        if (hasPartnered && (!bestPartnered || score > bestPartnered.score)) {
+          bestPartnered = { id: candidate.id, score };
+        }
       }
 
       const currentDiag = diagnostics.find((d: any) => d.placementOptionId === currentPlacementId) || null;
       const currentScore = currentDiag ? Number(currentDiag.score || 0) : -1;
-      if (best && best.id && best.id !== currentPlacementId && best.score > currentScore) {
+      if (!bestPartnered) {
+        logStep("placementOptionProbe", {
+          traceId,
+          reason: "pcp_probe_no_partnered",
+          selectedPlacementOptionId: effectivePlacementOptionId || null,
+          diagnostics
+        });
+        return;
+      }
+      if (bestPartnered.id && bestPartnered.id !== currentPlacementId && bestPartnered.score > currentScore) {
         const previous = effectivePlacementOptionId;
-        effectivePlacementOptionId = best.id;
+        effectivePlacementOptionId = bestPartnered.id;
         placementOptions = keepOnlyPlacement(allPlacementOptions, effectivePlacementOptionId);
         confirmedPlacement = placementOptions.find((p: any) =>
           ["ACCEPTED", "CONFIRMED"].includes(normalizePlacementStatus(p))
@@ -1516,7 +1529,19 @@ serve(async (req) => {
         const placementStatusRes = await pollOperationStatus(placementOpId);
         const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
         if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
+          const problems = summarizeOperationProblems(placementStatusRes);
+          const hasInvalidPrep = problems.some((p: any) =>
+            /INVALID_PREP|must be removed/i.test(`${p?.code || ""} ${p?.message || ""} ${p?.details || ""}`)
+          );
+          return new Response(JSON.stringify({
+            error: hasInvalidPrep
+              ? "Placement confirmation failed: Amazon reports INVALID_PREP (remove the blocked product(s) from this plan)."
+              : "Placement confirmation failed",
+            code: hasInvalidPrep ? "INVALID_PREP" : "PLACEMENT_CONFIRMATION_FAILED",
+            traceId,
+            state: stateUp,
+            problems: problems.length ? problems : null
+          }), {
             status: 502,
             headers: { ...corsHeaders, "content-type": "application/json" }
           });
