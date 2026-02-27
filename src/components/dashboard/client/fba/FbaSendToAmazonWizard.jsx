@@ -162,7 +162,7 @@ const detectPartneredOption = (opt = {}) => {
     opt?.amazonPartnered ??
     null;
 
-  if (typeof explicit === 'boolean') return explicit;
+  if (explicit === true) return true;
 
   const type = String(
     opt?.transportationOptionType ||
@@ -187,6 +187,22 @@ const detectPartneredOption = (opt = {}) => {
 
   if (solution.includes('AMAZON_PARTNERED') || solution.includes('PARTNERED_CARRIER')) {
     return true;
+  }
+
+  const seen = new Set();
+  const stack = [opt];
+  while (stack.length) {
+    const cur = stack.pop();
+    if (cur == null) continue;
+    if (typeof cur === 'string') {
+      const s = cur.toUpperCase();
+      if (s.includes('AMAZON_PARTNERED') || s.includes('PARTNERED_CARRIER') || s === 'PARTNERED') return true;
+      continue;
+    }
+    if (typeof cur !== 'object') continue;
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const v of Object.values(cur)) stack.push(v);
   }
 
   return false;
