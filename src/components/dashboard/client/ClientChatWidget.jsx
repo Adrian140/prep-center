@@ -55,6 +55,7 @@ export default function ClientChatWidget() {
   const [statusByMarket, setStatusByMarket] = useState({});
 
   const [b2bConversations, setB2bConversations] = useState([]);
+  const [b2bProfileNamesById, setB2bProfileNamesById] = useState({});
   const [b2bUnreadByConversationId, setB2bUnreadByConversationId] = useState({});
   const [b2bReadByConversationId, setB2bReadByConversationId] = useState({});
   const [b2bLoading, setB2bLoading] = useState(false);
@@ -195,6 +196,37 @@ export default function ClientChatWidget() {
     });
     if (!silent) setB2bLoading(false);
   };
+
+  useEffect(() => {
+    const loadB2bProfileNames = async () => {
+      const ids = Array.from(
+        new Set(
+          (b2bConversations || [])
+            .flatMap((conv) => [conv?.seller_user_id, conv?.buyer_user_id])
+            .filter(Boolean)
+        )
+      );
+      if (!ids.length) {
+        setB2bProfileNamesById({});
+        return;
+      }
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, store_name, company_name')
+        .in('id', ids);
+      if (error) {
+        setB2bProfileNamesById({});
+        return;
+      }
+      const next = {};
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        const fullName = [row?.first_name, row?.last_name].filter(Boolean).join(' ').trim();
+        next[row.id] = fullName || row?.store_name || row?.company_name || 'Client';
+      });
+      setB2bProfileNamesById(next);
+    };
+    loadB2bProfileNames();
+  }, [b2bConversations]);
 
   const loadB2bMessages = async (conversationId) => {
     if (!conversationId) {
@@ -454,6 +486,12 @@ export default function ClientChatWidget() {
   const b2bUnreadTotal = Object.values(b2bUnreadByConversationId).reduce((sum, n) => sum + Number(n || 0), 0);
   const totalUnread = supportUnreadTotal + b2bUnreadTotal;
   const activeB2bConversation = b2bConversations.find((row) => row.id === activeB2bConversationId) || null;
+  const getB2bPartnerName = (conv) => {
+    if (!conv || !user?.id) return 'Client';
+    const isSeller = conv.seller_user_id === user.id;
+    const partnerId = isSeller ? conv.buyer_user_id : conv.seller_user_id;
+    return b2bProfileNamesById?.[partnerId] || 'Client';
+  };
 
   return (
     <div ref={widgetRef} className="fixed bottom-6 right-6 z-50">
@@ -582,6 +620,7 @@ export default function ClientChatWidget() {
                       const listing = listingFromConversation(conv);
                       const active = conv.id === activeB2bConversationId;
                       const unread = b2bUnreadByConversationId[conv.id] || 0;
+                      const partnerName = getB2bPartnerName(conv);
                       return (
                         <button
                           key={conv.id}
@@ -608,6 +647,9 @@ export default function ClientChatWidget() {
                             )}
                           </div>
                           <div className="mt-1 text-[10px] text-slate-500">
+                            {partnerName}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-slate-500">
                             {listing?.country || conv.country || '-'}
                           </div>
                         </button>
@@ -622,7 +664,8 @@ export default function ClientChatWidget() {
                       {listingFromConversation(activeB2bConversation)?.product_name || 'B2B chat'}
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">
-                      {listingFromConversation(activeB2bConversation)?.asin ? `ASIN ${listingFromConversation(activeB2bConversation)?.asin}` : 'Marketplace client chat'}
+                      {getB2bPartnerName(activeB2bConversation)}
+                      {listingFromConversation(activeB2bConversation)?.asin ? ` · ASIN ${listingFromConversation(activeB2bConversation)?.asin}` : ''}
                     </div>
                   </div>
                   <div ref={b2bScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-28">
