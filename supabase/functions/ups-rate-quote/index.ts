@@ -152,6 +152,26 @@ function extractUpsErrorMessages(payload: any) {
   return out;
 }
 
+function extractRateAlerts(payload: any) {
+  const alertNode = payload?.RateResponse?.Alert;
+  const rows = Array.isArray(alertNode) ? alertNode : alertNode ? [alertNode] : [];
+  return rows
+    .map((row: any) => ({
+      code: String(row?.Code || "").trim() || null,
+      description: String(row?.Description || "").trim() || null
+    }))
+    .filter((row) => row.code || row.description);
+}
+
+function derivePromoDiscountApplied(rateAlerts: Array<{ code: string | null; description: string | null }>, promoCode: string | null) {
+  const promo = String(promoCode || "").trim();
+  if (!promo) return null;
+  const descriptions = rateAlerts.map((row) => String(row.description || "").toLowerCase());
+  if (descriptions.some((text) => text.includes("no user level discount applied"))) return false;
+  if (descriptions.some((text) => text.includes("discount"))) return true;
+  return null;
+}
+
 function safeJson(value: unknown, fallback = null) {
   try {
     return JSON.parse(JSON.stringify(value));
@@ -411,6 +431,8 @@ serve(async (req) => {
     }
 
     const quote = extractRateQuote(responseJson, serviceCode);
+    const rateAlerts = extractRateAlerts(responseJson);
+    const promoDiscountApplied = derivePromoDiscountApplied(rateAlerts, String(body?.promo_code || "").trim() || null);
     const upsMessages = extractUpsErrorMessages(responseJson);
     if (!quote || quote.amount == null) {
       console.error("ups-rate-quote missing quote", {
@@ -426,6 +448,8 @@ serve(async (req) => {
           quote_source: "ups_api_rating_v2409",
           trans_id: transId,
           token_source: tokenSource,
+          rate_alerts: rateAlerts,
+          promo_discount_applied: promoDiscountApplied,
           promo_supported: false,
           ups_messages: upsMessages,
           details: {
@@ -441,7 +465,9 @@ serve(async (req) => {
       integration_id: integration.id,
       trans_id: transId,
       quote_source: "ups_api_rating_v2409",
-      quote
+      quote,
+      rate_alerts: rateAlerts,
+      promo_discount_applied: promoDiscountApplied
     });
 
     return jsonResponse({
@@ -450,6 +476,8 @@ serve(async (req) => {
       quote_source: "ups_api_rating_v2409",
       trans_id: transId,
       token_source: tokenSource,
+      rate_alerts: rateAlerts,
+      promo_discount_applied: promoDiscountApplied,
       promo_supported: false,
       promo_note:
         "UPS Rating/Shipping API does not expose a dedicated promo-code validation field. Final charge is based on account rates/negotiated rates."

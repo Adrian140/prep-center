@@ -33,6 +33,9 @@ const PHOTO_SUBSCRIPTION_SERVICE = 'Photo storage subscription';
 const PHOTO_MANUAL_SERVICE = 'Manual photo capture';
 const PHOTO_SUBSCRIPTION_PRICE = 3;
 const PHOTO_MANUAL_PRICE = 1;
+const CHAT_UNREAD_CACHE_MS = 4000;
+const chatUnreadCache = new Map();
+const chatUnreadInFlight = new Map();
 
 const pad2 = (value) => String(value).padStart(2, '0');
 const formatSqlDate = (date = new Date()) =>
@@ -4113,16 +4116,49 @@ getAllReceivingShipments: async (options = {}) => {
 
   getChatUnreadCount: async ({ conversationId }) => {
     if (!conversationId) return { data: 0, error: null };
-    return await supabase.rpc('chat_unread_count', {
-      p_conversation_id: conversationId
-    });
+    const key = String(conversationId);
+    const cached = chatUnreadCache.get(key);
+    const now = Date.now();
+    if (cached && now - cached.at < CHAT_UNREAD_CACHE_MS) {
+      return { data: cached.value, error: null };
+    }
+    if (chatUnreadInFlight.has(key)) {
+      return await chatUnreadInFlight.get(key);
+    }
+    const run = (async () => {
+      try {
+        const res = await supabase.rpc('chat_unread_count', {
+          p_conversation_id: conversationId
+        });
+        const value = Number(res?.data);
+        const safeValue = Number.isFinite(value) ? value : 0;
+        if (!res?.error) {
+          chatUnreadCache.set(key, { value: safeValue, at: Date.now() });
+        }
+        return { data: safeValue, error: res?.error || null };
+      } catch (error) {
+        return { data: cached?.value ?? 0, error };
+      } finally {
+        chatUnreadInFlight.delete(key);
+      }
+    })();
+    chatUnreadInFlight.set(key, run);
+    try {
+      return await run;
+    } catch (error) {
+      return { data: 0, error };
+    }
   },
 
   markChatRead: async ({ conversationId }) => {
     if (!conversationId) return { data: 0, error: null };
-    return await supabase.rpc('chat_mark_read', {
-      p_conversation_id: conversationId
-    });
+    try {
+      return await supabase.rpc('chat_mark_read', {
+        p_conversation_id: conversationId
+      });
+    } catch (error) {
+      return { data: 0, error };
+    }
   },
 
   uploadChatAttachment: async ({ conversationId, messageId, file }) => {

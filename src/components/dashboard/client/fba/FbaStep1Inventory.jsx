@@ -3214,6 +3214,7 @@ export default function FbaStep1Inventory({
 
   const handleDownloadLabels = async () => {
     if (!labelModal.sku) return;
+    const downloadWindow = window.open('', '_blank', 'noopener');
     setLabelError('');
     setLabelLoading(true);
 
@@ -3239,16 +3240,23 @@ export default function FbaStep1Inventory({
         throw new Error(resp.error);
       }
       if (resp?.downloadUrl) {
-        window.open(resp.downloadUrl, '_blank', 'noopener');
+        if (downloadWindow) {
+          downloadWindow.location.href = resp.downloadUrl;
+        } else {
+          window.location.assign(resp.downloadUrl);
+        }
         closeLabelModal();
         return;
       }
       if (resp?.operationId) {
+        if (downloadWindow) downloadWindow.close();
         setLabelError(tr('labelRequestSentRetry'));
         return;
       }
+      if (downloadWindow) downloadWindow.close();
       throw new Error(tr('missingDownloadUrlOrOperationId'));
     } catch (err) {
+      if (downloadWindow) downloadWindow.close();
       console.error('fba-labels error', err);
       setLabelError(err?.message || tr('couldNotDownloadLabels'));
     } finally {

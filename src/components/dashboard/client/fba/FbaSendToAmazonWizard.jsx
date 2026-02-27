@@ -4401,14 +4401,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const handlePrintLabels = async (shipment) => {
+    const downloadWindow = window.open('', '_blank', 'noopener');
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
+      if (downloadWindow) downloadWindow.close();
       setLabelsError('Missing inboundPlanId or requestId for labels.');
       return;
     }
     const shipmentId = shipment?.shipmentId || shipment?.id;
     if (!shipmentId) {
+      if (downloadWindow) downloadWindow.close();
       setLabelsError('Missing shipmentId for labels.');
       return;
     }
@@ -4423,6 +4426,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         shipment?.shipmentConfirmationId ||
         null;
       if (!confirmationId) {
+        if (downloadWindow) downloadWindow.close();
         setLabelsError('Missing shipmentConfirmationId for labels. Try again after confirming shipping.');
         return;
       }
@@ -4449,11 +4453,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         data?.data?.DownloadURL ||
         null;
       if (url) {
-        window.open(url, '_blank', 'noopener');
+        if (downloadWindow) {
+          downloadWindow.location.href = url;
+        } else {
+          window.location.assign(url);
+        }
       } else {
+        if (downloadWindow) downloadWindow.close();
         setLabelsError('Amazon did not return a URL for labels.');
       }
     } catch (e) {
+      if (downloadWindow) downloadWindow.close();
       setLabelsError(e?.message || 'Could not generate labels.');
     } finally {
       setLabelsLoadingId(null);

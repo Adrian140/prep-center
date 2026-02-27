@@ -156,11 +156,11 @@ const validatePostalPattern = (countryCode, postalCode) => {
   const rule = postalFormatRules[cc];
   if (!rule) return { ok: true };
   if (!rule.test(normalized)) {
-    if (cc === 'PT') return { ok: false, message: 'Format cod poștal PT invalid. Exemplu corect: 1000-001.' };
-    if (cc === 'PL') return { ok: false, message: 'Format cod poștal PL invalid. Exemplu corect: 00-001.' };
-    if (cc === 'SE') return { ok: false, message: 'Format cod poștal SE invalid. Exemplu corect: 123 45.' };
-    if (cc === 'NL') return { ok: false, message: 'Format cod poștal NL invalid. Exemplu corect: 1234 AB.' };
-    return { ok: false, message: `Format cod poștal invalid pentru ${cc}.` };
+    if (cc === 'PT') return { ok: false, message: 'Invalid PT postal code format. Expected: 1000-001.' };
+    if (cc === 'PL') return { ok: false, message: 'Invalid PL postal code format. Expected: 00-001.' };
+    if (cc === 'SE') return { ok: false, message: 'Invalid SE postal code format. Expected: 123 45.' };
+    if (cc === 'NL') return { ok: false, message: 'Invalid NL postal code format. Expected: 1234 AB.' };
+    return { ok: false, message: `Invalid postal code format for ${cc}.` };
   }
   return { ok: true };
 };
@@ -209,6 +209,13 @@ const buildInitialForm = () => ({
   destination_postal_code: '',
   destination_country_code: 'FR',
   destination_country_name: 'France',
+  delivery_mode: 'receiver',
+  access_point_id: '',
+  access_point_name: '',
+  access_point_address1: '',
+  access_point_city: '',
+  access_point_postal_code: '',
+  access_point_country_code: 'FR',
   weight_kg: '',
   length_cm: '',
   width_cm: '',
@@ -243,6 +250,7 @@ export default function AdminUPS() {
     () => countryOptions.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {}),
     [countryOptions]
   );
+  const isHoldAtUpsLocation = String(form.delivery_mode || '').trim() === 'ups_access_point';
 
   const setSuccess = (message) => {
     setFlash(message);
@@ -343,7 +351,7 @@ export default function AdminUPS() {
     try {
       await loadAll();
     } catch (error) {
-      setError(error.message || 'Nu am putut încărca datele UPS.');
+      setError(error.message || 'Could not load UPS data.');
     }
     setRefreshing(false);
   };
@@ -353,7 +361,7 @@ export default function AdminUPS() {
       try {
         await loadAll();
       } catch (error) {
-        setError(error.message || 'Nu am putut încărca datele UPS.');
+        setError(error.message || 'Could not load UPS data.');
       } finally {
         setLoading(false);
       }
@@ -526,42 +534,72 @@ export default function AdminUPS() {
     setPromoMessage('');
   };
 
-  const validateDestinationPostalCode = async () => {
-    const countryCode = String(form.destination_country_code || '').trim().toUpperCase();
-    const postalCode = String(form.destination_postal_code || '').trim();
-    if (!countryCode || !postalCode) return { ok: true };
+  const validateDestinationPostalCode = async ({ countryCode, postalCode } = {}) => {
+    const cc = String(countryCode || form.destination_country_code || '').trim().toUpperCase();
+    const pc = String(postalCode || form.destination_postal_code || '').trim();
+    const countryCodeSafe = cc;
+    const postalCodeSafe = pc;
+    if (!countryCodeSafe || !postalCodeSafe) return { ok: true };
 
-    const patternCheck = validatePostalPattern(countryCode, postalCode);
+    const patternCheck = validatePostalPattern(countryCodeSafe, postalCodeSafe);
     if (!patternCheck.ok) return patternCheck;
 
     const { count, error: countryCountError } = await supabase
       .from('ups_postal_codes')
       .select('id', { count: 'exact', head: true })
-      .eq('country_code', countryCode);
-    if (countryCountError) return { ok: false, message: 'Nu am putut valida codul poștal UPS (eroare locală).' };
+      .eq('country_code', countryCodeSafe);
+    if (countryCountError) return { ok: false, message: 'Could not validate UPS postal code (local error).' };
 
     if ((count || 0) > 0) {
-      const variants = buildPostalSearchPrefixes(countryCode, postalCode);
+      const variants = buildPostalSearchPrefixes(countryCodeSafe, postalCodeSafe);
       const checks = await Promise.all(
-        variants.map((candidate) => supabaseHelpers.listUpsPostalCodes({ countryCode, postalCode: candidate }))
+        variants.map((candidate) => supabaseHelpers.listUpsPostalCodes({ countryCode: countryCodeSafe, postalCode: candidate }))
       );
       const lookupError = checks.find((res) => res.error);
-      if (lookupError?.error) return { ok: false, message: 'Nu am putut valida codul poștal UPS.' };
+      if (lookupError?.error) return { ok: false, message: 'Could not validate UPS postal code.' };
       const found = checks.some((res) => Array.isArray(res.data) && res.data.length > 0);
       if (!found) {
-        return { ok: false, message: `Codul poștal ${postalCode} (${countryCode}) nu există în cache-ul UPS local.` };
+        return { ok: false, message: `Postal code ${postalCodeSafe} (${countryCodeSafe}) does not exist in local UPS cache.` };
       }
     }
     return { ok: true };
   };
 
   const validateRateInputs = () => {
-    const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code, countryOptions);
-    if (!parsedCountry?.code) return { ok: false, message: 'Selectează o țară validă pentru destinație.' };
-    if (!form.destination_postal_code) return { ok: false, message: 'Completează codul poștal de destinație pentru estimarea prețului.' };
+    const destinationCountry = parseCountryInput(form.destination_country_name || form.destination_country_code, countryOptions);
+    if (!destinationCountry?.code) return { ok: false, message: 'Select a valid destination country.' };
+    if (!form.destination_postal_code) return { ok: false, message: 'Fill in destination postal code to preview the rate.' };
+
+    let quoteCountryCode = destinationCountry.code;
+    let quotePostalCode = String(form.destination_postal_code || '').trim();
+    let accessPoint = null;
+    if (isHoldAtUpsLocation) {
+      const apCountry = String(form.access_point_country_code || '').trim().toUpperCase();
+      if (!form.access_point_id || !apCountry || !form.access_point_postal_code || !form.access_point_city || !form.access_point_address1) {
+        return { ok: false, message: 'For Hold at UPS location, provide Access Point ID, address, city, postal code, and country.' };
+      }
+      quoteCountryCode = apCountry;
+      quotePostalCode = String(form.access_point_postal_code || '').trim();
+      accessPoint = {
+        id: String(form.access_point_id || '').trim(),
+        name: String(form.access_point_name || '').trim() || null,
+        address1: String(form.access_point_address1 || '').trim(),
+        city: String(form.access_point_city || '').trim(),
+        postal_code: quotePostalCode,
+        country_code: quoteCountryCode
+      };
+    }
+
     const weight = asNumberOrNull(form.weight_kg);
-    if (!weight || weight <= 0) return { ok: false, message: 'Completează greutatea coletului pentru estimarea prețului.' };
-    return { ok: true, countryCode: parsedCountry.code, weight };
+    if (!weight || weight <= 0) return { ok: false, message: 'Fill in parcel weight to preview the rate.' };
+    return {
+      ok: true,
+      destinationCountryCode: destinationCountry.code,
+      quoteCountryCode,
+      quotePostalCode,
+      weight,
+      accessPoint
+    };
   };
 
   const runRateQuote = async ({ promoTriggered = false } = {}) => {
@@ -571,7 +609,10 @@ export default function AdminUPS() {
       return;
     }
 
-    const postalCheck = await validateDestinationPostalCode();
+    const postalCheck = await validateDestinationPostalCode({
+      countryCode: check.quoteCountryCode,
+      postalCode: check.quotePostalCode
+    });
     if (!postalCheck.ok) {
       setError(postalCheck.message);
       return;
@@ -593,23 +634,28 @@ export default function AdminUPS() {
           country_code: String(form.from_country_code || 'FR').trim().toUpperCase()
         },
         ship_to: {
-          postal_code: String(form.destination_postal_code || '').trim(),
-          country_code: check.countryCode
+          postal_code: check.quotePostalCode,
+          country_code: check.quoteCountryCode,
+          city: check.accessPoint?.city || String(form.destination_city || '').trim() || null,
+          address1: check.accessPoint?.address1 || String(form.destination_address1 || '').trim() || null
         },
         package_data: {
           weight_kg: check.weight,
           length_cm: asNumberOrNull(form.length_cm),
           width_cm: asNumberOrNull(form.width_cm),
-          height_cm: asNumberOrNull(form.height_cm)
-        }
+          height_cm: asNumberOrNull(form.height_cm),
+          delivery_mode: isHoldAtUpsLocation ? 'ups_access_point' : 'receiver'
+        },
+        access_point:
+          check.accessPoint || null
       });
 
       const err = res?.error || res?.data?.error;
-      if (err) throw new Error(typeof err === 'string' ? err : err.message || 'Nu am putut obține estimarea UPS.');
+      if (err) throw new Error(typeof err === 'string' ? err : err.message || 'Could not fetch UPS rate preview.');
       if (res?.data?.quote?.amount == null) {
         const upsMessages = Array.isArray(res?.data?.ups_messages) ? res.data.ups_messages.filter(Boolean) : [];
-        const suffix = upsMessages.length ? ` Detalii UPS: ${upsMessages.join(' | ')}` : '';
-        throw new Error(`UPS nu a returnat un preț valid pentru acest colet.${suffix}`);
+        const suffix = upsMessages.length ? ` UPS details: ${upsMessages.join(' | ')}` : '';
+        throw new Error(`UPS did not return a valid rate quote for this shipment.${suffix}`);
       }
 
       setRateQuote(res.data?.quote || null);
@@ -617,18 +663,25 @@ export default function AdminUPS() {
         quote_source: res?.data?.quote_source || null,
         trans_id: res?.data?.trans_id || null,
         token_source: res?.data?.token_source || null,
+        promo_discount_applied: res?.data?.promo_discount_applied ?? null,
         at: new Date().toISOString()
       });
       if (promoTriggered) {
         if (form.promo_code) {
-          setPromoMessage('UPS nu expune validare promo code în Rating API; prețul afișat este cel returnat de contul UPS conectat.');
+          if (res?.data?.promo_discount_applied === true) {
+            setPromoMessage('UPS reported that a discount was applied in this rating response.');
+          } else if (res?.data?.promo_discount_applied === false) {
+            setPromoMessage('UPS reported no discount applied for this promo code in this rating response.');
+          } else {
+            setPromoMessage('Promo code was sent, but UPS Rating API does not provide checkout-style promo validation.');
+          }
         } else {
-          setPromoMessage('Nu ai introdus promo code.');
+          setPromoMessage('No promo code entered.');
         }
       }
-      setSuccess('Estimarea UPS a fost actualizată.');
+      setSuccess('UPS rate preview updated.');
     } catch (error) {
-      setError(error.message || 'Nu am putut obține estimarea UPS.');
+      setError(error.message || 'Could not fetch UPS rate preview.');
     } finally {
       setQuoteLoading(false);
     }
@@ -640,26 +693,26 @@ export default function AdminUPS() {
     setPromoMessage('');
 
     if (!selectedIntegration) {
-      setError('Deschide mai întâi clientul pentru care creezi eticheta.');
+      setError('Open the client first before creating a label.');
       return;
     }
     const parsedCountry = parseCountryInput(form.destination_country_name || form.destination_country_code, countryOptions);
     if (!parsedCountry?.code) {
-      setError('Selectează o țară validă din lista Europei.');
+      setError('Select a valid destination country.');
       return;
     }
     if (!selectedIntegration.ups_account_number) {
-      setError('Contul UPS al clientului nu are UPS Account Number.');
+      setError('Client UPS account is missing UPS Account Number.');
       return;
     }
 
     if (!form.destination_contact_first_name || !form.destination_contact_last_name || !form.destination_address1 || !form.destination_city || !form.destination_postal_code) {
-      setError('Completează destinația: contact (prenume + nume), adresă, oraș și cod poștal.');
+      setError('Fill destination fields: contact first/last name, address, city, and postal code.');
       return;
     }
     const weight = asNumberOrNull(form.weight_kg);
     if (!weight || weight <= 0) {
-      setError('Completează greutatea coletului (kg).');
+      setError('Fill parcel weight (kg).');
       return;
     }
 
@@ -667,6 +720,21 @@ export default function AdminUPS() {
     if (!postalCheck.ok) {
       setError(postalCheck.message);
       return;
+    }
+    if (isHoldAtUpsLocation) {
+      const apCountry = String(form.access_point_country_code || '').trim().toUpperCase();
+      if (!form.access_point_id || !apCountry || !form.access_point_postal_code || !form.access_point_city || !form.access_point_address1) {
+        setError('For Hold at UPS location, provide Access Point ID, address, city, postal code, and country.');
+        return;
+      }
+      const apPostalCheck = await validateDestinationPostalCode({
+        countryCode: apCountry,
+        postalCode: String(form.access_point_postal_code || '').trim()
+      });
+      if (!apPostalCheck.ok) {
+        setError(apPostalCheck.message);
+        return;
+      }
     }
 
     setCreating(true);
@@ -715,6 +783,14 @@ export default function AdminUPS() {
           length_cm: asNumberOrNull(form.length_cm),
           width_cm: asNumberOrNull(form.width_cm),
           height_cm: asNumberOrNull(form.height_cm),
+          delivery_mode: isHoldAtUpsLocation ? 'ups_access_point' : 'receiver',
+          hold_at_ups_location: isHoldAtUpsLocation,
+          access_point_id: isHoldAtUpsLocation ? String(form.access_point_id || '').trim() || null : null,
+          access_point_name: isHoldAtUpsLocation ? String(form.access_point_name || '').trim() || null : null,
+          access_point_address1: isHoldAtUpsLocation ? String(form.access_point_address1 || '').trim() || null : null,
+          access_point_city: isHoldAtUpsLocation ? String(form.access_point_city || '').trim() || null : null,
+          access_point_postal_code: isHoldAtUpsLocation ? String(form.access_point_postal_code || '').trim() || null : null,
+          access_point_country_code: isHoldAtUpsLocation ? String(form.access_point_country_code || '').trim().toUpperCase() || null : null,
           promo_code: String(form.promo_code || '').trim() || null,
           reference_code: String(form.reference_code || '').trim() || null,
           shipment_description: String(form.shipment_description || '').trim() || null,
@@ -726,12 +802,14 @@ export default function AdminUPS() {
         request_payload: {
           created_from: 'admin-ups-client-window',
           promo_code: String(form.promo_code || '').trim() || null,
+          delivery_mode: isHoldAtUpsLocation ? 'ups_access_point' : 'receiver',
+          access_point_id: isHoldAtUpsLocation ? String(form.access_point_id || '').trim() || null : null,
           reference_code: String(form.reference_code || '').trim() || null
         }
       });
 
       if (createRes.error || !createRes.data?.id) {
-        throw createRes.error || new Error('Nu am putut crea comanda UPS.');
+        throw createRes.error || new Error('Could not create UPS order.');
       }
 
       const labelRes = await supabaseHelpers.processUpsShippingLabel({
@@ -744,7 +822,7 @@ export default function AdminUPS() {
         throw new Error(typeof labelError === 'string' ? labelError : labelError.message || 'UPS label creation failed.');
       }
 
-      setSuccess(`Eticheta UPS a fost creată pentru client. Tracking: ${labelRes.data?.tracking_number || '-'}`);
+      setSuccess(`UPS label created. Tracking: ${labelRes.data?.tracking_number || '-'}`);
       setForm((prev) => ({
         ...prev,
         reference_code: '',
@@ -756,6 +834,13 @@ export default function AdminUPS() {
         destination_postal_code: '',
         destination_country_code: parsedCountry.code || 'FR',
         destination_country_name: countryNameFromCode(parsedCountry.code || 'FR', countryByCode),
+        delivery_mode: 'receiver',
+        access_point_id: '',
+        access_point_name: '',
+        access_point_address1: '',
+        access_point_city: '',
+        access_point_postal_code: '',
+        access_point_country_code: parsedCountry.code || 'FR',
         weight_kg: '',
         length_cm: '',
         width_cm: '',
@@ -771,7 +856,7 @@ export default function AdminUPS() {
       setRateQuoteMeta(null);
       await refresh();
     } catch (error) {
-      setError(error.message || 'Nu am putut crea comanda UPS.');
+      setError(error.message || 'Could not create UPS order.');
     } finally {
       setCreating(false);
     }
@@ -814,7 +899,7 @@ export default function AdminUPS() {
           <h3 className="text-lg font-semibold text-text-primary">Connected accounts</h3>
         </div>
         {integrations.length === 0 ? (
-          <div className="px-5 py-6 text-sm text-text-secondary">Nicio integrare UPS încă.</div>
+          <div className="px-5 py-6 text-sm text-text-secondary">No UPS integrations yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -934,6 +1019,23 @@ export default function AdminUPS() {
                         </div>
                         <input value={form.destination_company_name} onChange={(e) => setField('destination_company_name', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Company (optional)" />
                         <input value={form.destination_address1} onChange={(e) => setField('destination_address1', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Destination address" required />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <select
+                            value={form.delivery_mode}
+                            onChange={(e) => setField('delivery_mode', e.target.value)}
+                            className="px-3 py-2 border rounded-lg"
+                          >
+                            <option value="receiver">No, deliver to receiver</option>
+                            <option value="ups_access_point">Yes, hold at UPS location</option>
+                          </select>
+                          <input
+                            value={form.access_point_id}
+                            onChange={(e) => setField('access_point_id', e.target.value)}
+                            className="px-3 py-2 border rounded-lg"
+                            placeholder="UPS Access Point ID (required for hold)"
+                            required={isHoldAtUpsLocation}
+                          />
+                        </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div className="relative col-span-2">
                             <input
@@ -1065,6 +1167,23 @@ export default function AdminUPS() {
                             </div>
                           )}
                         </div>
+                        {isHoldAtUpsLocation && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 border rounded-lg p-2 bg-gray-50">
+                            <input value={form.access_point_name} onChange={(e) => setField('access_point_name', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2" placeholder="Access Point name (optional)" />
+                            <input value={form.access_point_address1} onChange={(e) => setField('access_point_address1', e.target.value)} className="px-3 py-2 border rounded-lg md:col-span-2" placeholder="Access Point address" required={isHoldAtUpsLocation} />
+                            <input value={form.access_point_city} onChange={(e) => setField('access_point_city', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Access Point city" required={isHoldAtUpsLocation} />
+                            <input value={form.access_point_postal_code} onChange={(e) => setField('access_point_postal_code', e.target.value)} className="px-3 py-2 border rounded-lg" placeholder="Access Point postal code" required={isHoldAtUpsLocation} />
+                            <input
+                              list="ups-country-codes"
+                              value={form.access_point_country_code}
+                              maxLength={2}
+                              onChange={(e) => setField('access_point_country_code', e.target.value.toUpperCase())}
+                              className="px-3 py-2 border rounded-lg"
+                              placeholder="Access Point country"
+                              required={isHoldAtUpsLocation}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1144,6 +1263,10 @@ export default function AdminUPS() {
                   <div className="text-sm text-text-secondary space-y-2">
                     <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
                     <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
+                    <div><b>Delivery:</b> {isHoldAtUpsLocation ? 'Hold at UPS location' : 'Deliver to receiver'}</div>
+                    {isHoldAtUpsLocation ? (
+                      <div><b>Access Point:</b> {form.access_point_id || '-'} | {form.access_point_postal_code || '-'} {form.access_point_city || '-'}, {form.access_point_country_code || '-'}</div>
+                    ) : null}
                     <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
                     <div><b>Service:</b> {form.service_code || '-'}</div>
                     <div><b>Reference:</b> {form.reference_code || '-'}</div>
@@ -1202,7 +1325,7 @@ export default function AdminUPS() {
                 <h4 className="text-lg font-semibold text-text-primary">Client UPS shipping orders</h4>
               </div>
               {clientOrders.length === 0 ? (
-                <div className="px-5 py-6 text-sm text-text-secondary">Nicio comandă UPS pentru acest client.</div>
+                <div className="px-5 py-6 text-sm text-text-secondary">No UPS orders for this client.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm">

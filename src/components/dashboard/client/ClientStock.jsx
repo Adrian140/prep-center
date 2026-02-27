@@ -1151,22 +1151,41 @@ const refreshStockData = useCallback(async () => {
   // Informative-only destination breakdown (from receiving log), per SKU.
   try {
     const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+    const chunkArray = (arr, size) => {
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+      }
+      return chunks;
+    };
     if (stockIds.length === 0) {
       setDestinationStockByItemId({});
     } else {
-      let logsQuery = supabase
-        .from('receiving_to_stock_log')
-        .select(
-          'stock_item_id, quantity_moved, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id, user_id, destination_country))'
-        )
-        .in('stock_item_id', stockIds)
-        .limit(50000);
-      if (profile?.company_id) {
-        logsQuery = logsQuery.eq('receiving_items.receiving_shipments.company_id', profile.company_id);
-      } else {
-        logsQuery = logsQuery.eq('receiving_items.receiving_shipments.user_id', profile.id);
+      const stockIdChunks = chunkArray(stockIds, 200);
+      const logs = [];
+      let logsError = null;
+      for (const stockIdChunk of stockIdChunks) {
+        let logsQuery = supabase
+          .from('receiving_to_stock_log')
+          .select(
+            'stock_item_id, quantity_moved, receiving_items!inner(id, shipment_id, receiving_shipments!inner(company_id, user_id, destination_country))'
+          )
+          .in('stock_item_id', stockIdChunk)
+          .limit(50000);
+        if (profile?.company_id) {
+          logsQuery = logsQuery.eq('receiving_items.receiving_shipments.company_id', profile.company_id);
+        } else {
+          logsQuery = logsQuery.eq('receiving_items.receiving_shipments.user_id', profile.id);
+        }
+        const { data: partLogs, error: partLogsError } = await logsQuery;
+        if (partLogsError) {
+          logsError = partLogsError;
+          break;
+        }
+        if (Array.isArray(partLogs) && partLogs.length) {
+          logs.push(...partLogs);
+        }
       }
-      const { data: logs, error: logsError } = await logsQuery;
       if (logsError) {
         setDestinationStockByItemId({});
       } else {
@@ -1222,11 +1241,25 @@ const refreshStockData = useCallback(async () => {
   if (all.length > 0) {
     try {
       const ids = all.map((r) => r.id);
-      const { data: imgRows, error: imgErr } = await supabase
-        .from('product_images')
-        .select('stock_item_id')
-        .in('stock_item_id', ids);
-      if (imgErr) throw imgErr;
+      const chunkArray = (arr, size) => {
+        const chunks = [];
+        for (let i = 0; i < arr.length; i += size) {
+          chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+      };
+      const idChunks = chunkArray(ids, 200);
+      const imgRows = [];
+      for (const idChunk of idChunks) {
+        const { data: partRows, error: imgErr } = await supabase
+          .from('product_images')
+          .select('stock_item_id')
+          .in('stock_item_id', idChunk);
+        if (imgErr) throw imgErr;
+        if (Array.isArray(partRows) && partRows.length) {
+          imgRows.push(...partRows);
+        }
+      }
       const counts = {};
       (imgRows || []).forEach((img) => {
         counts[img.stock_item_id] = (counts[img.stock_item_id] || 0) + 1;
@@ -1980,6 +2013,8 @@ const resetReceptionForm = () => {
   };
   const renderQtyCell = (row) => {
     const marketQty = Math.max(0, Number(row.qty || 0));
+    const sendQty = Math.max(0, Number(row.units_to_send || 0));
+    const canEditDestinationSplit = marketQty > 0 && sendQty > 0;
     const manualMap =
       row?.destination_qty_by_country &&
       typeof row.destination_qty_by_country === 'object' &&
@@ -2002,7 +2037,7 @@ const resetReceptionForm = () => {
               </div>
             ))}
           </div>
-          {marketQty > 0 && (
+          {canEditDestinationSplit && (
             <button
               type="button"
               onClick={() => {
@@ -2067,7 +2102,7 @@ const resetReceptionForm = () => {
             ))}
           </div>
         )}
-        {marketQty > 0 && (
+        {canEditDestinationSplit && (
           <button
             type="button"
             onClick={() => {
