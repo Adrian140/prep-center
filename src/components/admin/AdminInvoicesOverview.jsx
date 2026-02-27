@@ -451,101 +451,108 @@ export default function AdminInvoicesOverview() {
     setConvertingId(row.id);
     setError('');
     try {
-      const issuerCode = String(row.country || row?.document_payload?.issuerProfile?.country || '').toUpperCase() || 'FR';
-      let payload = row.document_payload || {};
+      const { data: sourceRow, error: sourceRowError } = await supabase
+        .from('invoices')
+        .select('id, document_payload, description, amount, vat_amount, user_id, company_id, country')
+        .eq('id', row.id)
+        .maybeSingle();
+      if (sourceRowError) throw sourceRowError;
 
-      const hasSnapshot =
-        payload?.issuerProfile &&
-        payload?.billingProfile &&
-        Array.isArray(payload?.items) &&
-        payload.items.length > 0;
+      const sourcePayload =
+        sourceRow?.document_payload && typeof sourceRow.document_payload === 'object'
+          ? sourceRow.document_payload
+          : (row.document_payload && typeof row.document_payload === 'object' ? row.document_payload : {});
 
-      if (!hasSnapshot) {
-        const [issuerSettingsRes, billingProfilesRes, profileRes] = await Promise.all([
-          supabase
-            .from('app_settings')
-            .select('value')
-            .eq('key', 'invoice_issuer_profiles')
-            .maybeSingle(),
-          row.user_id ? supabaseHelpers.getBillingProfiles(row.user_id) : Promise.resolve({ data: [], error: null }),
-          row.user_id
-            ? supabase
-                .from('profiles')
-                .select('id, first_name, last_name, email, phone, company_name, country')
-                .eq('id', row.user_id)
-                .maybeSingle()
-            : Promise.resolve({ data: null, error: null })
-        ]);
+      const issuerCode = String(
+        sourceRow?.country || row.country || sourcePayload?.issuerProfile?.country || ''
+      ).toUpperCase() || 'FR';
 
-        const issuerProfiles = issuerSettingsRes?.data?.value || {};
-        const issuerProfile =
-          issuerProfiles?.[issuerCode] ||
-          DEFAULT_ISSUER_PROFILES?.[issuerCode] ||
-          DEFAULT_ISSUER_PROFILES.FR;
+      // Păstrăm exact liniile documentului sursă la conversie proforma -> invoice.
+      const preservedItems = Array.isArray(sourcePayload?.items)
+        ? sourcePayload.items.filter((item) => item && typeof item === 'object')
+        : [];
 
-        const profile = profileRes?.data || {};
-        const billingCandidates = Array.isArray(billingProfilesRes?.data) ? billingProfilesRes.data : [];
-        const billingProfileFromDb =
-          billingCandidates.find((entry) => entry?.is_default) ||
-          billingCandidates[0] ||
-          null;
+      const [issuerSettingsRes, billingProfilesRes, profileRes] = await Promise.all([
+        supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'invoice_issuer_profiles')
+          .maybeSingle(),
+        row.user_id ? supabaseHelpers.getBillingProfiles(row.user_id) : Promise.resolve({ data: [], error: null }),
+        row.user_id
+          ? supabase
+              .from('profiles')
+              .select('id, first_name, last_name, email, phone, company_name, country')
+              .eq('id', row.user_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null })
+      ]);
 
-        const billingProfile =
-          billingProfileFromDb ||
-          {
-            type: 'company',
-            company_name: profile?.company_name || companyNames[row.company_id] || clientNames[row.user_id] || '-',
-            first_name: profile?.first_name || '',
-            last_name: profile?.last_name || '',
-            address: '',
-            postal_code: '',
-            city: '',
-            country: profile?.country || issuerCode,
-            vat_number: ''
-          };
+      const issuerProfiles = issuerSettingsRes?.data?.value || {};
+      const issuerProfileFallback =
+        issuerProfiles?.[issuerCode] ||
+        DEFAULT_ISSUER_PROFILES?.[issuerCode] ||
+        DEFAULT_ISSUER_PROFILES.FR;
 
-        const netAmount = roundMoney(row.amount ?? 0);
-        const vatAmount = roundMoney(row.vat_amount ?? 0);
-        const grossAmount = roundMoney(netAmount + vatAmount);
-        const vatRate = netAmount > 0 ? Math.max(0, vatAmount / netAmount) : 0;
-        const totals = {
-          net: netAmount,
-          vat: vatAmount,
-          gross: grossAmount,
-          vatRate,
-          vatLabel: vatRate > 0 ? `VAT ${Math.round(vatRate * 100)}%` : 'VAT 0%',
-          legalNote: ''
+      const profile = profileRes?.data || {};
+      const billingCandidates = Array.isArray(billingProfilesRes?.data) ? billingProfilesRes.data : [];
+      const billingProfileFallback =
+        billingCandidates.find((entry) => entry?.is_default) ||
+        billingCandidates[0] ||
+        {
+          type: 'company',
+          company_name: profile?.company_name || companyNames[row.company_id] || clientNames[row.user_id] || '-',
+          first_name: profile?.first_name || '',
+          last_name: profile?.last_name || '',
+          address: '',
+          postal_code: '',
+          city: '',
+          country: profile?.country || issuerCode,
+          vat_number: ''
         };
 
-        const existingItems = Array.isArray(payload?.items)
-          ? payload.items.filter((item) => item && typeof item === 'object')
-          : [];
-        const fallbackService = String(payload?.description || row.description || '')
-          .replace(/^PROFORMA\s*\|\s*/i, '')
-          .trim() || 'Services';
+      const netAmount = roundMoney(sourceRow?.amount ?? row.amount ?? 0);
+      const vatAmount = roundMoney(sourceRow?.vat_amount ?? row.vat_amount ?? 0);
+      const grossAmount = roundMoney(netAmount + vatAmount);
+      const vatRate = netAmount > 0 ? Math.max(0, vatAmount / netAmount) : 0;
+      const totalsFromPayload = sourcePayload?.totals || {};
 
-        payload = {
-          ...payload,
-          issuerProfile,
-          billingProfile,
-          customerEmail: payload?.customerEmail || profile?.email || '',
-          customerPhone: payload?.customerPhone || billingProfile?.phone || profile?.phone || '',
-          items: existingItems.length > 0
-            ? existingItems
-            : [
-                {
-                  service: fallbackService,
-                  units: 1,
-                  unitPrice: netAmount,
-                  total: netAmount
-                }
-              ],
-          totals: {
-            ...totals,
-            ...(payload?.totals || {})
-          }
-        };
-      }
+      const fallbackService = String(sourcePayload?.description || sourceRow?.description || row.description || '')
+        .replace(/^PROFORMA\s*\|\s*/i, '')
+        .trim() || 'Services';
+
+      const payload = {
+        ...sourcePayload,
+        issuerProfile: sourcePayload?.issuerProfile || issuerProfileFallback,
+        billingProfile: sourcePayload?.billingProfile || billingProfileFallback,
+        customerEmail: sourcePayload?.customerEmail || profile?.email || '',
+        customerPhone:
+          sourcePayload?.customerPhone ||
+          sourcePayload?.billingProfile?.phone ||
+          billingProfileFallback?.phone ||
+          profile?.phone ||
+          '',
+        items: preservedItems.length
+          ? preservedItems
+          : [
+              {
+                service: fallbackService,
+                units: 1,
+                unitPrice: netAmount,
+                total: netAmount
+              }
+            ],
+        totals: {
+          net: roundMoney(totalsFromPayload?.net ?? netAmount),
+          vat: roundMoney(totalsFromPayload?.vat ?? vatAmount),
+          gross: roundMoney(totalsFromPayload?.gross ?? grossAmount),
+          vatRate: Number(totalsFromPayload?.vatRate ?? vatRate),
+          vatLabel:
+            totalsFromPayload?.vatLabel ||
+            (vatRate > 0 ? `VAT ${Math.round(vatRate * 100)}%` : 'VAT 0%'),
+          legalNote: totalsFromPayload?.legalNote || ''
+        }
+      };
 
       const { data: counterRow, error: counterError } = await supabase
         .from('app_settings')
