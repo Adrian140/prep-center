@@ -451,11 +451,27 @@ export default function AdminInvoicesOverview() {
     setConvertingId(row.id);
     setError('');
     try {
-      const { data: sourceRow, error: sourceRowError } = await supabase
+      let { data: sourceRow, error: sourceRowError } = await supabase
         .from('invoices')
         .select('id, document_payload, description, amount, vat_amount, user_id, company_id, country, billing_invoice_id')
         .eq('id', row.id)
         .maybeSingle();
+      const missingSourceColumns =
+        sourceRowError &&
+        ['document_payload', 'billing_invoice_id'].some((column) =>
+          invoiceColumnMissingInError(sourceRowError, column)
+        );
+      if (missingSourceColumns) {
+        const fallbackSource = await supabase
+          .from('invoices')
+          .select('id, description, amount, vat_amount, user_id, company_id, country')
+          .eq('id', row.id)
+          .maybeSingle();
+        sourceRow = fallbackSource.data
+          ? { ...fallbackSource.data, document_payload: null, billing_invoice_id: null }
+          : fallbackSource.data;
+        sourceRowError = fallbackSource.error;
+      }
       if (sourceRowError) throw sourceRowError;
 
       const sourcePayload =
