@@ -1048,19 +1048,34 @@ serve(async (req) => {
       (reqData as any)?.amazon_snapshot?.packingGroups ||
       [];
     const mergePackingGroups = (primary: any[], fallback: any[]) => {
-      const seen = new Set(
-        (primary || [])
-          .map((g: any) => g?.packingGroupId || g?.id || g?.groupId || null)
-          .filter(Boolean)
-      );
-      const merged = [...(primary || [])];
-      (fallback || []).forEach((g: any) => {
-        const id = g?.packingGroupId || g?.id || g?.groupId || null;
-        if (!id || seen.has(id)) return;
-        seen.add(id);
-        merged.push(g);
+      const primaryList = Array.isArray(primary) ? primary : [];
+      const fallbackList = Array.isArray(fallback) ? fallback : [];
+      const resolveGroupId = (g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null;
+
+      // Dacă UI nu trimite nimic, folosim snapshot-ul ca fallback complet.
+      if (!primaryList.length) {
+        return fallbackList;
+      }
+
+      // Dacă UI a trimis grupuri, păstrăm strict acele ID-uri și doar completăm câmpuri lipsă
+      // din snapshot pentru aceleași grupuri. Nu adăugăm grupuri extra/stale din snapshot.
+      const fallbackById = new Map<string, any>();
+      fallbackList.forEach((g: any) => {
+        const id = resolveGroupId(g);
+        if (!id) return;
+        fallbackById.set(String(id), g);
       });
-      return merged;
+
+      return primaryList.map((g: any) => {
+        const id = resolveGroupId(g);
+        if (!id) return g;
+        const cached = fallbackById.get(String(id));
+        if (!cached) return g;
+        return {
+          ...cached,
+          ...g
+        };
+      });
     };
     let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
