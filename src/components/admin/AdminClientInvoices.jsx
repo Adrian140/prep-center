@@ -4,6 +4,10 @@ import { Plus, Download, Eye, Calendar, FileText, Edit, Trash2, Save, X, Mail } 
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 
+const stripBillingInvoiceId = (text) => String(text || '')
+  .replace(/\s*\|\s*Billing invoice ID:\s*[0-9a-f-]+/ig, '')
+  .trim();
+
 export default function AdminClientInvoices({ profile, hideTitles = false }) {
   const userId = profile?.id;
   const companyId = profile?.company_id;
@@ -419,6 +423,7 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
         ) : (
           invoices.map((inv) => {
             const invoiceAmount = formatAmount(inv.amount);
+            const cleanDescription = stripBillingInvoiceId(inv.description);
             return (
             <div key={inv.id} className="bg-white border border-gray-200 rounded-xl p-5">
               {editId === inv.id ? (
@@ -529,7 +534,7 @@ export default function AdminClientInvoices({ profile, hideTitles = false }) {
                           <span>Due: {inv.due_date}</span>
                         </div>
                       )}
-                      {inv.description && <p>{inv.description}</p>}
+                      {cleanDescription && <p>{cleanDescription}</p>}
                     </div>
                   </div>
 

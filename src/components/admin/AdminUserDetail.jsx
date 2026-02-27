@@ -480,13 +480,6 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
 
       saveAs(pdfBlob, localDownloadName);
 
-      if (billingInvoice?.id && uploadRes?.data?.id) {
-        await supabase
-          .from('invoices')
-          .update({ description: `${description} | Billing invoice ID: ${billingInvoice.id}` })
-          .eq('id', uploadRes.data.id);
-      }
-
       if (normalizedDocType === 'proforma') {
         const nextProformaCounters = {
           ...proformaCounters,
