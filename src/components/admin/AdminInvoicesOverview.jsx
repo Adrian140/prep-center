@@ -89,6 +89,78 @@ const invoiceColumnMissingInError = (error, column) => {
   return parts.some((part) => part.includes(needle));
 };
 
+const UUID_REGEX = /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i;
+
+const extractBillingInvoiceId = (...values) => {
+  for (const value of values) {
+    const text = String(value || '');
+    if (!text) continue;
+    const scopedMatch = text.match(/billing\s*invoice\s*id[^0-9a-f]*([0-9a-f-]{36})/i);
+    if (scopedMatch?.[1] && UUID_REGEX.test(scopedMatch[1])) {
+      return scopedMatch[1].match(UUID_REGEX)?.[1] || null;
+    }
+    const direct = text.match(UUID_REGEX);
+    if (direct?.[1]) return direct[1];
+  }
+  return null;
+};
+
+const mapLegacyLineToItem = (line, section) => {
+  const unitsRaw = section === 'fbm' ? line?.orders_units : line?.units;
+  const units = Number(unitsRaw || 0);
+  const unitPrice = roundMoney(line?.unit_price || 0);
+  const computedTotal = roundMoney(units * unitPrice);
+  const total = roundMoney(line?.total ?? computedTotal);
+  return {
+    service: String(line?.service || 'Services').trim() || 'Services',
+    units,
+    unitPrice,
+    total
+  };
+};
+
+const fetchLegacyBillingItems = async ({ billingInvoiceId, companyId }) => {
+  if (!billingInvoiceId) return [];
+  const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
+  const [fbaRes, fbmRes, otherRes] = await Promise.all([
+    withCompany(
+      supabase
+        .from('fba_lines')
+        .select('id, service, unit_price, units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('id', { ascending: true })
+    ),
+    withCompany(
+      supabase
+        .from('fbm_lines')
+        .select('id, service, unit_price, orders_units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('id', { ascending: true })
+    ),
+    withCompany(
+      supabase
+        .from('other_lines')
+        .select('id, service, unit_price, units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('created_at', { ascending: true })
+    )
+  ]);
+
+  const missingBillingColumn =
+    invoiceColumnMissingInError(fbaRes?.error, 'billing_invoice_id') ||
+    invoiceColumnMissingInError(fbmRes?.error, 'billing_invoice_id') ||
+    invoiceColumnMissingInError(otherRes?.error, 'billing_invoice_id');
+  if (missingBillingColumn) return [];
+
+  const firstError = [fbaRes?.error, fbmRes?.error, otherRes?.error].find(Boolean);
+  if (firstError) throw firstError;
+
+  const fbaItems = (fbaRes?.data || []).map((line) => mapLegacyLineToItem(line, 'fba'));
+  const fbmItems = (fbmRes?.data || []).map((line) => mapLegacyLineToItem(line, 'fbm'));
+  const otherItems = (otherRes?.data || []).map((line) => mapLegacyLineToItem(line, 'other'));
+  return [...fbaItems, ...fbmItems, ...otherItems].filter((item) => item.units > 0 || item.total > 0);
+};
+
 const buildDocumentNumber = ({ issuerCode, counterValue, documentType }) => {
   const normalizedType = String(documentType || 'invoice').toLowerCase();
   if (normalizedType === 'proforma') {
@@ -453,7 +525,7 @@ export default function AdminInvoicesOverview() {
     try {
       const { data: sourceRow, error: sourceRowError } = await supabase
         .from('invoices')
-        .select('id, document_payload, description, amount, vat_amount, user_id, company_id, country')
+        .select('id, document_payload, description, amount, vat_amount, user_id, company_id, country, billing_invoice_id')
         .eq('id', row.id)
         .maybeSingle();
       if (sourceRowError) throw sourceRowError;
@@ -471,6 +543,20 @@ export default function AdminInvoicesOverview() {
       const preservedItems = Array.isArray(sourcePayload?.items)
         ? sourcePayload.items.filter((item) => item && typeof item === 'object')
         : [];
+      const parsedBillingInvoiceId = extractBillingInvoiceId(
+        row?.billing_invoice_id,
+        sourceRow?.billing_invoice_id,
+        sourcePayload?.billingInvoiceId,
+        sourcePayload?.description,
+        sourceRow?.description,
+        row?.description
+      );
+      const recoveredLegacyItems = preservedItems.length
+        ? []
+        : await fetchLegacyBillingItems({
+            billingInvoiceId: parsedBillingInvoiceId,
+            companyId: sourceRow?.company_id || row?.company_id || null
+          });
 
       const [issuerSettingsRes, billingProfilesRes, profileRes] = await Promise.all([
         supabase
@@ -534,6 +620,8 @@ export default function AdminInvoicesOverview() {
           '',
         items: preservedItems.length
           ? preservedItems
+          : recoveredLegacyItems.length
+            ? recoveredLegacyItems
           : [
               {
                 service: fallbackService,
