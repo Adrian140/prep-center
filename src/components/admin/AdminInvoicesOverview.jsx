@@ -119,6 +119,24 @@ const mapLegacyLineToItem = (line, section) => {
   };
 };
 
+const isGenericSummaryItem = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  const service = String(item.service || '').toLowerCase();
+  const units = Number(item.units || 0);
+  return (
+    units <= 1 &&
+    (service.includes('billing invoice id') ||
+      service.includes('issuer:') ||
+      service.includes('billing profile:'))
+  );
+};
+
+const shouldPreferRecoveredItems = (items = []) => {
+  if (!Array.isArray(items) || items.length === 0) return true;
+  if (items.length > 1) return false;
+  return isGenericSummaryItem(items[0]);
+};
+
 const fetchLegacyBillingItems = async ({ billingInvoiceId, companyId }) => {
   if (!billingInvoiceId) return [];
   const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
@@ -540,9 +558,10 @@ export default function AdminInvoicesOverview() {
       ).toUpperCase() || 'FR';
 
       // Păstrăm exact liniile documentului sursă la conversie proforma -> invoice.
-      const preservedItems = Array.isArray(sourcePayload?.items)
+      const preservedItemsRaw = Array.isArray(sourcePayload?.items)
         ? sourcePayload.items.filter((item) => item && typeof item === 'object')
         : [];
+      const preserveExistingItems = !shouldPreferRecoveredItems(preservedItemsRaw);
       const parsedBillingInvoiceId = extractBillingInvoiceId(
         row?.billing_invoice_id,
         sourceRow?.billing_invoice_id,
@@ -551,7 +570,7 @@ export default function AdminInvoicesOverview() {
         sourceRow?.description,
         row?.description
       );
-      const recoveredLegacyItems = preservedItems.length
+      const recoveredLegacyItems = preserveExistingItems
         ? []
         : await fetchLegacyBillingItems({
             billingInvoiceId: parsedBillingInvoiceId,
@@ -618,8 +637,8 @@ export default function AdminInvoicesOverview() {
           billingProfileFallback?.phone ||
           profile?.phone ||
           '',
-        items: preservedItems.length
-          ? preservedItems
+        items: preserveExistingItems
+          ? preservedItemsRaw
           : recoveredLegacyItems.length
             ? recoveredLegacyItems
           : [
