@@ -137,6 +137,54 @@ const fetchBillingItems = async ({ billingInvoiceId, companyId }) => {
   return [...fbaItems, ...fbmItems, ...otherItems].filter((item) => item.units > 0 || item.total > 0);
 };
 
+const parseItemsFromBillingNotes = (notes) => {
+  if (!notes) return [];
+  try {
+    const parsed = typeof notes === 'string' ? JSON.parse(notes) : notes;
+    const items = Array.isArray(parsed?.items) ? parsed.items : [];
+    return items.filter((item) => item && typeof item === 'object');
+  } catch {
+    return [];
+  }
+};
+
+const fetchStoredBillingItems = async ({ billingInvoiceId }) => {
+  if (!billingInvoiceId) return [];
+  const { data, error } = await supabase
+    .from('billing_invoices')
+    .select('notes')
+    .eq('id', billingInvoiceId)
+    .maybeSingle();
+  if (error) return [];
+  return parseItemsFromBillingNotes(data?.notes);
+};
+
+const resolveBillingInvoiceId = async ({
+  explicitBillingInvoiceId,
+  description,
+  companyId,
+  userId,
+  invoiceNumber
+}) => {
+  const fromText = extractBillingInvoiceId(explicitBillingInvoiceId, description);
+  if (fromText) return fromText;
+  if (!invoiceNumber) return null;
+
+  let query = supabase
+    .from('billing_invoices')
+    .select('id')
+    .eq('invoice_number', String(invoiceNumber).trim())
+    .limit(1);
+  if (companyId) query = query.eq('company_id', companyId);
+  if (userId) query = query.eq('user_id', userId);
+
+  const { data, error } = await query.maybeSingle();
+  if (error && !invoiceColumnMissingInError(error, 'billing_invoices')) {
+    throw error;
+  }
+  return data?.id || null;
+};
+
 const isProforma = (row) => {
   const byType = String(row?.document_type || '').toLowerCase() === 'proforma';
   if (byType) return true;
@@ -611,18 +659,23 @@ export default function AdminInvoicesOverview() {
 
       const payloadItems = Array.isArray(payload?.items) ? payload.items.filter(Boolean) : [];
       if (payloadItems.length === 0) {
-        const billingInvoiceId = extractBillingInvoiceId(
-          sourceRow?.billing_invoice_id,
-          row?.billing_invoice_id,
-          sourcePayload?.billingInvoiceId,
-          sourceRow?.description,
-          row?.description
-        );
+        const billingInvoiceId = await resolveBillingInvoiceId({
+          explicitBillingInvoiceId:
+            sourceRow?.billing_invoice_id || row?.billing_invoice_id || sourcePayload?.billingInvoiceId || null,
+          description: sourceRow?.description || row?.description || '',
+          companyId: sourceRow?.company_id || row?.company_id || null,
+          userId: sourceRow?.user_id || row?.user_id || null,
+          invoiceNumber: row?.invoice_number || null
+        });
+        const storedItems = await fetchStoredBillingItems({ billingInvoiceId });
+        if (storedItems.length > 0) {
+          payload.items = storedItems;
+        }
         const recoveredItems = await fetchBillingItems({
           billingInvoiceId,
           companyId: sourceRow?.company_id || row?.company_id || null
         });
-        if (recoveredItems.length > 0) {
+        if ((!Array.isArray(payload?.items) || payload.items.length === 0) && recoveredItems.length > 0) {
           payload.items = recoveredItems;
         }
       }
@@ -678,7 +731,13 @@ export default function AdminInvoicesOverview() {
         document_type: 'invoice',
         converted_from_proforma_id: row.id,
         converted_to_invoice_id: null,
-        billing_invoice_id: row.billing_invoice_id || null,
+        billing_invoice_id: await resolveBillingInvoiceId({
+          explicitBillingInvoiceId: sourceRow?.billing_invoice_id || row?.billing_invoice_id || null,
+          description: sourceRow?.description || row?.description || '',
+          companyId: sourceRow?.company_id || row?.company_id || null,
+          userId: sourceRow?.user_id || row?.user_id || null,
+          invoiceNumber: row?.invoice_number || null
+        }),
         document_payload: payload,
         amount: roundMoney(sourceRow?.amount ?? row.amount ?? totals?.net ?? 0),
         vat_amount: roundMoney(sourceRow?.vat_amount ?? row.vat_amount ?? totals?.vat ?? 0),

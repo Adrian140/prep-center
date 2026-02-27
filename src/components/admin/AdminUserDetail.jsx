@@ -392,7 +392,8 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
         invoice_number: generatedInvoiceNumber,
         invoice_date: invoiceDate,
         total_amount: totals?.gross ?? 0,
-        lines
+        lines,
+        items: items || []
       });
       if (error) {
         setBillingError(error.message || 'Nu am putut salva factura.');

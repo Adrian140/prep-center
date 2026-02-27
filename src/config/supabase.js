@@ -1132,7 +1132,8 @@ resetPassword: async (email) => {
     invoice_number,
     invoice_date,
     total_amount = 0,
-    lines = []
+    lines = [],
+    items = []
   } = {}) => {
     if (!company_id) {
       return { data: null, error: new Error('Missing company_id') };
@@ -1148,7 +1149,11 @@ resetPassword: async (email) => {
       user_id: user_id || null,
       invoice_number: String(invoice_number).trim(),
       invoice_date,
-      total_amount: Number(total_amount) || 0
+      total_amount: Number(total_amount) || 0,
+      notes:
+        Array.isArray(items) && items.length > 0
+          ? JSON.stringify({ items })
+          : null
     };
     const { data: invoice, error: insertError } = await supabase
       .from('billing_invoices')
