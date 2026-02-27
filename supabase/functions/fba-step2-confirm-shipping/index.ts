@@ -2023,7 +2023,15 @@ serve(async (req) => {
       const payload = shDetail?.json?.payload || shDetail?.json || {};
       const selectedTransportationOptionId =
         payload?.selectedTransportationOptionId || payload?.selectedTransportationOptionID || null;
-      return { selectedTransportationOptionId, requestId: shDetail?.requestId || null };
+      const shipmentStatus = String(payload?.status || "").toUpperCase() || null;
+      const shipmentConfirmationId =
+        payload?.shipmentConfirmationId || payload?.shipmentConfirmedId || payload?.shipmentConfirmationID || null;
+      return {
+        selectedTransportationOptionId,
+        shipmentStatus,
+        shipmentConfirmationId,
+        requestId: shDetail?.requestId || null
+      };
     };
 
     const extractOptionCharge = (opt: any) => {
@@ -5150,6 +5158,35 @@ serve(async (req) => {
     };
 
     const shipmentsWithAmazonIds = await attachAmazonShipmentIds(shipments);
+    const firstConfirmedShipmentId =
+      String(
+        shipmentsWithAmazonIds?.[0]?.shipmentId ||
+        shipmentsWithAmazonIds?.[0]?.id ||
+        ""
+      ).trim() || null;
+    if (firstConfirmedShipmentId) {
+      const shipmentState = await getSelectedTransportationOptionId(firstConfirmedShipmentId);
+      const pendingCarrierEstimate =
+        shipmentState?.shipmentStatus === "WORKING" || !shipmentState?.shipmentConfirmationId;
+      if (pendingCarrierEstimate) {
+        return new Response(
+          JSON.stringify({
+            error: "Amazon has not confirmed the carrier estimate yet.",
+            code: "TRANSPORTATION_CONFIRMATION_PENDING",
+            shipmentStatus: shipmentState?.shipmentStatus || null,
+            shipmentConfirmationId: shipmentState?.shipmentConfirmationId || null,
+            inboundPlanId,
+            placementOptionId: effectivePlacementOptionId || null,
+            options: optionsPayload,
+            shipments,
+            summary: summaryWithSelection,
+            prepRequestId: requestId || null,
+            traceId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
+    }
 
     // Trimite email de confirmare către client (non-blocant)
     const sendPrepConfirmEmail = async () => {

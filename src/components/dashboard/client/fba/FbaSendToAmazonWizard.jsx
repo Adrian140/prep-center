@@ -4092,9 +4092,42 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       setShippingOptions(aggregateTransportationOptions(json.options || [], json.summary || null));
       setShippingSummary(json.summary || null);
-      setShippingConfirmed(true);
-      setCarrierTouched(true);
-      completeAndNext('2');
+      const hasExplicitApiConfirmation = Boolean(json?.alreadyConfirmed || json?.summary?.alreadyConfirmed);
+      let apiConfirmed = hasExplicitApiConfirmation;
+      if (!apiConfirmed) {
+        const shipmentIdsForCheck = Array.from(
+          new Set(
+            (Array.isArray(json?.shipments) ? json.shipments : [])
+              .map((s) => String(s?.shipmentId || s?.id || '').trim())
+              .filter(Boolean)
+          )
+        );
+        if (shipmentIdsForCheck.length) {
+          try {
+            const shipmentDetails = await Promise.all(
+              shipmentIdsForCheck.map((sid) => fetchShipmentDetails(sid, inboundPlanId, requestId))
+            );
+            apiConfirmed = shipmentDetails.every((detail) => {
+              const status = String(detail?.status || '').toUpperCase();
+              const confirmationId =
+                detail?.shipmentConfirmationId ||
+                detail?.shipmentConfirmedId ||
+                detail?.shipmentConfirmationID ||
+                null;
+              return Boolean(confirmationId) && status && status !== 'WORKING';
+            });
+          } catch {
+            apiConfirmed = false;
+          }
+        }
+      }
+      setShippingConfirmed(apiConfirmed);
+      if (apiConfirmed) {
+        setCarrierTouched(true);
+        completeAndNext('2');
+      } else {
+        setShippingError('Amazon has not confirmed shipping yet. Please retry Step 2 confirmation in a few seconds.');
+      }
     } catch (e) {
       const parsed = await extractFunctionInvokeError(e);
       const payload = parsed?.payload || null;
@@ -4134,6 +4167,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     plan?.packing_option_id,
     plan?.placementOptionId,
     plan?.placement_option_id,
+    fetchShipmentDetails,
     fetchShippingOptions,
     resolveInboundPlanId,
     resolveRequestId,
@@ -4418,7 +4452,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setLabelsLoadingId(shipment?.id || shipmentId);
     setLabelsError('');
     try {
+      const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const details = await fetchShipmentDetails(shipmentId, inboundPlanId, requestId);
+      const shipmentStatus = String(details?.status || '').toUpperCase();
+      if (partnered && shipmentStatus === 'WORKING') {
+        if (downloadWindow) downloadWindow.close();
+        setLabelsError('Amazon has not confirmed the partnered carrier estimate yet. Re-run Step 2 confirm shipping, then try labels again.');
+        return;
+      }
       const confirmationId =
         details?.shipmentConfirmationId ||
         details?.shipmentConfirmedId ||
@@ -4430,7 +4471,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setLabelsError('Missing shipmentConfirmationId for labels. Try again after confirming shipping.');
         return;
       }
-      const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const packageCount = Number(shipment?.boxes || 0) || 1;
       const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
       const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
@@ -4464,7 +4504,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
     } catch (e) {
       if (downloadWindow) downloadWindow.close();
-      setLabelsError(e?.message || 'Could not generate labels.');
+      const msg = String(e?.message || '');
+      if (/Carrier estimate is not yet confirmed/i.test(msg)) {
+        setLabelsError('Amazon has not confirmed the partnered carrier estimate yet. Re-run Step 2 confirm shipping, then try labels again.');
+      } else {
+        setLabelsError(msg || 'Could not generate labels.');
+      }
     } finally {
       setLabelsLoadingId(null);
     }
