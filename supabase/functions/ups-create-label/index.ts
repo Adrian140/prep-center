@@ -264,23 +264,6 @@ serve(async (req) => {
   const declaredValue = Number(pkg.declared_value || 0);
   const declaredCurrency = String(pkg.declared_currency || order.currency || "EUR").trim().toUpperCase();
   const shipmentDescription = String(pkg.shipment_description || "").trim() || "PrepCenter shipment";
-  const holdAtUpsLocation = Boolean(pkg.hold_at_ups_location || String(pkg.delivery_mode || "").trim() === "ups_access_point");
-  const accessPointId = String(pkg.access_point_id || "").trim();
-  const accessPointName = String(pkg.access_point_name || "").trim();
-  const accessPointAddress1 = String(pkg.access_point_address1 || "").trim();
-  const accessPointCity = String(pkg.access_point_city || "").trim();
-  const accessPointPostalCode = String(pkg.access_point_postal_code || "").trim();
-  const accessPointCountryCode = String(pkg.access_point_country_code || shipTo.country_code || "FR").trim().toUpperCase();
-
-  if (holdAtUpsLocation && (!accessPointId || !accessPointAddress1 || !accessPointCity || !accessPointPostalCode || !accessPointCountryCode)) {
-    return jsonResponse(
-      {
-        error: "Missing UPS Access Point fields for hold-at-location shipment.",
-        required: ["access_point_id", "access_point_address1", "access_point_city", "access_point_postal_code", "access_point_country_code"]
-      },
-      400
-    );
-  }
 
   const shipmentPayload = {
     ShipmentRequest: {
@@ -334,27 +317,6 @@ serve(async (req) => {
         Service: {
           Code: String(order.service_code || "11")
         },
-        ...(holdAtUpsLocation
-          ? {
-              ShipmentIndicationType: [
-                {
-                  Code: "01",
-                  Description: "D2R shipment"
-                }
-              ],
-              AlternateDeliveryAddress: {
-                Name: accessPointName || "UPS Access Point",
-                UPSAccessPointID: accessPointId,
-                ...(shipToAttention ? { AttentionName: shipToAttention } : {}),
-                Address: {
-                  AddressLine: [accessPointAddress1],
-                  City: accessPointCity,
-                  PostalCode: accessPointPostalCode,
-                  CountryCode: accessPointCountryCode
-                }
-              }
-            }
-          : {}),
         ReferenceNumber: referenceCode
           ? {
               Code: "PO",
@@ -479,11 +441,7 @@ serve(async (req) => {
       currency: charge.currency,
       label_file_path: labelFilePath,
       label_format: labelFilePath ? "gif" : null,
-      response_payload: {
-        ...(responseJson || {}),
-        hold_at_ups_location: holdAtUpsLocation,
-        access_point_id: holdAtUpsLocation ? accessPointId : null
-      },
+      response_payload: responseJson,
       last_error: null,
       updated_at: new Date().toISOString()
     })
