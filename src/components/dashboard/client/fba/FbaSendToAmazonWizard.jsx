@@ -4421,7 +4421,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return partnered ? 'PackageLabel_Thermal' : 'PackageLabel_Thermal_NonPCP';
   };
 
-  const fetchShipmentDetails = async (shipmentId, inboundPlanId, requestId) => {
+  async function fetchShipmentDetails(shipmentId, inboundPlanId, requestId) {
     const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
       body: {
         action: 'get_shipment',
@@ -4432,7 +4432,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     });
     if (error) throw error;
     return data?.data || null;
-  };
+  }
 
   const handlePrintLabels = async (shipment) => {
     const downloadWindow = window.open('', '_blank', 'noopener');
