@@ -61,7 +61,14 @@ function maskValue(val: string) {
 }
 
 function normalizeSku(val: string | null | undefined) {
-  return (val || "").trim();
+  const raw = (val || "").trim();
+  if (!raw) return "";
+  return raw
+    .normalize("NFKC")
+    // Common mojibake variants for euro sign seen in legacy rows/logs.
+    .replace(/\u00E2\u201A\u00AC/g, "€")
+    .replace(/\u00E2\u0082\u00AC/g, "€")
+    .replace(/\u0080/g, "€");
 }
 
 function parseNumber(input: unknown) {
@@ -1434,7 +1441,7 @@ serve(async (req) => {
 
     const confirmed: Record<string, number> = {};
     (dbItems || []).forEach((it: any) => {
-      const sku = String(it?.sku || "").trim();
+      const sku = normalizeSku(it?.sku || "");
       if (!sku) return;
       confirmed[sku] = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
     });
@@ -1444,7 +1451,7 @@ serve(async (req) => {
       (g?.boxes || []).forEach((b: any) => {
         if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
         (b?.items || []).forEach((it: any) => {
-          const sku = String(it?.msku || "").trim();
+          const sku = normalizeSku(it?.msku || "");
           const q = Number(it?.quantity || 0) || 0;
           if (!sku || q <= 0) return;
           const boxQty = Number(b?.quantity || 1) || 1;

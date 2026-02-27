@@ -39,7 +39,14 @@ type TempCreds = {
 };
 
 function normalizeSku(val: string | null | undefined) {
-  return (val || "").trim();
+  const raw = (val || "").trim();
+  if (!raw) return "";
+  return raw
+    .normalize("NFKC")
+    // Common mojibake variants for euro sign seen in legacy rows/logs.
+    .replace(/\u00E2\u201A\u00AC/g, "€")
+    .replace(/\u00E2\u0082\u00AC/g, "€")
+    .replace(/\u0080/g, "€");
 }
 
 function maskValue(val: string) {
