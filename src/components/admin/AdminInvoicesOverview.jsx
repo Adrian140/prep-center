@@ -399,18 +399,28 @@ export default function AdminInvoicesOverview() {
     let net = 0;
     let vat = 0;
     let pending = 0;
+    let pendingNet = 0;
+    let pendingVat = 0;
 
     for (const row of rows) {
       const rowNet = Number(row.amount || 0);
       const rowVat = Number(row.vat_amount || 0);
-      net += Number.isFinite(rowNet) ? rowNet : 0;
-      vat += Number.isFinite(rowVat) ? rowVat : 0;
-      if (isPendingStatus(row.status)) pending += 1;
+      const safeRowNet = Number.isFinite(rowNet) ? rowNet : 0;
+      const safeRowVat = Number.isFinite(rowVat) ? rowVat : 0;
+      net += safeRowNet;
+      vat += safeRowVat;
+      if (isPendingStatus(row.status)) {
+        pending += 1;
+        pendingNet += safeRowNet;
+        pendingVat += safeRowVat;
+      }
     }
 
     return {
       count: rows.length,
       pending,
+      pendingNet,
+      pendingVat,
       net,
       vat,
       gross: net + vat
@@ -929,6 +939,9 @@ export default function AdminInvoicesOverview() {
         <div className="bg-white border border-amber-200 rounded-xl p-4">
           <div className="text-xs text-amber-700">{t('adminInvoices.cards.pendingInvoices')}</div>
           <div className="text-2xl font-semibold text-amber-800">{summary.pending}</div>
+          <div className="mt-1 text-xs text-amber-700">
+            Net: {formatAmount(summary.pendingNet)} € · TVA: {formatAmount(summary.pendingVat)} €
+          </div>
         </div>
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <div className="text-xs text-text-secondary">{t('adminInvoices.cards.netTotal')}</div>
