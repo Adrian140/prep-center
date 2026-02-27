@@ -4382,7 +4382,7 @@ getAllReceivingShipments: async (options = {}) => {
   listClientMarketConversations: async ({ country } = {}) => {
     let query = supabase
       .from('client_market_conversations')
-      .select('id, listing_id, country, seller_user_id, buyer_user_id, created_at, last_message_at, client_market_listings(id, asin, ean, product_name, price_eur, quantity, country)')
+      .select('id, listing_id, country, seller_user_id, buyer_user_id, created_at, last_message_at, client_market_listings(id, owner_user_id, owner_company_id, asin, ean, product_name, price_eur, quantity, country)')
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
     if (country) query = query.eq('country', String(country).toUpperCase());

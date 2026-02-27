@@ -56,6 +56,7 @@ export default function ClientChatWidget() {
 
   const [b2bConversations, setB2bConversations] = useState([]);
   const [b2bProfileNamesById, setB2bProfileNamesById] = useState({});
+  const [b2bCompanyNamesById, setB2bCompanyNamesById] = useState({});
   const [b2bUnreadByConversationId, setB2bUnreadByConversationId] = useState({});
   const [b2bReadByConversationId, setB2bReadByConversationId] = useState({});
   const [b2bLoading, setB2bLoading] = useState(false);
@@ -226,6 +227,36 @@ export default function ClientChatWidget() {
       setB2bProfileNamesById(next);
     };
     loadB2bProfileNames();
+  }, [b2bConversations]);
+
+  useEffect(() => {
+    const loadB2bCompanyNames = async () => {
+      const companyIds = Array.from(
+        new Set(
+          (b2bConversations || [])
+            .map((conv) => listingFromConversation(conv)?.owner_company_id)
+            .filter(Boolean)
+        )
+      );
+      if (!companyIds.length) {
+        setB2bCompanyNamesById({});
+        return;
+      }
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id, name')
+        .in('id', companyIds);
+      if (error) {
+        setB2bCompanyNamesById({});
+        return;
+      }
+      const next = {};
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        if (row?.id && row?.name) next[row.id] = row.name;
+      });
+      setB2bCompanyNamesById(next);
+    };
+    loadB2bCompanyNames();
   }, [b2bConversations]);
 
   const loadB2bMessages = async (conversationId) => {
@@ -489,8 +520,15 @@ export default function ClientChatWidget() {
   const getB2bPartnerName = (conv) => {
     if (!conv || !user?.id) return 'Client';
     const isSeller = conv.seller_user_id === user.id;
+    const listing = listingFromConversation(conv);
+    const listingOwnerCompanyId = listing?.owner_company_id || null;
+    const listingOwnerName = listingOwnerCompanyId ? b2bCompanyNamesById?.[listingOwnerCompanyId] : '';
+    const partnerRoleFallback = isSeller ? 'Buyer' : 'Seller';
     const partnerId = isSeller ? conv.buyer_user_id : conv.seller_user_id;
-    return b2bProfileNamesById?.[partnerId] || 'Client';
+    if (!isSeller && listingOwnerName) return listingOwnerName;
+    if (b2bProfileNamesById?.[partnerId]) return b2bProfileNamesById[partnerId];
+    if (partnerId) return `${partnerRoleFallback} ${String(partnerId).slice(0, 8)}`;
+    return partnerRoleFallback;
   };
 
   return (
@@ -665,7 +703,6 @@ export default function ClientChatWidget() {
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">
                       {getB2bPartnerName(activeB2bConversation)}
-                      {listingFromConversation(activeB2bConversation)?.asin ? ` · ASIN ${listingFromConversation(activeB2bConversation)?.asin}` : ''}
                     </div>
                   </div>
                   <div ref={b2bScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-28">
