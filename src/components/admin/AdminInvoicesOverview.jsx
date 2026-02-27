@@ -71,6 +71,72 @@ const roundMoney = (value) => {
   return Math.round(number * 100) / 100;
 };
 
+const UUID_REGEX = /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i;
+
+const extractBillingInvoiceId = (...values) => {
+  for (const value of values) {
+    const text = String(value || '');
+    if (!text) continue;
+    const match = text.match(UUID_REGEX);
+    if (match?.[1]) return match[1];
+  }
+  return null;
+};
+
+const mapLineToItem = (line, section) => {
+  const units = Number(section === 'fbm' ? line?.orders_units : line?.units || 0);
+  const unitPrice = roundMoney(line?.unit_price || 0);
+  const total = roundMoney(line?.total ?? unitPrice * units);
+  return {
+    service: String(line?.service || 'Services').trim() || 'Services',
+    units,
+    unitPrice,
+    total
+  };
+};
+
+const fetchBillingItems = async ({ billingInvoiceId, companyId }) => {
+  if (!billingInvoiceId) return [];
+  const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
+  const [fbaRes, fbmRes, otherRes] = await Promise.all([
+    withCompany(
+      supabase
+        .from('fba_lines')
+        .select('service, unit_price, units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('id', { ascending: true })
+    ),
+    withCompany(
+      supabase
+        .from('fbm_lines')
+        .select('service, unit_price, orders_units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('id', { ascending: true })
+    ),
+    withCompany(
+      supabase
+        .from('other_lines')
+        .select('service, unit_price, units, total')
+        .eq('billing_invoice_id', billingInvoiceId)
+        .order('created_at', { ascending: true })
+    )
+  ]);
+
+  const missingBillingColumn =
+    invoiceColumnMissingInError(fbaRes?.error, 'billing_invoice_id') ||
+    invoiceColumnMissingInError(fbmRes?.error, 'billing_invoice_id') ||
+    invoiceColumnMissingInError(otherRes?.error, 'billing_invoice_id');
+  if (missingBillingColumn) return [];
+
+  const firstError = [fbaRes?.error, fbmRes?.error, otherRes?.error].find(Boolean);
+  if (firstError) throw firstError;
+
+  const fbaItems = (fbaRes?.data || []).map((line) => mapLineToItem(line, 'fba'));
+  const fbmItems = (fbmRes?.data || []).map((line) => mapLineToItem(line, 'fbm'));
+  const otherItems = (otherRes?.data || []).map((line) => mapLineToItem(line, 'other'));
+  return [...fbaItems, ...fbmItems, ...otherItems].filter((item) => item.units > 0 || item.total > 0);
+};
+
 const isProforma = (row) => {
   const byType = String(row?.document_type || '').toLowerCase() === 'proforma';
   if (byType) return true;
@@ -542,6 +608,24 @@ export default function AdminInvoicesOverview() {
                 legalNote: ''
               }
             };
+
+      const payloadItems = Array.isArray(payload?.items) ? payload.items.filter(Boolean) : [];
+      if (payloadItems.length === 0) {
+        const billingInvoiceId = extractBillingInvoiceId(
+          sourceRow?.billing_invoice_id,
+          row?.billing_invoice_id,
+          sourcePayload?.billingInvoiceId,
+          sourceRow?.description,
+          row?.description
+        );
+        const recoveredItems = await fetchBillingItems({
+          billingInvoiceId,
+          companyId: sourceRow?.company_id || row?.company_id || null
+        });
+        if (recoveredItems.length > 0) {
+          payload.items = recoveredItems;
+        }
+      }
 
       const { data: counterRow, error: counterError } = await supabase
         .from('app_settings')
