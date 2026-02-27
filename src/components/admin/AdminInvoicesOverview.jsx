@@ -626,6 +626,9 @@ export default function AdminInvoicesOverview() {
           payload.items = recoveredItems;
         }
       }
+      if (!Array.isArray(payload?.items) || payload.items.length === 0) {
+        throw new Error('Proforma has no invoice lines. Conversion stopped.');
+      }
 
       const { data: counterRow, error: counterError } = await supabase
         .from('app_settings')
