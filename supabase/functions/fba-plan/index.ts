@@ -226,7 +226,15 @@ function normalizeAttrArray(v: any): any[] {
 }
 
 function normalizeSku(val: string | null | undefined): string {
-  return (val || "").trim();
+  const raw = String(val || "");
+  // Repair common mojibake/control-char issues coming from legacy CSV/Windows-1252 paths.
+  // In our logs this appears as U+0080 instead of EUR sign.
+  const repaired = raw
+    .replace(/\u0080/g, "€")
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return repaired;
 }
 
 function extractBoolAttr(attrs: any, key: string): boolean | null {
