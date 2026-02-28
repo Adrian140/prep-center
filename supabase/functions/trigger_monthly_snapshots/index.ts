@@ -111,7 +111,13 @@ serve(async (req) => {
         const warehouseList = Array.from(byWh.keys());
 
         for (const wh of warehouseList) {
-          const whStock = (byWh.get(wh) || []).filter((r) => Number(r.qty ?? 0) > 0);
+          const whStock = (byWh.get(wh) || [])
+            .filter((r) => Number(r.qty ?? 0) > 0)
+            .sort((a, b) => {
+              const qtyDiff = Number(b.qty ?? 0) - Number(a.qty ?? 0);
+              if (qtyDiff !== 0) return qtyDiff;
+              return String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""));
+            });
           if (whStock.length === 0) {
             skipped += months.length;
             continue;

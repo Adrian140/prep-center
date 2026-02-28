@@ -221,6 +221,10 @@ export default function ClientExports() {
   const [archLoading, setArchLoading] = useState(false);
   const [triggerLoading, setTriggerLoading] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState('');
+  const stockToLabel = (() => {
+    const localized = t("ClientExports.toStock");
+    return localized === "ClientExports.toStock" ? t("ClientExports.to") : localized;
+  })();
 
   const meta = useMemo(() => KIND_META(t)[kind], [t, kind]);
   const marketCode = normalizeMarketCode(currentMarket);
@@ -316,7 +320,8 @@ export default function ClientExports() {
     }
     setBusy(true);
     try {
-      // 1) Dacă e raport de Stock, preferăm snapshot-ul lunar din export_files
+      // 1) Dacă e raport de Stock, folosim snapshot doar când period_end este EXACT data selectată.
+      // Pentru orice altă dată, generăm din datele live ca să respectăm strict selecția utilizatorului.
       if (kind === "Stock") {
         const targetDate = to || new Date().toISOString().slice(0, 10);
         const { data: snap, error: snapErr } = await supabase
@@ -325,7 +330,7 @@ export default function ClientExports() {
           .eq("company_id", profile.company_id)
           .eq("export_type", "stock_monthly_snapshot")
           .eq("status", "ready")
-          .lte("period_end", targetDate)
+          .eq("period_end", targetDate)
           .order("period_end", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -353,6 +358,9 @@ export default function ClientExports() {
       if (kind !== "Stock") {
         if (from) query = query.gte(meta.dateCol, from);
         if (to) query = query.lte(meta.dateCol, to);
+      } else if (to) {
+        // created_at este timestamp; includem toată ziua selectată.
+        query = query.lte(meta.dateCol, `${to}T23:59:59.999Z`);
       }
 
       let { data, error } = await query;
@@ -373,7 +381,13 @@ export default function ClientExports() {
       }
       const rows =
         kind === 'Stock'
-          ? rowsRaw.filter((r) => Number(r.qty || 0) > 0)
+          ? rowsRaw
+              .filter((r) => Number(r.qty || 0) > 0)
+              .sort((a, b) => {
+                const qtyDiff = Number(b.qty || 0) - Number(a.qty || 0);
+                if (qtyDiff !== 0) return qtyDiff;
+                return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+              })
           : rowsRaw;
 
       // 2) Construim sheet-ul ca AOA
@@ -490,7 +504,7 @@ export default function ClientExports() {
 
         <div className="flex flex-col">
           <label className="text-xs text-text-secondary mb-1">
-            {kind === "Stock" ? t("ClientExports.toStock") : t("ClientExports.to")}
+            {kind === "Stock" ? stockToLabel : t("ClientExports.to")}
           </label>
           <input
             type="date"
