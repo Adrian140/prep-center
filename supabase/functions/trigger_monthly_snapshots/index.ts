@@ -111,7 +111,11 @@ serve(async (req) => {
         const warehouseList = Array.from(byWh.keys());
 
         for (const wh of warehouseList) {
-          const whStock = byWh.get(wh)!;
+          const whStock = (byWh.get(wh) || []).filter((r) => Number(r.qty ?? 0) > 0);
+          if (whStock.length === 0) {
+            skipped += months.length;
+            continue;
+          }
 
           const { data: existing, error: checkErr } = await supabase
             .from("export_files")
@@ -206,7 +210,7 @@ serve(async (req) => {
             period_end: m.endISO,
             warehouse: wh,
             file_path: path,
-            rows_count: stock.length,
+            rows_count: whStock.length,
             totals_json: {
               qty: totals.qty,
               purchase_price_sum: totals.purchase_price_sum,

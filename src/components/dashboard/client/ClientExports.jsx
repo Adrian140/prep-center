@@ -6,17 +6,22 @@ import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
 import { mapStockRowsForMarket } from '@/utils/marketStock';
 
+const labelOrFallback = (t, key, fallback) => {
+  const value = t(key);
+  return value === key ? fallback : value;
+};
+
 // Tipurile + headere + formate numerice + mapări rânduri
 const KIND_META = (t) => ({
   FBA: {
     table: "fba_lines",
     dateCol: "service_date",
     headers: [
-      t("activity.thead.date"),        // 0
-      t("activity.thead.service"),     // 1
-      t("activity.thead.unitPrice"),   // 2
-      t("activity.thead.units"),       // 3
-      t("activity.thead.total"),       // 4
+      labelOrFallback(t, "SupabaseClientActivity.thead.date", "Date"),       // 0
+      labelOrFallback(t, "SupabaseClientActivity.thead.service", "Service"),  // 1
+      labelOrFallback(t, "SupabaseClientActivity.thead.unitPrice", "Unit price"), // 2
+      labelOrFallback(t, "SupabaseClientActivity.thead.units", "Units"),      // 3
+      labelOrFallback(t, "SupabaseClientActivity.thead.total", "Total"),      // 4
       "Client notes",                  // 5
     ],
     numFmt: { 2: "0.00", 3: "0", 4: "0.00" },
@@ -47,7 +52,7 @@ const KIND_META = (t) => ({
             : Number(r.unit_price || 0) * Number(r.units || 0)),
         0
       );
-      return [t("activity.totals"), "", unitPriceSum, unitsSum, totalSum, ""];
+      return [labelOrFallback(t, "SupabaseClientActivity.totals", "Totals"), "", unitPriceSum, unitsSum, totalSum, ""];
     },
   },
 
@@ -55,11 +60,11 @@ const KIND_META = (t) => ({
     table: "fbm_lines",
     dateCol: "service_date",
     headers: [
-      t("activity.thead.date"),        // 0
-      t("activity.thead.service"),     // 1
-      t("activity.thead.unitPrice"),   // 2
-      t("activity.thead.ordersUnits"), // 3
-      t("activity.thead.total"),       // 4
+      labelOrFallback(t, "SupabaseClientActivity.thead.date", "Date"),       // 0
+      labelOrFallback(t, "SupabaseClientActivity.thead.service", "Service"), // 1
+      labelOrFallback(t, "SupabaseClientActivity.thead.unitPrice", "Unit price"), // 2
+      labelOrFallback(t, "SupabaseClientActivity.thead.ordersUnits", "Orders/Units"), // 3
+      labelOrFallback(t, "SupabaseClientActivity.thead.total", "Total"),     // 4
       "Client notes",                  // 5
     ],
     numFmt: { 2: "0.00", 3: "0", 4: "0.00" },
@@ -90,7 +95,7 @@ const KIND_META = (t) => ({
             : Number(r.unit_price || 0) * Number(r.orders_units || 0)),
         0
       );
-      return [t("activity.totals"), "", unitPriceSum, ouSum, totalSum, ""];
+      return [labelOrFallback(t, "SupabaseClientActivity.totals", "Totals"), "", unitPriceSum, ouSum, totalSum, ""];
     },
   },
 
@@ -131,7 +136,7 @@ const KIND_META = (t) => ({
         const v = r.stock_value != null ? Number(r.stock_value) : q * p;
         return s + v;
       }, 0);
-      return [t("activity.totals"), qtySum, "", "", priceSum, valueSum];
+      return [labelOrFallback(t, "SupabaseClientActivity.totals", "Totals"), qtySum, "", "", priceSum, valueSum];
     },
   },
 
@@ -139,11 +144,11 @@ const KIND_META = (t) => ({
     table: "returns",
     dateCol: "return_date",
     headers: [
-      t("returns.thead.date"), // 0
+      labelOrFallback(t, "ClientReturns.thead.date", "Date"), // 0
       "SKU/ASIN",              // 1
-      t("returns.thead.qty"),  // 2
-      t("returns.thead.type"), // 3
-      t("returns.thead.status"), // 4
+      labelOrFallback(t, "ClientReturns.thead.qty", "Quantity"), // 2
+      labelOrFallback(t, "ClientReturns.thead.type", "Return type"), // 3
+      labelOrFallback(t, "ClientReturns.thead.status", "Status"), // 4
       "Reason (Other)",        // 5
       "Client notes",          // 6
     ],
@@ -159,7 +164,7 @@ const KIND_META = (t) => ({
     ],
     totals: (rows) => {
       const qtySum = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
-      return [t("activity.totals"), "", qtySum, "", "", "", ""];
+      return [labelOrFallback(t, "SupabaseClientActivity.totals", "Totals"), "", qtySum, "", "", "", ""];
     },
   },
 
@@ -168,10 +173,10 @@ const KIND_META = (t) => ({
     table: "stock_movements",
     dateCol: "movement_date",
     headers: [
-      t("activity.thead.date"), // 0
-      t("stock.thead.ean"),     // 1
-      t("stock.thead.name"),    // 2
-      t("stock.thead.asinSku"), // 3
+      labelOrFallback(t, "SupabaseClientActivity.thead.date", "Date"), // 0
+      labelOrFallback(t, "ClientStock.thead.ean", "EAN"), // 1
+      labelOrFallback(t, "ClientStock.thead.name", "Product name"), // 2
+      labelOrFallback(t, "ClientStock.thead.asinSku", "ASIN / SKU"), // 3
       "Δ Qty",                  // 4
       "Reason",                 // 5
       "Reference",              // 6
@@ -188,7 +193,7 @@ const KIND_META = (t) => ({
     ],
     totals: (rows) => {
       const deltaSum = rows.reduce((s, r) => s + Number(r.delta || 0), 0);
-      return [t("activity.totals"), "", "", "", deltaSum, "", ""];
+      return [labelOrFallback(t, "SupabaseClientActivity.totals", "Totals"), "", "", "", deltaSum, "", ""];
     },
   },
 });

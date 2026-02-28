@@ -45,6 +45,7 @@ async function loadStock(companyId: string) {
     .from("stock_items")
     .select("ean, asin, name, qty, purchase_price, created_at, updated_at")
     .eq("company_id", companyId)
+    .gt("qty", 0)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data || [];
