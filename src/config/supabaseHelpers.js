@@ -77,6 +77,24 @@ const normalizePrepDestinationCountry = (value) => {
   return code === 'GB' ? 'UK' : code;
 };
 
+const getPrepQtyForWarehouse = (stockRow, warehouseCountry) => {
+  const marketCode = normalizeMarketCode(warehouseCountry) || 'FR';
+  const byCountry =
+    stockRow?.prep_qty_by_country &&
+    typeof stockRow.prep_qty_by_country === 'object' &&
+    !Array.isArray(stockRow.prep_qty_by_country)
+      ? stockRow.prep_qty_by_country
+      : null;
+
+  if (byCountry) {
+    const marketQty = Number(byCountry[marketCode] ?? 0);
+    return Number.isFinite(marketQty) ? marketQty : 0;
+  }
+
+  const legacyQty = Number(stockRow?.qty ?? 0);
+  return Number.isFinite(legacyQty) ? legacyQty : 0;
+};
+
 const PREP_BUSINESS_INTEGRATIONS_TABLE = 'prep_business_integrations';
 const PREP_BUSINESS_IMPORTS_TABLE = 'prep_business_imports';
 
@@ -132,6 +150,67 @@ export const supabaseHelpers = {
      ========================= */
   createPrepRequest: async (data) => {
     const warehouseCountry = (data.warehouse_country || data.warehouseCountry || data.market || data.market_code || data.country || 'FR').toUpperCase();
+    const items = Array.isArray(data.items) ? data.items : [];
+
+    if (items.length > 0) {
+      const normalizedItems = items.map((it) => ({
+        ...it,
+        stock_item_id: it?.stock_item_id ?? null,
+        units_requested: Math.max(0, Math.floor(Number(it?.units_requested) || 0))
+      }));
+      const missingStockId = normalizedItems.some((it) => !it.stock_item_id);
+      if (missingStockId) {
+        throw new Error('Each prep request line must include a stock item.');
+      }
+
+      const stockIds = Array.from(new Set(normalizedItems.map((it) => it.stock_item_id)));
+      let stockRowsRes = await supabase
+        .from('stock_items')
+        .select('id, qty, prep_qty_by_country')
+        .eq('company_id', data.company_id)
+        .in('id', stockIds);
+
+      if (stockRowsRes.error && isMissingColumnError(stockRowsRes.error, 'prep_qty_by_country')) {
+        stockRowsRes = await supabase
+          .from('stock_items')
+          .select('id, qty')
+          .eq('company_id', data.company_id)
+          .in('id', stockIds);
+      }
+      if (stockRowsRes.error) throw stockRowsRes.error;
+
+      const stockRows = Array.isArray(stockRowsRes.data) ? stockRowsRes.data : [];
+      const stockById = new Map(stockRows.map((row) => [row.id, row]));
+      const missingRows = stockIds.filter((id) => !stockById.has(id));
+      if (missingRows.length > 0) {
+        throw new Error('One or more selected products are missing from stock.');
+      }
+
+      const exceedingLines = normalizedItems
+        .map((it) => {
+          const stock = stockById.get(it.stock_item_id);
+          const available = getPrepQtyForWarehouse(stock, warehouseCountry);
+          return { it, available };
+        })
+        .filter(({ it, available }) => it.units_requested > available);
+
+      if (exceedingLines.length > 0) {
+        const details = exceedingLines
+          .slice(0, 5)
+          .map(({ it, available }) => {
+            const label =
+              it.product_name ||
+              it.asin ||
+              it.sku ||
+              it.ean ||
+              String(it.stock_item_id);
+            return `${label}: requested ${it.units_requested}, available ${available}`;
+          })
+          .join('; ');
+        throw new Error(`Requested units exceed PrepCenter stock for: ${details}`);
+      }
+    }
+
     // 1️⃣ Inserăm headerul în prep_requests
     const basePayload = {
       user_id: data.user_id,
@@ -161,15 +240,15 @@ export const supabaseHelpers = {
     if (err1) throw err1;
 
     // 2️⃣ Inserăm liniile în prep_request_items
-    if (Array.isArray(data.items) && data.items.length > 0) {
-      const insertItems = data.items.map((it) => ({
+    if (items.length > 0) {
+      const insertItems = items.map((it) => ({
         prep_request_id: header.id,
         stock_item_id: it.stock_item_id,
         ean: it.ean || null,
         product_name: it.product_name || null,
         asin: it.asin || null,
         sku: it.sku || null,
-        units_requested: it.units_requested || 0,
+        units_requested: Math.max(0, Math.floor(Number(it.units_requested) || 0)),
       }));
 
       const { error: err2 } = await supabase

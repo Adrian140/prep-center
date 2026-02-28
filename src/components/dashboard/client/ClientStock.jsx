@@ -2323,6 +2323,27 @@ const openPrep = async () => {
     return;
   }
 
+  const exceedsPrepStockRows = selectedRows
+    .map((r) => {
+      const requested = Math.max(0, Number(rowEdits[r.id]?.units_to_send || 0));
+      const available = Math.max(0, Number(r.qty || 0));
+      return { row: r, requested, available };
+    })
+    .filter(({ requested, available }) => requested > available);
+  if (exceedsPrepStockRows.length > 0) {
+    const details = exceedsPrepStockRows
+      .slice(0, 5)
+      .map(({ row, requested, available }) => {
+        const label = row.name || row.asin || row.sku || row.ean || 'Unknown';
+        return `${label} (${requested} > ${available})`;
+      })
+      .join(', ');
+    const errorText = `Units to Send / Receive cannot be higher than PrepCenter stock: ${details}`;
+    setSelectionActionError(errorText);
+    setToast({ type: 'error', text: errorText });
+    return;
+  }
+
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
