@@ -7,6 +7,11 @@ const formatUnits = (value) => {
   if (!Number.isFinite(value)) return '0';
   return Number.isInteger(value) ? String(value) : value.toFixed(2);
 };
+const normalizeServiceKey = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
 
 export default function BillingSelectionPanel({
   selections = {},
@@ -62,7 +67,8 @@ export default function BillingSelectionPanel({
       const candidateTotal = row.total != null ? Number(row.total) : Number.isFinite(unitPrice * units) ? unitPrice * units : 0;
       const lineTotal = Number.isFinite(candidateTotal) ? candidateTotal : 0;
       total += lineTotal;
-      const key = `${section}:${String(row.service || '—')}:${unitPrice}`;
+      const normalizedService = normalizeServiceKey(row.service || '—');
+      const key = `${normalizedService}:${unitPrice}`;
       if (!groups[key]) {
         groups[key] = {
           section,
@@ -71,6 +77,8 @@ export default function BillingSelectionPanel({
           units: 0,
           total: 0
         };
+      } else if (groups[key].section !== section) {
+        groups[key].section = 'mixed';
       }
       groups[key].units += units;
       groups[key].total += lineTotal;

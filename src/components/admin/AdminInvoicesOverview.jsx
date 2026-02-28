@@ -95,6 +95,33 @@ const mapLineToItem = (line, section) => {
   };
 };
 
+const normalizeItemKey = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const aggregateInvoiceItems = (items = []) => {
+  const map = new Map();
+  for (const raw of Array.isArray(items) ? items : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const service = String(raw.service || '').trim();
+    if (!service) continue;
+    const unitPrice = roundMoney(raw.unitPrice || 0);
+    const vatRate = Number(raw.vatRate ?? 0);
+    const units = Number(raw.units || 0);
+    const total = roundMoney(raw.total ?? unitPrice * units);
+    const key = `${normalizeItemKey(service)}|${unitPrice}|${vatRate}`;
+    if (!map.has(key)) {
+      map.set(key, { service, units: 0, unitPrice, total: 0, vatRate });
+    }
+    const entry = map.get(key);
+    entry.units = roundMoney(Number(entry.units || 0) + units);
+    entry.total = roundMoney(Number(entry.total || 0) + total);
+  }
+  return Array.from(map.values());
+};
+
 const fetchBillingItems = async ({ billingInvoiceId, companyId }) => {
   if (!billingInvoiceId) return [];
   const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
@@ -692,6 +719,7 @@ export default function AdminInvoicesOverview() {
       if (!Array.isArray(payload?.items) || payload.items.length === 0) {
         throw new Error('Proforma has no invoice lines. Conversion stopped.');
       }
+      payload.items = aggregateInvoiceItems(payload.items);
 
       const { data: counterRow, error: counterError } = await supabase
         .from('app_settings')
