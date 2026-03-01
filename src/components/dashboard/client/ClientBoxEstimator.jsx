@@ -28,46 +28,136 @@ const getBoxMaxKg = (box) => {
   return Math.min(raw, MAX_BOX_KG);
 };
 
-const packItemsFirstFitDecreasing = (items, box) => {
-  const boxVol = volume(box.length_cm, box.width_cm, box.height_cm);
-  const boxMaxKg = getBoxMaxKg(box);
-  const bins = [];
-  const tooLarge = [];
+const canFitItemInBox = (item, box) =>
+  canFit(item.dims, box) && item.vol <= box.vol && item.kg <= getBoxMaxKg(box);
 
+const fillSingleBox = (items, box) => {
+  let remainingVol = box.vol;
+  let remainingKg = getBoxMaxKg(box);
+  const packed = [];
+  const notPacked = [];
   const sorted = [...items].sort((a, b) => b.vol - a.vol);
-  for (const item of sorted) {
-    const fitsGeometry = canFit(item.dims, box);
-    const fitsBoxCapacity = item.vol <= boxVol && item.kg <= boxMaxKg;
-    if (!fitsGeometry || !fitsBoxCapacity) {
-      tooLarge.push(item);
-      continue;
-    }
 
-    let placed = false;
-    for (const bin of bins) {
-      if (bin.remainingVol >= item.vol && bin.remainingKg >= item.kg) {
-        bin.remainingVol -= item.vol;
-        bin.remainingKg -= item.kg;
-        bin.usedVol += item.vol;
-        bin.usedKg += item.kg;
-        bin.items.push(item);
-        placed = true;
+  for (const item of sorted) {
+    const fits =
+      canFitItemInBox(item, box) && item.vol <= remainingVol && item.kg <= remainingKg;
+    if (fits) {
+      packed.push(item);
+      remainingVol -= item.vol;
+      remainingKg -= item.kg;
+    } else {
+      notPacked.push(item);
+    }
+  }
+
+  return {
+    packed,
+    remaining: notPacked,
+    usedVol: box.vol - remainingVol,
+    usedKg: getBoxMaxKg(box) - remainingKg
+  };
+};
+
+const buildAdaptivePlan = (items, selectedBox, boxesAsc) => {
+  if (!selectedBox || !Array.isArray(items) || !items.length) {
+    return {
+      boxInstances: [],
+      summary: [],
+      totalBoxes: 0,
+      impossibleItems: [],
+      selectedUsage: null,
+      recommendedBox: null
+    };
+  }
+
+  const impossible = [];
+  let remaining = [];
+  for (const item of items) {
+    const fitsAny = boxesAsc.some((box) => canFitItemInBox(item, box));
+    if (fitsAny) remaining.push(item);
+    else impossible.push(item);
+  }
+
+  const instances = [];
+  const firstFill = fillSingleBox(remaining, selectedBox);
+  if (firstFill.packed.length > 0) {
+    instances.push({
+      box: selectedBox,
+      usedVol: firstFill.usedVol,
+      usedKg: firstFill.usedKg,
+      countItems: firstFill.packed.length
+    });
+    remaining = firstFill.remaining;
+  }
+
+  let guard = 0;
+  while (remaining.length > 0 && guard < 10000) {
+    guard += 1;
+    let chosen = null;
+    for (const box of boxesAsc) {
+      const fill = fillSingleBox(remaining, box);
+      if (fill.packed.length > 0) {
+        chosen = { box, fill };
         break;
       }
     }
 
-    if (!placed) {
-      bins.push({
-        remainingVol: boxVol - item.vol,
-        remainingKg: boxMaxKg - item.kg,
-        usedVol: item.vol,
-        usedKg: item.kg,
-        items: [item]
-      });
+    if (!chosen) {
+      impossible.push(...remaining);
+      break;
     }
+
+    if (chosen.fill.remaining.length === remaining.length) {
+      impossible.push(...remaining);
+      break;
+    }
+
+    instances.push({
+      box: chosen.box,
+      usedVol: chosen.fill.usedVol,
+      usedKg: chosen.fill.usedKg,
+      countItems: chosen.fill.packed.length
+    });
+    remaining = chosen.fill.remaining;
   }
 
-  return { bins, tooLarge, boxVol, boxMaxKg };
+  const summaryMap = new Map();
+  instances.forEach((inst) => {
+    const key = inst.box.id;
+    if (!summaryMap.has(key)) {
+      summaryMap.set(key, { box: inst.box, count: 0 });
+    }
+    summaryMap.get(key).count += 1;
+  });
+
+  let recommendedBox = null;
+  if (impossible.length === 0 && items.length > 0) {
+    for (const box of boxesAsc) {
+      const fit = fillSingleBox(items, box);
+      if (fit.packed.length === items.length) {
+        recommendedBox = box;
+        break;
+      }
+    }
+  }
+  if (
+    !recommendedBox ||
+    recommendedBox.id === selectedBox.id ||
+    recommendedBox.vol >= selectedBox.vol
+  ) {
+    recommendedBox = null;
+  }
+
+  const selectedUsage = instances.find((inst) => inst.box.id === selectedBox.id) || null;
+
+  return {
+    boxInstances: instances,
+    summary: Array.from(summaryMap.values()),
+    totalBoxes: instances.length,
+    impossibleItems: impossible,
+    selectedUsage,
+    recommendedBox
+  };
 };
 
 const percentColor = (percent) => {
@@ -239,25 +329,30 @@ export default function ClientBoxEstimator() {
     [filteredBoxes, selectedBoxId]
   );
 
+  const boxesAsc = useMemo(
+    () => [...filteredBoxes].sort((a, b) => a.vol - b.vol),
+    [filteredBoxes]
+  );
+
+  const livePlan = useMemo(
+    () => buildAdaptivePlan(expandedItems, selectedBox, boxesAsc),
+    [expandedItems, selectedBox, boxesAsc]
+  );
+
   const selectedBoxUtilization = useMemo(() => {
-    if (!selectedBox || expandedItems.length === 0) {
+    if (!selectedBox || !livePlan?.selectedUsage) {
       return { volumePercent: 0, weightPercent: 0, boxCount: 0 };
     }
-    const packed = packItemsFirstFitDecreasing(expandedItems, selectedBox);
-    const binsCount = packed.bins.length;
-    if (!binsCount) {
-      return { volumePercent: 0, weightPercent: 0, boxCount: 0 };
-    }
-    const totalVolUsed = packed.bins.reduce((sum, bin) => sum + bin.usedVol, 0);
-    const totalKgUsed = packed.bins.reduce((sum, bin) => sum + bin.usedKg, 0);
-    const totalVolCap = packed.boxVol * binsCount;
-    const totalKgCap = packed.boxMaxKg * binsCount;
     return {
-      volumePercent: totalVolCap > 0 ? (totalVolUsed / totalVolCap) * 100 : 0,
-      weightPercent: totalKgCap > 0 ? (totalKgUsed / totalKgCap) * 100 : 0,
-      boxCount: binsCount
+      volumePercent:
+        selectedBox.vol > 0 ? (livePlan.selectedUsage.usedVol / selectedBox.vol) * 100 : 0,
+      weightPercent:
+        getBoxMaxKg(selectedBox) > 0
+          ? (livePlan.selectedUsage.usedKg / getBoxMaxKg(selectedBox)) * 100
+          : 0,
+      boxCount: livePlan.totalBoxes || 0
     };
-  }, [selectedBox, expandedItems]);
+  }, [selectedBox, livePlan]);
 
   const hasQtyToEstimate = selectedProducts.length > 0;
   const needsBoxSelection = hasQtyToEstimate && !selectedBoxId;
@@ -315,14 +410,12 @@ export default function ClientBoxEstimator() {
   const runEstimate = () => {
     const warns = [];
     if (!selectedBox) warns.push('Select one box before estimate.');
-    setWarnings(warns);
-    if (warns.length > 0 || selectedProducts.length === 0) {
-      return;
+    if (!selectedProducts.length) warns.push('Adauga cel putin o cantitate.');
+    if (selectedBox && livePlan?.impossibleItems?.length) {
+      warns.push('Unele produse nu incap in nicio cutie disponibila.');
     }
-
-    const packed = packItemsFirstFitDecreasing(expandedItems, selectedBox);
-    if (packed.tooLarge.length > 0) {
-      setWarnings(['Some products cannot fit in the selected box.']);
+    setWarnings(warns);
+    if (warns.length > 0) {
       return;
     }
   };
@@ -380,12 +473,29 @@ export default function ClientBoxEstimator() {
                 <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(b)} kg</div>
                 <div className="text-sm font-medium text-text-primary">{b.length_cm} × {b.width_cm} × {b.height_cm}</div>
                 {selectedBoxId === b.id && (
-                  <div className="mt-2 flex items-center gap-3">
-                    <ProgressCircle label="Volume fill" percent={selectedBoxUtilization.volumePercent} />
-                    <ProgressCircle label="Weight fill" percent={selectedBoxUtilization.weightPercent} />
-                    <div className="text-[11px] text-text-secondary">
-                      Est. boxes: <span className="font-semibold text-text-primary">{selectedBoxUtilization.boxCount || 0}</span>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <ProgressCircle label="Volume fill" percent={selectedBoxUtilization.volumePercent} />
+                      <ProgressCircle label="Weight fill" percent={selectedBoxUtilization.weightPercent} />
+                      <div className="text-[11px] text-text-secondary">
+                        Est. boxes: <span className="font-semibold text-text-primary">{selectedBoxUtilization.boxCount || 0}</span>
+                      </div>
                     </div>
+                    {!!livePlan?.summary?.length && (
+                      <div className="text-[11px] text-text-secondary">
+                        Plan: {livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ')}
+                      </div>
+                    )}
+                    {!!livePlan?.recommendedBox && (
+                      <div className="text-[11px] text-emerald-700 font-medium">
+                        Recomandare: produsele incap in {livePlan.recommendedBox.name}.
+                      </div>
+                    )}
+                    {!!livePlan?.impossibleItems?.length && (
+                      <div className="text-[11px] text-red-600">
+                        {livePlan.impossibleItems.length} produse nu incap in nicio cutie.
+                      </div>
+                    )}
                   </div>
                 )}
               </button>
