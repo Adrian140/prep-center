@@ -43,8 +43,41 @@ const normalizeShipmentName = (value) =>
     .trim()
     .toLowerCase();
 
+const normalizeShipmentSearch = (value) =>
+  normalizeShipmentName(value).replace(/[^a-z0-9]+/g, '');
+
+const isV2024ShipmentId = (value) => {
+  const raw = String(value || '').trim();
+  return raw.length >= 38;
+};
+
+const isLikelyV2024InboundPlanId = (value) => {
+  const raw = String(value || '').trim();
+  return raw.length > 0 && raw.length <= 38 && !raw.toUpperCase().startsWith('LOCK-');
+};
+
+const extractFbaIdsFromStep2 = (step2Shipments) => {
+  if (!Array.isArray(step2Shipments)) return [];
+  const ids = [];
+  step2Shipments.forEach((sh) => {
+    const rawCandidates = [
+      sh?.amazonShipmentId,
+      sh?.legacyShipmentId,
+      sh?.shipmentId,
+      sh?.shipment_id,
+      sh?.id
+    ];
+    rawCandidates.forEach((raw) => {
+      const normalized = normalizeShipmentIds(raw).find((id) => isFbaShipmentId(id));
+      if (normalized) ids.push(normalized);
+    });
+  });
+  return Array.from(new Set(ids));
+};
+
 async function resolveShipmentsByName(spClient, name, marketplaceId, windowDays = 10) {
   const normalized = normalizeShipmentName(name);
+  const normalizedCompact = normalizeShipmentSearch(name);
   if (!normalized) return [];
   const now = new Date();
   const after = new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000).toISOString();
@@ -60,7 +93,14 @@ async function resolveShipmentsByName(spClient, name, marketplaceId, windowDays 
   });
   const payload = res?.payload || res;
   const list = Array.isArray(payload?.ShipmentData) ? payload.ShipmentData : [];
-  return list.filter((sh) => normalizeShipmentName(sh?.ShipmentName) === normalized);
+  return list.filter((sh) => {
+    const shipmentName = normalizeShipmentName(sh?.ShipmentName);
+    const shipmentCompact = normalizeShipmentSearch(sh?.ShipmentName);
+    if (!shipmentName) return false;
+    if (shipmentName === normalized || shipmentCompact === normalizedCompact) return true;
+    // Fallback tolerant pentru denumiri care diferă prin sufix/prefix la Amazon.
+    return shipmentCompact.includes(normalizedCompact) || normalizedCompact.includes(shipmentCompact);
+  });
 }
 
 async function updateItemAmazonQuantities(prepItems, amazonItems) {
@@ -541,6 +581,9 @@ const collectTrackingIds = (value, bucket = new Set()) => {
 
 async function fetchShipmentDetailsV2024(spClient, inboundPlanId, shipmentId) {
   if (!inboundPlanId || !shipmentId) return { shipTo: null, trackingIds: [] };
+  if (!isLikelyV2024InboundPlanId(inboundPlanId) || !isV2024ShipmentId(shipmentId)) {
+    return { shipTo: null, trackingIds: [] };
+  }
   try {
     const res = await spClient.callAPI({
       operation: 'getShipment',
@@ -653,7 +696,16 @@ async function main() {
 
       const client = spClientCache.get(key);
       try {
-        let shipmentIdForSync = row.fba_shipment_id;
+        let shipmentIdForSync = normalizeShipmentIds(row.fba_shipment_id).find((id) => isFbaShipmentId(id)) || row.fba_shipment_id;
+
+        if (!isFbaShipmentId(shipmentIdForSync)) {
+          const step2FbaIds = extractFbaIdsFromStep2(row.step2_shipments);
+          if (step2FbaIds.length) {
+            shipmentIdForSync = step2FbaIds[0];
+            await updatePrepRequest(row.id, { fba_shipment_id: shipmentIdForSync });
+          }
+        }
+
         if (!isFbaShipmentId(shipmentIdForSync)) {
           const baseName =
             row.amazon_shipment_name ||
