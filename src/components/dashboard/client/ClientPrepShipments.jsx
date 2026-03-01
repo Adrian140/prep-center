@@ -334,7 +334,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         units_requested: qty,
         product_name: stockItem.name || '',
         amazon_units_expected: null,
-        amazon_units_received: null
+        amazon_units_received: null,
+        services: []
       }
     ]);
     setReqErrors([]);
@@ -456,7 +457,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         units_requested: qty,
         product_name: stockItem.name || '',
         amazon_units_expected: null,
-        amazon_units_received: null
+        amazon_units_received: null,
+        services: []
       }
     ]);
     setReqErrors([]);
@@ -536,9 +538,38 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           product_name: line.product_name || line.stock_item?.name || '',
           ean: line.ean || line.stock_item?.ean || '',
           amazon_units_expected: line.amazon_units_expected ?? null,
-          amazon_units_received: line.amazon_units_received ?? null
+          amazon_units_received: line.amazon_units_received ?? null,
+          services: []
         }))
       );
+      if (requestId) {
+        const { data: serviceRows, error: serviceError } = await supabase
+          .from('prep_request_services')
+          .select('prep_request_item_id, service_name, units, unit_price, item_type')
+          .eq('request_id', requestId);
+        if (!serviceError) {
+          const byItemId = {};
+          (serviceRows || []).forEach((svc) => {
+            if (String(svc?.item_type || 'sku').toLowerCase() !== 'sku') return;
+            const itemId = svc?.prep_request_item_id;
+            if (!itemId) return;
+            const qty = Math.max(0, Number(svc?.units || 0));
+            if (!qty) return;
+            if (!byItemId[itemId]) byItemId[itemId] = [];
+            byItemId[itemId].push({
+              service_name: String(svc?.service_name || '').trim(),
+              units: qty,
+              unit_price: Number(svc?.unit_price || 0)
+            });
+          });
+          setReqLines((prev) =>
+            prev.map((line) => ({
+              ...line,
+              services: line?.id ? byItemId[line.id] || [] : []
+            }))
+          );
+        }
+      }
       setReqEditable((data.status || 'pending') === 'pending');
     } catch (e) {
       setReqErrors([supportError]);
@@ -1274,7 +1305,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                       <thead className="bg-gray-50 text-text-secondary">
                         <tr>
                           <th className="px-2 py-2 text-left w-16">Photo</th>
-                          <th className="px-2 py-2 text-left">{t('ClientPrepShipments.drawer.product')}</th>
+                          <th className="px-2 py-2 text-left w-[42%]">{t('ClientPrepShipments.drawer.product')}</th>
+                          <th className="px-2 py-2 text-left w-[26%]">Services</th>
                           <th className="px-2 py-2 text-left">ASIN / SKU</th>
                           <th className="px-2 py-2 text-right">
                             <div className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
@@ -1288,7 +1320,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                       <tbody>
                         {reqLines.length === 0 && (
                           <tr>
-                            <td colSpan={reqEditable ? 4 : 3} className="px-3 py-6 text-center text-text-secondary">
+                            <td colSpan={reqEditable ? 6 : 5} className="px-3 py-6 text-center text-text-secondary">
                               {t('ClientPrepShipments.drawer.empty')}
                             </td>
                           </tr>
@@ -1298,6 +1330,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                           const meta = getStockMeta(line);
                           const asin = String(line.asin || '').trim();
                           const sku = String(line.sku || '').trim();
+                          const lineServices = Array.isArray(line.services) ? line.services : [];
                           return (
                             <tr key={lineKey || line.stock_item_id} className="border-t">
                               <td className="px-2 py-2">
@@ -1313,7 +1346,25 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                   </div>
                                 )}
                               </td>
-                              <td className="px-2 py-2">{meta.name || '—'}</td>
+                              <td className="px-2 py-2">
+                                <div className="break-words">
+                                  {meta.name || '—'}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 align-top">
+                                {lineServices.length > 0 ? (
+                                  <div className="space-y-1 text-xs">
+                                    {lineServices.map((svc, svcIdx) => (
+                                      <div key={`${lineKey}-svc-${svcIdx}`} className="text-text-primary">
+                                        <span className="font-medium">{svc.service_name || 'Service'}</span>
+                                        <span className="text-text-secondary"> × {Number(svc.units || 0)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-text-secondary">—</span>
+                                )}
+                              </td>
                               <td className="px-2 py-2">
                                 <div className="text-xs">
                                   <div className="font-mono">
