@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, Calculator, ShieldAlert, Box } from 'lucide-react';
+import { Boxes, Calculator, ShieldAlert, Box, Save } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
@@ -102,10 +102,14 @@ export default function ClientBoxEstimator() {
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState({});
+  const [dimsDraft, setDimsDraft] = useState({});
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
+  const [editMode, setEditMode] = useState(false);
   const [selectedBoxId, setSelectedBoxId] = useState(null);
   const [warnings, setWarnings] = useState([]);
+  const [savingId, setSavingId] = useState(null);
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -203,14 +207,14 @@ export default function ClientBoxEstimator() {
           ...it,
           qty: selection[it.id] || 0,
           dims: {
-            l: Number(it.length_cm || 0),
-            w: Number(it.width_cm || 0),
-            h: Number(it.height_cm || 0),
-            kg: Number(it.weight_kg || 0)
+            l: Number(dimsDraft[it.id]?.length_cm ?? it.length_cm ?? 0),
+            w: Number(dimsDraft[it.id]?.width_cm ?? it.width_cm ?? 0),
+            h: Number(dimsDraft[it.id]?.height_cm ?? it.height_cm ?? 0),
+            kg: Number(dimsDraft[it.id]?.weight_kg ?? it.weight_kg ?? 0)
           }
         }))
         .filter((p) => p.qty > 0),
-    [inventory, selection]
+    [inventory, selection, dimsDraft]
   );
 
   const expandedItems = useMemo(() => {
@@ -269,6 +273,43 @@ export default function ClientBoxEstimator() {
     }
     const qty = Math.max(0, Number(value) || 0);
     setSelection((prev) => ({ ...prev, [id]: qty }));
+  };
+
+  const handleDimChange = (id, field, value) => {
+    setDimsDraft((prev) => ({
+      ...prev,
+      [id]: {
+        ...(prev[id] || {}),
+        [field]: value
+      }
+    }));
+  };
+
+  const saveDims = async (item) => {
+    if (!item?.id) return;
+    const draft = dimsDraft[item.id] || {};
+    const payload = {
+      length_cm: draft.length_cm === '' ? null : Number(draft.length_cm ?? item.length_cm ?? 0) || null,
+      width_cm: draft.width_cm === '' ? null : Number(draft.width_cm ?? item.width_cm ?? 0) || null,
+      height_cm: draft.height_cm === '' ? null : Number(draft.height_cm ?? item.height_cm ?? 0) || null,
+      weight_kg: draft.weight_kg === '' ? null : Number(draft.weight_kg ?? item.weight_kg ?? 0) || null
+    };
+    setSavingId(item.id);
+    setMessage('');
+    const { error } = await supabase.from('stock_items').update(payload).eq('id', item.id);
+    if (error) {
+      setMessage(error.message || 'Failed to save dimensions.');
+      setSavingId(null);
+      return;
+    }
+    setInventory((prev) => prev.map((row) => (row.id === item.id ? { ...row, ...payload } : row)));
+    setDimsDraft((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
+    setSavingId(null);
+    setMessage('Dimensions saved.');
   };
 
   const runEstimate = () => {
@@ -368,7 +409,15 @@ export default function ClientBoxEstimator() {
           >
             <Calculator className="w-4 h-4" /> Estimate boxes
           </button>
+          <button
+            type="button"
+            onClick={() => setEditMode((prev) => !prev)}
+            className={`inline-flex items-center gap-2 px-3 py-2 rounded text-sm border ${editMode ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-300 text-text-primary'}`}
+          >
+            {editMode ? 'Disable edit' : 'Enable edit'}
+          </button>
         </div>
+        {message && <div className="text-sm text-primary mb-2">{message}</div>}
         {needsBoxSelection && (
           <div className="text-sm text-red-600 mb-2">
             Selecteaza cutia dorita inainte sa estimezi.
@@ -393,15 +442,17 @@ export default function ClientBoxEstimator() {
                 <th className="px-2 py-2 text-right">W (cm)</th>
                 <th className="px-2 py-2 text-right">H (cm)</th>
                 <th className="px-2 py-2 text-right">Kg</th>
+                {editMode && <th className="px-2 py-2 text-right">Save</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-2 py-4 text-center">Loading…</td></tr>
+                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">Loading…</td></tr>
               ) : filteredSorted.length === 0 ? (
-                <tr><td colSpan={9} className="px-2 py-4 text-center">No products</td></tr>
+                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">No products</td></tr>
               ) : (
                 filteredSorted.map((item) => {
+                  const draft = dimsDraft[item.id] || {};
                   return (
                     <tr key={item.id} className="border-t">
                       <td className="px-2 py-2">
@@ -430,17 +481,73 @@ export default function ClientBoxEstimator() {
                         />
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {item.length_cm ?? '—'}
+                        {editMode ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            className="border rounded px-2 py-1 w-20 text-right"
+                            value={draft.length_cm ?? item.length_cm ?? ''}
+                            onChange={(e) => handleDimChange(item.id, 'length_cm', e.target.value)}
+                          />
+                        ) : (
+                          item.length_cm ?? '—'
+                        )}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {item.width_cm ?? '—'}
+                        {editMode ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            className="border rounded px-2 py-1 w-20 text-right"
+                            value={draft.width_cm ?? item.width_cm ?? ''}
+                            onChange={(e) => handleDimChange(item.id, 'width_cm', e.target.value)}
+                          />
+                        ) : (
+                          item.width_cm ?? '—'
+                        )}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {item.height_cm ?? '—'}
+                        {editMode ? (
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            className="border rounded px-2 py-1 w-20 text-right"
+                            value={draft.height_cm ?? item.height_cm ?? ''}
+                            onChange={(e) => handleDimChange(item.id, 'height_cm', e.target.value)}
+                          />
+                        ) : (
+                          item.height_cm ?? '—'
+                        )}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {item.weight_kg ?? '—'}
+                        {editMode ? (
+                          <input
+                            type="number"
+                            step="0.001"
+                            min={0}
+                            className="border rounded px-2 py-1 w-20 text-right"
+                            value={draft.weight_kg ?? item.weight_kg ?? ''}
+                            onChange={(e) => handleDimChange(item.id, 'weight_kg', e.target.value)}
+                          />
+                        ) : (
+                          item.weight_kg ?? '—'
+                        )}
                       </td>
+                      {editMode && (
+                        <td className="px-2 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => saveDims(item)}
+                            disabled={savingId === item.id}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] border rounded text-primary border-primary hover:bg-primary hover:text-white disabled:opacity-50"
+                          >
+                            <Save className="w-3 h-3" /> Save
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
