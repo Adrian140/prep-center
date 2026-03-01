@@ -12,7 +12,8 @@ const MAX_INTEGRATIONS_PER_RUN_RAW = Number(
     process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
     20
 );
-const MAX_ASINS_PER_RUN_RAW = Number(process.env.SPAPI_CATALOG_CODES_ASINS_PER_RUN || 0);
+const MAX_ASINS_PER_RUN_RAW = Number(process.env.SPAPI_CATALOG_CODES_ASINS_PER_RUN || 500);
+const EAN_FETCH_CONCURRENCY_RAW = Number(process.env.SPAPI_CATALOG_CODES_EAN_CONCURRENCY || 8);
 const RUN_TIME_BUDGET_SECONDS_RAW = Number(process.env.SPAPI_CATALOG_CODES_MAX_RUNTIME_SECONDS || 15480); // 4.3h
 const MARKETPLACE_FILTER = process.env.SPAPI_CATALOG_CODES_MARKETPLACE_ID || null;
 const ALLOWED_MARKETPLACE_IDS = String(
@@ -32,10 +33,24 @@ const MAX_ASINS_PER_RUN =
   Number.isFinite(MAX_ASINS_PER_RUN_RAW) && MAX_ASINS_PER_RUN_RAW > 0
     ? MAX_ASINS_PER_RUN_RAW
     : Number.POSITIVE_INFINITY;
+const EAN_FETCH_CONCURRENCY =
+  Number.isFinite(EAN_FETCH_CONCURRENCY_RAW) && EAN_FETCH_CONCURRENCY_RAW > 0
+    ? Math.min(20, Math.max(1, Math.floor(EAN_FETCH_CONCURRENCY_RAW)))
+    : 8;
 const RUN_TIME_BUDGET_MS =
   Number.isFinite(RUN_TIME_BUDGET_SECONDS_RAW) && RUN_TIME_BUDGET_SECONDS_RAW > 0
     ? RUN_TIME_BUDGET_SECONDS_RAW * 1000
     : Number.POSITIVE_INFINITY;
+
+function isRuntimeBudgetReached(runState) {
+  if (!runState) return false;
+  if (runState.stoppedByBudget) return true;
+  if (Date.now() - runState.startedAt >= runState.budgetMs) {
+    runState.stoppedByBudget = true;
+    return true;
+  }
+  return false;
+}
 
 function assertBaseEnv() {
   const missing = [];
@@ -490,6 +505,21 @@ async function fetchKnownEansByAsin(companyId, asins) {
       if (asin && ean && !map.has(asin)) map.set(asin, ean);
     }
 
+    const missing = chunk.filter((asin) => !map.has(asin));
+    if (missing.length > 0) {
+      // Reuse already resolved ASIN->EAN from any company to speed up sync significantly.
+      const { data: globalAsinEans, error: globalAsinEansError } = await supabase
+        .from('asin_eans')
+        .select('asin, ean')
+        .in('asin', missing);
+      if (globalAsinEansError) throw globalAsinEansError;
+      for (const row of globalAsinEans || []) {
+        const asin = String(row?.asin || '').trim().toUpperCase();
+        const ean = normalizeEan(row?.ean);
+        if (asin && ean && !map.has(asin)) map.set(asin, ean);
+      }
+    }
+
     const { data: stockRows, error: stockError } = await supabase
       .from('stock_items')
       .select('asin, ean')
@@ -504,6 +534,25 @@ async function fetchKnownEansByAsin(companyId, asins) {
   }
 
   return map;
+}
+
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length);
+  let cursor = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) break;
+      try {
+        results[index] = await worker(items[index], index);
+      } catch (error) {
+        results[index] = { error };
+      }
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
 
 async function insertAsinEans(rows) {
@@ -532,7 +581,10 @@ async function applyStockPatches(patches, hasFnskuColumn) {
   }
 }
 
-async function syncIntegration(integration) {
+async function syncIntegration(integration, runState) {
+  if (isRuntimeBudgetReached(runState)) {
+    return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0, stoppedByBudget: true };
+  }
   const reportMarketplaceCandidates = resolveMarketplaceIds(integration);
   if (!reportMarketplaceCandidates.length) {
     console.log(
@@ -553,6 +605,9 @@ async function syncIntegration(integration) {
   try {
     let lastNonAccessError = null;
     for (const marketId of reportMarketplaceCandidates) {
+      if (isRuntimeBudgetReached(runState)) {
+        return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0, stoppedByBudget: true };
+      }
       try {
         const reportId = await createInventoryReport(spClient, marketId);
         const documentId = await waitForReport(spClient, reportId);
@@ -676,22 +731,41 @@ async function syncIntegration(integration) {
   const resolvedAsinEans = new Map();
   const asinEansToInsert = [];
 
-  for (const asin of asins) {
-    let ean = knownEans.get(asin) || null;
-    if (!ean) {
-      for (const marketId of marketplaceIds) {
-        try {
-          const candidate = await fetchCatalogEan(spClient, asin, marketId);
-          ean = normalizeEan(candidate);
-          if (ean) break;
-        } catch (error) {
-          if (isAccessDeniedError(error)) {
-            continue;
+  const missingAsins = asins.filter((asin) => !knownEans.get(asin));
+  const fetchedEans = new Map();
+  if (missingAsins.length > 0 && marketplaceIds.length > 0) {
+    const fetchResults = await mapWithConcurrency(
+      missingAsins,
+      EAN_FETCH_CONCURRENCY,
+      async (asin) => {
+        if (isRuntimeBudgetReached(runState)) return { asin, ean: null, stoppedByBudget: true };
+        for (const marketId of marketplaceIds) {
+          try {
+            const candidate = await fetchCatalogEan(spClient, asin, marketId);
+            const ean = normalizeEan(candidate);
+            if (ean) return { asin, ean };
+          } catch (error) {
+            if (isAccessDeniedError(error)) continue;
           }
-          continue;
         }
+        return { asin, ean: null };
       }
-      if (ean) {
+    );
+    for (const entry of fetchResults) {
+      if (!entry || entry.error) continue;
+      if (entry.stoppedByBudget) {
+        if (runState) runState.stoppedByBudget = true;
+        continue;
+      }
+      if (entry.ean) fetchedEans.set(entry.asin, entry.ean);
+    }
+  }
+
+  for (const asin of asins) {
+    if (isRuntimeBudgetReached(runState)) break;
+    let ean = knownEans.get(asin) || fetchedEans.get(asin) || null;
+    if (ean) {
+      if (!knownEans.get(asin)) {
         asinEansToInsert.push({
           user_id: integration.user_id,
           company_id: integration.company_id,
@@ -701,16 +775,14 @@ async function syncIntegration(integration) {
           confidence: 1
         });
       }
-    }
-    if (!ean) continue;
-    resolvedAsinEans.set(asin, ean);
-
-    const rowsForAsin = byAsin.get(asin) || [];
-    for (const stockRow of rowsForAsin) {
-      if (normalizeEan(stockRow.ean)) continue;
-      const prev = patchesById.get(stockRow.id) || { id: stockRow.id };
-      patchesById.set(stockRow.id, { ...prev, ean });
-      stockRow.ean = ean;
+      resolvedAsinEans.set(asin, ean);
+      const rowsForAsin = byAsin.get(asin) || [];
+      for (const stockRow of rowsForAsin) {
+        if (normalizeEan(stockRow.ean)) continue;
+        const prev = patchesById.get(stockRow.id) || { id: stockRow.id };
+        patchesById.set(stockRow.id, { ...prev, ean });
+        stockRow.ean = ean;
+      }
     }
   }
 
@@ -737,13 +809,16 @@ async function syncIntegration(integration) {
     `[Catalog code sync] Integration ${integration.id} done: fnskuUpdated=${stats.fnskuUpdated} eanUpdated=${stats.eanUpdated} asinsResolved=${stats.asinsResolved}`
   );
 
-  return stats;
+  return { ...stats, stoppedByBudget: Boolean(runState?.stoppedByBudget) };
 }
 
 async function main() {
   assertBaseEnv();
-  const startedAt = Date.now();
-  const isBudgetReached = () => Date.now() - startedAt >= RUN_TIME_BUDGET_MS;
+  const runState = {
+    startedAt: Date.now(),
+    budgetMs: RUN_TIME_BUDGET_MS,
+    stoppedByBudget: false
+  };
 
   const integrations = await fetchActiveIntegrations();
   if (!integrations.length) {
@@ -759,7 +834,7 @@ async function main() {
   let stoppedByBudget = false;
 
   for (const integration of integrations) {
-    if (isBudgetReached()) {
+    if (isRuntimeBudgetReached(runState)) {
       stoppedByBudget = true;
       console.log(
         `[Catalog code sync] Runtime budget reached after ${processedIntegrations}/${integrations.length} integrations. Stopping gracefully; next run will continue.`
@@ -767,11 +842,18 @@ async function main() {
       break;
     }
     try {
-      const stats = await syncIntegration(integration);
+      const stats = await syncIntegration(integration, runState);
       processedIntegrations += 1;
       totalFnskuUpdated += stats.fnskuUpdated;
       totalEanUpdated += stats.eanUpdated;
       totalAsinsResolved += stats.asinsResolved;
+      if (stats.stoppedByBudget || runState.stoppedByBudget) {
+        stoppedByBudget = true;
+        console.log(
+          `[Catalog code sync] Runtime budget reached during integration ${integration.id}. Stopping gracefully; next run will continue.`
+        );
+        break;
+      }
     } catch (error) {
       processedIntegrations += 1;
       const message = error?.message || String(error);
@@ -800,7 +882,7 @@ async function main() {
     }
   }
 
-  const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
+  const elapsedSec = Math.round((Date.now() - runState.startedAt) / 1000);
   console.log(
     `[Catalog code sync] Finished. processedIntegrations=${processedIntegrations}/${integrations.length} fnskuUpdated=${totalFnskuUpdated} eanUpdated=${totalEanUpdated} asinsResolved=${totalAsinsResolved} skippedUnauthorized=${skippedUnauthorized} elapsedSec=${elapsedSec} stoppedByBudget=${stoppedByBudget ? 1 : 0}`
   );
