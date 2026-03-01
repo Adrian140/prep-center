@@ -67,6 +67,8 @@ const FBA_MODE_META = {
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
 const isPrepBusinessSource = (shipment = {}) =>
   String(shipment?.import_source || '').trim().toLowerCase() === 'prepbusiness';
+const isPrepBusinessAutoCreatedNote = (note = '') =>
+  /shipment\s+created\s+at/i.test(String(note || ''));
 const getClientDisplayName = (shipment = {}) => {
   const companyName = String(shipment?.company_name || '').trim();
   const storeName = String(shipment?.store_name || '').trim();
@@ -149,7 +151,9 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
   const pbNotifyRef = useRef(new Set());
-  const trimmedNotes = (shipment.notes || '').trim();
+  const rawNotes = String(shipment.notes || '').trim();
+  const trimmedNotes =
+    isPrepBusinessSource(shipment) && isPrepBusinessAutoCreatedNote(rawNotes) ? '' : rawNotes;
   const boxesValue = (() => {
     const raw =
       shipment?.boxes_count ??
