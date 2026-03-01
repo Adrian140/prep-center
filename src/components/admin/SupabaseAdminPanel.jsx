@@ -12,7 +12,6 @@ import { PlayCircle /* ...rest */ } from 'lucide-react';
 import AdminUserGuide from './AdminUserGuide';
 import AdminAffiliates from './AdminAffiliates';
 import { supabase } from '@/config/supabase';
-import AdminBoxes from './AdminBoxes';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
@@ -36,7 +35,7 @@ const SERVICE_LANGUAGES = [
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X,
-  Star, Users, BarChart3, PackageCheck, Truck, Boxes, Shield, Link2
+  Star, Users, BarChart3, PackageCheck, Truck, Shield, Link2
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
@@ -76,7 +75,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'chat', 'ups', 'pricing', 'boxes', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
+    'chat', 'ups', 'pricing', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -205,7 +204,6 @@ useEffect(() => {
     { id: 'chat', label: 'Chat', icon: Users },
     { id: 'ups', label: 'UPS', icon: Truck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
-    { id: 'boxes', label: 'Boxes', icon: Boxes },
     { id: 'prep-business', label: 'Integrations', icon: Link2 },
     { id: 'reviews', label: t('sidebar.reviews'), icon: Star },
     { id: 'user-guide', label: t('sidebar.userGuide'), icon: PlayCircle },
@@ -1593,7 +1591,6 @@ const renderTabContent = () => {
     case 'returns': return <AdminReturns />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();
-    case 'boxes': return <AdminBoxes />;
     case 'reviews': return renderReviewsTab();
     case 'user-guide': return <AdminUserGuide />;
     case 'affiliates': return <AdminAffiliates />;
