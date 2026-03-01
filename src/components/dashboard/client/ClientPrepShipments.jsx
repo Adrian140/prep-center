@@ -108,6 +108,12 @@ const formatEuro = (value) => {
   return `${fixed} euro`;
 };
 
+const formatMoney2 = (value) => {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '0.00';
+  return num.toFixed(2);
+};
+
 const firstFiniteNumber = (candidates = []) => {
   for (const value of candidates) {
     const num = Number(value);
@@ -1355,9 +1361,20 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                 {lineServices.length > 0 ? (
                                   <div className="space-y-1 text-xs">
                                     {lineServices.map((svc, svcIdx) => (
-                                      <div key={`${lineKey}-svc-${svcIdx}`} className="text-text-primary">
-                                        <span className="font-medium">{svc.service_name || 'Service'}</span>
-                                        <span className="text-text-secondary"> × {Number(svc.units || 0)}</span>
+                                      <div
+                                        key={`${lineKey}-svc-${svcIdx}`}
+                                        className="text-text-primary flex items-start justify-between gap-3"
+                                      >
+                                        <span className="min-w-0 break-words">
+                                          <span className="font-medium">{svc.service_name || 'Service'}</span>
+                                          <span className="text-text-secondary">
+                                            {' '}
+                                            × {Number(svc.units || 0)} × {formatMoney2(svc.unit_price || 0)}
+                                          </span>
+                                        </span>
+                                        <span className="shrink-0 text-right font-medium">
+                                          = {formatMoney2(Number(svc.units || 0) * Number(svc.unit_price || 0))}
+                                        </span>
                                       </div>
                                     ))}
                                   </div>
