@@ -473,7 +473,8 @@
       },
       "errors": {
         "noPrepStock": "Some selected products have no Prep Center stock available: {products}",
-        "missingSkuForPrep": "Some selected products cannot be sent to Prep because SKU is missing (ASIN: {asins}). Please add a SKU for each destination market. If this stock belongs to another SKU, contact support."
+        "missingSkuForPrep": "Some selected products cannot be sent to Prep because SKU is missing (ASIN: {asins}). Please add a SKU for each destination market. If this stock belongs to another SKU, contact support.",
+        "unitsExceedPrepStock": "Units to Send / Receive cannot be higher than PrepCenter stock: {details}"
       },
       "destinationEditor": {
         "title": "Edit destination split",
@@ -1630,7 +1631,8 @@
       },
       "errors": {
         "noPrepStock": "Unele produse selectate nu au stoc în Prep Center: {products}",
-        "missingSkuForPrep": "Unele produse selectate nu pot fi trimise la Prep deoarece SKU-ul lipsește (ASIN: {asins}). Te rugăm să adaugi SKU pentru fiecare piață de destinație. Dacă acest stoc aparține altui SKU, contactează administratorul."
+        "missingSkuForPrep": "Unele produse selectate nu pot fi trimise la Prep deoarece SKU-ul lipsește (ASIN: {asins}). Te rugăm să adaugi SKU pentru fiecare piață de destinație. Dacă acest stoc aparține altui SKU, contactează administratorul.",
+        "unitsExceedPrepStock": "Unitățile de trimis / recepționat nu pot depăși stocul PrepCenter: {details}"
       },
       "destinationEditor": {
         "title": "Editează distribuția pe destinații",
@@ -2742,7 +2744,8 @@
       },
       "errors": {
         "noPrepStock": "Certains produits sélectionnés n'ont pas de stock disponible au Prep Center : {products}",
-        "missingSkuForPrep": "Certains produits sélectionnés ne peuvent pas être envoyés au Prep car le SKU est manquant (ASIN : {asins}). Veuillez ajouter un SKU pour chaque marché de destination. Si ce stock appartient à un autre SKU, contactez l'administrateur."
+        "missingSkuForPrep": "Certains produits sélectionnés ne peuvent pas être envoyés au Prep car le SKU est manquant (ASIN : {asins}). Veuillez ajouter un SKU pour chaque marché de destination. Si ce stock appartient à un autre SKU, contactez l'administrateur.",
+        "unitsExceedPrepStock": "Les unités à envoyer / recevoir ne peuvent pas dépasser le stock PrepCenter : {details}"
       },
       "destinationEditor": {
         "title": "Modifier la répartition par destination",
@@ -3724,7 +3727,8 @@
       },
       "errors": {
         "noPrepStock": "Einige ausgewählte Produkte haben keinen Bestand im Prep-Center: {products}",
-        "missingSkuForPrep": "Einige ausgewählte Produkte können nicht an Prep gesendet werden, weil die SKU fehlt (ASIN: {asins}). Bitte fügen Sie für jeden Zielmarkt eine SKU hinzu. Wenn dieser Bestand zu einer anderen SKU gehört, kontaktieren Sie den Administrator."
+        "missingSkuForPrep": "Einige ausgewählte Produkte können nicht an Prep gesendet werden, weil die SKU fehlt (ASIN: {asins}). Bitte fügen Sie für jeden Zielmarkt eine SKU hinzu. Wenn dieser Bestand zu einer anderen SKU gehört, kontaktieren Sie den Administrator.",
+        "unitsExceedPrepStock": "Einheiten zum Senden / Empfangen dürfen den PrepCenter-Bestand nicht überschreiten: {details}"
       },
       "destinationEditor": {
         "title": "Zielaufteilung bearbeiten",
@@ -4706,7 +4710,8 @@
       },
       "errors": {
         "noPrepStock": "Alcuni prodotti selezionati non hanno stock disponibile nel Prep Center: {products}",
-        "missingSkuForPrep": "Alcuni prodotti selezionati non possono essere inviati al Prep perché manca lo SKU (ASIN: {asins}). Aggiungi uno SKU per ogni mercato di destinazione. Se questo stock appartiene a un altro SKU, contatta l'amministratore."
+        "missingSkuForPrep": "Alcuni prodotti selezionati non possono essere inviati al Prep perché manca lo SKU (ASIN: {asins}). Aggiungi uno SKU per ogni mercato di destinazione. Se questo stock appartiene a un altro SKU, contatta l'amministratore.",
+        "unitsExceedPrepStock": "Le unità da inviare / ricevere non possono superare lo stock PrepCenter: {details}"
       },
       "destinationEditor": {
         "title": "Modifica ripartizione destinazioni",
@@ -5688,7 +5693,8 @@
       },
       "errors": {
         "noPrepStock": "Algunos productos seleccionados no tienen stock disponible en el Prep Center: {products}",
-        "missingSkuForPrep": "Algunos productos seleccionados no se pueden enviar a Prep porque falta el SKU (ASIN: {asins}). Agrega un SKU para cada mercado de destino. Si este stock pertenece a otro SKU, contacta al administrador."
+        "missingSkuForPrep": "Algunos productos seleccionados no se pueden enviar a Prep porque falta el SKU (ASIN: {asins}). Agrega un SKU para cada mercado de destino. Si este stock pertenece a otro SKU, contacta al administrador.",
+        "unitsExceedPrepStock": "Las unidades a enviar / recibir no pueden superar el stock de PrepCenter: {details}"
       },
       "destinationEditor": {
         "title": "Editar reparto por destino",

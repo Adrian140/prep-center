@@ -2446,11 +2446,13 @@ const openPrep = async () => {
     const details = exceedsPrepStockRows
       .slice(0, 5)
       .map(({ row, requested, available }) => {
-        const label = row.name || row.asin || row.sku || row.ean || 'Unknown';
+        const label = row.asin || row.sku || row.ean || row.id || 'Unknown';
         return `${label} (${requested} > ${available})`;
       })
       .join(', ');
-    const errorText = `Units to Send / Receive cannot be higher than PrepCenter stock: ${details}`;
+    const errorText = tp('ClientStock.errors.unitsExceedPrepStock', {
+      details
+    });
     setSelectionActionError(errorText);
     setToast({ type: 'error', text: errorText });
     return;
