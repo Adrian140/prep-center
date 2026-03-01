@@ -201,10 +201,7 @@ async function fetchActiveIntegrations() {
       };
     })
     .filter(Boolean)
-    .filter((row) => {
-      const market = resolveMarketplaceId(row);
-      return market && ALLOWED_MARKETPLACE_SET.has(market);
-    });
+    .filter((row) => resolveMarketplaceIds(row).length > 0);
 
   if (withTokens.length <= MAX_INTEGRATIONS_PER_RUN) return withTokens;
   return withTokens.slice(0, MAX_INTEGRATIONS_PER_RUN);
@@ -531,14 +528,10 @@ async function applyStockPatches(patches, hasFnskuColumn) {
 }
 
 async function syncIntegration(integration) {
-  const marketplaceId = resolveMarketplaceId(integration);
-  if (!marketplaceId) {
-    console.warn(`[Catalog code sync] Skip integration ${integration.id}: missing marketplace.`);
-    return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
-  }
-  if (!ALLOWED_MARKETPLACE_SET.has(marketplaceId)) {
+  const reportMarketplaceCandidates = resolveMarketplaceIds(integration);
+  if (!reportMarketplaceCandidates.length) {
     console.log(
-      `[Catalog code sync] Skip integration ${integration.id}: marketplace ${marketplaceId} is outside configured scope.`
+      `[Catalog code sync] Skip integration ${integration.id}: no FR/DE/IT/ES marketplace configured.`
     );
     return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
   }
@@ -548,20 +541,52 @@ async function syncIntegration(integration) {
     region: integration.region || process.env.SPAPI_REGION
   });
 
-  console.log(
-    `[Catalog code sync] Integration ${integration.id} company=${integration.company_id} marketplace=${marketplaceId}`
-  );
+  console.log(`[Catalog code sync] Integration ${integration.id} company=${integration.company_id}`);
 
   let rows = [];
+  let reportMarketplaceId = null;
   try {
-    const reportId = await createInventoryReport(spClient, marketplaceId);
-    const documentId = await waitForReport(spClient, reportId);
-    const rawText = await downloadReportDocument(spClient, documentId);
-    rows = parseInventoryRows(rawText);
+    let lastNonAccessError = null;
+    for (const marketId of reportMarketplaceCandidates) {
+      try {
+        const reportId = await createInventoryReport(spClient, marketId);
+        const documentId = await waitForReport(spClient, reportId);
+        const rawText = await downloadReportDocument(spClient, documentId);
+        rows = parseInventoryRows(rawText);
+        reportMarketplaceId = marketId;
+        break;
+      } catch (error) {
+        if (isAccessDeniedError(error)) {
+          console.log(
+            `[Catalog code sync] Integration ${integration.id}: marketplace ${marketId} access denied, trying next.`
+          );
+          continue;
+        }
+        lastNonAccessError = error;
+        break;
+      }
+    }
+    if (!reportMarketplaceId) {
+      if (lastNonAccessError) throw lastNonAccessError;
+      console.log(
+        `[Catalog code sync] Skip integration ${integration.id}: no authorized marketplace found in FR/DE/IT/ES.`
+      );
+      await supabase
+        .from('amazon_integrations')
+        .update({
+          last_synced_at: new Date().toISOString(),
+          last_error: null
+        })
+        .eq('id', integration.id);
+      return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
+    }
+    console.log(
+      `[Catalog code sync] Integration ${integration.id} using marketplace=${reportMarketplaceId}`
+    );
   } catch (error) {
     if (isAccessDeniedError(error)) {
       console.log(
-        `[Catalog code sync] Skip integration ${integration.id}: Amazon integration is not authorized for reports (${marketplaceId}).`
+        `[Catalog code sync] Skip integration ${integration.id}: Amazon integration is not authorized for reports in FR/DE/IT/ES.`
       );
       await supabase
         .from('amazon_integrations')
@@ -639,7 +664,10 @@ async function syncIntegration(integration) {
   }
 
   const knownEans = await fetchKnownEansByAsin(integration.company_id, asins);
-  const marketplaceIds = resolveMarketplaceIds(integration);
+  const marketplaceIds = resolveMarketplaceIds({
+    ...integration,
+    marketplace_id: reportMarketplaceId || integration.marketplace_id
+  });
   const resolvedAsinEans = new Map();
   const asinEansToInsert = [];
 
