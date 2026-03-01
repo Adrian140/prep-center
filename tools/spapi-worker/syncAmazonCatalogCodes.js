@@ -53,6 +53,31 @@ function normalizeMarketplaceId(value) {
     .toUpperCase();
 }
 
+function extractErrorText(err) {
+  if (!err) return '';
+  const responseData = err?.response?.data;
+  if (typeof responseData === 'string') return responseData;
+  if (typeof responseData?.message === 'string') return responseData.message;
+  if (typeof err?.message === 'string') return err.message;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
+}
+
+function isAccessDeniedError(err) {
+  const text = extractErrorText(err).toLowerCase();
+  const status = Number(err?.status || err?.response?.status || 0);
+  return (
+    status === 401 ||
+    status === 403 ||
+    text.includes('access to requested resource is denied') ||
+    text.includes('access denied') ||
+    text.includes('unauthorized')
+  );
+}
+
 function singleModeIntegration() {
   if (
     process.env.SUPABASE_STOCK_COMPANY_ID &&
@@ -527,10 +552,28 @@ async function syncIntegration(integration) {
     `[Catalog code sync] Integration ${integration.id} company=${integration.company_id} marketplace=${marketplaceId}`
   );
 
-  const reportId = await createInventoryReport(spClient, marketplaceId);
-  const documentId = await waitForReport(spClient, reportId);
-  const rawText = await downloadReportDocument(spClient, documentId);
-  const rows = parseInventoryRows(rawText);
+  let rows = [];
+  try {
+    const reportId = await createInventoryReport(spClient, marketplaceId);
+    const documentId = await waitForReport(spClient, reportId);
+    const rawText = await downloadReportDocument(spClient, documentId);
+    rows = parseInventoryRows(rawText);
+  } catch (error) {
+    if (isAccessDeniedError(error)) {
+      console.log(
+        `[Catalog code sync] Skip integration ${integration.id}: Amazon integration is not authorized for reports (${marketplaceId}).`
+      );
+      await supabase
+        .from('amazon_integrations')
+        .update({
+          last_synced_at: new Date().toISOString(),
+          last_error: null
+        })
+        .eq('id', integration.id);
+      return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
+    }
+    throw error;
+  }
 
   const reportItems = rows
     .map((row) => ({
@@ -608,7 +651,10 @@ async function syncIntegration(integration) {
           const candidate = await fetchCatalogEan(spClient, asin, marketId);
           ean = normalizeEan(candidate);
           if (ean) break;
-        } catch {
+        } catch (error) {
+          if (isAccessDeniedError(error)) {
+            continue;
+          }
           continue;
         }
       }
@@ -673,6 +719,7 @@ async function main() {
   let totalFnskuUpdated = 0;
   let totalEanUpdated = 0;
   let totalAsinsResolved = 0;
+  let skippedUnauthorized = 0;
 
   for (const integration of integrations) {
     try {
@@ -682,6 +729,20 @@ async function main() {
       totalAsinsResolved += stats.asinsResolved;
     } catch (error) {
       const message = error?.message || String(error);
+      if (isAccessDeniedError(error)) {
+        skippedUnauthorized += 1;
+        console.warn(
+          `[Catalog code sync] Skip integration ${integration.id}: Amazon integration is not authorized (${message}).`
+        );
+        await supabase
+          .from('amazon_integrations')
+          .update({
+            last_error: null,
+            last_synced_at: new Date().toISOString()
+          })
+          .eq('id', integration.id);
+        continue;
+      }
       console.error(`[Catalog code sync] Integration ${integration.id} failed: ${message}`);
       await supabase
         .from('amazon_integrations')
@@ -694,7 +755,7 @@ async function main() {
   }
 
   console.log(
-    `[Catalog code sync] Finished. fnskuUpdated=${totalFnskuUpdated} eanUpdated=${totalEanUpdated} asinsResolved=${totalAsinsResolved}`
+    `[Catalog code sync] Finished. fnskuUpdated=${totalFnskuUpdated} eanUpdated=${totalEanUpdated} asinsResolved=${totalAsinsResolved} skippedUnauthorized=${skippedUnauthorized}`
   );
 }
 
