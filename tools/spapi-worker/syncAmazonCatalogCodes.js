@@ -109,6 +109,18 @@ function isAccessDeniedError(err) {
   );
 }
 
+function shouldTryNextMarketplaceError(err) {
+  const text = extractErrorText(err).toLowerCase();
+  return (
+    text.includes('report failed with status fatal') ||
+    text.includes('amazon report failed with status fatal') ||
+    text.includes('done_no_data') ||
+    text.includes('completed without data') ||
+    text.includes('invalidinput') ||
+    text.includes('invalid input')
+  );
+}
+
 function singleModeIntegration() {
   if (
     process.env.SUPABASE_STOCK_COMPANY_ID &&
@@ -678,6 +690,14 @@ async function syncIntegration(integration, runState) {
         if (isAccessDeniedError(error)) {
           console.log(
             `[Catalog code sync] Integration ${integration.id}: marketplace ${marketId} access denied, trying next.`
+          );
+          continue;
+        }
+        if (shouldTryNextMarketplaceError(error)) {
+          console.log(
+            `[Catalog code sync] Integration ${integration.id}: marketplace ${marketId} report unusable (${extractErrorText(
+              error
+            )}), trying next.`
           );
           continue;
         }
