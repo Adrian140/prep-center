@@ -636,8 +636,8 @@
     },
     "BoxEstimator": {
       "modeLabel": "Mode",
-      "nonDG": "Non-DG",
-      "dg": "DG",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat",
       "errorMissingDims": "Complete length, width, height and weight for the selected products to estimate boxes.",
       "errorNoBoxes": "No boxes available for the selected mode.",
       "summaryTitle": "Packing summary",
@@ -2159,7 +2159,9 @@
       "partialSuffix": ", {partial} parțiale",
       "heavyLabelsCostLabel": "Etichete extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
       "grandTotalLabel": "Total general (cutii + etichete): €{amount}",
-      "heavyParcelCost": "Cost etichete: €{amount} HT ({labels} × €{unit})"
+      "heavyParcelCost": "Cost etichete: €{amount} HT ({labels} × €{unit})",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat"
     }
   },
   "fr": {
@@ -3183,7 +3185,9 @@
       "partialSuffix": ", {partial} partiels",
       "heavyLabelsCostLabel": "Étiquettes extra (Heavy Parcel) : {count} × €{unit} HT = €{amount}",
       "grandTotalLabel": "Total général (cartons + étiquettes) : €{amount}",
-      "heavyParcelCost": "Coût étiquettes : €{amount} HT ({labels} × €{unit})"
+      "heavyParcelCost": "Coût étiquettes : €{amount} HT ({labels} × €{unit})",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat"
     }
   },
   "de": {
@@ -4155,7 +4159,9 @@
       "partialSuffix": ", {partial} teilweise",
       "heavyLabelsCostLabel": "Zusatzetiketten (Heavy Parcel): {count} × €{unit} HT = €{amount}",
       "grandTotalLabel": "Gesamtsumme (Kartons + Etiketten): €{amount}",
-      "heavyParcelCost": "Etikettenkosten: €{amount} HT ({labels} × €{unit})"
+      "heavyParcelCost": "Etikettenkosten: €{amount} HT ({labels} × €{unit})",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat"
     }
   },
   "it": {
@@ -5127,7 +5133,9 @@
       "partialSuffix": ", {partial} parziali",
       "heavyLabelsCostLabel": "Etichette extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
       "grandTotalLabel": "Totale generale (scatole + etichette): €{amount}",
-      "heavyParcelCost": "Costo etichette: €{amount} HT ({labels} × €{unit})"
+      "heavyParcelCost": "Costo etichette: €{amount} HT ({labels} × €{unit})",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat"
     }
   },
   "es": {
@@ -6099,7 +6107,9 @@
       "partialSuffix": ", {partial} parciales",
       "heavyLabelsCostLabel": "Etiquetas extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
       "grandTotalLabel": "Total general (cajas + etiquetas): €{amount}",
-      "heavyParcelCost": "Costo etiquetas: €{amount} HT ({labels} × €{unit})"
+      "heavyParcelCost": "Costo etiquetas: €{amount} HT ({labels} × €{unit})",
+      "nonDG": "Non-Hazmat",
+      "dg": "Hazmat"
     }
   }
 }

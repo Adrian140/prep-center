@@ -5,9 +5,11 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
 
 const MAX_BOX_KG = 23;
+const HAZMAT_MAX_BOX_KG = 20;
 const HEAVY_PARCEL_THRESHOLD_KG = 15;
 const HEAVY_PARCEL_LABELS_PER_BOX = 5;
 const HEAVY_PARCEL_LABEL_COST_EUR = 0.2;
+const DG_MAX_BOX = { length_cm: 60, width_cm: 40, height_cm: 40 };
 
 const defaultBoxes = [
   { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: MAX_BOX_KG, tag: 'standard' },
@@ -24,12 +26,24 @@ const canFit = (product, box) => {
   return pd[0] <= bd[0] && pd[1] <= bd[1] && pd[2] <= bd[2];
 };
 
+const isWithinBoxLimit = (box, limitBox) => {
+  const bd = [box.length_cm || 0, box.width_cm || 0, box.height_cm || 0].map(Number).sort(sortDims);
+  const ld = [limitBox.length_cm || 0, limitBox.width_cm || 0, limitBox.height_cm || 0].map(Number).sort(sortDims);
+  return bd[0] <= ld[0] && bd[1] <= ld[1] && bd[2] <= ld[2];
+};
+
 const volume = (l, w, h) => Math.max(0, Number(l) || 0) * Math.max(0, Number(w) || 0) * Math.max(0, Number(h) || 0);
 
 const getBoxMaxKg = (box) => {
   const raw = Number(box?.max_kg);
   if (!Number.isFinite(raw) || raw <= 0) return MAX_BOX_KG;
   return Math.min(raw, MAX_BOX_KG);
+};
+
+const getBoxMaxKgForMode = (box, mode) => {
+  const base = getBoxMaxKg(box);
+  if (mode === 'dg') return Math.min(base, HAZMAT_MAX_BOX_KG);
+  return base;
 };
 
 const is60Cube = (box) =>
@@ -270,16 +284,19 @@ export default function ClientBoxEstimator() {
       (boxes || []).map((b) => ({
         ...b,
         tag: String(b.tag || '').toLowerCase().includes('dg') ? 'dg' : 'standard',
-        max_kg: getBoxMaxKg(b),
+        max_kg: getBoxMaxKgForMode(b, mode),
         vol: volume(b.length_cm, b.width_cm, b.height_cm)
       })),
-    [boxes]
+    [boxes, mode]
   );
 
   const filteredBoxes = useMemo(
     () =>
       normalizedBoxes
-        .filter((b) => (mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg'))
+        .filter((b) => {
+          if (mode === 'dg') return isWithinBoxLimit(b, DG_MAX_BOX);
+          return b.tag !== 'dg';
+        })
         .sort((a, b) => {
           if (b.vol !== a.vol) return b.vol - a.vol;
           const aMax = Math.max(Number(a.length_cm || 0), Number(a.width_cm || 0), Number(a.height_cm || 0));
