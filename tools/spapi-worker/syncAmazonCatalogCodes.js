@@ -13,6 +13,7 @@ const MAX_INTEGRATIONS_PER_RUN_RAW = Number(
     20
 );
 const MAX_ASINS_PER_RUN_RAW = Number(process.env.SPAPI_CATALOG_CODES_ASINS_PER_RUN || 0);
+const RUN_TIME_BUDGET_SECONDS_RAW = Number(process.env.SPAPI_CATALOG_CODES_MAX_RUNTIME_SECONDS || 15480); // 4.3h
 const MARKETPLACE_FILTER = process.env.SPAPI_CATALOG_CODES_MARKETPLACE_ID || null;
 const ALLOWED_MARKETPLACE_IDS = String(
   process.env.SPAPI_CATALOG_CODES_MARKETPLACE_IDS ||
@@ -30,6 +31,10 @@ const MAX_INTEGRATIONS_PER_RUN =
 const MAX_ASINS_PER_RUN =
   Number.isFinite(MAX_ASINS_PER_RUN_RAW) && MAX_ASINS_PER_RUN_RAW > 0
     ? MAX_ASINS_PER_RUN_RAW
+    : Number.POSITIVE_INFINITY;
+const RUN_TIME_BUDGET_MS =
+  Number.isFinite(RUN_TIME_BUDGET_SECONDS_RAW) && RUN_TIME_BUDGET_SECONDS_RAW > 0
+    ? RUN_TIME_BUDGET_SECONDS_RAW * 1000
     : Number.POSITIVE_INFINITY;
 
 function assertBaseEnv() {
@@ -737,6 +742,8 @@ async function syncIntegration(integration) {
 
 async function main() {
   assertBaseEnv();
+  const startedAt = Date.now();
+  const isBudgetReached = () => Date.now() - startedAt >= RUN_TIME_BUDGET_MS;
 
   const integrations = await fetchActiveIntegrations();
   if (!integrations.length) {
@@ -748,14 +755,25 @@ async function main() {
   let totalEanUpdated = 0;
   let totalAsinsResolved = 0;
   let skippedUnauthorized = 0;
+  let processedIntegrations = 0;
+  let stoppedByBudget = false;
 
   for (const integration of integrations) {
+    if (isBudgetReached()) {
+      stoppedByBudget = true;
+      console.log(
+        `[Catalog code sync] Runtime budget reached after ${processedIntegrations}/${integrations.length} integrations. Stopping gracefully; next run will continue.`
+      );
+      break;
+    }
     try {
       const stats = await syncIntegration(integration);
+      processedIntegrations += 1;
       totalFnskuUpdated += stats.fnskuUpdated;
       totalEanUpdated += stats.eanUpdated;
       totalAsinsResolved += stats.asinsResolved;
     } catch (error) {
+      processedIntegrations += 1;
       const message = error?.message || String(error);
       if (isAccessDeniedError(error)) {
         skippedUnauthorized += 1;
@@ -782,9 +800,13 @@ async function main() {
     }
   }
 
+  const elapsedSec = Math.round((Date.now() - startedAt) / 1000);
   console.log(
-    `[Catalog code sync] Finished. fnskuUpdated=${totalFnskuUpdated} eanUpdated=${totalEanUpdated} asinsResolved=${totalAsinsResolved} skippedUnauthorized=${skippedUnauthorized}`
+    `[Catalog code sync] Finished. processedIntegrations=${processedIntegrations}/${integrations.length} fnskuUpdated=${totalFnskuUpdated} eanUpdated=${totalEanUpdated} asinsResolved=${totalAsinsResolved} skippedUnauthorized=${skippedUnauthorized} elapsedSec=${elapsedSec} stoppedByBudget=${stoppedByBudget ? 1 : 0}`
   );
+  if (stoppedByBudget) {
+    console.log('CATALOG_CODES_CONTINUE=1');
+  }
 }
 
 main().catch((error) => {

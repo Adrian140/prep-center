@@ -10,9 +10,14 @@ concurrency:
   group: sync-amazon-catalog-codes
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 285
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +32,7 @@ jobs:
         run: npm ci
 
       - name: Run catalog codes sync
+        id: run_sync
         working-directory: tools/spapi-worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -42,4 +48,25 @@ jobs:
           SPAPI_CATALOG_CODES_MARKETPLACE_IDS: ${{ secrets.SPAPI_CATALOG_CODES_MARKETPLACE_IDS || 'A1PA6795UKMFR9,A13V1IB3VIYZZH,APJ6JRA9NG5V4,A1RKKUPIHCS9HS' }}
           SPAPI_CATALOG_CODES_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_CATALOG_CODES_MAX_INTEGRATIONS_PER_RUN || '0' }}
           SPAPI_CATALOG_CODES_ASINS_PER_RUN: ${{ secrets.SPAPI_CATALOG_CODES_ASINS_PER_RUN || '0' }}
-        run: npm run sync-amazon-catalog-codes
+          SPAPI_CATALOG_CODES_MAX_RUNTIME_SECONDS: ${{ secrets.SPAPI_CATALOG_CODES_MAX_RUNTIME_SECONDS || '15480' }}
+        run: |
+          set -o pipefail
+          npm run sync-amazon-catalog-codes | tee sync-catalog-codes.log
+          if grep -q "CATALOG_CODES_CONTINUE=1" sync-catalog-codes.log; then
+            echo "continue_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "continue_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger follow-up run when budget reached
+        if: steps.run_sync.outputs.continue_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/workflows/sync-amazon-catalog-codes.yml/dispatches" \
+            -d "{\"ref\":\"$REF\"}"
