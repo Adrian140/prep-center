@@ -179,7 +179,15 @@ export default function ClientBoxEstimator() {
   );
 
   const filteredBoxes = useMemo(
-    () => normalizedBoxes.filter((b) => (mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg')),
+    () =>
+      normalizedBoxes
+        .filter((b) => (mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg'))
+        .sort((a, b) => {
+          if (b.vol !== a.vol) return b.vol - a.vol;
+          const aMax = Math.max(Number(a.length_cm || 0), Number(a.width_cm || 0), Number(a.height_cm || 0));
+          const bMax = Math.max(Number(b.length_cm || 0), Number(b.width_cm || 0), Number(b.height_cm || 0));
+          return bMax - aMax;
+        }),
     [normalizedBoxes, mode]
   );
 
