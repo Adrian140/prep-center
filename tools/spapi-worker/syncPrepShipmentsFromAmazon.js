@@ -283,8 +283,8 @@ async function fetchPrepRequests() {
       .range(offset, offset + PAGE_SIZE - 1);
 
     if (!INCLUDE_CLOSED) {
-      // Include confirmed requests even if Amazon marked them CLOSED.
-      query = query.or('amazon_status.neq.CLOSED,status.eq.confirmed');
+      // Skip any shipment already marked CLOSED locally to save sync time.
+      query = query.or('amazon_status.is.null,amazon_status.neq.CLOSED');
     }
 
     const { data, error } = await query;
@@ -648,6 +648,9 @@ async function main() {
   const nowIso = new Date().toISOString();
 
   for (const row of prepRequests) {
+    if (!INCLUDE_CLOSED && String(row?.amazon_status || '').trim().toUpperCase() === 'CLOSED') {
+      continue;
+    }
     if (Date.now() - startedAt > MAX_RUNTIME_MS) {
       console.warn('Sync time limit reached, stopping early.');
       break;
