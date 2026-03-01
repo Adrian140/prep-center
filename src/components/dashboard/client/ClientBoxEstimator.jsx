@@ -65,14 +65,41 @@ const fillSingleBox = (items, box) => {
   };
 };
 
-const pickFirstFittingBoxFromSmallest = (remaining, boxesAsc) => {
+const pickBestBoxForRemaining = (remaining, boxesAsc) => {
+  const candidates = [];
   for (const box of boxesAsc) {
     const fill = fillSingleBox(remaining, box);
-    if (fill.packed.length > 0) {
-      return { box, fill };
-    }
+    if (!fill.packed.length) continue;
+    const volumePct = box.vol > 0 ? (fill.usedVol / box.vol) * 100 : 0;
+    const weightPct = getBoxMaxKg(box) > 0 ? (fill.usedKg / getBoxMaxKg(box)) * 100 : 0;
+    const maxPct = Math.max(volumePct, weightPct);
+    const cost = getBoxPriceEur(box);
+    const packsAll = fill.remaining.length === 0;
+    candidates.push({ box, fill, volumePct, weightPct, maxPct, cost, packsAll });
   }
-  return null;
+
+  if (!candidates.length) return null;
+
+  const allFitCandidates = candidates.filter((c) => c.packsAll);
+  if (allFitCandidates.length) {
+    allFitCandidates.sort((a, b) => {
+      if (a.cost !== b.cost) return a.cost - b.cost;
+      if (a.box.vol !== b.box.vol) return a.box.vol - b.box.vol;
+      return b.maxPct - a.maxPct;
+    });
+    return allFitCandidates[0];
+  }
+
+  candidates.sort((a, b) => {
+    if (b.fill.packed.length !== a.fill.packed.length) {
+      return b.fill.packed.length - a.fill.packed.length;
+    }
+    if (b.maxPct !== a.maxPct) return b.maxPct - a.maxPct;
+    if (a.cost !== b.cost) return a.cost - b.cost;
+    return a.box.vol - b.box.vol;
+  });
+
+  return candidates[0];
 };
 
 const buildAutoPlan = (items, boxesAsc) => {
@@ -94,38 +121,11 @@ const buildAutoPlan = (items, boxesAsc) => {
   }
 
   const instances = [];
-  const preferred60 = boxesAsc.find((b) => is60Cube(b)) || boxesAsc[boxesAsc.length - 1] || null;
-
-  // Phase 1: keep allocating 60x60x60 while the created box is fully utilized.
-  if (preferred60) {
-    let guard60 = 0;
-    while (remaining.length > 0 && guard60 < 10000) {
-      guard60 += 1;
-      const fill60 = fillSingleBox(remaining, preferred60);
-      if (!fill60.packed.length) break;
-      const volPct = preferred60.vol > 0 ? (fill60.usedVol / preferred60.vol) * 100 : 0;
-      const kgPct =
-        getBoxMaxKg(preferred60) > 0
-          ? (fill60.usedKg / getBoxMaxKg(preferred60)) * 100
-          : 0;
-      const completed60 = isBoxCompleted(volPct, kgPct);
-      instances.push({
-        box: preferred60,
-        usedVol: fill60.usedVol,
-        usedKg: fill60.usedKg,
-        countItems: fill60.packed.length
-      });
-      remaining = fill60.remaining;
-
-      // After the first non-complete 60x60x60, continue with adaptive smaller boxes.
-      if (!completed60) break;
-    }
-  }
 
   let guard = 0;
   while (remaining.length > 0 && guard < 10000) {
     guard += 1;
-    const chosen = pickFirstFittingBoxFromSmallest(remaining, boxesAsc);
+    const chosen = pickBestBoxForRemaining(remaining, boxesAsc);
 
     if (!chosen) {
       impossible.push(...remaining);
