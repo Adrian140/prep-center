@@ -199,6 +199,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const [deletingId, setDeletingId] = useState(null);
   const [reqHeader, setReqHeader] = useState(null);
   const [reqLines, setReqLines] = useState([]);
+  const [reqBoxServices, setReqBoxServices] = useState([]);
   const [reqErrors, setReqErrors] = useState([]);
   const [adding, setAdding] = useState(false);
   const [addingSel, setAddingSel] = useState('');
@@ -361,6 +362,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         setReqOpen(false);
         setReqHeader(null);
         setReqLines([]);
+        setReqBoxServices([]);
       }
     } catch (e) {
       setReqErrors([supportError]);
@@ -476,6 +478,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     setReqLoading(true);
     setReqHeader(null);
     setReqLines([]);
+    setReqBoxServices([]);
     setReqEditable(false);
     setAdding(false);
     setAddingSel('');
@@ -555,25 +558,34 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           .eq('request_id', requestId);
         if (!serviceError) {
           const byItemId = {};
+          const boxServices = [];
           (serviceRows || []).forEach((svc) => {
-            if (String(svc?.item_type || 'sku').toLowerCase() !== 'sku') return;
-            const itemId = svc?.prep_request_item_id;
-            if (!itemId) return;
             const qty = Math.max(0, Number(svc?.units || 0));
             if (!qty) return;
-            if (!byItemId[itemId]) byItemId[itemId] = [];
-            byItemId[itemId].push({
+            const mappedService = {
               service_name: String(svc?.service_name || '').trim(),
               units: qty,
               unit_price: Number(svc?.unit_price || 0)
-            });
+            };
+            const itemType = String(svc?.item_type || 'sku').toLowerCase();
+            if (itemType === 'box') {
+              boxServices.push(mappedService);
+              return;
+            }
+            const itemId = svc?.prep_request_item_id;
+            if (!itemId) return;
+            if (!byItemId[itemId]) byItemId[itemId] = [];
+            byItemId[itemId].push(mappedService);
           });
+          setReqBoxServices(boxServices);
           setReqLines((prev) =>
             prev.map((line) => ({
               ...line,
               services: line?.id ? byItemId[line.id] || [] : []
             }))
           );
+        } else {
+          setReqBoxServices([]);
         }
       }
       setReqEditable((data.status || 'pending') === 'pending');
@@ -789,6 +801,60 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     () => normalizeStep2Shipments(reqHeader?.step2_shipments),
     [reqHeader?.step2_shipments]
   );
+  const reqTotals = useMemo(() => {
+    const totalUnitsExpected = reqLines.reduce((sum, line) => {
+      const val = Number(line.amazon_units_expected ?? line.units_sent ?? line.units_requested ?? 0);
+      return Number.isFinite(val) ? sum + val : sum;
+    }, 0);
+    const totalUnitsLocated = reqLines.reduce((sum, line) => {
+      const val = Number(line.amazon_units_received);
+      return Number.isFinite(val) ? sum + val : sum;
+    }, 0);
+    const prepServicesTotal = reqLines.reduce((sum, line) => {
+      const services = Array.isArray(line?.services) ? line.services : [];
+      return (
+        sum +
+        services.reduce((serviceSum, svc) => {
+          const qty = Number(svc?.units || 0);
+          const price = Number(svc?.unit_price || 0);
+          if (!Number.isFinite(qty) || !Number.isFinite(price)) return serviceSum;
+          return serviceSum + qty * price;
+        }, 0)
+      );
+    }, 0);
+
+    const boxServiceGroupsMap = new Map();
+    (reqBoxServices || []).forEach((svc) => {
+      const name = String(svc?.service_name || 'Box service').trim() || 'Box service';
+      const qty = Number(svc?.units || 0);
+      const price = Number(svc?.unit_price || 0);
+      if (!Number.isFinite(qty) || qty <= 0) return;
+      const safePrice = Number.isFinite(price) ? price : 0;
+      const key = `${name}__${safePrice}`;
+      const current = boxServiceGroupsMap.get(key) || {
+        service_name: name,
+        units: 0,
+        unit_price: safePrice,
+        total: 0
+      };
+      current.units += qty;
+      current.total += qty * safePrice;
+      boxServiceGroupsMap.set(key, current);
+    });
+    const boxServiceGroups = Array.from(boxServiceGroupsMap.values());
+    const boxServicesTotal = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.total || 0), 0);
+    const totalBoxUnits = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.units || 0), 0);
+
+    return {
+      totalUnitsExpected,
+      totalUnitsLocated,
+      prepServicesTotal,
+      boxServicesTotal,
+      grandTotal: prepServicesTotal + boxServicesTotal,
+      totalBoxUnits,
+      boxServiceGroups
+    };
+  }, [reqLines, reqBoxServices]);
   const headerShipmentIds = reqStep2Shipments.length
     ? reqStep2Shipments
         .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
@@ -1440,6 +1506,85 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                             </tr>
                           );
                         })}
+                        {!reqEditable && reqLines.length > 0 && (
+                          <>
+                            <tr className="border-t bg-gray-50/70">
+                              <td className="px-2 py-2 text-center text-text-secondary">Tot</td>
+                              <td className="px-2 py-2 font-semibold text-text-primary">Total prep services</td>
+                              <td className="px-2 py-2 align-top">
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-text-secondary">SKU services total</span>
+                                    <span className="font-semibold text-right">
+                                      = {formatMoney2(reqTotals.prepServicesTotal)} EUR
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-text-secondary">Grand total (incl. boxes)</span>
+                                    <span className="font-semibold text-right">
+                                      = {formatMoney2(reqTotals.grandTotal)} EUR
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2 text-xs text-text-secondary">—</td>
+                              <td className="px-2 py-2 text-right align-top">
+                                <div className="text-right">
+                                  <div className="text-base font-semibold text-text-primary">
+                                    {Math.round(reqTotals.totalUnitsExpected)}
+                                  </div>
+                                  <div className="text-sm font-semibold text-sky-600">
+                                    {Math.round(reqTotals.totalUnitsLocated)}
+                                  </div>
+                                  <div className="text-[11px] text-text-secondary">
+                                    Δ {Math.round(reqTotals.totalUnitsExpected - reqTotals.totalUnitsLocated)}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                            <tr className="border-t bg-gray-50/70">
+                              <td className="px-2 py-2 text-center text-text-secondary">Box</td>
+                              <td className="px-2 py-2 font-semibold text-text-primary">Billed boxes</td>
+                              <td className="px-2 py-2 align-top">
+                                {reqTotals.boxServiceGroups.length > 0 ? (
+                                  <div className="space-y-1 text-xs">
+                                    {reqTotals.boxServiceGroups.map((svc, idx) => (
+                                      <div key={`box-total-${idx}`} className="flex items-start justify-between gap-3">
+                                        <span className="min-w-0 break-words">
+                                          <span className="font-medium">{svc.service_name}</span>
+                                          <span className="text-text-secondary">
+                                            {' '}
+                                            × {Number(svc.units || 0)} × {formatMoney2(svc.unit_price || 0)}
+                                          </span>
+                                        </span>
+                                        <span className="shrink-0 text-right font-medium">
+                                          = {formatMoney2(svc.total || 0)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    <div className="border-t pt-1 flex items-center justify-between gap-3">
+                                      <span className="text-text-secondary">Total box cost</span>
+                                      <span className="font-semibold text-right">
+                                        = {formatMoney2(reqTotals.boxServicesTotal)} EUR
+                                      </span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-text-secondary">No billed boxes</span>
+                                )}
+                              </td>
+                              <td className="px-2 py-2 text-xs text-text-secondary">—</td>
+                              <td className="px-2 py-2 text-right align-top">
+                                <div className="text-right">
+                                  <div className="text-base font-semibold text-text-primary">
+                                    {Math.round(reqTotals.totalBoxUnits)}
+                                  </div>
+                                  <div className="text-[11px] text-text-secondary">boxes billed</div>
+                                </div>
+                              </td>
+                            </tr>
+                          </>
+                        )}
                       </tbody>
                     </table>
                   </div>
