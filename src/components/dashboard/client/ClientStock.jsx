@@ -2392,11 +2392,7 @@ const openPrep = async () => {
   }
 
   // verificare dacă au stoc în Prep Center (>0)
-  const noPrepStock = selectedRows.filter((r) => {
-    const pending = Math.max(0, Number(pendingShipmentByItemId?.[r.id]?.total || 0));
-    const available = Math.max(0, Number(r.qty || 0) - pending);
-    return available <= 0;
-  });
+  const noPrepStock = selectedRows.filter(r => Number(r.qty || 0) <= 0);
   if (noPrepStock.length > 0) {
     const errorText = tp('ClientStock.errors.noPrepStock', {
       products: noPrepStock
@@ -2432,8 +2428,7 @@ const openPrep = async () => {
   const exceedsPrepStockRows = selectedRows
     .map((r) => {
       const requested = Math.max(0, Number(rowEdits[r.id]?.units_to_send || 0));
-      const pending = Math.max(0, Number(pendingShipmentByItemId?.[r.id]?.total || 0));
-      const available = Math.max(0, Number(r.qty || 0) - pending);
+      const available = Math.max(0, Number(r.qty || 0));
       return { row: r, requested, available };
     })
     .filter(({ requested, available }) => requested > available);
@@ -2948,8 +2943,8 @@ const saveReqChanges = async () => {
         </button>
       </th>
       {showPendingShipmentColumn && (
-        <th className="px-2 py-2 text-right w-28">
-          <span className="w-full inline-flex items-center justify-end text-xs font-semibold uppercase tracking-wide text-gray-500">
+        <th className="px-2 py-2 text-center w-28">
+          <span className="w-full inline-flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-gray-500">
             Pending shipment
           </span>
         </th>
@@ -2992,7 +2987,6 @@ const saveReqChanges = async () => {
       const pendingInfo = pendingShipmentByItemId?.[r.id] || null;
       const pendingTotal = Math.max(0, Number(pendingInfo?.total || 0));
       const pendingByCountry = getPendingCountryEntries(pendingInfo?.byCountry || {});
-      const availablePrepQty = Math.max(0, Number(r.qty || 0) - pendingTotal);
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3155,15 +3149,15 @@ const saveReqChanges = async () => {
 
     {/* 6) PrepCenter stock — afișare / ajustare */}
     <td className="px-2 py-2 text-right text-gray-700">
-      {renderQtyCell(r, { availableQty: availablePrepQty })}
+      {renderQtyCell(r)}
     </td>
 
           {showPendingShipmentColumn && (
-            <td className="px-2 py-2 text-right align-top">
+            <td className="px-2 py-2 text-center align-top">
               {pendingTotal > 0 && (
-                <div className="inline-flex flex-col items-end">
+                <div className="inline-flex flex-col items-center">
                   <div className="font-semibold text-gray-800">{pendingTotal}</div>
-                  <div className="mt-1 text-[11px] leading-4 space-y-0.5">
+                  <div className="mt-1 text-[11px] leading-4 space-y-0.5 text-center">
                     {pendingByCountry.map(([countryCode, qty]) => (
                       <div key={`${r.id}-pending-${countryCode}`} className="font-semibold text-red-600">
                         {countryCode}-{qty}
@@ -3181,7 +3175,6 @@ const saveReqChanges = async () => {
            <input
             type="number"
             min={0}
-            max={availablePrepQty}
             className="border rounded px-2 py-1 w-24 text-right"
             value={edit.units_to_send ?? 0}
             onChange={(e) => {
