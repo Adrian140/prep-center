@@ -203,6 +203,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const [reqHeader, setReqHeader] = useState(null);
   const [reqLines, setReqLines] = useState([]);
   const [reqBoxServices, setReqBoxServices] = useState([]);
+  const [reqHeavyParcel, setReqHeavyParcel] = useState(null);
   const [reqErrors, setReqErrors] = useState([]);
   const [adding, setAdding] = useState(false);
   const [addingSel, setAddingSel] = useState('');
@@ -366,6 +367,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         setReqHeader(null);
         setReqLines([]);
         setReqBoxServices([]);
+        setReqHeavyParcel(null);
       }
     } catch (e) {
       setReqErrors([supportError]);
@@ -482,6 +484,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     setReqHeader(null);
     setReqLines([]);
     setReqBoxServices([]);
+    setReqHeavyParcel(null);
     setReqEditable(false);
     setAdding(false);
     setAddingSel('');
@@ -589,6 +592,22 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           );
         } else {
           setReqBoxServices([]);
+        }
+
+        const { data: heavyRows, error: heavyError } = await supabase
+          .from('prep_request_heavy_parcel')
+          .select('market, heavy_boxes, labels_count, unit_price, total_price')
+          .eq('request_id', requestId);
+        if (!heavyError) {
+          const market = normalizeCountryCode(data?.warehouse_country || data?.destination_country || currentMarket || 'FR');
+          const list = Array.isArray(heavyRows) ? heavyRows : [];
+          const selected =
+            list.find((row) => normalizeCountryCode(row?.market, '') === market) ||
+            list[0] ||
+            null;
+          setReqHeavyParcel(selected);
+        } else {
+          setReqHeavyParcel(null);
         }
       }
       setReqEditable((data.status || 'pending') === 'pending');
@@ -845,18 +864,16 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       boxServiceGroupsMap.set(key, current);
     });
     const allBoxServiceGroups = Array.from(boxServiceGroupsMap.values());
-    const heavyFromServices = allBoxServiceGroups.find(
-      (svc) => String(svc?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME
-    );
     const boxServiceGroups = allBoxServiceGroups.filter(
       (svc) => String(svc?.service_name || '').trim() !== HEAVY_PARCEL_SERVICE_NAME
     );
     const boxServicesTotal = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.total || 0), 0);
-    const heavyLabelsCount = Number(heavyFromServices?.units || 0);
-    const heavyUnitPrice = heavyFromServices
-      ? Number(heavyFromServices.unit_price || HEAVY_PARCEL_LABEL_UNIT_PRICE)
-      : HEAVY_PARCEL_LABEL_UNIT_PRICE;
-    const heavyLabelsTotal = heavyLabelsCount * heavyUnitPrice;
+    const heavyLabelsCount = Number(reqHeavyParcel?.labels_count || 0);
+    const heavyUnitPrice = Number(reqHeavyParcel?.unit_price || HEAVY_PARCEL_LABEL_UNIT_PRICE);
+    const heavyFromTableTotal = Number(reqHeavyParcel?.total_price);
+    const heavyLabelsTotal = Number.isFinite(heavyFromTableTotal)
+      ? heavyFromTableTotal
+      : heavyLabelsCount * heavyUnitPrice;
 
     return {
       totalUnitsExpected,
@@ -869,7 +886,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       grandTotal: prepServicesTotal + boxServicesTotal + heavyLabelsTotal,
       boxServiceGroups
     };
-  }, [reqLines, reqBoxServices]);
+  }, [reqLines, reqBoxServices, reqHeavyParcel]);
   const headerShipmentIds = reqStep2Shipments.length
     ? reqStep2Shipments
         .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)

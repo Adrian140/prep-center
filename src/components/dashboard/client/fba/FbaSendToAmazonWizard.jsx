@@ -28,7 +28,6 @@ const getFiniteNumber = (val) => {
 const HEAVY_PARCEL_THRESHOLD_KG = 15;
 const HEAVY_PARCEL_LABELS_PER_BOX = 5;
 const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
-const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
 
 const computeHeavyParcelFromBoxPlan = (plan) => {
   const groups = plan?.groups && typeof plan.groups === 'object' ? Object.values(plan.groups) : [];
@@ -1924,6 +1923,35 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           .update({ step1_box_plan: nextPlan })
           .eq('id', requestId);
         if (error) throw error;
+
+        const market = String(currentMarket || 'FR').trim().toUpperCase();
+        const marketPlan =
+          nextPlan?.[market] && typeof nextPlan[market] === 'object' ? nextPlan[market] : null;
+        if (marketPlan) {
+          const heavyMeta = computeHeavyParcelFromBoxPlan(marketPlan);
+          if (heavyMeta.labels > 0) {
+            const { error: heavyErr } = await supabase.from('prep_request_heavy_parcel').upsert(
+              {
+                request_id: requestId,
+                market,
+                heavy_boxes: heavyMeta.heavyBoxes,
+                labels_count: heavyMeta.labels,
+                unit_price: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+                total_price: heavyMeta.total
+              },
+              { onConflict: 'request_id,market' }
+            );
+            if (heavyErr) throw heavyErr;
+          } else {
+            const { error: heavyDelErr } = await supabase
+              .from('prep_request_heavy_parcel')
+              .delete()
+              .eq('request_id', requestId)
+              .eq('market', market);
+            if (heavyDelErr) throw heavyDelErr;
+          }
+        }
+
         lastStep1BoxPlanPersistedRef.current = serialized;
       } catch (e) {
         console.warn('Persist step1_box_plan failed', e);
@@ -1932,7 +1960,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return () => {
       if (step1BoxPlanPersistTimerRef.current) clearTimeout(step1BoxPlanPersistTimerRef.current);
     };
-  }, [resolveRequestId, step1BoxPlanByMarket]);
+  }, [resolveRequestId, step1BoxPlanByMarket, currentMarket]);
 
   useEffect(() => {
     const requestId = resolveRequestId();
@@ -2016,23 +2044,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       });
     });
 
-    const heavyMeta = computeHeavyParcelFromBoxPlan(step1BoxPlanForMarket);
-    const hasHeavyAlready = rows.some(
-      (row) => row.item_type === 'box' && String(row?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME
-    );
-    if (!hasHeavyAlready && heavyMeta.labels > 0) {
-      rows.push({
-        request_id: requestId,
-        prep_request_item_id: null,
-        service_id: null,
-        service_name: HEAVY_PARCEL_SERVICE_NAME,
-        unit_price: HEAVY_PARCEL_LABEL_UNIT_PRICE,
-        units: heavyMeta.labels,
-        item_type: 'box'
-      });
-    }
     return rows;
-  }, [step1BoxPlanForMarket]);
+  }, []);
 
   const persistServicesToDb = useCallback(async () => {
     const requestId = resolveRequestId();
