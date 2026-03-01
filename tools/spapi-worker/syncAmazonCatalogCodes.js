@@ -21,6 +21,7 @@ const ALLOWED_MARKETPLACE_IDS = String(
   .split(',')
   .map((v) => v.trim())
   .filter(Boolean);
+const ALLOWED_MARKETPLACE_SET = new Set(ALLOWED_MARKETPLACE_IDS);
 
 const MAX_INTEGRATIONS_PER_RUN =
   Number.isFinite(MAX_INTEGRATIONS_PER_RUN_RAW) && MAX_INTEGRATIONS_PER_RUN_RAW > 0
@@ -45,6 +46,13 @@ function assertBaseEnv() {
   }
 }
 
+function normalizeMarketplaceId(value) {
+  return String(value || '')
+    .trim()
+    .replace(/^"+|"+$/g, '')
+    .toUpperCase();
+}
+
 function singleModeIntegration() {
   if (
     process.env.SUPABASE_STOCK_COMPANY_ID &&
@@ -67,6 +75,35 @@ function singleModeIntegration() {
     ];
   }
   return null;
+}
+
+function resolveMarketplaceId(integration) {
+  if (integration?.marketplace_id) {
+    return normalizeMarketplaceId(integration.marketplace_id);
+  }
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    return normalizeMarketplaceId(integration.marketplace_ids[0]);
+  }
+  if (process.env.SPAPI_MARKETPLACE_ID) {
+    return normalizeMarketplaceId(process.env.SPAPI_MARKETPLACE_ID);
+  }
+  return null;
+}
+
+function resolveMarketplaceIds(integration) {
+  const keepAllowed = (list) =>
+    list.map((id) => normalizeMarketplaceId(id)).filter((id) => ALLOWED_MARKETPLACE_SET.has(id));
+  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
+    const list = keepAllowed(integration.marketplace_ids);
+    const preferred = normalizeMarketplaceId(integration?.marketplace_id || '');
+    if (preferred && list.includes(preferred)) {
+      return [preferred, ...list.filter((id) => id !== preferred)];
+    }
+    return list;
+  }
+  if (integration?.marketplace_id) return keepAllowed([integration.marketplace_id]);
+  if (process.env.SPAPI_MARKETPLACE_ID) return keepAllowed([process.env.SPAPI_MARKETPLACE_ID]);
+  return [];
 }
 
 async function fetchActiveIntegrations() {
@@ -103,9 +140,7 @@ async function fetchActiveIntegrations() {
       if (!t?.seller_id) return;
       tokenMap.set(t.seller_id, {
         refresh_token: t.refresh_token,
-        marketplace_ids: Array.isArray(t.marketplace_ids)
-          ? t.marketplace_ids.filter(Boolean)
-          : []
+        marketplace_ids: Array.isArray(t.marketplace_ids) ? t.marketplace_ids.filter(Boolean) : []
       });
     });
   }
@@ -140,39 +175,14 @@ async function fetchActiveIntegrations() {
         marketplace_ids: Array.from(mergedSet).filter(Boolean)
       };
     })
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((row) => {
+      const market = resolveMarketplaceId(row);
+      return market && ALLOWED_MARKETPLACE_SET.has(market);
+    });
 
   if (withTokens.length <= MAX_INTEGRATIONS_PER_RUN) return withTokens;
   return withTokens.slice(0, MAX_INTEGRATIONS_PER_RUN);
-}
-
-function resolveMarketplaceId(integration) {
-  if (integration?.marketplace_id) {
-    return integration.marketplace_id;
-  }
-  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
-    return integration.marketplace_ids[0];
-  }
-  if (process.env.SPAPI_MARKETPLACE_ID) {
-    return process.env.SPAPI_MARKETPLACE_ID;
-  }
-  return null;
-}
-
-function resolveMarketplaceIds(integration) {
-  const allowed = new Set(ALLOWED_MARKETPLACE_IDS);
-  const keepAllowed = (list) => list.filter((id) => allowed.has(id));
-  if (Array.isArray(integration?.marketplace_ids) && integration.marketplace_ids.length) {
-    const list = keepAllowed(integration.marketplace_ids);
-    const preferred = integration?.marketplace_id;
-    if (preferred && list.includes(preferred)) {
-      return [preferred, ...list.filter((id) => id !== preferred)];
-    }
-    return list;
-  }
-  if (integration?.marketplace_id) return keepAllowed([integration.marketplace_id]);
-  if (process.env.SPAPI_MARKETPLACE_ID) return keepAllowed([process.env.SPAPI_MARKETPLACE_ID]);
-  return [];
 }
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -233,9 +243,7 @@ async function downloadReportDocument(spClient, reportDocumentId) {
 
   if (!document?.url) throw new Error('Report document missing download URL');
 
-  const fetchImpl =
-    globalThis.fetch ||
-    (await import('node-fetch').then((mod) => mod.default));
+  const fetchImpl = globalThis.fetch || (await import('node-fetch').then((mod) => mod.default));
   const response = await fetchImpl(document.url);
   if (!response.ok) {
     throw new Error(`Failed to download report document (${response.status})`);
@@ -255,7 +263,7 @@ async function downloadReportDocument(spClient, reportDocumentId) {
   if (utf8.includes('�')) {
     try {
       return buffer.toString('latin1');
-    } catch (e) {
+    } catch {
       return utf8;
     }
   }
@@ -296,7 +304,8 @@ function parseInventoryRows(tsvText) {
   const headerLine = lines.shift();
   const delimiter = headerLine.includes('\t') ? '\t' : ',';
   const split = (line) =>
-    line.split(delimiter === '\t' ? /\t(?=(?:(?:[^"]*"){2})*[^"]*$)/ : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
+    line
+      .split(delimiter === '\t' ? /\t(?=(?:(?:[^"]*"){2})*[^"]*$)/ : /,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
       .map((part) => part.replace(/^"|"$/g, '').trim());
 
   const headers = split(headerLine).map((h) => normalizeHeader(h));
@@ -335,9 +344,7 @@ function normalizeEan(value) {
 }
 
 function normalizeIdentifier(value) {
-  return value && String(value).trim().length
-    ? String(value).trim().toLowerCase()
-    : '';
+  return value && String(value).trim().length ? String(value).trim().toLowerCase() : '';
 }
 
 function makeComboKey(companyId, sku, asin) {
@@ -400,20 +407,37 @@ async function fetchCompanyStockRows(companyId) {
   const rows = [];
   const chunkSize = 1000;
   let from = 0;
+  let hasFnskuColumn = true;
+
   while (true) {
     const to = from + chunkSize - 1;
-    const { data, error } = await supabase
+    const selectedColumns = hasFnskuColumn
+      ? 'id, company_id, user_id, sku, asin, ean, fnsku'
+      : 'id, company_id, user_id, sku, asin, ean';
+
+    let { data, error } = await supabase
       .from('stock_items')
-      .select('id, company_id, user_id, sku, asin, ean, fnsku')
+      .select(selectedColumns)
       .eq('company_id', companyId)
       .range(from, to);
+
+    if (error && hasFnskuColumn && String(error?.message || '').includes('stock_items.fnsku')) {
+      hasFnskuColumn = false;
+      ({ data, error } = await supabase
+        .from('stock_items')
+        .select('id, company_id, user_id, sku, asin, ean')
+        .eq('company_id', companyId)
+        .range(from, to));
+    }
+
     if (error) throw error;
     if (!data?.length) break;
-    rows.push(...data);
+    rows.push(...data.map((row) => ({ ...row, fnsku: row?.fnsku || null })));
     if (data.length < chunkSize) break;
     from += chunkSize;
   }
-  return rows;
+
+  return { rows, hasFnskuColumn };
 }
 
 async function fetchKnownEansByAsin(companyId, asins) {
@@ -467,11 +491,15 @@ async function insertAsinEans(rows) {
   }
 }
 
-async function applyStockPatches(patches) {
+async function applyStockPatches(patches, hasFnskuColumn) {
   if (!patches.length) return;
   const chunkSize = 500;
   for (let i = 0; i < patches.length; i += chunkSize) {
-    const chunk = patches.slice(i, i + chunkSize);
+    const chunk = patches.slice(i, i + chunkSize).map((patch) => {
+      if (hasFnskuColumn) return patch;
+      const { fnsku, ...rest } = patch;
+      return rest;
+    });
     const { error } = await supabase.from('stock_items').upsert(chunk, { onConflict: 'id' });
     if (error) throw error;
   }
@@ -481,6 +509,12 @@ async function syncIntegration(integration) {
   const marketplaceId = resolveMarketplaceId(integration);
   if (!marketplaceId) {
     console.warn(`[Catalog code sync] Skip integration ${integration.id}: missing marketplace.`);
+    return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
+  }
+  if (!ALLOWED_MARKETPLACE_SET.has(marketplaceId)) {
+    console.log(
+      `[Catalog code sync] Skip integration ${integration.id}: marketplace ${marketplaceId} is outside configured scope.`
+    );
     return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0 };
   }
 
@@ -506,7 +540,7 @@ async function syncIntegration(integration) {
     }))
     .filter((row) => row.sku || row.asin);
 
-  const stockRows = await fetchCompanyStockRows(integration.company_id);
+  const { rows: stockRows, hasFnskuColumn } = await fetchCompanyStockRows(integration.company_id);
   const byCombo = new Map();
   const bySku = new Map();
   const byAsin = new Map();
@@ -574,7 +608,7 @@ async function syncIntegration(integration) {
           const candidate = await fetchCatalogEan(spClient, asin, marketId);
           ean = normalizeEan(candidate);
           if (ean) break;
-        } catch (err) {
+        } catch {
           continue;
         }
       }
@@ -601,7 +635,7 @@ async function syncIntegration(integration) {
     }
   }
 
-  await applyStockPatches(Array.from(patchesById.values()));
+  await applyStockPatches(Array.from(patchesById.values()), hasFnskuColumn);
   await insertAsinEans(asinEansToInsert);
 
   await supabase
@@ -613,7 +647,9 @@ async function syncIntegration(integration) {
     .eq('id', integration.id);
 
   const stats = {
-    fnskuUpdated: Array.from(patchesById.values()).filter((p) => typeof p.fnsku === 'string').length,
+    fnskuUpdated: hasFnskuColumn
+      ? Array.from(patchesById.values()).filter((p) => typeof p.fnsku === 'string').length
+      : 0,
     eanUpdated: Array.from(patchesById.values()).filter((p) => typeof p.ean === 'string').length,
     asinsResolved: resolvedAsinEans.size
   };
