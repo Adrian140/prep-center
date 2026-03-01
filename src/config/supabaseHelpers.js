@@ -69,6 +69,61 @@ const receivingImportColumnMissing = (error) =>
 const normalizeCode = (value) =>
   typeof value === 'string' ? value.trim() : value ?? null;
 
+const normalizeIdentifierType = (value) =>
+  String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+const extractIdentifier = (identifiers, types) => {
+  if (!Array.isArray(identifiers) || !Array.isArray(types) || !types.length) return null;
+  const allowed = new Set(types.map((type) => normalizeIdentifierType(type)));
+  const hit = identifiers.find((row) =>
+    allowed.has(normalizeIdentifierType(row?.identifier_type))
+  );
+  return normalizeCode(hit?.identifier) || null;
+};
+
+const normalizePrepBusinessInboundItem = (rawItem) => {
+  const nested =
+    rawItem && typeof rawItem.item === 'object' && rawItem.item && !Array.isArray(rawItem.item)
+      ? rawItem.item
+      : {};
+  const identifiers = Array.isArray(nested.identifiers)
+    ? nested.identifiers
+    : Array.isArray(rawItem?.identifiers)
+    ? rawItem.identifiers
+    : [];
+
+  const asin =
+    normalizeCode(rawItem?.asin) ||
+    normalizeCode(nested?.asin) ||
+    extractIdentifier(identifiers, ['ASIN']) ||
+    null;
+  const ean =
+    normalizeCode(rawItem?.ean) ||
+    normalizeCode(nested?.ean) ||
+    extractIdentifier(identifiers, ['EAN', 'GTIN', 'UPC']) ||
+    null;
+  const sku =
+    normalizeCode(rawItem?.sku) ||
+    normalizeCode(rawItem?.merchant_sku) ||
+    normalizeCode(nested?.merchant_sku) ||
+    normalizeCode(nested?.sku) ||
+    null;
+  const title = normalizeCode(rawItem?.title) || normalizeCode(nested?.title) || null;
+  const productName = normalizeCode(rawItem?.product_name) || title || sku || asin || null;
+
+  return {
+    ...(rawItem || {}),
+    asin,
+    ean,
+    sku,
+    title,
+    product_name: productName
+  };
+};
+
 const normalizeEmail = (value) =>
   typeof value === 'string' ? value.trim().toLowerCase() : value ?? null;
 
@@ -103,19 +158,67 @@ const ensureStockItemForPrepBusiness = async (companyId, userId, item) => {
   const asin = normalizeCode(item.asin);
   const sku = normalizeCode(item.sku);
   const ean = normalizeCode(item.ean);
-  const orFilters = [];
-  if (asin) orFilters.push(`asin.eq.${asin}`);
-  if (sku) orFilters.push(`sku.eq.${sku}`);
-  if (ean) orFilters.push(`ean.eq.${ean}`);
+  const desiredName =
+    normalizeCode(item.product_name) ||
+    normalizeCode(item.title) ||
+    sku ||
+    asin ||
+    'Unknown product';
 
-  if (orFilters.length) {
-    const { data: existing } = await supabase
+  const maybeUpdateName = async (row) => {
+    if (!row?.id || !desiredName) return row;
+    const currentName = normalizeCode(row.name) || '';
+    const isPlaceholder =
+      !currentName ||
+      currentName === (asin || '') ||
+      currentName === (sku || '');
+    if (!isPlaceholder || currentName === desiredName) return row;
+    const { data: updated, error } = await supabase
+      .from('stock_items')
+      .update({ name: desiredName })
+      .eq('id', row.id)
+      .select('*')
+      .single();
+    if (error) return row;
+    return updated || row;
+  };
+
+  if (asin && sku) {
+    const { data: exactPair } = await supabase
       .from('stock_items')
       .select('*')
       .eq('company_id', companyId)
-      .or(orFilters.join(','))
+      .eq('asin', asin)
+      .eq('sku', sku)
       .maybeSingle();
-    if (existing) return existing;
+    if (exactPair) return await maybeUpdateName(exactPair);
+  }
+  if (sku) {
+    const { data: bySku } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('sku', sku)
+      .maybeSingle();
+    if (bySku) return await maybeUpdateName(bySku);
+  }
+  if (asin) {
+    const { data: byAsin } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('asin', asin)
+      .maybeSingle();
+    if (byAsin) return await maybeUpdateName(byAsin);
+  }
+  if (ean) {
+    const { data: byEan } = await supabase
+      .from('stock_items')
+      .select('*')
+      .eq('company_id', companyId)
+      .eq('ean', ean)
+      .maybeSingle();
+    if (byEan) return await maybeUpdateName(byEan);
   }
 
   const payload = {
@@ -124,7 +227,7 @@ const ensureStockItemForPrepBusiness = async (companyId, userId, item) => {
     asin,
     sku,
     ean,
-    name: item.product_name || item.title || sku || asin || 'Unknown product',
+    name: desiredName,
     qty: 0,
     created_at: new Date().toISOString()
   };
@@ -1214,17 +1317,24 @@ export const supabaseHelpers = {
     const resolvedItems = [];
     for (const item of items) {
       try {
+        const normalizedItem = normalizePrepBusinessInboundItem(item);
         const stock = await ensureStockItemForPrepBusiness(
           payload.company_id,
           payload.user_id,
-          item
+          normalizedItem
         );
         resolvedItems.push({
-          ...item,
-          stock_item_id: stock?.id || item.stock_item_id || null,
-          product_name: item.product_name || item.title || stock?.name || item.sku || item.asin,
-          asin: normalizeCode(item.asin),
-          sku: normalizeCode(item.sku)
+          ...normalizedItem,
+          stock_item_id: stock?.id || normalizedItem.stock_item_id || null,
+          product_name:
+            normalizedItem.product_name ||
+            normalizedItem.title ||
+            stock?.name ||
+            normalizedItem.sku ||
+            normalizedItem.asin,
+          asin: normalizeCode(normalizedItem.asin),
+          sku: normalizeCode(normalizedItem.sku),
+          ean: normalizeCode(normalizedItem.ean)
         });
       } catch (error) {
         return { data: null, error };
@@ -1261,6 +1371,7 @@ export const supabaseHelpers = {
         stock_item_id: it.stock_item_id || null,
         asin: normalizeCode(it.asin),
         sku: normalizeCode(it.sku),
+        ean: normalizeCode(it.ean),
         product_name: it.product_name || it.title || it.sku || it.asin,
         units_requested: Math.max(1, Number(it.quantity || it.qty || it.units_requested || 0) || 0),
         purchase_price: it.purchase_price ?? null,

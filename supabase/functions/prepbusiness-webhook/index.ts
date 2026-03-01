@@ -49,6 +49,61 @@ function normalizeReceivingStatus(value: unknown) {
   return "submitted";
 }
 
+function normalizeIdentifierType(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function extractIdentifier(
+  identifiers: Array<Record<string, unknown>> | undefined,
+  types: string[]
+) {
+  if (!identifiers || !Array.isArray(identifiers)) return null;
+  const allowed = new Set((types || []).map((t) => normalizeIdentifierType(t)));
+  const hit = identifiers.find((row) => {
+    const type = normalizeIdentifierType(row?.identifier_type);
+    return allowed.has(type);
+  });
+  return normalizeText(hit?.identifier || null);
+}
+
+function normalizeInboundItem(raw: Record<string, unknown>) {
+  const nested = (raw?.item as Record<string, unknown>) || {};
+  const identifiers = Array.isArray(nested?.identifiers)
+    ? (nested.identifiers as Array<Record<string, unknown>>)
+    : Array.isArray(raw?.identifiers)
+    ? (raw.identifiers as Array<Record<string, unknown>>)
+    : [];
+  const asin =
+    normalizeText(raw?.asin) ||
+    normalizeText(nested?.asin) ||
+    extractIdentifier(identifiers, ["ASIN"]) ||
+    null;
+  const ean =
+    normalizeText(raw?.ean) ||
+    normalizeText(nested?.ean) ||
+    extractIdentifier(identifiers, ["EAN", "GTIN", "UPC"]) ||
+    null;
+  const sku =
+    normalizeText(raw?.sku) ||
+    normalizeText(raw?.merchant_sku) ||
+    normalizeText(nested?.merchant_sku) ||
+    normalizeText(nested?.sku) ||
+    null;
+  const title = normalizeText(raw?.title) || normalizeText(nested?.title) || null;
+  const productName = normalizeText(raw?.product_name) || title || sku || asin || null;
+  return {
+    ...raw,
+    asin,
+    ean,
+    sku,
+    title,
+    product_name: productName
+  };
+}
+
 function isMissingColumnError(error: any, column: string) {
   if (!error) return false;
   const needle = column.toLowerCase();
@@ -124,19 +179,70 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
   const asin = normalizeText(item.asin);
   const sku = normalizeText(item.sku);
   const ean = normalizeText(item.ean);
-  const orFilters: string[] = [];
-  if (asin) orFilters.push(`asin.eq.${asin}`);
-  if (sku) orFilters.push(`sku.eq.${sku}`);
-  if (ean) orFilters.push(`ean.eq.${ean}`);
+  const desiredName =
+    normalizeText(item.product_name) ||
+    normalizeText(item.title) ||
+    sku ||
+    asin ||
+    "Unknown product";
 
-  if (orFilters.length) {
-    const { data: existing } = await supabase
+  const maybeUpdateName = async (row: Record<string, unknown> | null) => {
+    if (!row?.id || !desiredName) return row;
+    const currentName = normalizeText((row as any).name) || "";
+    const isPlaceholder =
+      !currentName ||
+      currentName === (asin || "") ||
+      currentName === (sku || "");
+    if (!isPlaceholder || currentName === desiredName) return row;
+    const { data: updated, error } = await supabase
+      .from("stock_items")
+      .update({ name: desiredName })
+      .eq("id", String((row as any).id))
+      .select("*")
+      .single();
+    if (error) return row;
+    return (updated as Record<string, unknown>) || row;
+  };
+
+  if (asin && sku) {
+    const { data: exactPair } = await supabase
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
-      .or(orFilters.join(","))
+      .eq("asin", asin)
+      .eq("sku", sku)
       .maybeSingle();
-    if (existing) return existing;
+    if (exactPair) return await maybeUpdateName(exactPair as Record<string, unknown>);
+  }
+
+  if (sku) {
+    const { data: bySku } = await supabase
+      .from("stock_items")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("sku", sku)
+      .maybeSingle();
+    if (bySku) return await maybeUpdateName(bySku as Record<string, unknown>);
+  }
+
+  if (asin) {
+    const { data: byAsin } = await supabase
+      .from("stock_items")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("asin", asin)
+      .maybeSingle();
+    if (byAsin) return await maybeUpdateName(byAsin as Record<string, unknown>);
+  }
+
+  if (ean) {
+    const { data: byEan } = await supabase
+      .from("stock_items")
+      .select("*")
+      .eq("company_id", companyId)
+      .eq("ean", ean)
+      .maybeSingle();
+    if (byEan) return await maybeUpdateName(byEan as Record<string, unknown>);
   }
 
   const payload = {
@@ -145,7 +251,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
     asin,
     sku,
     ean,
-    name: normalizeText(item.product_name) || normalizeText(item.title) || sku || asin || "Unknown product",
+    name: desiredName,
     qty: 0,
     created_at: new Date().toISOString()
   };
@@ -242,13 +348,19 @@ async function importInbound(payload: Record<string, unknown>) {
 
   const resolvedItems = [];
   for (const item of items) {
-    const stock = await ensureStockItem(companyId, userId, item as Record<string, unknown>);
+    const normalizedItem = normalizeInboundItem(item as Record<string, unknown>);
+    const stock = await ensureStockItem(companyId, userId, normalizedItem);
     resolvedItems.push({
-      ...item,
+      ...normalizedItem,
       stock_item_id: stock?.id || null,
-      product_name: normalizeText((item as Record<string, unknown>).product_name) || normalizeText((item as Record<string, unknown>).title) || stock?.name || (item as Record<string, unknown>).sku || (item as Record<string, unknown>).asin,
-      asin: normalizeText((item as Record<string, unknown>).asin),
-      sku: normalizeText((item as Record<string, unknown>).sku)
+      product_name:
+        normalizeText(normalizedItem.product_name) ||
+        stock?.name ||
+        normalizeText(normalizedItem.sku) ||
+        normalizeText(normalizedItem.asin),
+      asin: normalizeText(normalizedItem.asin),
+      sku: normalizeText(normalizedItem.sku),
+      ean: normalizeText(normalizedItem.ean)
     });
   }
 

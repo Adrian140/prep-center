@@ -596,6 +596,8 @@ const checkStockMatches = async () => {
 
   const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
   const fbaMeta = getFbaModeMeta(fbaModeValue);
+  const isPrepBusinessShipment =
+    String(shipment.import_source || '').trim().toLowerCase() === 'prepbusiness';
   const hasFbaLines = items.some((item) => {
     const intent = resolveFbaIntent(item);
     return intent.hasIntent || intent.directFromAction;
@@ -657,6 +659,14 @@ const checkStockMatches = async () => {
             <label className="block text-sm font-medium text-text-secondary">Client</label>
             <p className="text-text-primary">
               {shipment.store_name || shipment.client_name || '—'}
+              {isPrepBusinessShipment && (
+                <>
+                  <br />
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-800">
+                    Via PrepBusiness
+                  </span>
+                </>
+              )}
               <br />
               <span className="text-sm text-text-secondary">{shipment.client_email || shipment.user_email || '—'}</span>
             </p>
@@ -1560,6 +1570,8 @@ useEffect(() => {
               paginatedShipments.map((shipment) => {
                 const emailRaw = String(shipment.client_email || shipment.user_email || '').trim();
                 const showEmail = emailRaw.includes('@');
+                const isPrepBusinessShipment =
+                  String(shipment.import_source || '').trim().toLowerCase() === 'prepbusiness';
                 const hasFbaIntent =
                   (shipment.fba_mode && shipment.fba_mode !== 'none') ||
                   (shipment.receiving_items || []).some((item) => {
@@ -1604,6 +1616,13 @@ useEffect(() => {
                         <p className="font-medium text-text-primary">
                           {shipment.store_name || shipment.client_name || '—'}
                         </p>
+                        {isPrepBusinessShipment && (
+                          <p className="mt-1">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-100 text-cyan-800">
+                              Via PrepBusiness
+                            </span>
+                          </p>
+                        )}
                         {showEmail && (
                           <p className="text-xs text-text-secondary">{emailRaw}</p>
                         )}
