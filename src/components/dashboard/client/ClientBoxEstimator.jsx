@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, Calculator, ShieldAlert, Box, Save } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { useDashboardTranslation } from '@/translations';
 
 const MAX_BOX_KG = 23;
 const HEAVY_PARCEL_THRESHOLD_KG = 15;
@@ -194,6 +195,7 @@ const isBoxCompleted = (volPct, kgPct) => volPct >= 99 || kgPct >= 99;
 
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
+  const { t, tp } = useDashboardTranslation();
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState({});
@@ -402,7 +404,7 @@ export default function ClientBoxEstimator() {
     setMessage('');
     const { error } = await supabase.from('stock_items').update(payload).eq('id', item.id);
     if (error) {
-      setMessage(error.message || 'Failed to save dimensions.');
+      setMessage(error.message || t('BoxEstimator.flashSaveError'));
       setSavingId(null);
       return;
     }
@@ -413,7 +415,7 @@ export default function ClientBoxEstimator() {
       return next;
     });
     setSavingId(null);
-    setMessage('Dimensions saved.');
+    setMessage(t('BoxEstimator.flashSaved'));
   };
 
   return (
@@ -423,54 +425,64 @@ export default function ClientBoxEstimator() {
           <Boxes className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Box Estimator</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">{t('BoxEstimator.title')}</h1>
           <p className="text-sm text-text-secondary">
-            Select products, set quantities and dimensions, then estimate how many boxes you need.
+            {t('BoxEstimator.subtitle')}
           </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-text-secondary flex items-center gap-1">
-          <ShieldAlert className="w-4 h-4 text-amber-600" /> Mode:
+          <ShieldAlert className="w-4 h-4 text-amber-600" /> {t('BoxEstimator.modeLabel')}:
         </span>
         <button
           onClick={() => setMode('standard')}
           className={`px-3 py-1 rounded border text-xs ${mode === 'standard' ? 'bg-primary text-white border-primary' : 'border-gray-300 text-text-primary'}`}
         >
-          Non-DG
+          {t('BoxEstimator.nonDG')}
         </button>
         <button
           onClick={() => setMode('dg')}
           className={`px-3 py-1 rounded border text-xs ${mode === 'dg' ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-300 text-text-primary'}`}
         >
-          DG
+          {t('BoxEstimator.dg')}
         </button>
       </div>
 
       <div className="border rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-text-primary">Auto packing boxes</span>
+          <span className="text-sm font-semibold text-text-primary">{t('BoxEstimator.autoPackingTitle')}</span>
         </div>
         {!hasQtyToEstimate ? (
           <div className="text-sm text-text-secondary">
-            Adauga cantitati in tabel si sistemul va aloca automat cutiile potrivite.
+            {t('BoxEstimator.addQtyHint')}
           </div>
         ) : (
           <div className="space-y-2">
             <div className="text-xs font-medium text-text-primary">
-              {planStats.completed} boxes completed
-              {planStats.partial > 0 ? `, ${planStats.partial} partial` : ''}
+              {tp('BoxEstimator.completedSummary', {
+                completed: planStats.completed,
+                partial: planStats.partial,
+                partialSuffix:
+                  planStats.partial > 0
+                    ? tp('BoxEstimator.partialSuffix', { partial: planStats.partial })
+                    : ''
+              })}
             </div>
             <div className="text-xs font-medium text-text-primary">
-              Total boxes: {planStats.total} | Heavy Parcel boxes: {planStats.heavyParcelBoxes} | Heavy Parcel labels: {planStats.heavyParcelLabels}
+              {tp('BoxEstimator.totalsSummary', {
+                total: planStats.total,
+                heavyBoxes: planStats.heavyParcelBoxes,
+                heavyLabels: planStats.heavyParcelLabels
+              })}
             </div>
             <div className="text-xs text-text-secondary">
-              Plan: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
+              {t('BoxEstimator.planLabel')}: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
             </div>
             <div className="text-xs font-medium text-text-primary">
-              Total cost: €{planStats.totalCostEur.toFixed(2)}
+              {tp('BoxEstimator.totalCostLabel', { amount: planStats.totalCostEur.toFixed(2) })}
             </div>
             <div className="grid gap-2 md:grid-cols-3">
               {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur, heavyParcel }) => {
@@ -483,21 +495,26 @@ export default function ClientBoxEstimator() {
                       <Box className="w-3 h-3 text-primary" />
                       <span className="font-semibold text-text-primary truncate">{inst.box.name} #{index + 1}</span>
                     </div>
-                    <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(inst.box)} kg</div>
+                    <div className="text-[11px] text-text-secondary">{tp('BoxEstimator.maxKg', { kg: getBoxMaxKg(inst.box) })}</div>
                     <div className="text-sm font-medium text-text-primary">{inst.box.length_cm} × {inst.box.width_cm} × {inst.box.height_cm}</div>
-                    <div className="text-[11px] text-text-secondary">Cost: €{costEur.toFixed(2)}</div>
+                    <div className="text-[11px] text-text-secondary">{tp('BoxEstimator.costLabel', { amount: costEur.toFixed(2) })}</div>
                     {heavyParcel && (
                       <div className="text-[11px] text-red-700 font-medium">
-                        Heavy Parcel: {HEAVY_PARCEL_LABELS_PER_BOX} labels required (&gt; {HEAVY_PARCEL_THRESHOLD_KG} kg)
+                        {tp('BoxEstimator.heavyParcelNotice', {
+                          labels: HEAVY_PARCEL_LABELS_PER_BOX,
+                          kg: HEAVY_PARCEL_THRESHOLD_KG
+                        })}
                       </div>
                     )}
                     <div className="mt-2 flex items-center gap-3">
-                      <ProgressCircle label="Volume fill" percent={volumePercent} />
-                      <ProgressCircle label="Weight fill" percent={weightPercent} />
+                      <ProgressCircle label={t('BoxEstimator.volumeFill')} percent={volumePercent} />
+                      <ProgressCircle label={t('BoxEstimator.weightFill')} percent={weightPercent} />
                     </div>
                     {!completed && (
                       <div className="text-[11px] text-amber-700 font-medium">
-                        Partial box: {Math.round(Math.max(volumePercent, weightPercent))}% filled
+                        {tp('BoxEstimator.partialBox', {
+                          percent: Math.round(Math.max(volumePercent, weightPercent))
+                        })}
                       </div>
                     )}
                   </div>
@@ -506,13 +523,13 @@ export default function ClientBoxEstimator() {
             </div>
             {!!livePlan?.impossibleItems?.length && (
               <div className="text-[11px] text-red-600">
-                {livePlan.impossibleItems.length} produse nu incap in nicio cutie.
+                {tp('BoxEstimator.impossibleItems', { count: livePlan.impossibleItems.length })}
               </div>
             )}
           </div>
         )}
         <div className="pt-1 text-[11px] text-text-secondary">
-          Tipuri disponibile: {filteredBoxes.map((b) => b.name).join(', ')}
+          {t('BoxEstimator.availableTypes')}: {filteredBoxes.map((b) => b.name).join(', ')}
         </div>
       </div>
 
@@ -520,7 +537,7 @@ export default function ClientBoxEstimator() {
         <div className="flex items-center gap-2 mb-2">
           <input
             type="text"
-            placeholder="Search products (ASIN / SKU / name)"
+            placeholder={t('BoxEstimator.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="border rounded px-3 py-2 text-sm w-full md:w-80"
@@ -530,36 +547,36 @@ export default function ClientBoxEstimator() {
             onClick={() => setEditMode((prev) => !prev)}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded text-sm border ${editMode ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-300 text-text-primary'}`}
           >
-            {editMode ? 'Disable edit' : 'Enable edit'}
+            {editMode ? t('BoxEstimator.disableEdit') : t('BoxEstimator.enableEdit')}
           </button>
         </div>
         {message && <div className="text-sm text-primary mb-2">{message}</div>}
         {hasQtyToEstimate && livePlan?.impossibleItems?.length > 0 && (
           <div className="text-sm text-red-600 mb-2">
-            • Unele produse nu incap in nicio cutie disponibila.
+            • {t('BoxEstimator.errorImpossible')}
           </div>
         )}
         <div className="overflow-x-auto">
           <table className="min-w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-2 py-2 text-left">Photo</th>
-                <th className="px-2 py-2 text-left">ASIN / SKU</th>
-                <th className="px-2 py-2 text-left">Name</th>
-                <th className="px-2 py-2 text-right">Stock PrepCenter</th>
-                <th className="px-2 py-2 text-right">Qty to estimate</th>
+                <th className="px-2 py-2 text-left">{t('BoxEstimator.colPhoto')}</th>
+                <th className="px-2 py-2 text-left">{t('BoxEstimator.colAsinSku')}</th>
+                <th className="px-2 py-2 text-left">{t('BoxEstimator.colName')}</th>
+                <th className="px-2 py-2 text-right">{t('BoxEstimator.colStockPrep')}</th>
+                <th className="px-2 py-2 text-right">{t('BoxEstimator.colQtyEstimate')}</th>
                 <th className="px-2 py-2 text-right">L (cm)</th>
                 <th className="px-2 py-2 text-right">W (cm)</th>
                 <th className="px-2 py-2 text-right">H (cm)</th>
                 <th className="px-2 py-2 text-right">Kg</th>
-                {editMode && <th className="px-2 py-2 text-right">Save</th>}
+                {editMode && <th className="px-2 py-2 text-right">{t('BoxEstimator.colSave')}</th>}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">Loading…</td></tr>
+                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">{t('BoxEstimator.loading')}</td></tr>
               ) : filteredSorted.length === 0 ? (
-                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">No products</td></tr>
+                <tr><td colSpan={editMode ? 10 : 9} className="px-2 py-4 text-center">{t('BoxEstimator.noProducts')}</td></tr>
               ) : (
                 filteredSorted.map((item) => {
                   const draft = dimsDraft[item.id] || {};
@@ -574,7 +591,7 @@ export default function ClientBoxEstimator() {
                           />
                         ) : (
                           <div className="w-12 h-12 rounded border bg-gray-100 text-[10px] text-text-secondary flex items-center justify-center">
-                            No Img
+                            {t('BoxEstimator.noImage')}
                           </div>
                         )}
                       </td>
@@ -654,7 +671,7 @@ export default function ClientBoxEstimator() {
                             disabled={savingId === item.id}
                             className="inline-flex items-center gap-1 px-2 py-1 text-[11px] border rounded text-primary border-primary hover:bg-primary hover:text-white disabled:opacity-50"
                           >
-                            <Save className="w-3 h-3" /> Save
+                            <Save className="w-3 h-3" /> {t('BoxEstimator.save')}
                           </button>
                         </td>
                       )}
