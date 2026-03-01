@@ -250,6 +250,9 @@ export default function ClientBoxEstimator() {
     };
   }, [selectedBox, expandedItems]);
 
+  const hasQtyToEstimate = selectedProducts.length > 0;
+  const needsBoxSelection = hasQtyToEstimate && !selectedBoxId;
+
   const handleQty = (id, value) => {
     if (value === '') {
       setSelection((prev) => {
@@ -394,6 +397,11 @@ export default function ClientBoxEstimator() {
             <Calculator className="w-4 h-4" /> Estimate boxes
           </button>
         </div>
+        {needsBoxSelection && (
+          <div className="text-sm text-red-600 mb-2">
+            Selecteaza cutia dorita inainte sa estimezi.
+          </div>
+        )}
 
         {warnings.length > 0 && (
           <div className="text-sm text-red-600 mb-2">
