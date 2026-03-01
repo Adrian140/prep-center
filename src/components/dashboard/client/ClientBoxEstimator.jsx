@@ -188,7 +188,6 @@ export default function ClientBoxEstimator() {
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [editMode, setEditMode] = useState(false);
-  const [warnings, setWarnings] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -389,18 +388,6 @@ export default function ClientBoxEstimator() {
     setMessage('Dimensions saved.');
   };
 
-  const runEstimate = () => {
-    const warns = [];
-    if (!selectedProducts.length) warns.push('Adauga cel putin o cantitate.');
-    if (livePlan?.impossibleItems?.length) {
-      warns.push('Unele produse nu incap in nicio cutie disponibila.');
-    }
-    setWarnings(warns);
-    if (warns.length > 0) {
-      return;
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
@@ -499,12 +486,6 @@ export default function ClientBoxEstimator() {
             className="border rounded px-3 py-2 text-sm w-full md:w-80"
           />
           <button
-            onClick={runEstimate}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm"
-          >
-            <Calculator className="w-4 h-4" /> Estimate boxes
-          </button>
-          <button
             type="button"
             onClick={() => setEditMode((prev) => !prev)}
             className={`inline-flex items-center gap-2 px-3 py-2 rounded text-sm border ${editMode ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-300 text-text-primary'}`}
@@ -513,10 +494,9 @@ export default function ClientBoxEstimator() {
           </button>
         </div>
         {message && <div className="text-sm text-primary mb-2">{message}</div>}
-
-        {warnings.length > 0 && (
+        {hasQtyToEstimate && livePlan?.impossibleItems?.length > 0 && (
           <div className="text-sm text-red-600 mb-2">
-            {warnings.map((w, i) => <div key={i}>• {w}</div>)}
+            • Unele produse nu incap in nicio cutie disponibila.
           </div>
         )}
         <div className="overflow-x-auto">
