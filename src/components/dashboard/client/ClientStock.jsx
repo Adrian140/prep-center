@@ -2114,7 +2114,7 @@ const resetReceptionForm = () => {
               </div>
             ))}
           </div>
-          {marketQty > 0 && (
+          {marketQty > 0 && informativeEntries.length > 0 && (
             <button
               type="button"
               onClick={() => {
@@ -2179,7 +2179,7 @@ const resetReceptionForm = () => {
             ))}
           </div>
         )}
-        {marketQty > 0 && (
+        {marketQty > 0 && informativeEntries.length > 0 && (
           <button
             type="button"
             onClick={() => {
