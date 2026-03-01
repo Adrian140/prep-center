@@ -4,6 +4,8 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 
 const MAX_BOX_KG = 23;
+const HEAVY_PARCEL_THRESHOLD_KG = 15;
+const HEAVY_PARCEL_LABELS_PER_BOX = 5;
 
 const defaultBoxes = [
   { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: MAX_BOX_KG, tag: 'standard' },
@@ -337,19 +339,31 @@ export default function ClientBoxEstimator() {
       const weightPercent =
         getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
       const costEur = getBoxPriceEur(inst.box);
+      const heavyParcel = Number(inst.usedKg || 0) > HEAVY_PARCEL_THRESHOLD_KG;
       return {
         index: idx,
         inst,
         volumePercent,
         weightPercent,
         completed: isBoxCompleted(volumePercent, weightPercent),
-        costEur
+        costEur,
+        heavyParcel
       };
     });
     const completed = stats.filter((s) => s.completed).length;
     const partial = stats.length - completed;
     const totalCostEur = stats.reduce((sum, s) => sum + s.costEur, 0);
-    return { stats, completed, partial, total: stats.length, totalCostEur };
+    const heavyParcelBoxes = stats.filter((s) => s.heavyParcel).length;
+    const heavyParcelLabels = heavyParcelBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
+    return {
+      stats,
+      completed,
+      partial,
+      total: stats.length,
+      totalCostEur,
+      heavyParcelBoxes,
+      heavyParcelLabels
+    };
   }, [livePlan]);
 
   const handleQty = (id, value) => {
@@ -449,6 +463,9 @@ export default function ClientBoxEstimator() {
               {planStats.completed} boxes completed
               {planStats.partial > 0 ? `, ${planStats.partial} partial` : ''}
             </div>
+            <div className="text-xs font-medium text-text-primary">
+              Total boxes: {planStats.total} | Heavy Parcel boxes: {planStats.heavyParcelBoxes} | Heavy Parcel labels: {planStats.heavyParcelLabels}
+            </div>
             <div className="text-xs text-text-secondary">
               Plan: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
             </div>
@@ -456,7 +473,7 @@ export default function ClientBoxEstimator() {
               Total cost: €{planStats.totalCostEur.toFixed(2)}
             </div>
             <div className="grid gap-2 md:grid-cols-3">
-              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur }) => {
+              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur, heavyParcel }) => {
                 return (
                   <div
                     key={`${inst.box.id}-${index}`}
@@ -469,6 +486,11 @@ export default function ClientBoxEstimator() {
                     <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(inst.box)} kg</div>
                     <div className="text-sm font-medium text-text-primary">{inst.box.length_cm} × {inst.box.width_cm} × {inst.box.height_cm}</div>
                     <div className="text-[11px] text-text-secondary">Cost: €{costEur.toFixed(2)}</div>
+                    {heavyParcel && (
+                      <div className="text-[11px] text-red-700 font-medium">
+                        Heavy Parcel: {HEAVY_PARCEL_LABELS_PER_BOX} labels required (&gt; {HEAVY_PARCEL_THRESHOLD_KG} kg)
+                      </div>
+                    )}
                     <div className="mt-2 flex items-center gap-3">
                       <ProgressCircle label="Volume fill" percent={volumePercent} />
                       <ProgressCircle label="Weight fill" percent={weightPercent} />
