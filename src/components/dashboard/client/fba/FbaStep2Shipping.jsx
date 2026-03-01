@@ -450,6 +450,23 @@ export default function FbaStep2Shipping({
                   >
                     Same Day
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextDay = new Date();
+                      nextDay.setDate(nextDay.getDate() + 1);
+                      const nextDayStart = `${formatLocalDateInput(nextDay)}T08:00`;
+                      shipmentIds.forEach((id) => {
+                        onReadyWindowChange?.(id, {
+                          start: nextDayStart,
+                          end: readyWindowByShipment?.[id]?.end || ''
+                        });
+                      });
+                    }}
+                    className="px-3 py-2 rounded-md text-xs font-semibold border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                  >
+                    Next Day
+                  </button>
                 </div>
               </div>
               {requireEnd ? (
