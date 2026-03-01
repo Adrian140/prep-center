@@ -3109,6 +3109,7 @@ const saveReqChanges = async () => {
       {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
       {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
       {renderIdentifierField('EAN', r.ean, 'ean', 'EAN...', 'EAN')}
+      {renderIdentifierField('FNSKU', r.fnsku, 'fnsku', 'X00...', 'FNSKU')}
     </div>
 </td>
 {showPriceColumn && (

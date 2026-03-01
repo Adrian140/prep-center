@@ -43,6 +43,15 @@ Optional knobs for catalog dimensions sync:
 | `SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN` | Numar maxim de integrari procesate per run (`0` = nelimitat) |
 | `SPAPI_CATALOG_DIM_ASINS_PER_RUN` | Numar maxim de ASIN-uri procesate per run (`0` = nelimitat) |
 
+Optional knobs for catalog codes sync (EAN + FNSKU):
+
+| Var | Purpose |
+| --- | --- |
+| `SPAPI_CATALOG_CODES_MARKETPLACE_ID` | Restrange rularea la un marketplace din `amazon_integrations` |
+| `SPAPI_CATALOG_CODES_MARKETPLACE_IDS` | Lista marketplace-urilor permise pentru fallback lookup (`DE,FR,IT,ES` implicit) |
+| `SPAPI_CATALOG_CODES_MAX_INTEGRATIONS_PER_RUN` | Numar maxim de integrari procesate per run (`0` = nelimitat) |
+| `SPAPI_CATALOG_CODES_ASINS_PER_RUN` | Numar maxim de ASIN-uri procesate per run (`0` = nelimitat) |
+
 ## Available scripts
 
 | Command | Description |
@@ -50,6 +59,7 @@ Optional knobs for catalog dimensions sync:
 | `npm run refresh-token` | Calls `authRefreshAndStore.js` and writes a fresh access token to the `amazon_tokens` table |
 | `npm run sync-inventory` | Runs `syncInventoryToSupabase.js`, downloads Amazon FBA inventory and upserts `stock_items` pentru toate intrările din `amazon_integrations` (actualizează `amazon_stock`, inserează SKUs lipsă și resetează produsele dispărute). Acum se adună cheile per companie și se curăță doar după ce toate integrările au fost procesate, ca rulările FR/IT/ES/DE să nu se rescrie reciproc; dacă o linie are `ASIN` + `SKU` și `qty > 0`, nu este modificată, ca stocul manual din PrepCenter să rămână intact. |
 | `npm run sync-amazon-catalog-dimensions` | Runs `syncAmazonCatalogDimensions.js`, citește dimensiuni/greutate + EAN per `ASIN` din SP-API Catalog Items (`getCatalogItem`, `includedData=dimensions,summaries,identifiers`) și completează câmpurile lipsă (`length_cm`, `width_cm`, `height_cm`, `weight_kg`, `ean`) în `stock_items` fără a reinteroga de mai multe ori același `ASIN` în același run. |
+| `npm run sync-amazon-catalog-codes` | Runs `syncAmazonCatalogCodes.js`, citește `FNSKU` per `SKU` din raportul de inventory și completează `fnsku` în `stock_items`, apoi completează `EAN` per `ASIN` (cache `asin_eans` + fallback Catalog Items identifiers). |
 | `node printEnvDebug.js` | Quick helper that prints/masks the loaded env vars |
 
 ### `syncInventoryToSupabase.js` flow
