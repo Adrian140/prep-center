@@ -41,6 +41,11 @@ const RUN_TIME_BUDGET_MS =
   Number.isFinite(RUN_TIME_BUDGET_SECONDS_RAW) && RUN_TIME_BUDGET_SECONDS_RAW > 0
     ? RUN_TIME_BUDGET_SECONDS_RAW * 1000
     : Number.POSITIVE_INFINITY;
+const LOG_PROGRESS_EVERY_RAW = Number(process.env.SPAPI_CATALOG_CODES_LOG_PROGRESS_EVERY || 25);
+const LOG_PROGRESS_EVERY =
+  Number.isFinite(LOG_PROGRESS_EVERY_RAW) && LOG_PROGRESS_EVERY_RAW > 0
+    ? Math.max(1, Math.floor(LOG_PROGRESS_EVERY_RAW))
+    : 25;
 
 function isRuntimeBudgetReached(runState) {
   if (!runState) return false;
@@ -50,6 +55,12 @@ function isRuntimeBudgetReached(runState) {
     return true;
   }
   return false;
+}
+
+function fmtMs(ms) {
+  const value = Number(ms || 0);
+  if (!Number.isFinite(value) || value < 1000) return `${Math.max(0, Math.round(value))}ms`;
+  return `${(value / 1000).toFixed(1)}s`;
 }
 
 function assertBaseEnv() {
@@ -251,7 +262,8 @@ async function createInventoryReport(spClient, marketplaceId) {
   return response.reportId;
 }
 
-async function waitForReport(spClient, reportId) {
+async function waitForReport(spClient, reportId, { integrationId = '', marketplaceId = '' } = {}) {
+  const startedAt = Date.now();
   for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
     const report = await spClient.callAPI({
       operation: 'getReport',
@@ -261,12 +273,22 @@ async function waitForReport(spClient, reportId) {
 
     if (!report) throw new Error('Empty response when polling report status');
 
-    switch (report.processingStatus) {
+    const status = report.processingStatus;
+    if (attempt === 0 || (attempt + 1) % 10 === 0) {
+      console.log(
+        `[Catalog code sync] Integration ${integrationId} marketplace=${marketplaceId} report=${reportId} poll=${attempt + 1}/${REPORT_POLL_LIMIT} status=${status} elapsed=${fmtMs(Date.now() - startedAt)}`
+      );
+    }
+
+    switch (status) {
       case 'DONE':
+        console.log(
+          `[Catalog code sync] Integration ${integrationId} marketplace=${marketplaceId} report=${reportId} done in ${fmtMs(Date.now() - startedAt)}`
+        );
         return report.reportDocumentId;
       case 'FATAL':
       case 'CANCELLED':
-        throw new Error(`Amazon report failed with status ${report.processingStatus}`);
+        throw new Error(`Amazon report failed with status ${status}`);
       case 'DONE_NO_DATA':
         throw new Error('Amazon report completed without data');
       default:
@@ -582,6 +604,7 @@ async function applyStockPatches(patches, hasFnskuColumn) {
 }
 
 async function syncIntegration(integration, runState) {
+  const integrationStartedAt = Date.now();
   if (isRuntimeBudgetReached(runState)) {
     return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0, stoppedByBudget: true };
   }
@@ -598,7 +621,9 @@ async function syncIntegration(integration, runState) {
     region: integration.region || process.env.SPAPI_REGION
   });
 
-  console.log(`[Catalog code sync] Integration ${integration.id} company=${integration.company_id}`);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} company=${integration.company_id} marketplaces=${reportMarketplaceCandidates.join(',')}`
+  );
 
   let rows = [];
   let reportMarketplaceId = null;
@@ -609,10 +634,32 @@ async function syncIntegration(integration, runState) {
         return { fnskuUpdated: 0, eanUpdated: 0, asinsResolved: 0, stoppedByBudget: true };
       }
       try {
+        const reportStart = Date.now();
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} trying marketplace=${marketId}: create report`
+        );
         const reportId = await createInventoryReport(spClient, marketId);
-        const documentId = await waitForReport(spClient, reportId);
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} marketplace=${marketId} reportId=${reportId} created in ${fmtMs(Date.now() - reportStart)}`
+        );
+        const waitStart = Date.now();
+        const documentId = await waitForReport(spClient, reportId, {
+          integrationId: integration.id,
+          marketplaceId: marketId
+        });
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} marketplace=${marketId} reportId=${reportId} documentId=${documentId} wait=${fmtMs(Date.now() - waitStart)}`
+        );
+        const downloadStart = Date.now();
         const rawText = await downloadReportDocument(spClient, documentId);
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} marketplace=${marketId} report document downloaded in ${fmtMs(Date.now() - downloadStart)}`
+        );
+        const parseStart = Date.now();
         rows = parseInventoryRows(rawText);
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} marketplace=${marketId} parsed rows=${rows.length} in ${fmtMs(Date.now() - parseStart)}`
+        );
         reportMarketplaceId = marketId;
         break;
       } catch (error) {
@@ -667,8 +714,15 @@ async function syncIntegration(integration, runState) {
       fnsku: normalizeFnsku(row.fnsku)
     }))
     .filter((row) => row.sku || row.asin);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} reportItems=${reportItems.length} reportMarketplace=${reportMarketplaceId}`
+  );
 
+  const stockLoadStart = Date.now();
   const { rows: stockRows, hasFnskuColumn } = await fetchCompanyStockRows(integration.company_id);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} stockRows=${stockRows.length} hasFnskuColumn=${hasFnskuColumn ? 1 : 0} load=${fmtMs(Date.now() - stockLoadStart)}`
+  );
   const byCombo = new Map();
   const bySku = new Map();
   const byAsin = new Map();
@@ -719,11 +773,19 @@ async function syncIntegration(integration, runState) {
   }
 
   let asins = Array.from(asinSet);
+  const totalAsinsDetected = asins.length;
   if (asins.length > MAX_ASINS_PER_RUN) {
     asins = asins.slice(0, MAX_ASINS_PER_RUN);
   }
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} asinsDetected=${totalAsinsDetected} asinsToProcess=${asins.length} maxAsinsPerRun=${Number.isFinite(MAX_ASINS_PER_RUN) ? MAX_ASINS_PER_RUN : 'inf'}`
+  );
 
+  const knownLoadStart = Date.now();
   const knownEans = await fetchKnownEansByAsin(integration.company_id, asins);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} knownEans=${knownEans.size} load=${fmtMs(Date.now() - knownLoadStart)}`
+  );
   const marketplaceIds = resolveMarketplaceIds({
     ...integration,
     marketplace_id: reportMarketplaceId || integration.marketplace_id
@@ -732,8 +794,14 @@ async function syncIntegration(integration, runState) {
   const asinEansToInsert = [];
 
   const missingAsins = asins.filter((asin) => !knownEans.get(asin));
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} missingAsins=${missingAsins.length} eanFetchConcurrency=${EAN_FETCH_CONCURRENCY}`
+  );
   const fetchedEans = new Map();
   if (missingAsins.length > 0 && marketplaceIds.length > 0) {
+    const fetchStartedAt = Date.now();
+    let completed = 0;
+    let found = 0;
     const fetchResults = await mapWithConcurrency(
       missingAsins,
       EAN_FETCH_CONCURRENCY,
@@ -743,7 +811,10 @@ async function syncIntegration(integration, runState) {
           try {
             const candidate = await fetchCatalogEan(spClient, asin, marketId);
             const ean = normalizeEan(candidate);
-            if (ean) return { asin, ean };
+            if (ean) {
+              found += 1;
+              return { asin, ean };
+            }
           } catch (error) {
             if (isAccessDeniedError(error)) continue;
           }
@@ -751,11 +822,20 @@ async function syncIntegration(integration, runState) {
         return { asin, ean: null };
       }
     );
+    console.log(
+      `[Catalog code sync] Integration ${integration.id} fetchCatalogEan finished in ${fmtMs(Date.now() - fetchStartedAt)}`
+    );
     for (const entry of fetchResults) {
       if (!entry || entry.error) continue;
       if (entry.stoppedByBudget) {
         if (runState) runState.stoppedByBudget = true;
         continue;
+      }
+      completed += 1;
+      if (completed % LOG_PROGRESS_EVERY === 0 || completed === missingAsins.length) {
+        console.log(
+          `[Catalog code sync] Integration ${integration.id} EAN progress ${completed}/${missingAsins.length} found=${fetchedEans.size}`
+        );
       }
       if (entry.ean) fetchedEans.set(entry.asin, entry.ean);
     }
@@ -786,8 +866,17 @@ async function syncIntegration(integration, runState) {
     }
   }
 
-  await applyStockPatches(Array.from(patchesById.values()), hasFnskuColumn);
+  const patches = Array.from(patchesById.values());
+  const applyStart = Date.now();
+  await applyStockPatches(patches, hasFnskuColumn);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} stock patches applied=${patches.length} in ${fmtMs(Date.now() - applyStart)}`
+  );
+  const insertStart = Date.now();
   await insertAsinEans(asinEansToInsert);
+  console.log(
+    `[Catalog code sync] Integration ${integration.id} asin_eans inserted=${asinEansToInsert.length} in ${fmtMs(Date.now() - insertStart)}`
+  );
 
   await supabase
     .from('amazon_integrations')
@@ -806,7 +895,7 @@ async function syncIntegration(integration, runState) {
   };
 
   console.log(
-    `[Catalog code sync] Integration ${integration.id} done: fnskuUpdated=${stats.fnskuUpdated} eanUpdated=${stats.eanUpdated} asinsResolved=${stats.asinsResolved}`
+    `[Catalog code sync] Integration ${integration.id} done: fnskuUpdated=${stats.fnskuUpdated} eanUpdated=${stats.eanUpdated} asinsResolved=${stats.asinsResolved} elapsed=${fmtMs(Date.now() - integrationStartedAt)}`
   );
 
   return { ...stats, stoppedByBudget: Boolean(runState?.stoppedByBudget) };
@@ -821,6 +910,9 @@ async function main() {
   };
 
   const integrations = await fetchActiveIntegrations();
+  console.log(
+    `[Catalog code sync] Start: integrations=${integrations.length} maxIntegrationsPerRun=${Number.isFinite(MAX_INTEGRATIONS_PER_RUN) ? MAX_INTEGRATIONS_PER_RUN : 'inf'} maxAsinsPerRun=${Number.isFinite(MAX_ASINS_PER_RUN) ? MAX_ASINS_PER_RUN : 'inf'} eanConcurrency=${EAN_FETCH_CONCURRENCY} runtimeBudgetSec=${Math.round(RUN_TIME_BUDGET_MS / 1000)}`
+  );
   if (!integrations.length) {
     console.log('[Catalog code sync] No active integrations found.');
     return;
