@@ -589,17 +589,29 @@ async function insertAsinEans(rows) {
   }
 }
 
-async function applyStockPatches(patches, hasFnskuColumn) {
+async function applyStockPatches(patches, hasFnskuColumn, companyId) {
   if (!patches.length) return;
-  const chunkSize = 500;
-  for (let i = 0; i < patches.length; i += chunkSize) {
-    const chunk = patches.slice(i, i + chunkSize).map((patch) => {
-      if (hasFnskuColumn) return patch;
-      const { fnsku, ...rest } = patch;
-      return rest;
-    });
-    const { error } = await supabase.from('stock_items').upsert(chunk, { onConflict: 'id' });
-    if (error) throw error;
+  const validPatches = patches.filter((patch) => patch && patch.id);
+  if (!validPatches.length) return;
+
+  const chunkSize = 100;
+  for (let i = 0; i < validPatches.length; i += chunkSize) {
+    const chunk = validPatches.slice(i, i + chunkSize);
+    await Promise.all(
+      chunk.map(async (patch) => {
+        const payload = { ...patch };
+        delete payload.id;
+        if (!hasFnskuColumn) delete payload.fnsku;
+        if (Object.keys(payload).length === 0) return;
+
+        let query = supabase.from('stock_items').update(payload).eq('id', patch.id);
+        if (companyId) {
+          query = query.eq('company_id', companyId);
+        }
+        const { error } = await query;
+        if (error) throw error;
+      })
+    );
   }
 }
 
@@ -868,7 +880,7 @@ async function syncIntegration(integration, runState) {
 
   const patches = Array.from(patchesById.values());
   const applyStart = Date.now();
-  await applyStockPatches(patches, hasFnskuColumn);
+  await applyStockPatches(patches, hasFnskuColumn, integration.company_id);
   console.log(
     `[Catalog code sync] Integration ${integration.id} stock patches applied=${patches.length} in ${fmtMs(Date.now() - applyStart)}`
   );
