@@ -486,9 +486,6 @@ export default function ClientBoxEstimator() {
                 heavyLabels: planStats.heavyParcelLabels
               })}
             </div>
-            <div className="text-xs text-text-secondary">
-              {t('BoxEstimator.planLabel')}: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
-            </div>
             <div className="text-xs font-medium text-text-primary">
               {tp('BoxEstimator.totalCostLabel', { amount: planStats.totalCostEur.toFixed(2) })}
             </div>
@@ -552,9 +549,6 @@ export default function ClientBoxEstimator() {
             )}
           </div>
         )}
-        <div className="pt-1 text-[11px] text-text-secondary">
-          {t('BoxEstimator.availableTypes')}: {filteredBoxes.map((b) => b.name).join(', ')}
-        </div>
       </div>
 
       <div className="border rounded-lg p-3">
