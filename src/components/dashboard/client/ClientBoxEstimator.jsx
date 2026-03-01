@@ -4,11 +4,13 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
 
+const MAX_BOX_KG = 23;
+
 const defaultBoxes = [
-  { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: 25, tag: 'standard' },
-  { id: 'box-60-cube', name: 'Box 60×60×60', length_cm: 60, width_cm: 60, height_cm: 60, max_kg: 25, tag: 'standard' },
-  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20, tag: 'standard' },
-  { id: 'box-30', name: 'Box 30×30×30', length_cm: 30, width_cm: 30, height_cm: 30, max_kg: 20, tag: 'standard' }
+  { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: MAX_BOX_KG, tag: 'standard' },
+  { id: 'box-60-cube', name: 'Box 60×60×60', length_cm: 60, width_cm: 60, height_cm: 60, max_kg: MAX_BOX_KG, tag: 'standard' },
+  { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: MAX_BOX_KG, tag: 'standard' },
+  { id: 'box-30', name: 'Box 30×30×30', length_cm: 30, width_cm: 30, height_cm: 30, max_kg: MAX_BOX_KG, tag: 'standard' }
 ];
 
 const sortDims = (a, b) => b - a;
@@ -21,6 +23,81 @@ const canFit = (product, box) => {
 
 const volume = (l, w, h) => Math.max(0, Number(l) || 0) * Math.max(0, Number(w) || 0) * Math.max(0, Number(h) || 0);
 
+const getBoxMaxKg = (box) => {
+  const raw = Number(box?.max_kg);
+  if (!Number.isFinite(raw) || raw <= 0) return MAX_BOX_KG;
+  return Math.min(raw, MAX_BOX_KG);
+};
+
+const packItemsFirstFitDecreasing = (items, box) => {
+  const boxVol = volume(box.length_cm, box.width_cm, box.height_cm);
+  const boxMaxKg = getBoxMaxKg(box);
+  const bins = [];
+  const tooLarge = [];
+
+  const sorted = [...items].sort((a, b) => b.vol - a.vol);
+  for (const item of sorted) {
+    const fitsGeometry = canFit(item.dims, box);
+    const fitsBoxCapacity = item.vol <= boxVol && item.kg <= boxMaxKg;
+    if (!fitsGeometry || !fitsBoxCapacity) {
+      tooLarge.push(item);
+      continue;
+    }
+
+    let placed = false;
+    for (const bin of bins) {
+      if (bin.remainingVol >= item.vol && bin.remainingKg >= item.kg) {
+        bin.remainingVol -= item.vol;
+        bin.remainingKg -= item.kg;
+        bin.usedVol += item.vol;
+        bin.usedKg += item.kg;
+        bin.items.push(item);
+        placed = true;
+        break;
+      }
+    }
+
+    if (!placed) {
+      bins.push({
+        remainingVol: boxVol - item.vol,
+        remainingKg: boxMaxKg - item.kg,
+        usedVol: item.vol,
+        usedKg: item.kg,
+        items: [item]
+      });
+    }
+  }
+
+  return { bins, tooLarge, boxVol, boxMaxKg };
+};
+
+const percentColor = (percent) => {
+  if (percent >= 95) return '#dc2626';
+  if (percent >= 80) return '#ea580c';
+  return '#2563eb';
+};
+
+function ProgressCircle({ label, percent }) {
+  const safe = Math.max(0, Math.min(999, Number(percent) || 0));
+  const display = Math.round(safe);
+  const fill = Math.min(100, safe);
+  const color = percentColor(safe);
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div
+        className="relative h-14 w-14 rounded-full"
+        style={{ background: `conic-gradient(${color} ${fill}%, #e5e7eb ${fill}% 100%)` }}
+      >
+        <div className="absolute inset-1 rounded-full bg-white flex items-center justify-center text-[10px] font-semibold text-text-primary">
+          {display}%
+        </div>
+      </div>
+      <span className="text-[10px] text-text-secondary">{label}</span>
+    </div>
+  );
+}
+
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
@@ -29,6 +106,7 @@ export default function ClientBoxEstimator() {
   const [selection, setSelection] = useState({});
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
+  const [selectedBoxId, setSelectedBoxId] = useState(null);
   const [results, setResults] = useState([]);
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -81,52 +159,51 @@ export default function ClientBoxEstimator() {
     });
   }, [inventory, search]);
 
-  const handleQty = (id, value) => {
-    const qty = Math.max(0, Number(value) || 0);
-    setSelection((prev) => ({ ...prev, [id]: qty }));
-  };
+  const normalizedBoxes = useMemo(
+    () =>
+      (boxes || []).map((b) => ({
+        ...b,
+        tag: String(b.tag || '').toLowerCase().includes('dg') ? 'dg' : 'standard',
+        max_kg: getBoxMaxKg(b),
+        vol: volume(b.length_cm, b.width_cm, b.height_cm)
+      })),
+    [boxes]
+  );
 
-  const runEstimate = () => {
-    const normalizedBoxes = (boxes || []).map((b) => ({
-      ...b,
-      tag: String(b.tag || '').toLowerCase().includes('dg') ? 'dg' : 'standard',
-      vol: volume(b.length_cm, b.width_cm, b.height_cm)
-    })).sort((a, b) => a.vol - b.vol);
+  const filteredBoxes = useMemo(
+    () => normalizedBoxes.filter((b) => (mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg')),
+    [normalizedBoxes, mode]
+  );
 
-    const filteredBoxes = normalizedBoxes.filter((b) =>
-      mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg'
-    );
+  useEffect(() => {
+    if (!selectedBoxId) return;
+    const stillVisible = filteredBoxes.some((box) => box.id === selectedBoxId);
+    if (!stillVisible) setSelectedBoxId(null);
+  }, [filteredBoxes, selectedBoxId]);
 
-    const selected = inventory
-      .filter((it) => (selection[it.id] || 0) > 0)
-      .map((it) => ({
-        ...it,
-        qty: selection[it.id] || 0,
-        dims: {
-          l: Number(it.length_cm || 0),
-          w: Number(it.width_cm || 0),
-          h: Number(it.height_cm || 0),
-          kg: Number(it.weight_kg || 0)
-        }
-      }))
-      .filter((p) => p.qty > 0);
+  const selectedProducts = useMemo(
+    () =>
+      inventory
+        .filter((it) => (selection[it.id] || 0) > 0)
+        .map((it) => ({
+          ...it,
+          qty: selection[it.id] || 0,
+          dims: {
+            l: Number(it.length_cm || 0),
+            w: Number(it.width_cm || 0),
+            h: Number(it.height_cm || 0),
+            kg: Number(it.weight_kg || 0)
+          }
+        }))
+        .filter((p) => p.qty > 0),
+    [inventory, selection]
+  );
 
-    const missing = selected.filter(
-      (p) => !p.dims.l || !p.dims.w || !p.dims.h || !p.dims.kg
-    );
-    const warns = [];
-    if (missing.length) warns.push(t('BoxEstimator.errorMissingDims'));
-    if (!filteredBoxes.length) warns.push(t('BoxEstimator.errorNoBoxes'));
-    setWarnings(warns);
-    if (warns.length > 0 || selected.length === 0) {
-      setResults([]);
-      return;
-    }
-
+  const expandedItems = useMemo(() => {
     const items = [];
-    selected.forEach((p) => {
+    selectedProducts.forEach((p) => {
       const vol = volume(p.dims.l, p.dims.w, p.dims.h);
-      for (let i = 0; i < p.qty; i++) {
+      for (let i = 0; i < p.qty; i += 1) {
         items.push({
           sku: p.sku || p.asin || p.name,
           name: p.name,
@@ -136,70 +213,68 @@ export default function ClientBoxEstimator() {
         });
       }
     });
-    items.sort((a, b) => b.vol - a.vol);
+    return items;
+  }, [selectedProducts]);
 
-    const largest = filteredBoxes[filteredBoxes.length - 1];
-    const anyTooBig = items.some((it) => !canFit(it.dims, largest) || it.kg > (largest.max_kg || 999));
-    if (anyTooBig) {
-      setWarnings([t('BoxEstimator.errorNoBoxes')]);
+  const selectedBox = useMemo(
+    () => filteredBoxes.find((box) => box.id === selectedBoxId) || null,
+    [filteredBoxes, selectedBoxId]
+  );
+
+  const selectedBoxUtilization = useMemo(() => {
+    if (!selectedBox || expandedItems.length === 0) {
+      return { volumePercent: 0, weightPercent: 0, boxCount: 0 };
+    }
+    const packed = packItemsFirstFitDecreasing(expandedItems, selectedBox);
+    const binsCount = packed.bins.length;
+    if (!binsCount) {
+      return { volumePercent: 0, weightPercent: 0, boxCount: 0 };
+    }
+    const totalVolUsed = packed.bins.reduce((sum, bin) => sum + bin.usedVol, 0);
+    const totalKgUsed = packed.bins.reduce((sum, bin) => sum + bin.usedKg, 0);
+    const totalVolCap = packed.boxVol * binsCount;
+    const totalKgCap = packed.boxMaxKg * binsCount;
+    return {
+      volumePercent: totalVolCap > 0 ? (totalVolUsed / totalVolCap) * 100 : 0,
+      weightPercent: totalKgCap > 0 ? (totalKgUsed / totalKgCap) * 100 : 0,
+      boxCount: binsCount
+    };
+  }, [selectedBox, expandedItems]);
+
+  const handleQty = (id, value) => {
+    const qty = Math.max(0, Number(value) || 0);
+    setSelection((prev) => ({ ...prev, [id]: qty }));
+  };
+
+  const runEstimate = () => {
+    const missing = selectedProducts.filter(
+      (p) => !p.dims.l || !p.dims.w || !p.dims.h || !p.dims.kg
+    );
+    const warns = [];
+    if (missing.length) warns.push(t('BoxEstimator.errorMissingDims'));
+    if (!selectedBox) warns.push('Select one box before estimate.');
+    setWarnings(warns);
+    if (warns.length > 0 || selectedProducts.length === 0) {
       setResults([]);
       return;
     }
 
-    const summaryMap = new Map();
-
-    const totalVol = (arr) => arr.reduce((s, it) => s + it.vol, 0);
-    const totalKg = (arr) => arr.reduce((s, it) => s + it.kg, 0);
-
-    const allFitInOne = (box, arr) => {
-      if (arr.some((it) => !canFit(it.dims, box) || it.kg > (box.max_kg || 999))) return false;
-      return totalVol(arr) <= box.vol && totalKg(arr) <= (box.max_kg || 999);
-    };
-
-    const addSummary = (box, count) => {
-      const key = box.id;
-      if (!summaryMap.has(key)) {
-        summaryMap.set(key, { name: box.name, l: box.length_cm, w: box.width_cm, h: box.height_cm, kg: box.max_kg || 999, count: 0 });
-      }
-      summaryMap.get(key).count += count;
-    };
-
-    let remaining = items;
-
-    while (remaining.length > 0) {
-      let packedAll = false;
-
-      // încearcă pe rând cutiile (de la mic la mare) să vezi dacă TOT setul încape în 1 cutie
-      for (const box of filteredBoxes) {
-        if (allFitInOne(box, remaining)) {
-          addSummary(box, 1);
-          remaining = [];
-          packedAll = true;
-          break;
-        }
-      }
-      if (packedAll) break;
-
-      // nu încape tot într-o singură cutie -> folosește cutia cea mai mare, pune cât încape și reia
-      const maxBox = largest;
-      let boxVol = maxBox.vol;
-      let boxKg = maxBox.max_kg || 999;
-      const keep = [];
-      remaining.forEach((it) => {
-        const fits = canFit(it.dims, maxBox) && it.kg <= boxKg && it.vol <= boxVol;
-        if (fits) {
-          boxVol -= it.vol;
-          boxKg -= it.kg;
-        } else {
-          keep.push(it);
-        }
-      });
-      addSummary(maxBox, 1);
-      remaining = keep;
+    const packed = packItemsFirstFitDecreasing(expandedItems, selectedBox);
+    if (packed.tooLarge.length > 0) {
+      setWarnings(['Some products cannot fit in the selected box.']);
+      setResults([]);
+      return;
     }
-
-    const summary = Array.from(summaryMap.values()).sort((a, b) => (a.l * a.w * a.h) - (b.l * b.w * b.h));
-    setResults(summary);
+    setResults([
+      {
+        name: selectedBox.name,
+        l: selectedBox.length_cm,
+        w: selectedBox.width_cm,
+        h: selectedBox.height_cm,
+        kg: selectedBox.max_kg,
+        count: packed.bins.length
+      }
+    ]);
   };
 
   return (
@@ -240,17 +315,30 @@ export default function ClientBoxEstimator() {
           <span className="text-sm font-semibold text-text-primary">Boxes</span>
         </div>
         <div className="grid gap-2 md:grid-cols-3">
-          {boxes
-            .filter((b) => mode === 'dg' ? b.tag === 'dg' : b.tag !== 'dg')
+          {filteredBoxes
             .map((b) => (
-              <div key={b.id} className="border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50">
+              <button
+                type="button"
+                key={b.id}
+                onClick={() => setSelectedBoxId(b.id)}
+                className={`border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50 text-left transition ${selectedBoxId === b.id ? 'border-primary ring-2 ring-primary/30' : 'border-gray-200'}`}
+              >
                 <div className="flex items-center gap-2">
                   <Box className="w-3 h-3 text-primary" />
                   <span className="font-semibold text-text-primary truncate">{b.name}</span>
                 </div>
-                <div className="text-[11px] text-text-secondary">max {b.max_kg ?? '—'} kg</div>
+                <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(b)} kg</div>
                 <div className="text-sm font-medium text-text-primary">{b.length_cm} × {b.width_cm} × {b.height_cm}</div>
-              </div>
+                {selectedBoxId === b.id && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <ProgressCircle label="Volume fill" percent={selectedBoxUtilization.volumePercent} />
+                    <ProgressCircle label="Weight fill" percent={selectedBoxUtilization.weightPercent} />
+                    <div className="text-[11px] text-text-secondary">
+                      Est. boxes: <span className="font-semibold text-text-primary">{selectedBoxUtilization.boxCount || 0}</span>
+                    </div>
+                  </div>
+                )}
+              </button>
             ))}
         </div>
       </div>
@@ -283,7 +371,8 @@ export default function ClientBoxEstimator() {
           />
           <button
             onClick={runEstimate}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm"
+            disabled={!selectedBoxId}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Calculator className="w-4 h-4" /> Estimate boxes
           </button>
@@ -362,29 +451,6 @@ export default function ClientBoxEstimator() {
         </div>
       </div>
 
-      <div className="border rounded-lg p-3">
-        <h3 className="text-sm font-semibold text-text-primary mb-2">Estimate result</h3>
-        {results.length === 0 ? (
-          <p className="text-sm text-text-secondary">No estimation yet. Select products and press Estimate.</p>
-        ) : (
-          <div className="space-y-2 text-sm">
-            {results.map((r, idx) => (
-              <div key={idx} className="border rounded p-2">
-                {r.warning && <div className="text-amber-700">{r.warning}</div>}
-                {r.error && <div className="text-red-700">{r.error}</div>}
-                {r.boxId && (
-                  <>
-                    <div className="font-semibold">{r.boxName || r.boxId}</div>
-                    <div className="text-xs text-text-secondary">
-                      Items: {r.items.join(', ')} · Kg used: {(r.kgUsed || 0).toFixed(2)}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
