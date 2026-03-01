@@ -81,6 +81,25 @@ const getPrepCountryEntries = (map) => {
   });
 };
 
+const getPendingCountryEntries = (map) => {
+  const source =
+    map && typeof map === 'object' && !Array.isArray(map)
+      ? map
+      : {};
+  const normalized = Object.entries(source).reduce((acc, [country, rawQty]) => {
+    const code = normalizePrepCountryCode(country);
+    if (!code) return acc;
+    const qty = Number(rawQty || 0);
+    if (!Number.isFinite(qty) || qty <= 0) return acc;
+    acc[code] = (acc[code] || 0) + qty;
+    return acc;
+  }, {});
+  return Object.entries(normalized).sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return a[0].localeCompare(b[0]);
+  });
+};
+
 const normalizeDestinationSplitToStock = (map, stockQty) => {
   const target = Math.max(0, Math.floor(Number(stockQty || 0)));
   if (!target) return {};
@@ -897,6 +916,11 @@ const [showPriceColumn, setShowPriceColumn] = useSessionStorage(
   `${storagePrefix}-showPriceColumn`,
   false
 );
+const [showPendingShipmentColumn, setShowPendingShipmentColumn] = useSessionStorage(
+  `${storagePrefix}-showPendingShipmentColumn`,
+  false
+);
+const [pendingShipmentByItemId, setPendingShipmentByItemId] = useState({});
 
   const [searchField, setSearchField] = useSessionStorage(
     `${storagePrefix}-searchField`,
@@ -1100,6 +1124,7 @@ const refreshStockData = useCallback(async () => {
     setPhotoCounts({});
     setSalesSummary({});
     setDestinationStockByItemId({});
+    setPendingShipmentByItemId({});
     return;
   }
 
@@ -1201,6 +1226,80 @@ const refreshStockData = useCallback(async () => {
     }
   } catch {
     setDestinationStockByItemId({});
+  }
+
+  try {
+    const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+    if (stockIds.length === 0) {
+      setPendingShipmentByItemId({});
+    } else {
+      const pendingSelectWithWarehouse =
+        'stock_item_id, units_requested, units_sent, prep_requests!inner(status, destination_country, warehouse_country, company_id, user_id)';
+      const pendingSelectFallback =
+        'stock_item_id, units_requested, units_sent, prep_requests!inner(status, destination_country, company_id, user_id)';
+      let pendingQuery = supabase
+        .from('prep_request_items')
+        .select(pendingSelectWithWarehouse)
+        .in('stock_item_id', stockIds)
+        .limit(50000);
+      if (profile?.company_id) {
+        pendingQuery = pendingQuery.eq('prep_requests.company_id', profile.company_id);
+      } else {
+        pendingQuery = pendingQuery.eq('prep_requests.user_id', profile.id);
+      }
+      let { data: pendingRows, error: pendingError } = await pendingQuery;
+      const missingWarehouse =
+        pendingError &&
+        String(pendingError.message || pendingError.details || '')
+          .toLowerCase()
+          .includes('warehouse_country');
+      if (missingWarehouse) {
+        let retryQuery = supabase
+          .from('prep_request_items')
+          .select(pendingSelectFallback)
+          .in('stock_item_id', stockIds)
+          .limit(50000);
+        if (profile?.company_id) {
+          retryQuery = retryQuery.eq('prep_requests.company_id', profile.company_id);
+        } else {
+          retryQuery = retryQuery.eq('prep_requests.user_id', profile.id);
+        }
+        const retryRes = await retryQuery;
+        pendingRows = retryRes.data;
+        pendingError = retryRes.error;
+      }
+      if (pendingError) {
+        setPendingShipmentByItemId({});
+      } else {
+        const terminalStatuses = new Set(['confirmed', 'cancelled', 'completed']);
+        const nextMap = {};
+        (pendingRows || []).forEach((row) => {
+          const stockId = row?.stock_item_id;
+          if (!stockId) return;
+          const prep = Array.isArray(row?.prep_requests)
+            ? row.prep_requests[0]
+            : row?.prep_requests;
+          const status = String(prep?.status || '').trim().toLowerCase();
+          if (!status || terminalStatuses.has(status)) return;
+          const prepWarehouse = normalizePrepCountryCode(prep?.warehouse_country || '');
+          if (prepWarehouse && prepWarehouse !== currentMarket) return;
+
+          const requested = Math.max(0, Number(row?.units_requested || 0));
+          const sent = Math.max(0, Number(row?.units_sent || 0));
+          const pendingUnits = Math.max(0, requested - sent);
+          if (!pendingUnits) return;
+
+          const country = normalizePrepCountryCode(prep?.destination_country || 'FR') || 'FR';
+          if (!nextMap[stockId]) nextMap[stockId] = { total: 0, byCountry: {} };
+          nextMap[stockId].total += pendingUnits;
+          nextMap[stockId].byCountry[country] =
+            (Number(nextMap[stockId].byCountry[country] || 0) || 0) + pendingUnits;
+        });
+        setPendingShipmentByItemId(nextMap);
+      }
+    }
+  } catch {
+    setPendingShipmentByItemId({});
   }
 
   const seed = {};
@@ -1978,8 +2077,11 @@ const resetReceptionForm = () => {
       setToast({ type: 'error', text: supportError });
     }
   };
-  const renderQtyCell = (row) => {
-    const marketQty = Math.max(0, Number(row.qty || 0));
+  const renderQtyCell = (row, opts = {}) => {
+    const marketQty = Math.max(
+      0,
+      Number(Number.isFinite(opts.availableQty) ? opts.availableQty : row.qty || 0)
+    );
     const manualMap =
       row?.destination_qty_by_country &&
       typeof row.destination_qty_by_country === 'object' &&
@@ -2055,7 +2157,7 @@ const resetReceptionForm = () => {
       <div className="grid grid-cols-[3.5rem_3.5rem_3.5rem] justify-end gap-x-2 gap-y-1">
         <div className="col-start-1">{buildInput('dec', '-')}</div>
         <div className="col-start-2 min-w-[3.5rem] text-center font-semibold self-center">
-          {Number(row.qty ?? 0)}
+          {marketQty}
         </div>
         <div className="col-start-3">{buildInput('inc', '+')}</div>
         {informativeEntries.length > 0 && (
@@ -2290,7 +2392,11 @@ const openPrep = async () => {
   }
 
   // verificare dacă au stoc în Prep Center (>0)
-  const noPrepStock = selectedRows.filter(r => Number(r.qty || 0) <= 0);
+  const noPrepStock = selectedRows.filter((r) => {
+    const pending = Math.max(0, Number(pendingShipmentByItemId?.[r.id]?.total || 0));
+    const available = Math.max(0, Number(r.qty || 0) - pending);
+    return available <= 0;
+  });
   if (noPrepStock.length > 0) {
     const errorText = tp('ClientStock.errors.noPrepStock', {
       products: noPrepStock
@@ -2326,7 +2432,8 @@ const openPrep = async () => {
   const exceedsPrepStockRows = selectedRows
     .map((r) => {
       const requested = Math.max(0, Number(rowEdits[r.id]?.units_to_send || 0));
-      const available = Math.max(0, Number(r.qty || 0));
+      const pending = Math.max(0, Number(pendingShipmentByItemId?.[r.id]?.total || 0));
+      const available = Math.max(0, Number(r.qty || 0) - pending);
       return { row: r, requested, available };
     })
     .filter(({ requested, available }) => requested > available);
@@ -2375,6 +2482,7 @@ const openPrep = async () => {
     setToast({ type: 'success', text: 'Preparation request sent successfully.' });
     resetSelectionsAndUnits();
     setSelectedIdList([]);
+    await refreshStockData();
   } catch (err) {
     console.error('Prep error:', err);
     setSelectionActionError(supportError);
@@ -2639,6 +2747,18 @@ const saveReqChanges = async () => {
                 ? t('ClientStock.priceColumn.hide')
                 : t('ClientStock.priceColumn.show')}
             </button>
+            <button
+              type="button"
+              aria-pressed={showPendingShipmentColumn}
+              onClick={() => setShowPendingShipmentColumn((prev) => !prev)}
+              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                showPendingShipmentColumn
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-primary border-primary hover:bg-primary/5'
+              }`}
+            >
+              {showPendingShipmentColumn ? 'Hide pending shipment' : 'Show pending shipment'}
+            </button>
           </div>
         </div>
       </div>
@@ -2827,6 +2947,13 @@ const saveReqChanges = async () => {
           </span>
         </button>
       </th>
+      {showPendingShipmentColumn && (
+        <th className="px-2 py-2 text-right w-28">
+          <span className="w-full inline-flex items-center justify-end text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Pending shipment
+          </span>
+        </th>
+      )}
       <th className="px-2 py-2 text-right w-32">
         <button
           type="button"
@@ -2862,6 +2989,10 @@ const saveReqChanges = async () => {
       const priceDraft = edit.purchase_price ?? serverPrice;
       const priceInputValue = priceDraft == null ? '' : String(priceDraft);
       const priceDirty = priceInputValue !== serverPrice;
+      const pendingInfo = pendingShipmentByItemId?.[r.id] || null;
+      const pendingTotal = Math.max(0, Number(pendingInfo?.total || 0));
+      const pendingByCountry = getPendingCountryEntries(pendingInfo?.byCountry || {});
+      const availablePrepQty = Math.max(0, Number(r.qty || 0) - pendingTotal);
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3024,8 +3155,25 @@ const saveReqChanges = async () => {
 
     {/* 6) PrepCenter stock — afișare / ajustare */}
     <td className="px-2 py-2 text-right text-gray-700">
-      {renderQtyCell(r)}
+      {renderQtyCell(r, { availableQty: availablePrepQty })}
     </td>
+
+          {showPendingShipmentColumn && (
+            <td className="px-2 py-2 text-right align-top">
+              {pendingTotal > 0 && (
+                <div className="inline-flex flex-col items-end">
+                  <div className="font-semibold text-gray-800">{pendingTotal}</div>
+                  <div className="mt-1 text-[11px] leading-4 space-y-0.5">
+                    {pendingByCountry.map(([countryCode, qty]) => (
+                      <div key={`${r.id}-pending-${countryCode}`} className="font-semibold text-red-600">
+                        {countryCode}-{qty}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </td>
+          )}
 
 
           {/* 7) Units to Send / Receive — input */}
@@ -3033,6 +3181,7 @@ const saveReqChanges = async () => {
            <input
             type="number"
             min={0}
+            max={availablePrepQty}
             className="border rounded px-2 py-1 w-24 text-right"
             value={edit.units_to_send ?? 0}
             onChange={(e) => {
