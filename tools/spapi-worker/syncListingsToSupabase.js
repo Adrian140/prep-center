@@ -485,7 +485,7 @@ function normalizeListings(rawRows = []) {
       key,
       sku: sku || null,
       asin: asin || null,
-      ean: ean || null,
+      ean: normalizeEan(ean) || null,
       name: sanitizeText(row.name) || null,
       imageUrl: imageUrl || null,
       status: (row.status || '').trim(),
@@ -506,6 +506,46 @@ function filterListings(listings = []) {
       status.includes('inactive');
     return wantedStatus;
   });
+}
+
+function normalizeEan(value) {
+  const digits = String(value || '').replace(/\D+/g, '');
+  if (!digits) return null;
+  if (digits.length < 8 || digits.length > 14) return null;
+  return digits;
+}
+
+function pickCatalogEan(payload, preferredMarketplaceId) {
+  const root = payload?.payload || payload || {};
+  const identifiersByMarketplace = Array.isArray(root.identifiers) ? root.identifiers : [];
+
+  let best = null;
+  let bestScore = 0;
+
+  const consider = (raw, type, marketplaceId) => {
+    const ean = normalizeEan(raw);
+    if (!ean) return;
+    const typeNorm = String(type || '').trim().toUpperCase();
+    let score = ean.length === 13 ? 3 : ean.length === 14 ? 2 : 1;
+    if (typeNorm === 'EAN') score += 20;
+    else if (typeNorm === 'GTIN') score += 10;
+    else if (typeNorm === 'UPC') score += 1;
+    if (preferredMarketplaceId && marketplaceId === preferredMarketplaceId) score += 5;
+    if (score > bestScore) {
+      best = ean;
+      bestScore = score;
+    }
+  };
+
+  for (const marketNode of identifiersByMarketplace) {
+    const marketplaceId = String(marketNode?.marketplaceId || '').trim();
+    const identifiers = Array.isArray(marketNode?.identifiers) ? marketNode.identifiers : [];
+    for (const node of identifiers) {
+      consider(node?.identifier, node?.identifierType, marketplaceId);
+    }
+  }
+
+  return best;
 }
 
 const normalizeIdentifier = (value) =>
@@ -570,6 +610,151 @@ async function fetchCatalogMainImage(spClient, asin, marketplaceId) {
     }
   });
   return pickCatalogMainImage(res);
+}
+
+async function fetchCatalogEan(spClient, asin, marketplaceId) {
+  const res = await spClient.callAPI({
+    operation: 'getCatalogItem',
+    endpoint: 'catalogItems',
+    path: { asin },
+    query: {
+      marketplaceIds: [marketplaceId],
+      includedData: ['identifiers']
+    },
+    options: {
+      version: '2022-04-01'
+    }
+  });
+  return pickCatalogEan(res, marketplaceId);
+}
+
+async function fetchKnownEansByAsin({ companyId, asins }) {
+  const map = new Map();
+  const uniqueAsins = Array.from(
+    new Set((asins || []).map((v) => String(v || '').trim().toUpperCase()).filter(Boolean))
+  );
+  if (!uniqueAsins.length) return map;
+
+  const chunkSize = 500;
+  for (let i = 0; i < uniqueAsins.length; i += chunkSize) {
+    const chunk = uniqueAsins.slice(i, i + chunkSize);
+    if (!chunk.length) continue;
+
+    const { data: asinEans, error: asinEansError } = await supabase
+      .from('asin_eans')
+      .select('asin, ean')
+      .eq('company_id', companyId)
+      .in('asin', chunk);
+    if (asinEansError) throw asinEansError;
+    for (const row of asinEans || []) {
+      const asin = String(row?.asin || '').trim().toUpperCase();
+      const ean = normalizeEan(row?.ean);
+      if (asin && ean && !map.has(asin)) map.set(asin, ean);
+    }
+
+    const { data: stockRows, error: stockError } = await supabase
+      .from('stock_items')
+      .select('asin, ean')
+      .eq('company_id', companyId)
+      .in('asin', chunk);
+    if (stockError) throw stockError;
+    for (const row of stockRows || []) {
+      const asin = String(row?.asin || '').trim().toUpperCase();
+      const ean = normalizeEan(row?.ean);
+      if (asin && ean && !map.has(asin)) map.set(asin, ean);
+    }
+  }
+
+  return map;
+}
+
+async function enrichListingsEanFromKnownAndCatalog({
+  spClient,
+  marketplaceId,
+  companyId,
+  listings
+}) {
+  const withoutEan = (listings || []).filter((l) => !normalizeEan(l?.ean) && l?.asin);
+  if (!withoutEan.length) {
+    return { knownFilled: 0, catalogFilled: 0, catalogNotFound: 0, catalogFailed: 0 };
+  }
+
+  const missingAsins = Array.from(
+    new Set(withoutEan.map((l) => String(l.asin || '').trim().toUpperCase()).filter(Boolean))
+  );
+
+  const knownMap = await fetchKnownEansByAsin({ companyId, asins: missingAsins });
+  let knownFilled = 0;
+  for (const listing of withoutEan) {
+    const asin = String(listing.asin || '').trim().toUpperCase();
+    const known = knownMap.get(asin) || null;
+    if (known) {
+      listing.ean = known;
+      knownFilled += 1;
+    }
+  }
+
+  const stillMissingAsins = Array.from(
+    new Set(
+      withoutEan
+        .filter((l) => !normalizeEan(l?.ean))
+        .map((l) => String(l.asin || '').trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+
+  if (!stillMissingAsins.length) {
+    return { knownFilled, catalogFilled: 0, catalogNotFound: 0, catalogFailed: 0 };
+  }
+
+  const catalogMarketplaceIds = resolveCatalogMarketplaceIds(marketplaceId);
+  let catalogFilled = 0;
+  let catalogNotFound = 0;
+  let catalogFailed = 0;
+  const foundByAsin = new Map();
+
+  for (const asin of stillMissingAsins) {
+    let ean = null;
+    let hadError = false;
+    for (const marketId of catalogMarketplaceIds) {
+      try {
+        const candidate = await runWithTransientRetry(
+          () => fetchCatalogEan(spClient, asin, marketId),
+          `catalog-ean asin=${asin} marketplace=${marketId}`
+        );
+        ean = normalizeEan(candidate);
+        if (ean) break;
+      } catch (err) {
+        if (isCatalogNotFoundError(err)) continue;
+        hadError = true;
+        console.warn(
+          `[Listings sync] Catalog EAN lookup warning company=${companyId} asin=${asin} marketplace=${marketId}: ${extractErrorText(
+            err
+          ).slice(0, 300)}`
+        );
+      }
+    }
+
+    if (ean) {
+      foundByAsin.set(asin, ean);
+      catalogFilled += 1;
+    } else if (hadError) {
+      catalogFailed += 1;
+    } else {
+      catalogNotFound += 1;
+    }
+  }
+
+  if (foundByAsin.size) {
+    for (const listing of listings || []) {
+      const asin = String(listing?.asin || '').trim().toUpperCase();
+      if (!asin || normalizeEan(listing?.ean)) continue;
+      const resolved = foundByAsin.get(asin) || null;
+      if (resolved) listing.ean = resolved;
+    }
+  }
+
+  return { knownFilled, catalogFilled, catalogNotFound, catalogFailed };
 }
 
 async function fillMissingImagesFromCatalog({
@@ -836,6 +1021,12 @@ async function syncListingsIntegration(integration) {
     }
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
+    const eanEnrichmentStats = await enrichListingsEanFromKnownAndCatalog({
+      spClient,
+      marketplaceId,
+      companyId: integration.company_id,
+      listings: listingRows
+    });
     const listingRowsWithImage = listingRows.filter(
       (r) => r.imageUrl && String(r.imageUrl).trim().length > 0
     ).length;
@@ -843,7 +1034,7 @@ async function syncListingsIntegration(integration) {
     const emptySku = listingRaw.filter((r) => !String(r.sku || '').trim()).length;
     const emptyAsin = listingRaw.filter((r) => !String(r.asin || '').trim() && !String(r.productId || '').trim()).length;
     console.log(
-      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin}`
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin} eanKnown=${eanEnrichmentStats.knownFilled} eanCatalog=${eanEnrichmentStats.catalogFilled} eanCatalogNotFound=${eanEnrichmentStats.catalogNotFound} eanCatalogFailed=${eanEnrichmentStats.catalogFailed}`
     );
 
     if (!listingRows.length) {
