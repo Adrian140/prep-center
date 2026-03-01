@@ -360,9 +360,12 @@ const logUnknownAmazonStatus = (shipmentId, status, rawShipment) => {
 };
 
 async function fetchShipmentSnapshot(spClient, rawShipmentId, marketplaceId) {
-  const candidates = normalizeShipmentIds(rawShipmentId);
-  const shipmentId = candidates[0] || rawShipmentId;
-  const primaryIdList = candidates.length ? candidates : [shipmentId];
+  const candidates = normalizeShipmentIds(rawShipmentId).filter((id) => isFbaShipmentId(id));
+  const shipmentId = candidates[0] || null;
+  const primaryIdList = candidates;
+  if (!shipmentId || !primaryIdList.length) {
+    throw new Error(`No FBA shipment ID resolved for ${rawShipmentId}`);
+  }
 
   const tryFetchShipments = async (shipmentIds, mpId, withStatusList = true) => {
     const query = {
@@ -744,6 +747,11 @@ async function main() {
             }
           }
         }
+        if (!isFbaShipmentId(shipmentIdForSync)) {
+          lastError = new Error(`No FBA shipment ID resolved for ${row.fba_shipment_id}`);
+          continue;
+        }
+
         const { snapshot: snap, items: amazonItems } = await fetchShipmentSnapshot(
           client,
           shipmentIdForSync,
