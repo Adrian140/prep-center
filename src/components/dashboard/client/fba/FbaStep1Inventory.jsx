@@ -699,7 +699,8 @@ export default function FbaStep1Inventory({
   const HEAVY_PARCEL_THRESHOLD_KG = 15;
   const HEAVY_PARCEL_LABELS_PER_BOX = 5;
   const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
-  const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
+  const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel';
+  const HEAVY_PARCEL_SERVICE_ALIASES = new Set(['Heavy Parcel', 'Heavy Parcel pack of 5']);
 
   const safeBoxPlan = useMemo(() => {
     const raw = boxPlan && typeof boxPlan === 'object' ? boxPlan : {};
@@ -2910,7 +2911,9 @@ export default function FbaStep1Inventory({
             );
           })}
           {heavyParcelPreview.labels > 0 &&
-            !boxServices.some((svc) => String(svc?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME) && (
+            !boxServices.some((svc) =>
+              HEAVY_PARCEL_SERVICE_ALIASES.has(String(svc?.service_name || '').trim())
+            ) && (
             <div className="flex flex-wrap items-center gap-3 border border-amber-200 bg-amber-50/40 rounded-md p-2">
               <div className="text-xs min-w-[220px] font-medium text-slate-800">{HEAVY_PARCEL_SERVICE_NAME}</div>
               <div className="text-xs text-slate-600">

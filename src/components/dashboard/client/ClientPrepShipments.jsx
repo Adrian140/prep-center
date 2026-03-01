@@ -115,7 +115,8 @@ const formatMoney2 = (value) => {
 };
 
 const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
-const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
+const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel';
+const HEAVY_PARCEL_SERVICE_ALIASES = new Set(['Heavy Parcel', 'Heavy Parcel pack of 5']);
 
 const firstFiniteNumber = (candidates = []) => {
   for (const value of candidates) {
@@ -864,9 +865,10 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       boxServiceGroupsMap.set(key, current);
     });
     const allBoxServiceGroups = Array.from(boxServiceGroupsMap.values());
-    const boxServiceGroups = allBoxServiceGroups.filter(
-      (svc) => String(svc?.service_name || '').trim() !== HEAVY_PARCEL_SERVICE_NAME
-    );
+    const boxServiceGroups = allBoxServiceGroups.filter((svc) => {
+      const name = String(svc?.service_name || '').trim();
+      return !HEAVY_PARCEL_SERVICE_ALIASES.has(name);
+    });
     const boxServicesTotal = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.total || 0), 0);
     const heavyLabelsCount = Number(reqHeavyParcel?.labels_count || 0);
     const heavyUnitPrice = Number(reqHeavyParcel?.unit_price || HEAVY_PARCEL_LABEL_UNIT_PRICE);
