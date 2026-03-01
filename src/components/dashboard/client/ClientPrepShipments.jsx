@@ -1507,34 +1507,6 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                         {!reqEditable && reqLines.length > 0 && (
                           <>
                             <tr className="border-t bg-gray-50/70">
-                              <td className="px-2 py-2 text-center text-text-secondary">Tot</td>
-                              <td className="px-2 py-2 font-semibold text-text-primary">Total prep services</td>
-                              <td className="px-2 py-2 align-top">
-                                <div className="space-y-1 text-xs">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="text-text-secondary">SKU services total</span>
-                                    <span className="font-semibold text-right">
-                                      = {formatMoney2(reqTotals.prepServicesTotal)} EUR
-                                    </span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-2 py-2 text-xs text-text-secondary">—</td>
-                              <td className="px-2 py-2 text-right align-top">
-                                <div className="text-right">
-                                  <div className="text-base font-semibold text-text-primary">
-                                    {Math.round(reqTotals.totalUnitsExpected)}
-                                  </div>
-                                  <div className="text-sm font-semibold text-sky-600">
-                                    {Math.round(reqTotals.totalUnitsLocated)}
-                                  </div>
-                                  <div className="text-[11px] text-text-secondary">
-                                    Δ {Math.round(reqTotals.totalUnitsExpected - reqTotals.totalUnitsLocated)}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                            <tr className="border-t bg-gray-50/70">
                               <td className="px-2 py-2 text-center text-text-secondary">Box</td>
                               <td className="px-2 py-2 font-semibold text-text-primary">Billed boxes</td>
                               <td className="px-2 py-2 align-top">
