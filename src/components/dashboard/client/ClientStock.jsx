@@ -3153,7 +3153,7 @@ const saveReqChanges = async () => {
     </td>
 
           {showPendingShipmentColumn && (
-            <td className="px-2 py-2 text-center align-top">
+            <td className="px-2 py-2 text-center align-middle">
               {pendingTotal > 0 && (
                 <div className="inline-flex flex-col items-center">
                   <div className="font-semibold text-gray-800">{pendingTotal}</div>
