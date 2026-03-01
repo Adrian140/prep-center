@@ -49,7 +49,7 @@ Optional knobs for catalog dimensions sync:
 | --- | --- |
 | `npm run refresh-token` | Calls `authRefreshAndStore.js` and writes a fresh access token to the `amazon_tokens` table |
 | `npm run sync-inventory` | Runs `syncInventoryToSupabase.js`, downloads Amazon FBA inventory and upserts `stock_items` pentru toate intrările din `amazon_integrations` (actualizează `amazon_stock`, inserează SKUs lipsă și resetează produsele dispărute). Acum se adună cheile per companie și se curăță doar după ce toate integrările au fost procesate, ca rulările FR/IT/ES/DE să nu se rescrie reciproc; dacă o linie are `ASIN` + `SKU` și `qty > 0`, nu este modificată, ca stocul manual din PrepCenter să rămână intact. |
-| `npm run sync-amazon-catalog-dimensions` | Runs `syncAmazonCatalogDimensions.js`, citește dimensiuni/greutate per `ASIN` din SP-API Catalog Items (`getCatalogItem`, `includedData=dimensions`) și completează câmpurile lipsă (`length_cm`, `width_cm`, `height_cm`, `weight_kg`) în `stock_items` fără a reinteroga de mai multe ori același `ASIN` în același run. |
+| `npm run sync-amazon-catalog-dimensions` | Runs `syncAmazonCatalogDimensions.js`, citește dimensiuni/greutate + EAN per `ASIN` din SP-API Catalog Items (`getCatalogItem`, `includedData=dimensions,summaries,identifiers`) și completează câmpurile lipsă (`length_cm`, `width_cm`, `height_cm`, `weight_kg`, `ean`) în `stock_items` fără a reinteroga de mai multe ori același `ASIN` în același run. |
 | `node printEnvDebug.js` | Quick helper that prints/masks the loaded env vars |
 
 ### `syncInventoryToSupabase.js` flow

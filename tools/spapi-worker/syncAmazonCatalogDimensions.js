@@ -257,6 +257,54 @@ function scoreDims(dims) {
   );
 }
 
+function normalizeEan(value) {
+  const digits = String(value || '').replace(/\D+/g, '');
+  if (!digits) return null;
+  if (digits.length < 8 || digits.length > 14) return null;
+  return digits;
+}
+
+function scoreEan(ean) {
+  const normalized = normalizeEan(ean);
+  if (!normalized) return 0;
+  if (normalized.length === 13) return 3;
+  if (normalized.length === 14) return 2;
+  return 1;
+}
+
+function pickCatalogEan(payload, preferredMarketplaceId) {
+  const root = payload?.payload || payload || {};
+  const identifiersByMarketplace = Array.isArray(root.identifiers) ? root.identifiers : [];
+
+  let best = null;
+  let bestScore = 0;
+
+  const consider = (raw, type, marketplaceId) => {
+    const ean = normalizeEan(raw);
+    if (!ean) return;
+    const typeNorm = String(type || '').trim().toUpperCase();
+    let score = scoreEan(ean);
+    if (typeNorm === 'EAN') score += 20;
+    else if (typeNorm === 'GTIN') score += 10;
+    else if (typeNorm === 'UPC') score += 1;
+    if (preferredMarketplaceId && marketplaceId === preferredMarketplaceId) score += 5;
+    if (score > bestScore) {
+      best = ean;
+      bestScore = score;
+    }
+  };
+
+  for (const marketNode of identifiersByMarketplace) {
+    const marketplaceId = String(marketNode?.marketplaceId || '').trim();
+    const identifiers = Array.isArray(marketNode?.identifiers) ? marketNode.identifiers : [];
+    for (const node of identifiers) {
+      consider(node?.identifier, node?.identifierType, marketplaceId);
+    }
+  }
+
+  return best;
+}
+
 function pickFromDimensionNode(node) {
   if (!node || typeof node !== 'object') return null;
   return normalizeDims({
@@ -336,38 +384,54 @@ function isCatalogNotFoundError(err) {
   );
 }
 
-async function getCatalogDimensions(spClient, asin, marketplaceId) {
+async function getCatalogData(spClient, asin, marketplaceId) {
   const result = await spClient.callAPI({
     operation: 'getCatalogItem',
     endpoint: 'catalogItems',
     path: { asin },
     query: {
       marketplaceIds: [marketplaceId],
-      includedData: ['dimensions', 'summaries']
+      includedData: ['dimensions', 'summaries', 'identifiers']
     },
     options: {
       version: '2022-04-01'
     }
   });
-  return pickCatalogDimensions(result);
+  return {
+    dims: pickCatalogDimensions(result),
+    ean: pickCatalogEan(result, marketplaceId)
+  };
 }
 
-async function fetchRowsMissingDimensions(companyId, limit) {
+async function fetchRowsMissingCatalogFields(companyId, limit) {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, limit) : 5000;
   const { data, error } = await supabase
     .from('stock_items')
-    .select('id, asin, length_cm, width_cm, height_cm, weight_kg')
+    .select('id, asin, length_cm, width_cm, height_cm, weight_kg, ean')
     .eq('company_id', companyId)
     .not('asin', 'is', null)
     .or(
-      'length_cm.is.null,width_cm.is.null,height_cm.is.null,weight_kg.is.null,length_cm.eq.0,width_cm.eq.0,height_cm.eq.0,weight_kg.eq.0'
+      'length_cm.is.null,width_cm.is.null,height_cm.is.null,weight_kg.is.null,length_cm.eq.0,width_cm.eq.0,height_cm.eq.0,weight_kg.eq.0,ean.is.null,ean.eq.""'
     )
     .limit(safeLimit);
   if (error) throw error;
   return data || [];
 }
 
-async function fetchKnownDimensionsByAsin(companyId, asins) {
+function normalizeCatalogSnapshot(candidate) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const dims = normalizeDims(candidate);
+  const ean = normalizeEan(candidate.ean);
+  if (!dims && !ean) return null;
+  return { dims, ean };
+}
+
+function scoreCatalogSnapshot(snapshot) {
+  if (!snapshot) return 0;
+  return scoreDims(snapshot.dims) + scoreEan(snapshot.ean);
+}
+
+async function fetchKnownCatalogByAsin(companyId, asins) {
   if (!Array.isArray(asins) || !asins.length) return new Map();
 
   const known = new Map();
@@ -376,18 +440,18 @@ async function fetchKnownDimensionsByAsin(companyId, asins) {
     const chunk = asins.slice(i, i + chunkSize);
     const { data, error } = await supabase
       .from('stock_items')
-      .select('asin, length_cm, width_cm, height_cm, weight_kg')
+      .select('asin, length_cm, width_cm, height_cm, weight_kg, ean')
       .eq('company_id', companyId)
       .in('asin', chunk);
     if (error) throw error;
 
     for (const row of data || []) {
       const asin = String(row?.asin || '').trim().toUpperCase();
-      if (!asin || known.has(asin)) continue;
-      const dims = normalizeDims(row);
-      if (scoreDims(dims) > 0) {
-        known.set(asin, dims);
-      }
+      if (!asin) continue;
+      const candidate = normalizeCatalogSnapshot(row);
+      if (!candidate) continue;
+      const prev = known.get(asin) || null;
+      if (scoreCatalogSnapshot(candidate) > scoreCatalogSnapshot(prev)) known.set(asin, candidate);
     }
   }
 
@@ -414,6 +478,24 @@ async function fillMissingDimensionsForAsin(companyId, asin, dims) {
   await updateFieldIfMissing(companyId, asin, 'weight_kg', dims.weight_kg);
 }
 
+async function updateEanIfMissing(companyId, asin, ean) {
+  const normalized = normalizeEan(ean);
+  if (!normalized) return;
+  const { error } = await supabase
+    .from('stock_items')
+    .update({ ean: normalized })
+    .eq('company_id', companyId)
+    .eq('asin', asin)
+    .or('ean.is.null,ean.eq.""');
+  if (error) throw error;
+}
+
+async function fillMissingCatalogForAsin(companyId, asin, snapshot) {
+  if (!snapshot) return;
+  await fillMissingDimensionsForAsin(companyId, asin, snapshot.dims);
+  await updateEanIfMissing(companyId, asin, snapshot.ean);
+}
+
 async function syncIntegrationDimensions(integration, runState) {
   const marketplaceIds = resolveMarketplaceIds(integration);
   if (!marketplaceIds.length) {
@@ -431,10 +513,10 @@ async function syncIntegrationDimensions(integration, runState) {
   const rowBudget = Number.isFinite(remaining)
     ? Math.min(Math.max(remaining * 20, 200), 10000)
     : 10000;
-  const rows = await fetchRowsMissingDimensions(integration.company_id, rowBudget);
+  const rows = await fetchRowsMissingCatalogFields(integration.company_id, rowBudget);
   if (!rows.length) {
     console.log(
-      `[Catalog dimension sync] Integration ${integration.id} has no stock_items with missing dimensions.`
+      `[Catalog dimension sync] Integration ${integration.id} has no stock_items with missing dimensions/EAN.`
     );
     return;
   }
@@ -455,7 +537,7 @@ async function syncIntegrationDimensions(integration, runState) {
     return;
   }
 
-  const knownDimsByAsin = await fetchKnownDimensionsByAsin(integration.company_id, validAsins);
+  const knownByAsin = await fetchKnownCatalogByAsin(integration.company_id, validAsins);
 
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
@@ -473,22 +555,23 @@ async function syncIntegrationDimensions(integration, runState) {
     runState.processed += 1;
 
     try {
-      const alreadyKnown = resolvedByAsin.get(asin) || knownDimsByAsin.get(asin) || null;
+      const alreadyKnown = resolvedByAsin.get(asin) || knownByAsin.get(asin) || null;
       if (alreadyKnown) {
-        await fillMissingDimensionsForAsin(integration.company_id, asin, alreadyKnown);
+        await fillMissingCatalogForAsin(integration.company_id, asin, alreadyKnown);
         resolvedByAsin.set(asin, alreadyKnown);
         runState.reused += 1;
+        if (alreadyKnown.ean) runState.eanReused += 1;
         continue;
       }
 
-      let foundDims = null;
+      let foundSnapshot = null;
       let hadNonNotFoundError = false;
       for (const marketplaceId of marketplaceIds) {
         try {
-          const candidate = await getCatalogDimensions(spClient, asin, marketplaceId);
-          const candidateScore = scoreDims(candidate);
+          const candidate = await getCatalogData(spClient, asin, marketplaceId);
+          const candidateScore = scoreCatalogSnapshot(candidate);
           if (candidateScore > 0) {
-            foundDims = candidate;
+            foundSnapshot = candidate;
             runState.foundByMarketplace[marketplaceId] =
               (runState.foundByMarketplace[marketplaceId] || 0) + 1;
             break;
@@ -508,7 +591,7 @@ async function syncIntegrationDimensions(integration, runState) {
         }
       }
 
-      if (!foundDims) {
+      if (!foundSnapshot) {
         if (hadNonNotFoundError) {
           runState.failed += 1;
         } else {
@@ -517,14 +600,15 @@ async function syncIntegrationDimensions(integration, runState) {
         continue;
       }
 
-      await fillMissingDimensionsForAsin(integration.company_id, asin, foundDims);
-      resolvedByAsin.set(asin, foundDims);
+      await fillMissingCatalogForAsin(integration.company_id, asin, foundSnapshot);
+      resolvedByAsin.set(asin, foundSnapshot);
       runState.found += 1;
 
-      const foundScore = scoreDims(foundDims);
-      if (foundScore < 4) {
+      const foundScore = scoreDims(foundSnapshot.dims);
+      if (foundSnapshot.ean) runState.eanFound += 1;
+      if (foundScore > 0 && foundScore < 4) {
         runState.partial += 1;
-      } else {
+      } else if (foundScore >= 4) {
         runState.complete += 1;
       }
     } catch (err) {
@@ -558,6 +642,8 @@ async function main() {
     reused: 0,
     complete: 0,
     partial: 0,
+    eanFound: 0,
+    eanReused: 0,
     notFound: 0,
     failed: 0,
     unauthorized: 0,
@@ -570,7 +656,7 @@ async function main() {
   }
 
   console.log(
-    `[Catalog dimension sync] Done. processed=${runState.processed} found=${runState.found} reused=${runState.reused} complete=${runState.complete} partial=${runState.partial} notFound=${runState.notFound} failed=${runState.failed} unauthorized=${runState.unauthorized}`
+    `[Catalog dimension sync] Done. processed=${runState.processed} found=${runState.found} reused=${runState.reused} complete=${runState.complete} partial=${runState.partial} eanFound=${runState.eanFound} eanReused=${runState.eanReused} notFound=${runState.notFound} failed=${runState.failed} unauthorized=${runState.unauthorized}`
   );
   console.log(
     `[Catalog dimension sync] Found by marketplace: ${JSON.stringify(runState.foundByMarketplace)}`
