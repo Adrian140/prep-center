@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Boxes, Calculator, ShieldAlert, Box } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { useDashboardTranslation } from '@/translations';
 
 const MAX_BOX_KG = 23;
 
@@ -100,7 +99,6 @@ function ProgressCircle({ label, percent }) {
 
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
-  const { t } = useDashboardTranslation();
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState({});
@@ -274,11 +272,7 @@ export default function ClientBoxEstimator() {
   };
 
   const runEstimate = () => {
-    const missing = selectedProducts.filter(
-      (p) => !p.dims.l || !p.dims.w || !p.dims.h || !p.dims.kg
-    );
     const warns = [];
-    if (missing.length) warns.push(t('BoxEstimator.errorMissingDims'));
     if (!selectedBox) warns.push('Select one box before estimate.');
     setWarnings(warns);
     if (warns.length > 0 || selectedProducts.length === 0) {
