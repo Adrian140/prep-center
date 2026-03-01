@@ -65,6 +65,17 @@ const FBA_MODE_META = {
 };
 
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
+const isPrepBusinessSource = (shipment = {}) =>
+  String(shipment?.import_source || '').trim().toLowerCase() === 'prepbusiness';
+const getClientDisplayName = (shipment = {}) => {
+  const companyName = String(shipment?.company_name || '').trim();
+  const storeName = String(shipment?.store_name || '').trim();
+  const clientName = String(shipment?.client_name || '').trim();
+  if (isPrepBusinessSource(shipment)) {
+    return companyName || storeName || clientName || '—';
+  }
+  return storeName || clientName || companyName || '—';
+};
 
 const computeShipmentStatus = (shipment = {}) => {
   const baseStatus = shipment.status || 'submitted';
@@ -596,8 +607,8 @@ const checkStockMatches = async () => {
 
   const fbaModeValue = editHeader.fba_mode || shipment.fba_mode || 'none';
   const fbaMeta = getFbaModeMeta(fbaModeValue);
-  const isPrepBusinessShipment =
-    String(shipment.import_source || '').trim().toLowerCase() === 'prepbusiness';
+  const isPrepBusinessShipment = isPrepBusinessSource(shipment);
+  const displayClientName = getClientDisplayName(shipment);
   const hasFbaLines = items.some((item) => {
     const intent = resolveFbaIntent(item);
     return intent.hasIntent || intent.directFromAction;
@@ -658,7 +669,7 @@ const checkStockMatches = async () => {
           <div>
             <label className="block text-sm font-medium text-text-secondary">Client</label>
             <p className="text-text-primary">
-              {shipment.store_name || shipment.client_name || '—'}
+              {displayClientName}
               {isPrepBusinessShipment && (
                 <>
                   <br />
@@ -1570,8 +1581,8 @@ useEffect(() => {
               paginatedShipments.map((shipment) => {
                 const emailRaw = String(shipment.client_email || shipment.user_email || '').trim();
                 const showEmail = emailRaw.includes('@');
-                const isPrepBusinessShipment =
-                  String(shipment.import_source || '').trim().toLowerCase() === 'prepbusiness';
+                const isPrepBusinessShipment = isPrepBusinessSource(shipment);
+                const displayClientName = getClientDisplayName(shipment);
                 const hasFbaIntent =
                   (shipment.fba_mode && shipment.fba_mode !== 'none') ||
                   (shipment.receiving_items || []).some((item) => {
@@ -1614,7 +1625,7 @@ useEffect(() => {
                       <User className="w-4 h-4 text-text-secondary mr-2" />
                       <div>
                         <p className="font-medium text-text-primary">
-                          {shipment.store_name || shipment.client_name || '—'}
+                          {displayClientName}
                         </p>
                         {isPrepBusinessShipment && (
                           <p className="mt-1">
@@ -1626,7 +1637,9 @@ useEffect(() => {
                         {showEmail && (
                           <p className="text-xs text-text-secondary">{emailRaw}</p>
                         )}
-                        {shipment.company_name && (
+                        {shipment.company_name &&
+                          String(displayClientName || '').trim().toLowerCase() !==
+                            String(shipment.company_name || '').trim().toLowerCase() && (
                           <p className="text-xs text-text-secondary flex items-center">
                             <Building className="w-3 h-3 mr-1" />
                             {shipment.company_name}
