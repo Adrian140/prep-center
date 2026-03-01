@@ -58,15 +58,44 @@ const fillSingleBox = (items, box) => {
   };
 };
 
-const buildAdaptivePlan = (items, selectedBox, boxesAsc) => {
-  if (!selectedBox || !Array.isArray(items) || !items.length) {
+const pickBestBoxForRemaining = (remaining, boxesAsc) => {
+  let chosen = null;
+  for (const box of boxesAsc) {
+    const fill = fillSingleBox(remaining, box);
+    if (!fill.packed.length) continue;
+
+    if (!chosen) {
+      chosen = { box, fill };
+      continue;
+    }
+
+    const chosenUtil = chosen.fill.usedVol / Math.max(chosen.box.vol, 1);
+    const nextUtil = fill.usedVol / Math.max(box.vol, 1);
+    const chosenWeightUtil = chosen.fill.usedKg / Math.max(getBoxMaxKg(chosen.box), 1);
+    const nextWeightUtil = fill.usedKg / Math.max(getBoxMaxKg(box), 1);
+
+    // Prefer box that packs more items. On tie, prefer better utilization, then smaller box.
+    if (
+      fill.packed.length > chosen.fill.packed.length ||
+      (fill.packed.length === chosen.fill.packed.length &&
+        (nextUtil > chosenUtil ||
+          (nextUtil === chosenUtil &&
+            (nextWeightUtil > chosenWeightUtil ||
+              (nextWeightUtil === chosenWeightUtil && box.vol < chosen.box.vol)))))
+    ) {
+      chosen = { box, fill };
+    }
+  }
+  return chosen;
+};
+
+const buildAutoPlan = (items, boxesAsc) => {
+  if (!Array.isArray(items) || !items.length) {
     return {
       boxInstances: [],
       summary: [],
       totalBoxes: 0,
-      impossibleItems: [],
-      selectedUsage: null,
-      recommendedBox: null
+      impossibleItems: []
     };
   }
 
@@ -79,28 +108,11 @@ const buildAdaptivePlan = (items, selectedBox, boxesAsc) => {
   }
 
   const instances = [];
-  const firstFill = fillSingleBox(remaining, selectedBox);
-  if (firstFill.packed.length > 0) {
-    instances.push({
-      box: selectedBox,
-      usedVol: firstFill.usedVol,
-      usedKg: firstFill.usedKg,
-      countItems: firstFill.packed.length
-    });
-    remaining = firstFill.remaining;
-  }
 
   let guard = 0;
   while (remaining.length > 0 && guard < 10000) {
     guard += 1;
-    let chosen = null;
-    for (const box of boxesAsc) {
-      const fill = fillSingleBox(remaining, box);
-      if (fill.packed.length > 0) {
-        chosen = { box, fill };
-        break;
-      }
-    }
+    const chosen = pickBestBoxForRemaining(remaining, boxesAsc);
 
     if (!chosen) {
       impossible.push(...remaining);
@@ -130,33 +142,11 @@ const buildAdaptivePlan = (items, selectedBox, boxesAsc) => {
     summaryMap.get(key).count += 1;
   });
 
-  let recommendedBox = null;
-  if (impossible.length === 0 && items.length > 0) {
-    for (const box of boxesAsc) {
-      const fit = fillSingleBox(items, box);
-      if (fit.packed.length === items.length) {
-        recommendedBox = box;
-        break;
-      }
-    }
-  }
-  if (
-    !recommendedBox ||
-    recommendedBox.id === selectedBox.id ||
-    recommendedBox.vol >= selectedBox.vol
-  ) {
-    recommendedBox = null;
-  }
-
-  const selectedUsage = instances.find((inst) => inst.box.id === selectedBox.id) || null;
-
   return {
     boxInstances: instances,
     summary: Array.from(summaryMap.values()),
     totalBoxes: instances.length,
-    impossibleItems: impossible,
-    selectedUsage,
-    recommendedBox
+    impossibleItems: impossible
   };
 };
 
@@ -196,7 +186,6 @@ export default function ClientBoxEstimator() {
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [editMode, setEditMode] = useState(false);
-  const [selectedBoxId, setSelectedBoxId] = useState(null);
   const [warnings, setWarnings] = useState([]);
   const [savingId, setSavingId] = useState(null);
   const [message, setMessage] = useState('');
@@ -283,12 +272,6 @@ export default function ClientBoxEstimator() {
     [normalizedBoxes, mode]
   );
 
-  useEffect(() => {
-    if (!selectedBoxId) return;
-    const stillVisible = filteredBoxes.some((box) => box.id === selectedBoxId);
-    if (!stillVisible) setSelectedBoxId(null);
-  }, [filteredBoxes, selectedBoxId]);
-
   const selectedProducts = useMemo(
     () =>
       inventory
@@ -324,38 +307,17 @@ export default function ClientBoxEstimator() {
     return items;
   }, [selectedProducts]);
 
-  const selectedBox = useMemo(
-    () => filteredBoxes.find((box) => box.id === selectedBoxId) || null,
-    [filteredBoxes, selectedBoxId]
-  );
-
   const boxesAsc = useMemo(
     () => [...filteredBoxes].sort((a, b) => a.vol - b.vol),
     [filteredBoxes]
   );
 
   const livePlan = useMemo(
-    () => buildAdaptivePlan(expandedItems, selectedBox, boxesAsc),
-    [expandedItems, selectedBox, boxesAsc]
+    () => buildAutoPlan(expandedItems, boxesAsc),
+    [expandedItems, boxesAsc]
   );
 
-  const selectedBoxUtilization = useMemo(() => {
-    if (!selectedBox || !livePlan?.selectedUsage) {
-      return { volumePercent: 0, weightPercent: 0, boxCount: 0 };
-    }
-    return {
-      volumePercent:
-        selectedBox.vol > 0 ? (livePlan.selectedUsage.usedVol / selectedBox.vol) * 100 : 0,
-      weightPercent:
-        getBoxMaxKg(selectedBox) > 0
-          ? (livePlan.selectedUsage.usedKg / getBoxMaxKg(selectedBox)) * 100
-          : 0,
-      boxCount: livePlan.totalBoxes || 0
-    };
-  }, [selectedBox, livePlan]);
-
   const hasQtyToEstimate = selectedProducts.length > 0;
-  const needsBoxSelection = hasQtyToEstimate && !selectedBoxId;
 
   const handleQty = (id, value) => {
     if (value === '') {
@@ -409,9 +371,8 @@ export default function ClientBoxEstimator() {
 
   const runEstimate = () => {
     const warns = [];
-    if (!selectedBox) warns.push('Select one box before estimate.');
     if (!selectedProducts.length) warns.push('Adauga cel putin o cantitate.');
-    if (selectedBox && livePlan?.impossibleItems?.length) {
+    if (livePlan?.impossibleItems?.length) {
       warns.push('Unele produse nu incap in nicio cutie disponibila.');
     }
     setWarnings(warns);
@@ -455,51 +416,49 @@ export default function ClientBoxEstimator() {
       <div className="border rounded-lg p-3 space-y-2">
         <div className="flex items-center gap-2">
           <Calculator className="w-4 h-4 text-primary" />
-          <span className="text-sm font-semibold text-text-primary">Boxes</span>
+          <span className="text-sm font-semibold text-text-primary">Auto packing boxes</span>
         </div>
-        <div className="grid gap-2 md:grid-cols-3">
-          {filteredBoxes
-            .map((b) => (
-              <button
-                type="button"
-                key={b.id}
-                onClick={() => setSelectedBoxId(b.id)}
-                className={`border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50 text-left transition ${selectedBoxId === b.id ? 'border-primary ring-2 ring-primary/30' : 'border-gray-200'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <Box className="w-3 h-3 text-primary" />
-                  <span className="font-semibold text-text-primary truncate">{b.name}</span>
-                </div>
-                <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(b)} kg</div>
-                <div className="text-sm font-medium text-text-primary">{b.length_cm} × {b.width_cm} × {b.height_cm}</div>
-                {selectedBoxId === b.id && (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center gap-3">
-                      <ProgressCircle label="Volume fill" percent={selectedBoxUtilization.volumePercent} />
-                      <ProgressCircle label="Weight fill" percent={selectedBoxUtilization.weightPercent} />
-                      <div className="text-[11px] text-text-secondary">
-                        Est. boxes: <span className="font-semibold text-text-primary">{selectedBoxUtilization.boxCount || 0}</span>
-                      </div>
+        {!hasQtyToEstimate ? (
+          <div className="text-sm text-text-secondary">
+            Adauga cantitati in tabel si sistemul va aloca automat cutiile potrivite.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-xs text-text-secondary">
+              Plan: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {livePlan.boxInstances.map((inst, idx) => {
+                const volPct = inst.box.vol > 0 ? (inst.usedVol / inst.box.vol) * 100 : 0;
+                const kgPct = getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
+                return (
+                  <div
+                    key={`${inst.box.id}-${idx}`}
+                    className="border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50 border-gray-200"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Box className="w-3 h-3 text-primary" />
+                      <span className="font-semibold text-text-primary truncate">{inst.box.name} #{idx + 1}</span>
                     </div>
-                    {!!livePlan?.summary?.length && (
-                      <div className="text-[11px] text-text-secondary">
-                        Plan: {livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ')}
-                      </div>
-                    )}
-                    {!!livePlan?.recommendedBox && (
-                      <div className="text-[11px] text-emerald-700 font-medium">
-                        Recomandare: produsele incap in {livePlan.recommendedBox.name}.
-                      </div>
-                    )}
-                    {!!livePlan?.impossibleItems?.length && (
-                      <div className="text-[11px] text-red-600">
-                        {livePlan.impossibleItems.length} produse nu incap in nicio cutie.
-                      </div>
-                    )}
+                    <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(inst.box)} kg</div>
+                    <div className="text-sm font-medium text-text-primary">{inst.box.length_cm} × {inst.box.width_cm} × {inst.box.height_cm}</div>
+                    <div className="mt-2 flex items-center gap-3">
+                      <ProgressCircle label="Volume fill" percent={volPct} />
+                      <ProgressCircle label="Weight fill" percent={kgPct} />
+                    </div>
                   </div>
-                )}
-              </button>
-            ))}
+                );
+              })}
+            </div>
+            {!!livePlan?.impossibleItems?.length && (
+              <div className="text-[11px] text-red-600">
+                {livePlan.impossibleItems.length} produse nu incap in nicio cutie.
+              </div>
+            )}
+          </div>
+        )}
+        <div className="pt-1 text-[11px] text-text-secondary">
+          Tipuri disponibile: {filteredBoxes.map((b) => b.name).join(', ')}
         </div>
       </div>
 
@@ -514,8 +473,7 @@ export default function ClientBoxEstimator() {
           />
           <button
             onClick={runEstimate}
-            disabled={!selectedBoxId}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-2 bg-primary text-white rounded hover:bg-primary-dark text-sm"
           >
             <Calculator className="w-4 h-4" /> Estimate boxes
           </button>
@@ -528,11 +486,6 @@ export default function ClientBoxEstimator() {
           </button>
         </div>
         {message && <div className="text-sm text-primary mb-2">{message}</div>}
-        {needsBoxSelection && (
-          <div className="text-sm text-red-600 mb-2">
-            Selecteaza cutia dorita inainte sa estimezi.
-          </div>
-        )}
 
         {warnings.length > 0 && (
           <div className="text-sm text-red-600 mb-2">
