@@ -2854,9 +2854,7 @@ serve(async (req) => {
               );
             } else if (weightLb >= SPD_WARN_WEIGHT_LB) {
               spdWarnings.push(
-                `Shipment ${cfg?.shipmentId || cfgIdx + 1} pachet ${pkgIdx + 1}: pachetul cântărește peste 15 kg (${lbToKg(
-                  weightLb
-                ).toFixed(2)} kg ≥ 15 kg) și necesită eticheta "Heavy package".`
+                `Atenționare Heavy Parcel: cutiile peste 15 kg necesită etichete "Heavy package" pe toate laturile vizibile.`
               );
             }
 
