@@ -28,6 +28,11 @@ const getBoxMaxKg = (box) => {
   return Math.min(raw, MAX_BOX_KG);
 };
 
+const is60Cube = (box) =>
+  Number(box?.length_cm) === 60 && Number(box?.width_cm) === 60 && Number(box?.height_cm) === 60;
+
+const getBoxPriceEur = (box) => (is60Cube(box) ? 6 : 3);
+
 const canFitItemInBox = (item, box) =>
   canFit(item.dims, box) && item.vol <= box.vol && item.kg <= getBoxMaxKg(box);
 
@@ -58,35 +63,14 @@ const fillSingleBox = (items, box) => {
   };
 };
 
-const pickBestBoxForRemaining = (remaining, boxesAsc) => {
-  let chosen = null;
+const pickFirstFittingBoxFromSmallest = (remaining, boxesAsc) => {
   for (const box of boxesAsc) {
     const fill = fillSingleBox(remaining, box);
-    if (!fill.packed.length) continue;
-
-    if (!chosen) {
-      chosen = { box, fill };
-      continue;
-    }
-
-    const chosenUtil = chosen.fill.usedVol / Math.max(chosen.box.vol, 1);
-    const nextUtil = fill.usedVol / Math.max(box.vol, 1);
-    const chosenWeightUtil = chosen.fill.usedKg / Math.max(getBoxMaxKg(chosen.box), 1);
-    const nextWeightUtil = fill.usedKg / Math.max(getBoxMaxKg(box), 1);
-
-    // Prefer box that packs more items. On tie, prefer better utilization, then smaller box.
-    if (
-      fill.packed.length > chosen.fill.packed.length ||
-      (fill.packed.length === chosen.fill.packed.length &&
-        (nextUtil > chosenUtil ||
-          (nextUtil === chosenUtil &&
-            (nextWeightUtil > chosenWeightUtil ||
-              (nextWeightUtil === chosenWeightUtil && box.vol < chosen.box.vol)))))
-    ) {
-      chosen = { box, fill };
+    if (fill.packed.length > 0) {
+      return { box, fill };
     }
   }
-  return chosen;
+  return null;
 };
 
 const buildAutoPlan = (items, boxesAsc) => {
@@ -108,11 +92,38 @@ const buildAutoPlan = (items, boxesAsc) => {
   }
 
   const instances = [];
+  const preferred60 = boxesAsc.find((b) => is60Cube(b)) || boxesAsc[boxesAsc.length - 1] || null;
+
+  // Phase 1: keep allocating 60x60x60 while the created box is fully utilized.
+  if (preferred60) {
+    let guard60 = 0;
+    while (remaining.length > 0 && guard60 < 10000) {
+      guard60 += 1;
+      const fill60 = fillSingleBox(remaining, preferred60);
+      if (!fill60.packed.length) break;
+      const volPct = preferred60.vol > 0 ? (fill60.usedVol / preferred60.vol) * 100 : 0;
+      const kgPct =
+        getBoxMaxKg(preferred60) > 0
+          ? (fill60.usedKg / getBoxMaxKg(preferred60)) * 100
+          : 0;
+      const completed60 = isBoxCompleted(volPct, kgPct);
+      instances.push({
+        box: preferred60,
+        usedVol: fill60.usedVol,
+        usedKg: fill60.usedKg,
+        countItems: fill60.packed.length
+      });
+      remaining = fill60.remaining;
+
+      // After the first non-complete 60x60x60, continue with adaptive smaller boxes.
+      if (!completed60) break;
+    }
+  }
 
   let guard = 0;
   while (remaining.length > 0 && guard < 10000) {
     guard += 1;
-    const chosen = pickBestBoxForRemaining(remaining, boxesAsc);
+    const chosen = pickFirstFittingBoxFromSmallest(remaining, boxesAsc);
 
     if (!chosen) {
       impossible.push(...remaining);
@@ -325,17 +336,20 @@ export default function ClientBoxEstimator() {
       const volumePercent = inst.box.vol > 0 ? (inst.usedVol / inst.box.vol) * 100 : 0;
       const weightPercent =
         getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
+      const costEur = getBoxPriceEur(inst.box);
       return {
         index: idx,
         inst,
         volumePercent,
         weightPercent,
-        completed: isBoxCompleted(volumePercent, weightPercent)
+        completed: isBoxCompleted(volumePercent, weightPercent),
+        costEur
       };
     });
     const completed = stats.filter((s) => s.completed).length;
     const partial = stats.length - completed;
-    return { stats, completed, partial, total: stats.length };
+    const totalCostEur = stats.reduce((sum, s) => sum + s.costEur, 0);
+    return { stats, completed, partial, total: stats.length, totalCostEur };
   }, [livePlan]);
 
   const handleQty = (id, value) => {
@@ -438,8 +452,11 @@ export default function ClientBoxEstimator() {
             <div className="text-xs text-text-secondary">
               Plan: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
             </div>
+            <div className="text-xs font-medium text-text-primary">
+              Total cost: €{planStats.totalCostEur.toFixed(2)}
+            </div>
             <div className="grid gap-2 md:grid-cols-3">
-              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed }) => {
+              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur }) => {
                 return (
                   <div
                     key={`${inst.box.id}-${index}`}
@@ -451,6 +468,7 @@ export default function ClientBoxEstimator() {
                     </div>
                     <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(inst.box)} kg</div>
                     <div className="text-sm font-medium text-text-primary">{inst.box.length_cm} × {inst.box.width_cm} × {inst.box.height_cm}</div>
+                    <div className="text-[11px] text-text-secondary">Cost: €{costEur.toFixed(2)}</div>
                     <div className="mt-2 flex items-center gap-3">
                       <ProgressCircle label="Volume fill" percent={volumePercent} />
                       <ProgressCircle label="Weight fill" percent={weightPercent} />
