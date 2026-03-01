@@ -177,6 +177,8 @@ function ProgressCircle({ label, percent }) {
   );
 }
 
+const isBoxCompleted = (volPct, kgPct) => volPct >= 99 || kgPct >= 99;
+
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
   const [inventory, setInventory] = useState([]);
@@ -319,6 +321,24 @@ export default function ClientBoxEstimator() {
 
   const hasQtyToEstimate = selectedProducts.length > 0;
 
+  const planStats = useMemo(() => {
+    const stats = (livePlan.boxInstances || []).map((inst, idx) => {
+      const volumePercent = inst.box.vol > 0 ? (inst.usedVol / inst.box.vol) * 100 : 0;
+      const weightPercent =
+        getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
+      return {
+        index: idx,
+        inst,
+        volumePercent,
+        weightPercent,
+        completed: isBoxCompleted(volumePercent, weightPercent)
+      };
+    });
+    const completed = stats.filter((s) => s.completed).length;
+    const partial = stats.length - completed;
+    return { stats, completed, partial, total: stats.length };
+  }, [livePlan]);
+
   const handleQty = (id, value) => {
     if (value === '') {
       setSelection((prev) => {
@@ -424,28 +444,35 @@ export default function ClientBoxEstimator() {
           </div>
         ) : (
           <div className="space-y-2">
+            <div className="text-xs font-medium text-text-primary">
+              {planStats.completed} boxes completed
+              {planStats.partial > 0 ? `, ${planStats.partial} partial` : ''}
+            </div>
             <div className="text-xs text-text-secondary">
               Plan: {livePlan.summary.length ? livePlan.summary.map((s) => `${s.count}× ${s.box.name}`).join(' + ') : '—'}
             </div>
             <div className="grid gap-2 md:grid-cols-3">
-              {livePlan.boxInstances.map((inst, idx) => {
-                const volPct = inst.box.vol > 0 ? (inst.usedVol / inst.box.vol) * 100 : 0;
-                const kgPct = getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
+              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed }) => {
                 return (
                   <div
-                    key={`${inst.box.id}-${idx}`}
-                    className="border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50 border-gray-200"
+                    key={`${inst.box.id}-${index}`}
+                    className={`border rounded-md p-2 flex flex-col gap-1 text-xs bg-gray-50 ${completed ? 'border-emerald-300' : 'border-amber-300'}`}
                   >
                     <div className="flex items-center gap-2">
                       <Box className="w-3 h-3 text-primary" />
-                      <span className="font-semibold text-text-primary truncate">{inst.box.name} #{idx + 1}</span>
+                      <span className="font-semibold text-text-primary truncate">{inst.box.name} #{index + 1}</span>
                     </div>
                     <div className="text-[11px] text-text-secondary">max {getBoxMaxKg(inst.box)} kg</div>
                     <div className="text-sm font-medium text-text-primary">{inst.box.length_cm} × {inst.box.width_cm} × {inst.box.height_cm}</div>
                     <div className="mt-2 flex items-center gap-3">
-                      <ProgressCircle label="Volume fill" percent={volPct} />
-                      <ProgressCircle label="Weight fill" percent={kgPct} />
+                      <ProgressCircle label="Volume fill" percent={volumePercent} />
+                      <ProgressCircle label="Weight fill" percent={weightPercent} />
                     </div>
+                    {!completed && (
+                      <div className="text-[11px] text-amber-700 font-medium">
+                        Partial box: {Math.round(Math.max(volumePercent, weightPercent))}% filled
+                      </div>
+                    )}
                   </div>
                 );
               })}
