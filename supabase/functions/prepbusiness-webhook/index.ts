@@ -139,6 +139,17 @@ function isMissingColumnError(error: any, column: string) {
   return message.includes(needle) || details.includes(needle) || hint.includes(needle);
 }
 
+function isStockPairDuplicateError(error: any) {
+  const code = String(error?.code || "").trim();
+  const message = String(error?.message || "").toLowerCase();
+  const details = String(error?.details || "").toLowerCase();
+  return (
+    code === "23505" ||
+    message.includes("stock_items_company_sku_asin_key") ||
+    details.includes("stock_items_company_sku_asin_key")
+  );
+}
+
 async function resolveMerchantContext(payload: Record<string, unknown>) {
   const merchantId =
     normalizeText(payload.merchant_id) ||
@@ -287,7 +298,21 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
     .insert(payload)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (isStockPairDuplicateError(error)) {
+      const { data: existingAfterConflict } = await supabase
+        .from("stock_items")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("asin", asin)
+        .eq("sku", sku)
+        .maybeSingle();
+      if (existingAfterConflict) {
+        return await maybeUpdateName(existingAfterConflict as Record<string, unknown>);
+      }
+    }
+    throw error;
+  }
   return created;
 }
 

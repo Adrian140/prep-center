@@ -65,6 +65,16 @@ const receivingImportColumnMissing = (error) =>
   ['import_source', 'import_source_ref', 'import_tags'].some((col) =>
     isMissingColumnError(error, col)
   );
+const isStockPairDuplicateError = (error) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  const details = String(error?.details || '').toLowerCase();
+  return (
+    code === '23505' ||
+    message.includes('stock_items_company_sku_asin_key') ||
+    details.includes('stock_items_company_sku_asin_key')
+  );
+};
 
 const normalizeCode = (value) =>
   typeof value === 'string' ? value.trim() : value ?? null;
@@ -257,7 +267,21 @@ const ensureStockItemForPrepBusiness = async (companyId, userId, item) => {
     .insert(payload)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (isStockPairDuplicateError(error)) {
+      const { data: existingAfterConflict } = await supabase
+        .from('stock_items')
+        .select('*')
+        .eq('company_id', companyId)
+        .eq('asin', asin)
+        .eq('sku', sku)
+        .maybeSingle();
+      if (existingAfterConflict) {
+        return await maybeUpdateName(existingAfterConflict);
+      }
+    }
+    throw error;
+  }
   return created;
 };
 
