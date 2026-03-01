@@ -61,6 +61,7 @@ function SupabaseDashboard() {
   const validTabs = [
     'activity',
     'stock',
+    'box-estimator',
     'exports',
     'profile',
     'billing',
