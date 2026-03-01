@@ -100,14 +100,13 @@ function ProgressCircle({ label, percent }) {
 
 export default function ClientBoxEstimator() {
   const { profile } = useSupabaseAuth();
-  const { t, tp } = useDashboardTranslation();
+  const { t } = useDashboardTranslation();
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
   const [selection, setSelection] = useState({});
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [selectedBoxId, setSelectedBoxId] = useState(null);
-  const [results, setResults] = useState([]);
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -275,26 +274,14 @@ export default function ClientBoxEstimator() {
     if (!selectedBox) warns.push('Select one box before estimate.');
     setWarnings(warns);
     if (warns.length > 0 || selectedProducts.length === 0) {
-      setResults([]);
       return;
     }
 
     const packed = packItemsFirstFitDecreasing(expandedItems, selectedBox);
     if (packed.tooLarge.length > 0) {
       setWarnings(['Some products cannot fit in the selected box.']);
-      setResults([]);
       return;
     }
-    setResults([
-      {
-        name: selectedBox.name,
-        l: selectedBox.length_cm,
-        w: selectedBox.width_cm,
-        h: selectedBox.height_cm,
-        kg: selectedBox.max_kg,
-        count: packed.bins.length
-      }
-    ]);
   };
 
   return (
@@ -361,23 +348,6 @@ export default function ClientBoxEstimator() {
               </button>
             ))}
         </div>
-      </div>
-
-      <div className="border rounded-lg p-3">
-        <h3 className="text-sm font-semibold text-text-primary mb-2">{t('BoxEstimator.summaryTitle')}</h3>
-        {results.length === 0 ? (
-          <p className="text-sm text-text-secondary">{t('BoxEstimator.summaryNone')}</p>
-        ) : (
-          <div className="space-y-1 text-sm">
-            {results.map((r, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="font-semibold">
-                  {tp('BoxEstimator.summaryLine', { count: r.count, name: r.name, l: r.l, w: r.w, h: r.h, kg: r.kg })}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="border rounded-lg p-3">
