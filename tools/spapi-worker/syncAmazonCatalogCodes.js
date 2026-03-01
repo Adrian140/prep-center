@@ -592,12 +592,47 @@ async function mapWithConcurrency(items, limit, worker) {
 async function insertAsinEans(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
+  const stripFields = (list, fieldsToRemove) =>
+    list.map((row) => {
+      const next = { ...row };
+      fieldsToRemove.forEach((field) => {
+        delete next[field];
+      });
+      return next;
+    });
+
+  const isMissingColumnError = (error, columnName) =>
+    String(error?.message || '')
+      .toLowerCase()
+      .includes(`could not find the '${String(columnName || '').toLowerCase()}' column`);
+
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize);
-    const { error } = await supabase
-      .from('asin_eans')
-      .upsert(chunk, { onConflict: 'user_id,asin,ean', ignoreDuplicates: true });
-    if (error) throw error;
+    const attempts = [
+      { data: chunk, label: 'full' },
+      { data: stripFields(chunk, ['confidence']), label: 'no_confidence' },
+      { data: stripFields(chunk, ['source']), label: 'no_source' },
+      { data: stripFields(chunk, ['source', 'confidence']), label: 'no_source_confidence' }
+    ];
+
+    let lastError = null;
+    let done = false;
+    for (const attempt of attempts) {
+      const { error } = await supabase
+        .from('asin_eans')
+        .upsert(attempt.data, { onConflict: 'user_id,asin,ean', ignoreDuplicates: true });
+      if (!error) {
+        done = true;
+        break;
+      }
+      lastError = error;
+      const missingConfidence = isMissingColumnError(error, 'confidence');
+      const missingSource = isMissingColumnError(error, 'source');
+      if (!missingConfidence && !missingSource) {
+        break;
+      }
+    }
+    if (!done && lastError) throw lastError;
   }
 }
 
