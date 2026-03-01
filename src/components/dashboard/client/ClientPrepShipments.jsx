@@ -1546,7 +1546,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                           <span className="font-medium">{svc.service_name}</span>
                                           <span className="text-text-secondary">
                                             {' '}
-                                            × {Number(svc.units || 0)} × {formatMoney2(svc.unit_price || 0)}
+                                            × {Number(svc.units || 0)} {Number(svc.units || 0) === 1 ? 'box' : 'boxes'}
                                           </span>
                                         </span>
                                         <span className="shrink-0 text-right font-medium">
