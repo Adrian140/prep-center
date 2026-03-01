@@ -399,6 +399,19 @@ export default function ClientBoxEstimator() {
     setSelection((prev) => ({ ...prev, [id]: qty }));
   };
 
+  const handleAutoFillFromStock = () => {
+    const nextSelection = {};
+    let filledProducts = 0;
+    for (const item of inventory || []) {
+      const qty = Math.max(0, Number(item?.qty || 0));
+      if (!qty) continue;
+      nextSelection[item.id] = qty;
+      filledProducts += 1;
+    }
+    setSelection(nextSelection);
+    setMessage(tp('BoxEstimator.autoFillDone', { count: filledProducts }));
+  };
+
   const handleDimChange = (id, field, value) => {
     setDimsDraft((prev) => ({
       ...prev,
@@ -576,6 +589,13 @@ export default function ClientBoxEstimator() {
             className={`inline-flex items-center gap-2 px-3 py-2 rounded text-sm border ${editMode ? 'bg-amber-50 border-amber-300 text-amber-800' : 'bg-white border-gray-300 text-text-primary'}`}
           >
             {editMode ? t('BoxEstimator.disableEdit') : t('BoxEstimator.enableEdit')}
+          </button>
+          <button
+            type="button"
+            onClick={handleAutoFillFromStock}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded text-sm border border-primary bg-primary text-white hover:opacity-90"
+          >
+            {t('BoxEstimator.autoFillFromStock')}
           </button>
         </div>
         {message && <div className="text-sm text-primary mb-2">{message}</div>}
