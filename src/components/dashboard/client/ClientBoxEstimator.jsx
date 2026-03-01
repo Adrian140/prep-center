@@ -159,6 +159,15 @@ export default function ClientBoxEstimator() {
     });
   }, [inventory, search]);
 
+  const filteredSorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const aQty = Number(a?.qty || 0);
+      const bQty = Number(b?.qty || 0);
+      if (bQty !== aQty) return bQty - aQty;
+      return String(a?.name || '').localeCompare(String(b?.name || ''));
+    });
+  }, [filtered]);
+
   const normalizedBoxes = useMemo(
     () =>
       (boxes || []).map((b) => ({
@@ -242,6 +251,14 @@ export default function ClientBoxEstimator() {
   }, [selectedBox, expandedItems]);
 
   const handleQty = (id, value) => {
+    if (value === '') {
+      setSelection((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
     const qty = Math.max(0, Number(value) || 0);
     setSelection((prev) => ({ ...prev, [id]: qty }));
   };
@@ -390,7 +407,8 @@ export default function ClientBoxEstimator() {
                 <th className="px-2 py-2 text-left">Photo</th>
                 <th className="px-2 py-2 text-left">ASIN / SKU</th>
                 <th className="px-2 py-2 text-left">Name</th>
-                <th className="px-2 py-2 text-right">Qty</th>
+                <th className="px-2 py-2 text-right">Stock PrepCenter</th>
+                <th className="px-2 py-2 text-right">Qty to estimate</th>
                 <th className="px-2 py-2 text-right">L (cm)</th>
                 <th className="px-2 py-2 text-right">W (cm)</th>
                 <th className="px-2 py-2 text-right">H (cm)</th>
@@ -399,11 +417,11 @@ export default function ClientBoxEstimator() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} className="px-2 py-4 text-center">Loading…</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="px-2 py-4 text-center">No products</td></tr>
+                <tr><td colSpan={9} className="px-2 py-4 text-center">Loading…</td></tr>
+              ) : filteredSorted.length === 0 ? (
+                <tr><td colSpan={9} className="px-2 py-4 text-center">No products</td></tr>
               ) : (
-                filtered.map((item) => {
+                filteredSorted.map((item) => {
                   return (
                     <tr key={item.id} className="border-t">
                       <td className="px-2 py-2">
@@ -420,13 +438,14 @@ export default function ClientBoxEstimator() {
                         )}
                       </td>
                       <td className="px-2 py-2 font-mono">{item.asin || item.sku || '—'}</td>
-                      <td className="px-2 py-2">{item.name || '—'}</td>
+                      <td className="px-2 py-2 max-w-[260px] truncate">{item.name || '—'}</td>
+                      <td className="px-2 py-2 text-right">{Number(item.qty || 0)}</td>
                       <td className="px-2 py-2 text-right">
                         <input
                           type="number"
                           min={0}
                           className="border rounded px-2 py-1 w-16 text-right"
-                          value={selection[item.id] ?? 0}
+                          value={selection[item.id] ?? ''}
                           onChange={(e) => handleQty(item.id, e.target.value)}
                         />
                       </td>
