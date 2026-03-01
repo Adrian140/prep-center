@@ -1,0 +1,45 @@
+name: Sync Amazon Catalog Dimensions (ASIN dimensions)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: sync-amazon-catalog-dimensions
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (spapi-worker)
+        working-directory: tools/spapi-worker
+        run: npm ci
+
+      - name: Run catalog dimensions sync
+        working-directory: tools/spapi-worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          SPAPI_LWA_CLIENT_ID: ${{ secrets.SPAPI_LWA_CLIENT_ID }}
+          SPAPI_LWA_CLIENT_SECRET: ${{ secrets.SPAPI_LWA_CLIENT_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SPAPI_ROLE_ARN: ${{ secrets.SPAPI_ROLE_ARN }}
+          SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
+          SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
+          # Optional: set to a single marketplace ID for focused testing.
+          SPAPI_CATALOG_DIM_MARKETPLACE_ID: ${{ secrets.SPAPI_CATALOG_DIM_MARKETPLACE_ID || '' }}
+          # Default scope: DE, FR, IT, ES
+          SPAPI_CATALOG_DIM_MARKETPLACE_IDS: ${{ secrets.SPAPI_CATALOG_DIM_MARKETPLACE_IDS || 'A1PA6795UKMFR9,A13V1IB3VIYZZH,APJ6JRA9NG5V4,A1RKKUPIHCS9HS' }}
+          # 0 means unlimited in this script.
+          SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN || '0' }}
+          SPAPI_CATALOG_DIM_ASINS_PER_RUN: ${{ secrets.SPAPI_CATALOG_DIM_ASINS_PER_RUN || '0' }}
+        run: npm run sync-amazon-catalog-dimensions
