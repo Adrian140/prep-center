@@ -114,6 +114,40 @@ const formatMoney2 = (value) => {
   return num.toFixed(2);
 };
 
+const HEAVY_PARCEL_THRESHOLD_KG = 15;
+const HEAVY_PARCEL_LABELS_PER_BOX = 5;
+const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
+const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
+
+const computeHeavyParcelFromStep1Plan = (step1BoxPlan, marketCode = 'FR') => {
+  const normalizedMarket = normalizeCountryCode(marketCode, 'FR');
+  const root = step1BoxPlan && typeof step1BoxPlan === 'object' ? step1BoxPlan : {};
+  const marketPlan =
+    root?.[normalizedMarket] && typeof root[normalizedMarket] === 'object'
+      ? root[normalizedMarket]
+      : root;
+  const groups = marketPlan?.groups && typeof marketPlan.groups === 'object'
+    ? Object.values(marketPlan.groups)
+    : [];
+  let heavyBoxes = 0;
+  groups.forEach((group) => {
+    const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+    boxes.forEach((box) => {
+      const weight = Number(box?.weight_kg ?? box?.weight ?? 0);
+      if (Number.isFinite(weight) && weight > HEAVY_PARCEL_THRESHOLD_KG) {
+        heavyBoxes += 1;
+      }
+    });
+  });
+  const labels = heavyBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
+  return {
+    heavyBoxes,
+    labels,
+    unitPrice: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+    total: labels * HEAVY_PARCEL_LABEL_UNIT_PRICE
+  };
+};
+
 const firstFiniteNumber = (candidates = []) => {
   for (const value of candidates) {
     const num = Number(value);
@@ -532,7 +566,8 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
         amazon_destination_code: data.amazon_destination_code || null,
         amazon_delivery_window: data.amazon_delivery_window || null,
         amazon_last_updated: data.amazon_last_updated || null,
-        amazon_snapshot: data.amazon_snapshot || null
+        amazon_snapshot: data.amazon_snapshot || null,
+        step1_box_plan: data.step1_box_plan || null
       });
       const lines = Array.isArray(data.prep_request_items) ? data.prep_request_items : [];
       setReqLines(
@@ -841,18 +876,36 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       current.total += qty * safePrice;
       boxServiceGroupsMap.set(key, current);
     });
-    const boxServiceGroups = Array.from(boxServiceGroupsMap.values());
+    const allBoxServiceGroups = Array.from(boxServiceGroupsMap.values());
+    const heavyFromServices = allBoxServiceGroups.find(
+      (svc) => String(svc?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME
+    );
+    const boxServiceGroups = allBoxServiceGroups.filter(
+      (svc) => String(svc?.service_name || '').trim() !== HEAVY_PARCEL_SERVICE_NAME
+    );
     const boxServicesTotal = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.total || 0), 0);
+    const requestMarket = normalizeCountryCode(reqHeader?.warehouse_country || reqHeader?.destination_country || currentMarket || 'FR');
+    const heavyFromPlan = computeHeavyParcelFromStep1Plan(reqHeader?.step1_box_plan, requestMarket);
+    const heavyLabelsCount = heavyFromServices
+      ? Number(heavyFromServices.units || 0)
+      : Number(heavyFromPlan.labels || 0);
+    const heavyUnitPrice = heavyFromServices
+      ? Number(heavyFromServices.unit_price || HEAVY_PARCEL_LABEL_UNIT_PRICE)
+      : HEAVY_PARCEL_LABEL_UNIT_PRICE;
+    const heavyLabelsTotal = heavyLabelsCount * heavyUnitPrice;
 
     return {
       totalUnitsExpected,
       totalUnitsLocated,
       prepServicesTotal,
       boxServicesTotal,
-      grandTotal: prepServicesTotal + boxServicesTotal,
+      heavyLabelsCount,
+      heavyLabelsTotal,
+      heavyUnitPrice,
+      grandTotal: prepServicesTotal + boxServicesTotal + heavyLabelsTotal,
       boxServiceGroups
     };
-  }, [reqLines, reqBoxServices]);
+  }, [reqLines, reqBoxServices, reqHeader?.step1_box_plan, reqHeader?.warehouse_country, reqHeader?.destination_country, currentMarket]);
   const headerShipmentIds = reqStep2Shipments.length
     ? reqStep2Shipments
         .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
@@ -1510,7 +1563,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                               <td className="px-2 py-2 text-center text-text-secondary">Box</td>
                               <td className="px-2 py-2 font-semibold text-text-primary">Billed boxes</td>
                               <td className="px-2 py-2 align-top">
-                                {reqTotals.boxServiceGroups.length > 0 ? (
+                                {reqTotals.boxServiceGroups.length > 0 || Number(reqTotals.heavyLabelsCount || 0) > 0 ? (
                                   <div className="space-y-1 text-xs">
                                     {reqTotals.boxServiceGroups.map((svc, idx) => (
                                       <div key={`box-total-${idx}`} className="flex items-start justify-between gap-3">
@@ -1527,9 +1580,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                       </div>
                                     ))}
                                     <div className="border-t pt-1 flex items-center justify-between gap-3">
-                                      <span className="text-text-secondary">Total box cost</span>
+                                      <span className="text-text-secondary">
+                                        {HEAVY_PARCEL_SERVICE_NAME}
+                                      </span>
                                       <span className="font-semibold text-right">
-                                        = {formatMoney2(reqTotals.boxServicesTotal)} EUR
+                                        = {Number(reqTotals.heavyLabelsCount || 0)} × {formatMoney2(reqTotals.heavyUnitPrice || 0)} = {formatMoney2(reqTotals.heavyLabelsTotal || 0)} EUR
                                       </span>
                                     </div>
                                   </div>
@@ -1547,7 +1602,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                               <td className="px-2 py-2 font-semibold text-text-primary">Grand total</td>
                               <td className="px-2 py-2 align-top">
                                 <div className="text-xs flex items-center justify-between gap-3">
-                                  <span className="text-text-secondary">SKU + boxes</span>
+                                  <span className="text-text-secondary">SKU + boxes + labels</span>
                                   <span className="font-semibold text-right">
                                     = {formatMoney2(reqTotals.grandTotal)} EUR
                                   </span>

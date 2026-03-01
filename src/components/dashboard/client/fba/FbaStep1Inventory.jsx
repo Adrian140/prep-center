@@ -696,12 +696,38 @@ export default function FbaStep1Inventory({
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
   const MAX_STANDARD_BOX_KG = 23;
   const MAX_STANDARD_BOX_CM = 63.5;
+  const HEAVY_PARCEL_THRESHOLD_KG = 15;
+  const HEAVY_PARCEL_LABELS_PER_BOX = 5;
+  const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
+  const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
 
   const safeBoxPlan = useMemo(() => {
     const raw = boxPlan && typeof boxPlan === 'object' ? boxPlan : {};
     const groups = raw?.groups && typeof raw.groups === 'object' ? raw.groups : {};
     return { groups };
   }, [boxPlan]);
+  const heavyParcelPreview = useMemo(() => {
+    const groups = safeBoxPlan?.groups && typeof safeBoxPlan.groups === 'object'
+      ? Object.values(safeBoxPlan.groups)
+      : [];
+    let heavyBoxes = 0;
+    groups.forEach((group) => {
+      const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+      boxes.forEach((box) => {
+        const weight = Number(box?.weight_kg ?? box?.weight ?? 0);
+        if (Number.isFinite(weight) && weight > HEAVY_PARCEL_THRESHOLD_KG) {
+          heavyBoxes += 1;
+        }
+      });
+    });
+    const labels = heavyBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
+    return {
+      heavyBoxes,
+      labels,
+      unitPrice: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+      total: labels * HEAVY_PARCEL_LABEL_UNIT_PRICE
+    };
+  }, [safeBoxPlan, HEAVY_PARCEL_THRESHOLD_KG, HEAVY_PARCEL_LABELS_PER_BOX, HEAVY_PARCEL_LABEL_UNIT_PRICE]);
   useEffect(() => {
     const keys = Object.keys(safeBoxPlan.groups || {});
     const isSingle = keys.length === 1 && keys[0] === 'single-box';
@@ -2807,7 +2833,7 @@ export default function FbaStep1Inventory({
               {tr('addBox', '+ Add box')}
             </button>
           </div>
-          {boxServices.length === 0 && (
+          {boxServices.length === 0 && heavyParcelPreview.labels === 0 && (
             <div className="text-xs text-slate-500">{tr('noBoxServicesSelected')}</div>
           )}
           {boxServices.map((svc, idx) => {
@@ -2883,6 +2909,24 @@ export default function FbaStep1Inventory({
               </div>
             );
           })}
+          {heavyParcelPreview.labels > 0 &&
+            !boxServices.some((svc) => String(svc?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME) && (
+            <div className="flex flex-wrap items-center gap-3 border border-amber-200 bg-amber-50/40 rounded-md p-2">
+              <div className="text-xs min-w-[220px] font-medium text-slate-800">{HEAVY_PARCEL_SERVICE_NAME}</div>
+              <div className="text-xs text-slate-600">
+                {tr('unit')} <span className="font-semibold">{heavyParcelPreview.unitPrice.toFixed(2)}</span>
+              </div>
+              <div className="text-xs text-slate-600">
+                {tr('qty')} <span className="font-semibold">{heavyParcelPreview.labels}</span>
+              </div>
+              <div className="text-xs text-slate-600">
+                {tr('total')} <span className="font-semibold">{heavyParcelPreview.total.toFixed(2)}</span>
+              </div>
+              <div className="text-[11px] text-slate-500">
+                auto: {heavyParcelPreview.heavyBoxes} {heavyParcelPreview.heavyBoxes === 1 ? 'box' : 'boxes'} &gt; {HEAVY_PARCEL_THRESHOLD_KG} kg
+              </div>
+            </div>
+          )}
         </div>
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="font-semibold text-slate-900">{tr('boxDetailsStep1')}</div>

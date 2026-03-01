@@ -25,6 +25,32 @@ const getFiniteNumber = (val) => {
   return Number.isFinite(num) ? num : null;
 };
 
+const HEAVY_PARCEL_THRESHOLD_KG = 15;
+const HEAVY_PARCEL_LABELS_PER_BOX = 5;
+const HEAVY_PARCEL_LABEL_UNIT_PRICE = 0.2;
+const HEAVY_PARCEL_SERVICE_NAME = 'Heavy Parcel pack of 5';
+
+const computeHeavyParcelFromBoxPlan = (plan) => {
+  const groups = plan?.groups && typeof plan.groups === 'object' ? Object.values(plan.groups) : [];
+  let heavyBoxes = 0;
+  groups.forEach((group) => {
+    const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+    boxes.forEach((box) => {
+      const weight = getPositiveNumber(box?.weight_kg ?? box?.weight ?? null);
+      if (weight && weight > HEAVY_PARCEL_THRESHOLD_KG) {
+        heavyBoxes += 1;
+      }
+    });
+  });
+  const labels = heavyBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
+  return {
+    heavyBoxes,
+    labels,
+    unitPrice: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+    total: labels * HEAVY_PARCEL_LABEL_UNIT_PRICE
+  };
+};
+
 const sumUnitsFromItems = (items) => {
   if (!Array.isArray(items)) return null;
   let sum = 0;
@@ -1989,8 +2015,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         item_type: 'box'
       });
     });
+
+    const heavyMeta = computeHeavyParcelFromBoxPlan(step1BoxPlanForMarket);
+    const hasHeavyAlready = rows.some(
+      (row) => row.item_type === 'box' && String(row?.service_name || '').trim() === HEAVY_PARCEL_SERVICE_NAME
+    );
+    if (!hasHeavyAlready && heavyMeta.labels > 0) {
+      rows.push({
+        request_id: requestId,
+        prep_request_item_id: null,
+        service_id: null,
+        service_name: HEAVY_PARCEL_SERVICE_NAME,
+        unit_price: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+        units: heavyMeta.labels,
+        item_type: 'box'
+      });
+    }
     return rows;
-  }, []);
+  }, [step1BoxPlanForMarket]);
 
   const persistServicesToDb = useCallback(async () => {
     const requestId = resolveRequestId();
