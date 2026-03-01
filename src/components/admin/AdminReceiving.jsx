@@ -988,16 +988,10 @@ const checkStockMatches = async () => {
             </thead>
             <tbody>
               {items.map((item, idx) => {
-                const rawAsin =
-                  item.asin ||
-                  item.stock_item?.asin ||
-                  item.ean ||
-                  item.ean_asin ||
-                  null;
+                const asinValue = item.asin || item.stock_item?.asin || null;
                 const skuValue = item.sku || item.stock_item?.sku || null;
-                const primaryCode = rawAsin || skuValue || '—';
-                const secondaryCode =
-                  rawAsin && skuValue && skuValue !== rawAsin ? skuValue : null;
+                const eanValue = item.ean || item.stock_item?.ean || item.ean_asin || null;
+                const fnskuValue = item.fnsku || item.stock_item?.fnsku || null;
                 const productName = item.product_name || item.stock_item?.name || '—';
                 const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 const intent = resolveFbaIntent(item);
@@ -1061,10 +1055,24 @@ const checkStockMatches = async () => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-text-secondary">
-                      <div className="font-mono text-sm text-text-primary">{primaryCode}</div>
-                      {secondaryCode && (
-                        <div className="font-mono text-text-secondary">{secondaryCode}</div>
-                      )}
+                      <div className="space-y-1">
+                        <div>
+                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">ASIN:</span>{' '}
+                          <span className="font-mono text-sm text-text-primary">{asinValue || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">SKU:</span>{' '}
+                          <span className="font-mono text-text-secondary">{skuValue || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">EAN:</span>{' '}
+                          <span className="font-mono text-text-secondary">{eanValue || '—'}</span>
+                        </div>
+                        <div>
+                          <span className="text-[11px] uppercase tracking-wide text-text-secondary">FNSKU:</span>{' '}
+                          <span className="font-mono text-text-secondary">{fnskuValue || '—'}</span>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-text-primary">{productName}</div>
@@ -1319,9 +1327,14 @@ const filteredShipments = useMemo(() => {
       const hay = [
         item?.asin,
         item?.sku,
+        item?.fnsku,
         item?.product_name,
         item?.ean_asin,
-        item?.ean
+        item?.ean,
+        item?.stock_item?.asin,
+        item?.stock_item?.sku,
+        item?.stock_item?.ean,
+        item?.stock_item?.fnsku
       ]
         .filter(Boolean)
         .join(' ')
@@ -1523,7 +1536,7 @@ useEffect(() => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by reception #, tracking number, client, or email..."
+              placeholder="Search by reception #, tracking, client, email, ASIN, SKU, EAN, FNSKU..."
               className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-8"
             />
             {searchQuery && (
