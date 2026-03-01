@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Boxes, Calculator, Save, ShieldAlert, Box } from 'lucide-react';
+import { Boxes, Calculator, ShieldAlert, Box } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
 
 const defaultBoxes = [
   { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: 25, tag: 'standard' },
+  { id: 'box-60-cube', name: 'Box 60×60×60', length_cm: 60, width_cm: 60, height_cm: 60, max_kg: 25, tag: 'standard' },
   { id: 'box-42', name: 'Box 42×42×42', length_cm: 42, width_cm: 42, height_cm: 42, max_kg: 20, tag: 'standard' },
   { id: 'box-30', name: 'Box 30×30×30', length_cm: 30, width_cm: 30, height_cm: 30, max_kg: 20, tag: 'standard' }
 ];
@@ -25,15 +26,12 @@ export default function ClientBoxEstimator() {
   const { t, tp } = useDashboardTranslation();
   const [inventory, setInventory] = useState([]);
   const [search, setSearch] = useState('');
-  const [dimsDraft, setDimsDraft] = useState({});
   const [selection, setSelection] = useState({});
   const [boxes, setBoxes] = useState([]);
   const [mode, setMode] = useState('standard'); // 'standard' | 'dg'
   const [results, setResults] = useState([]);
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState(null);
-  const [message, setMessage] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -83,44 +81,6 @@ export default function ClientBoxEstimator() {
     });
   }, [inventory, search]);
 
-  const handleDimChange = (id, field, value) => {
-    setDimsDraft((prev) => ({
-      ...prev,
-      [id]: { ...(prev[id] || {}), [field]: value }
-    }));
-  };
-
-  const saveDims = async (item) => {
-    if (!item?.id) return;
-    const draft = dimsDraft[item.id] || {};
-    const payload = {
-      length_cm: draft.length_cm ?? item.length_cm ?? null,
-      width_cm: draft.width_cm ?? item.width_cm ?? null,
-      height_cm: draft.height_cm ?? item.height_cm ?? null,
-      weight_kg: draft.weight_kg ?? item.weight_kg ?? null
-    };
-    setSavingId(item.id);
-    setMessage('');
-    const { error } = await supabase
-      .from('stock_items')
-      .update(payload)
-      .eq('id', item.id);
-    if (!error) {
-      setInventory((prev) =>
-        prev.map((row) => (row.id === item.id ? { ...row, ...payload } : row))
-      );
-      setDimsDraft((prev) => {
-        const next = { ...prev };
-        delete next[item.id];
-        return next;
-      });
-      setMessage('Dimensions saved.');
-    } else {
-      setMessage(error.message || 'Failed to save dimensions.');
-    }
-    setSavingId(null);
-  };
-
   const handleQty = (id, value) => {
     const qty = Math.max(0, Number(value) || 0);
     setSelection((prev) => ({ ...prev, [id]: qty }));
@@ -143,10 +103,10 @@ export default function ClientBoxEstimator() {
         ...it,
         qty: selection[it.id] || 0,
         dims: {
-          l: Number(it.length_cm || dimsDraft[it.id]?.length_cm || 0),
-          w: Number(it.width_cm || dimsDraft[it.id]?.width_cm || 0),
-          h: Number(it.height_cm || dimsDraft[it.id]?.height_cm || 0),
-          kg: Number(it.weight_kg || dimsDraft[it.id]?.weight_kg || 0)
+          l: Number(it.length_cm || 0),
+          w: Number(it.width_cm || 0),
+          h: Number(it.height_cm || 0),
+          kg: Number(it.weight_kg || 0)
         }
       }))
       .filter((p) => p.qty > 0);
@@ -334,8 +294,6 @@ export default function ClientBoxEstimator() {
             {warnings.map((w, i) => <div key={i}>• {w}</div>)}
           </div>
         )}
-        {message && <div className="text-sm text-primary mb-2">{message}</div>}
-
         <div className="overflow-x-auto">
           <table className="min-w-full text-xs">
             <thead className="bg-gray-50">
@@ -348,7 +306,6 @@ export default function ClientBoxEstimator() {
                 <th className="px-2 py-2 text-right">W (cm)</th>
                 <th className="px-2 py-2 text-right">H (cm)</th>
                 <th className="px-2 py-2 text-right">Kg</th>
-                <th className="px-2 py-2 text-right">Save</th>
               </tr>
             </thead>
             <tbody>
@@ -358,7 +315,6 @@ export default function ClientBoxEstimator() {
                 <tr><td colSpan={8} className="px-2 py-4 text-center">No products</td></tr>
               ) : (
                 filtered.map((item) => {
-                  const draft = dimsDraft[item.id] || {};
                   return (
                     <tr key={item.id} className="border-t">
                       <td className="px-2 py-2">
@@ -386,41 +342,16 @@ export default function ClientBoxEstimator() {
                         />
                       </td>
                       <td className="px-2 py-2 text-right">
-                        <input
-                          className="border rounded px-2 py-1 w-16 text-right"
-                          value={draft.length_cm ?? item.length_cm ?? ''}
-                          onChange={(e) => handleDimChange(item.id, 'length_cm', e.target.value)}
-                        />
+                        {item.length_cm ?? '—'}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        <input
-                          className="border rounded px-2 py-1 w-16 text-right"
-                          value={draft.width_cm ?? item.width_cm ?? ''}
-                          onChange={(e) => handleDimChange(item.id, 'width_cm', e.target.value)}
-                        />
+                        {item.width_cm ?? '—'}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        <input
-                          className="border rounded px-2 py-1 w-16 text-right"
-                          value={draft.height_cm ?? item.height_cm ?? ''}
-                          onChange={(e) => handleDimChange(item.id, 'height_cm', e.target.value)}
-                        />
+                        {item.height_cm ?? '—'}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        <input
-                          className="border rounded px-2 py-1 w-16 text-right"
-                          value={draft.weight_kg ?? item.weight_kg ?? ''}
-                          onChange={(e) => handleDimChange(item.id, 'weight_kg', e.target.value)}
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        <button
-                          onClick={() => saveDims(item)}
-                          disabled={savingId === item.id}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-[11px] border rounded text-primary border-primary hover:bg-primary hover:text-white disabled:opacity-50"
-                        >
-                          <Save className="w-3 h-3" /> Save
-                        </button>
+                        {item.weight_kg ?? '—'}
                       </td>
                     </tr>
                   );
