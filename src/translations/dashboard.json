@@ -675,7 +675,10 @@
       "save": "Save",
       "flashSaveError": "Failed to save dimensions.",
       "flashSaved": "Dimensions saved.",
-      "partialSuffix": ", {partial} partial"
+      "partialSuffix": ", {partial} partial",
+      "heavyLabelsCostLabel": "Extra labels (Heavy Parcel): {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Grand total (boxes + labels): €{amount}",
+      "heavyParcelCost": "Label cost: €{amount} HT ({labels} × €{unit})"
     },
     "ClientReturns": {
       "title": "Returns",
@@ -2153,7 +2156,10 @@
       "save": "Salvează",
       "flashSaveError": "Salvarea dimensiunilor a eșuat.",
       "flashSaved": "Dimensiunile au fost salvate.",
-      "partialSuffix": ", {partial} parțiale"
+      "partialSuffix": ", {partial} parțiale",
+      "heavyLabelsCostLabel": "Etichete extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Total general (cutii + etichete): €{amount}",
+      "heavyParcelCost": "Cost etichete: €{amount} HT ({labels} × €{unit})"
     }
   },
   "fr": {
@@ -3174,7 +3180,10 @@
       "save": "Enregistrer",
       "flashSaveError": "Échec de l’enregistrement des dimensions.",
       "flashSaved": "Dimensions enregistrées.",
-      "partialSuffix": ", {partial} partiels"
+      "partialSuffix": ", {partial} partiels",
+      "heavyLabelsCostLabel": "Étiquettes extra (Heavy Parcel) : {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Total général (cartons + étiquettes) : €{amount}",
+      "heavyParcelCost": "Coût étiquettes : €{amount} HT ({labels} × €{unit})"
     }
   },
   "de": {
@@ -4143,7 +4152,10 @@
       "save": "Speichern",
       "flashSaveError": "Abmessungen konnten nicht gespeichert werden.",
       "flashSaved": "Abmessungen gespeichert.",
-      "partialSuffix": ", {partial} teilweise"
+      "partialSuffix": ", {partial} teilweise",
+      "heavyLabelsCostLabel": "Zusatzetiketten (Heavy Parcel): {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Gesamtsumme (Kartons + Etiketten): €{amount}",
+      "heavyParcelCost": "Etikettenkosten: €{amount} HT ({labels} × €{unit})"
     }
   },
   "it": {
@@ -5112,7 +5124,10 @@
       "save": "Salva",
       "flashSaveError": "Salvataggio dimensioni non riuscito.",
       "flashSaved": "Dimensioni salvate.",
-      "partialSuffix": ", {partial} parziali"
+      "partialSuffix": ", {partial} parziali",
+      "heavyLabelsCostLabel": "Etichette extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Totale generale (scatole + etichette): €{amount}",
+      "heavyParcelCost": "Costo etichette: €{amount} HT ({labels} × €{unit})"
     }
   },
   "es": {
@@ -6081,7 +6096,10 @@
       "save": "Guardar",
       "flashSaveError": "No se pudieron guardar las dimensiones.",
       "flashSaved": "Dimensiones guardadas.",
-      "partialSuffix": ", {partial} parciales"
+      "partialSuffix": ", {partial} parciales",
+      "heavyLabelsCostLabel": "Etiquetas extra (Heavy Parcel): {count} × €{unit} HT = €{amount}",
+      "grandTotalLabel": "Total general (cajas + etiquetas): €{amount}",
+      "heavyParcelCost": "Costo etiquetas: €{amount} HT ({labels} × €{unit})"
     }
   }
 }

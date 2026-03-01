@@ -7,6 +7,7 @@ import { useDashboardTranslation } from '@/translations';
 const MAX_BOX_KG = 23;
 const HEAVY_PARCEL_THRESHOLD_KG = 15;
 const HEAVY_PARCEL_LABELS_PER_BOX = 5;
+const HEAVY_PARCEL_LABEL_COST_EUR = 0.2;
 
 const defaultBoxes = [
   { id: 'box-60', name: 'Box 60×40×40', length_cm: 60, width_cm: 40, height_cm: 40, max_kg: MAX_BOX_KG, tag: 'standard' },
@@ -342,6 +343,9 @@ export default function ClientBoxEstimator() {
         getBoxMaxKg(inst.box) > 0 ? (inst.usedKg / getBoxMaxKg(inst.box)) * 100 : 0;
       const costEur = getBoxPriceEur(inst.box);
       const heavyParcel = Number(inst.usedKg || 0) > HEAVY_PARCEL_THRESHOLD_KG;
+      const heavyLabelCostEur = heavyParcel
+        ? HEAVY_PARCEL_LABELS_PER_BOX * HEAVY_PARCEL_LABEL_COST_EUR
+        : 0;
       return {
         index: idx,
         inst,
@@ -349,12 +353,14 @@ export default function ClientBoxEstimator() {
         weightPercent,
         completed: isBoxCompleted(volumePercent, weightPercent),
         costEur,
-        heavyParcel
+        heavyParcel,
+        heavyLabelCostEur
       };
     });
     const completed = stats.filter((s) => s.completed).length;
     const partial = stats.length - completed;
     const totalCostEur = stats.reduce((sum, s) => sum + s.costEur, 0);
+    const totalHeavyLabelCostEur = stats.reduce((sum, s) => sum + s.heavyLabelCostEur, 0);
     const heavyParcelBoxes = stats.filter((s) => s.heavyParcel).length;
     const heavyParcelLabels = heavyParcelBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
     return {
@@ -363,6 +369,8 @@ export default function ClientBoxEstimator() {
       partial,
       total: stats.length,
       totalCostEur,
+      totalHeavyLabelCostEur,
+      grandTotalEur: totalCostEur + totalHeavyLabelCostEur,
       heavyParcelBoxes,
       heavyParcelLabels
     };
@@ -484,8 +492,18 @@ export default function ClientBoxEstimator() {
             <div className="text-xs font-medium text-text-primary">
               {tp('BoxEstimator.totalCostLabel', { amount: planStats.totalCostEur.toFixed(2) })}
             </div>
+            <div className="text-xs font-medium text-text-primary">
+              {tp('BoxEstimator.heavyLabelsCostLabel', {
+                count: planStats.heavyParcelLabels,
+                unit: HEAVY_PARCEL_LABEL_COST_EUR.toFixed(2),
+                amount: planStats.totalHeavyLabelCostEur.toFixed(2)
+              })}
+            </div>
+            <div className="text-xs font-semibold text-text-primary">
+              {tp('BoxEstimator.grandTotalLabel', { amount: planStats.grandTotalEur.toFixed(2) })}
+            </div>
             <div className="grid gap-2 md:grid-cols-3">
-              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur, heavyParcel }) => {
+              {planStats.stats.map(({ inst, index, volumePercent, weightPercent, completed, costEur, heavyParcel, heavyLabelCostEur }) => {
                 return (
                   <div
                     key={`${inst.box.id}-${index}`}
@@ -503,6 +521,12 @@ export default function ClientBoxEstimator() {
                         {tp('BoxEstimator.heavyParcelNotice', {
                           labels: HEAVY_PARCEL_LABELS_PER_BOX,
                           kg: HEAVY_PARCEL_THRESHOLD_KG
+                        })}
+                        {' '}
+                        {tp('BoxEstimator.heavyParcelCost', {
+                          amount: heavyLabelCostEur.toFixed(2),
+                          labels: HEAVY_PARCEL_LABELS_PER_BOX,
+                          unit: HEAVY_PARCEL_LABEL_COST_EUR.toFixed(2)
                         })}
                       </div>
                     )}
