@@ -843,7 +843,6 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     });
     const boxServiceGroups = Array.from(boxServiceGroupsMap.values());
     const boxServicesTotal = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.total || 0), 0);
-    const totalBoxUnits = boxServiceGroups.reduce((sum, svc) => sum + Number(svc.units || 0), 0);
 
     return {
       totalUnitsExpected,
@@ -851,7 +850,6 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       prepServicesTotal,
       boxServicesTotal,
       grandTotal: prepServicesTotal + boxServicesTotal,
-      totalBoxUnits,
       boxServiceGroups
     };
   }, [reqLines, reqBoxServices]);
@@ -1519,12 +1517,6 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                       = {formatMoney2(reqTotals.prepServicesTotal)} EUR
                                     </span>
                                   </div>
-                                  <div className="flex items-center justify-between gap-3">
-                                    <span className="text-text-secondary">Grand total (incl. boxes)</span>
-                                    <span className="font-semibold text-right">
-                                      = {formatMoney2(reqTotals.grandTotal)} EUR
-                                    </span>
-                                  </div>
                                 </div>
                               </td>
                               <td className="px-2 py-2 text-xs text-text-secondary">—</td>
@@ -1575,12 +1567,23 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                               </td>
                               <td className="px-2 py-2 text-xs text-text-secondary">—</td>
                               <td className="px-2 py-2 text-right align-top">
-                                <div className="text-right">
-                                  <div className="text-base font-semibold text-text-primary">
-                                    {Math.round(reqTotals.totalBoxUnits)}
-                                  </div>
-                                  <div className="text-[11px] text-text-secondary">boxes billed</div>
+                                <span className="text-xs text-text-secondary">—</span>
+                              </td>
+                            </tr>
+                            <tr className="border-t bg-gray-50/70">
+                              <td className="px-2 py-2 text-center text-text-secondary">All</td>
+                              <td className="px-2 py-2 font-semibold text-text-primary">Grand total</td>
+                              <td className="px-2 py-2 align-top">
+                                <div className="text-xs flex items-center justify-between gap-3">
+                                  <span className="text-text-secondary">SKU + boxes</span>
+                                  <span className="font-semibold text-right">
+                                    = {formatMoney2(reqTotals.grandTotal)} EUR
+                                  </span>
                                 </div>
+                              </td>
+                              <td className="px-2 py-2 text-xs text-text-secondary">—</td>
+                              <td className="px-2 py-2 text-right align-top">
+                                <span className="text-xs text-text-secondary">—</span>
                               </td>
                             </tr>
                           </>
