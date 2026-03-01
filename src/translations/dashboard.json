@@ -298,6 +298,7 @@
         "date": "Date"
       },
       "companyMissing": "Your account is not linked to a company yet. Please contact support to activate it.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Other",
       "group": {
         "noId": "No ID (—)",
@@ -1371,6 +1372,7 @@
         "date": "Data"
       },
       "companyMissing": "Contul tău nu este încă asociat unei companii. Scrie-ne pentru activare.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Altele",
       "group": {
         "noId": "Fără ID (—)",
@@ -2482,6 +2484,7 @@
         "date": "Date"
       },
       "companyMissing": "Votre compte n’est pas encore lié à une société. Contactez le support pour l’activer.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Autres",
       "group": {
         "noId": "Pas d'ID (—)",
@@ -3463,6 +3466,7 @@
         "date": "Datum"
       },
       "companyMissing": "Ihr Konto ist noch keiner Firma zugeordnet. Bitte Support zur Aktivierung kontaktieren.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Sonstiges",
       "group": {
         "noId": "Keine ID (—)",
@@ -4444,6 +4448,7 @@
         "date": "Data"
       },
       "companyMissing": "Il tuo account non è ancora collegato a un’azienda. Contatta il supporto per l’attivazione.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Altro",
       "group": {
         "noId": "Senza ID (—)",
@@ -5425,6 +5430,7 @@
         "date": "Fecha"
       },
       "companyMissing": "Tu cuenta aún no está vinculada a una empresa. Contacta con soporte para activarla.",
+      "heavyParcelService": "Heavy Parcel",
       "otherTitle": "Otros",
       "group": {
         "noId": "Sin ID (—)",

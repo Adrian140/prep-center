@@ -107,6 +107,32 @@ const formatOtherServiceName = (service, t) => {
   return value.replace(/ \(6 images\)/i, '');
 };
 
+const normalizeServiceName = (service) => String(service || '').trim().toLowerCase();
+
+const isHeavyParcelServiceRow = (row) => {
+  const serviceNorm = normalizeServiceName(row?.service);
+  if (
+    serviceNorm === 'heavy parcel' ||
+    serviceNorm === 'heavy parcel pack of 5' ||
+    serviceNorm === 'heavy package' ||
+    serviceNorm === 'heavy package label' ||
+    serviceNorm === 'heavy package labels'
+  ) {
+    return true;
+  }
+  const isLegacyExtraLabels = serviceNorm === 'extra labels';
+  if (!isLegacyExtraLabels) return false;
+  const unitPrice = Number(row?.unit_price);
+  return Number.isFinite(unitPrice) && Math.abs(unitPrice - 0.2) < 0.0001;
+};
+
+const formatFbaServiceName = (row, t) => {
+  if (isHeavyParcelServiceRow(row)) {
+    return t('SupabaseClientActivity.heavyParcelService');
+  }
+  return formatOtherServiceName(row?.service, t);
+};
+
 export default function SupabaseClientActivity() {
   const { t, tp } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
@@ -518,7 +544,7 @@ export default function SupabaseClientActivity() {
                       title={formatInvoiceTooltip(r.billing_invoice)}
                     >
                       <td className="px-3 py-2">{r.service_date}</td>
-                      <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                      <td className="px-3 py-2">{formatFbaServiceName(r, t)}</td>
                       <td className="px-3 py-2 text-right">
                         {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                       </td>
@@ -585,7 +611,7 @@ export default function SupabaseClientActivity() {
                             title={formatInvoiceTooltip(r.billing_invoice)}
                           >
                             <td className="px-3 py-2">{r.service_date}</td>
-                            <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                            <td className="px-3 py-2">{formatFbaServiceName(r, t)}</td>
                             <td className="px-3 py-2 text-right">
                               {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                             </td>
