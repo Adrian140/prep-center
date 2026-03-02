@@ -29,6 +29,18 @@ const monthBounds = (monthValue) => {
   return { start, endExclusive };
 };
 
+const shiftMonthValue = (monthValue, delta) => {
+  const [yearRaw, monthRaw] = String(monthValue || '').split('-');
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) {
+    return toMonthInput(new Date());
+  }
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  date.setUTCMonth(date.getUTCMonth() + Number(delta || 0));
+  return toMonthInput(date);
+};
+
 const getInvoiceCountriesForView = (selectedCountry) => {
   const code = String(selectedCountry || '').toUpperCase();
   // Business rule: Romania-issued invoices are managed together with France in admin list.
@@ -260,6 +272,7 @@ export default function AdminInvoicesOverview() {
   const [companyNames, setCompanyNames] = useState({});
   const [clientNames, setClientNames] = useState({});
   const [clientProfiles, setClientProfiles] = useState({});
+  const hasClientSearch = String(clientSearch || '').trim().length > 0;
   const countryOptions = useMemo(
     () =>
       (availableMarkets || [])
@@ -976,14 +989,34 @@ export default function AdminInvoicesOverview() {
             placeholder={t('adminInvoices.searchPlaceholder')}
             className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm min-w-[260px]"
           />
-          {viewMode === 'monthly' && !String(clientSearch || '').trim() && (
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-              aria-label={t('adminInvoices.monthLabel')}
-            />
+          {viewMode === 'monthly' && !hasClientSearch && (
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setMonth((prev) => shiftMonthValue(prev, -1))}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                aria-label="Previous month"
+                title="Previous month"
+              >
+                ◀
+              </button>
+              <input
+                type="month"
+                value={month}
+                onChange={(e) => setMonth(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                aria-label={t('adminInvoices.monthLabel')}
+              />
+              <button
+                type="button"
+                onClick={() => setMonth((prev) => shiftMonthValue(prev, 1))}
+                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                aria-label="Next month"
+                title="Next month"
+              >
+                ▶
+              </button>
+            </div>
           )}
           <button onClick={loadInvoices} className="inline-flex items-center gap-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">
             <RefreshCw className="w-4 h-4" /> {t('common.refresh')}
