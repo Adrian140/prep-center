@@ -497,6 +497,9 @@
         "GB": "United Kingdom",
         "UK": "United Kingdom"
       },
+      "listingPresence": {
+        "label": "Listings on:"
+      },
       "guides": {
         "button": "Video tutorial",
         "error": "Cannot open guide ({lang}): {msg}",
@@ -1647,6 +1650,9 @@
           "mustMatchStock": "Distribuția pe destinații trebuie să fie egală cu stocul disponibil ({stock})."
         }
       },
+      "listingPresence": {
+        "label": "Listing-uri pe:"
+      },
       "createProduct": {
         "button": "Creează produs",
         "title": "Creează produs",
@@ -2761,6 +2767,9 @@
           "mustMatchStock": "La répartition par destination doit être égale au stock disponible ({stock})."
         }
       },
+      "listingPresence": {
+        "label": "Listings sur :"
+      },
       "createProduct": {
         "button": "Créer un produit",
         "title": "Créer un produit",
@@ -3744,6 +3753,9 @@
           "rowMissing": "Produkt nicht gefunden.",
           "mustMatchStock": "Die Zielaufteilung muss dem verfügbaren Bestand entsprechen ({stock})."
         }
+      },
+      "listingPresence": {
+        "label": "Listings auf:"
       },
       "createProduct": {
         "button": "Produkt erstellen",
@@ -4729,6 +4741,9 @@
           "mustMatchStock": "La ripartizione per destinazione deve essere uguale allo stock disponibile ({stock})."
         }
       },
+      "listingPresence": {
+        "label": "Listing su:"
+      },
       "createProduct": {
         "button": "Crea prodotto",
         "title": "Crea prodotto",
@@ -5712,6 +5727,9 @@
           "rowMissing": "Producto no encontrado.",
           "mustMatchStock": "El reparto por destino debe ser igual al stock disponible ({stock})."
         }
+      },
+      "listingPresence": {
+        "label": "Listings en:"
       },
       "createProduct": {
         "button": "Crear producto",

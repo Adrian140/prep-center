@@ -1,0 +1,46 @@
+name: Sync Amazon Listing Presence (FR/DE/IT/ES)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 23:00 UTC ~= 00:00 Europe/Paris (CET).
+    - cron: '0 23 * * *'
+
+concurrency:
+  group: sync-amazon-listing-presence
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (spapi-worker)
+        working-directory: tools/spapi-worker
+        run: npm ci
+
+      - name: Run listing presence sync with 4.5h budget
+        working-directory: tools/spapi-worker
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
+          SPAPI_LWA_CLIENT_ID: ${{ secrets.SPAPI_LWA_CLIENT_ID }}
+          SPAPI_LWA_CLIENT_SECRET: ${{ secrets.SPAPI_LWA_CLIENT_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SPAPI_ROLE_ARN: ${{ secrets.SPAPI_ROLE_ARN }}
+          SPAPI_REGION: ${{ secrets.SPAPI_REGION || 'eu' }}
+          SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
+          SPAPI_LISTING_PRESENCE_TIME_BUDGET_MS: '16200000'
+          SPAPI_LISTING_PRESENCE_TIME_BUDGET_BUFFER_MS: '180000'
+          SPAPI_REPORT_POLL_MS: '10000'
+          SPAPI_REPORT_POLL_LIMIT: '240'
+        run: npm run sync-listing-presence

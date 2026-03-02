@@ -47,6 +47,12 @@ const COUNTRY_LABEL_LOOKUP = SALES_COUNTRIES.reduce((acc, item) => {
   return acc;
 }, {});
 const PREP_COUNTRY_PRIORITY = ['FR', 'DE', 'IT', 'ES', 'RO', 'UK', 'GB'];
+const MARKETPLACE_TO_COUNTRY = {
+  A13V1IB3VIYZZH: 'FR',
+  A1PA6795UKMFR9: 'DE',
+  APJ6JRA9NG5V4: 'IT',
+  A1RKKUPIHCS9HS: 'ES'
+};
 
 const normalizePrepCountryCode = (code) => {
   const upper = String(code || '').trim().toUpperCase();
@@ -925,6 +931,7 @@ const [pendingShipmentFilter, setPendingShipmentFilter] = useSessionStorage(
   'all'
 );
 const [pendingShipmentByItemId, setPendingShipmentByItemId] = useState({});
+const [listingPresenceByItemId, setListingPresenceByItemId] = useState({});
 
   const [searchField, setSearchField] = useSessionStorage(
     `${storagePrefix}-searchField`,
@@ -1129,6 +1136,7 @@ const refreshStockData = useCallback(async () => {
     setSalesSummary({});
     setDestinationStockByItemId({});
     setPendingShipmentByItemId({});
+    setListingPresenceByItemId({});
     return;
   }
 
@@ -1176,6 +1184,44 @@ const refreshStockData = useCallback(async () => {
   const mappedAll = mapStockRowsForMarket(all, currentMarket);
   setRows(moveNoAsinRowsToEnd(mappedAll));
   setLoading(false);
+
+  try {
+    if (!profile?.company_id) {
+      setListingPresenceByItemId({});
+    } else {
+      const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+      if (!stockIds.length) {
+        setListingPresenceByItemId({});
+      } else {
+        const { data, error } = await supabase
+          .from('amazon_listing_presence')
+          .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
+          .eq('company_id', profile.company_id)
+          .in('stock_item_id', stockIds);
+        if (error) {
+          setListingPresenceByItemId({});
+        } else {
+          const grouped = {};
+          (data || []).forEach((row) => {
+            if (!row?.exists_on_marketplace) return;
+            const stockId = row.stock_item_id;
+            const country = MARKETPLACE_TO_COUNTRY[String(row.marketplace_id || '').toUpperCase()] || null;
+            if (!stockId || !country) return;
+            if (!grouped[stockId]) grouped[stockId] = [];
+            if (!grouped[stockId].includes(country)) grouped[stockId].push(country);
+          });
+          Object.keys(grouped).forEach((stockId) => {
+            grouped[stockId] = grouped[stockId].sort((a, b) =>
+              PREP_COUNTRY_PRIORITY.indexOf(a) - PREP_COUNTRY_PRIORITY.indexOf(b)
+            );
+          });
+          setListingPresenceByItemId(grouped);
+        }
+      }
+    }
+  } catch {
+    setListingPresenceByItemId({});
+  }
 
   // Informative-only destination breakdown (from receiving log), per SKU.
   try {
@@ -3114,6 +3160,12 @@ const saveReqChanges = async () => {
       {!String(r.sku || '').trim() && (
         <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">
           ⚠ {t('ClientStock.errors.localOnlyNoAmazonSku')}
+        </div>
+      )}
+      {Array.isArray(listingPresenceByItemId[r.id]) && listingPresenceByItemId[r.id].length > 0 && (
+        <div className="mt-1 rounded border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-800">
+          <span className="font-semibold">{t('ClientStock.listingPresence.label')}</span>{' '}
+          {listingPresenceByItemId[r.id].join(', ')}
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@
     "sync-inventory": "node syncInventoryToSupabase.js",
     "sync-fulfilled-qty": "node syncInventoryToSupabase.js",
     "sync-products": "node syncListingsToSupabase.js",
+    "sync-listing-presence": "node syncListingPresenceToSupabase.js",
     "sync-amazon-catalog-images": "node syncAmazonCatalogImages.js",
     "sync-amazon-catalog-dimensions": "node syncAmazonCatalogDimensions.js",
     "sync-amazon-catalog-codes": "node syncAmazonCatalogCodes.js",
