@@ -248,6 +248,7 @@ export default function AdminInvoicesOverview() {
   const [country, setCountry] = useState(String(currentMarket || 'FR').toUpperCase());
   const [month, setMonth] = useState(toMonthInput());
   const [viewMode, setViewMode] = useState('monthly');
+  const [clientSearch, setClientSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
@@ -286,17 +287,40 @@ export default function AdminInvoicesOverview() {
     try {
       const { start, endExclusive } = monthBounds(month);
       const visibleCountries = getInvoiceCountriesForView(country);
+      const search = String(clientSearch || '').trim();
+      let matchedUserIds = null;
+
+      if (search) {
+        const searchToken = `%${search.replace(/[%]/g, '').replace(/,/g, ' ')}%`;
+        const { data: matchingProfiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id')
+          .or(
+            `first_name.ilike.${searchToken},last_name.ilike.${searchToken},email.ilike.${searchToken},company_name.ilike.${searchToken}`
+          );
+        if (profilesError) throw profilesError;
+        matchedUserIds = Array.from(
+          new Set((matchingProfiles || []).map((entry) => entry?.id).filter(Boolean))
+        );
+        if (!matchedUserIds.length) {
+          setRows([]);
+          setCompanyNames({});
+          setClientNames({});
+          setClientProfiles({});
+          return;
+        }
+      }
 
       let query = supabase
         .from('invoices')
         .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description, document_type, converted_to_invoice_id, converted_from_proforma_id, document_payload, billing_invoice_id')
         .in('country', visibleCountries);
-      if (viewMode === 'outstanding') {
+      if (matchedUserIds) {
+        query = query.in('user_id', matchedUserIds);
+      } else if (viewMode === 'outstanding') {
         query = query.eq('status', 'pending');
       } else {
-        query = query
-          .gte('issue_date', start)
-          .lt('issue_date', endExclusive);
+        query = query.gte('issue_date', start).lt('issue_date', endExclusive);
       }
       query = query
         .order('issue_date', { ascending: false })
@@ -314,7 +338,9 @@ export default function AdminInvoicesOverview() {
           .from('invoices')
           .select('id, user_id, company_id, invoice_number, amount, vat_amount, issue_date, due_date, status, country, created_at, file_path, description')
           .in('country', visibleCountries);
-        if (viewMode === 'outstanding') {
+        if (matchedUserIds) {
+          fallbackQuery = fallbackQuery.in('user_id', matchedUserIds);
+        } else if (viewMode === 'outstanding') {
           fallbackQuery = fallbackQuery.eq('status', 'pending');
         } else {
           fallbackQuery = fallbackQuery
@@ -343,6 +369,11 @@ export default function AdminInvoicesOverview() {
         .filter((row) => !(isProforma(row) && row.converted_to_invoice_id));
 
       const ordered = [...list].sort((a, b) => {
+        if (search) {
+          const dateA = new Date(a.issue_date || a.created_at || 0).getTime();
+          const dateB = new Date(b.issue_date || b.created_at || 0).getTime();
+          return dateB - dateA;
+        }
         const pendingA = isPendingStatus(a.status) ? 0 : 1;
         const pendingB = isPendingStatus(b.status) ? 0 : 1;
         if (pendingA !== pendingB) return pendingA - pendingB;
@@ -420,7 +451,7 @@ export default function AdminInvoicesOverview() {
   useEffect(() => {
     loadInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [country, month, viewMode]);
+  }, [country, month, viewMode, clientSearch]);
 
   const summary = useMemo(() => {
     let net = 0;
@@ -938,7 +969,14 @@ export default function AdminInvoicesOverview() {
               {entry.label}
             </button>
           ))}
-          {viewMode === 'monthly' && (
+          <input
+            type="text"
+            value={clientSearch}
+            onChange={(e) => setClientSearch(e.target.value)}
+            placeholder={t('adminInvoices.searchPlaceholder')}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm min-w-[260px]"
+          />
+          {viewMode === 'monthly' && !String(clientSearch || '').trim() && (
             <input
               type="month"
               value={month}

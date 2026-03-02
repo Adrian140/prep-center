@@ -397,6 +397,7 @@
       "title": "Admin invoices by country",
       "subtitle": "Monthly bulk view with Pending sorted first.",
       "monthLabel": "Billing month",
+      "searchPlaceholder": "Search client (all months)",
       "loadError": "Unable to load invoices.",
       "empty": "No invoices found for the selected filters.",
       "cards": {
@@ -504,6 +505,7 @@
       "title": "Factures admin par pays",
       "subtitle": "Vue mensuelle en masse avec Pending affiché en premier.",
       "monthLabel": "Mois de facturation",
+      "searchPlaceholder": "Rechercher un client (tous les mois)",
       "loadError": "Impossible de charger les factures.",
       "empty": "Aucune facture pour les filtres sélectionnés.",
       "cards": {
@@ -889,6 +891,7 @@
       "title": "Facturi admin pe țări",
       "subtitle": "Vizualizare bulk pe lună, cu Pending afișat primul.",
       "monthLabel": "Luna facturare",
+      "searchPlaceholder": "Caută client (toate lunile)",
       "loadError": "Nu am putut încărca facturile.",
       "empty": "Nu există facturi pentru filtrele selectate.",
       "cards": {
