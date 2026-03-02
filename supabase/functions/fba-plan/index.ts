@@ -1311,6 +1311,54 @@ async function checkSkuStatus(params: {
   let sawNotFound = false;
   let non404ListingError: { status: number; text: string } | null = null;
   const notFoundMessages: string[] = [];
+  const searchListingByAsin = async () => {
+    const cleanAsin = String(asin || "").trim();
+    if (!cleanAsin) return null;
+    const searchPath = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}`;
+    const searchQuery =
+      `marketplaceIds=${encodeURIComponent(marketplaceId)}` +
+      `&identifiersType=ASIN` +
+      `&identifiers=${encodeURIComponent(cleanAsin)}` +
+      `&includedData=summaries,offers,fulfillmentAvailability` +
+      `&pageSize=20`;
+    const { res, json } = await spapiGet({
+      host,
+      region,
+      path: searchPath,
+      query: searchQuery,
+      lwaToken,
+      tempCreds,
+      traceId,
+      operationName: "listings.searchListingsItems.byAsin",
+      marketplaceId,
+      sellerId
+    });
+    if (!res.ok) return null;
+    const items = json?.payload?.items || json?.items || [];
+    if (!Array.isArray(items) || !items.length) return null;
+
+    const found = items
+      .map((item: any) => {
+        const foundSku = normalizeSku(item?.sku || item?.sellerSku || item?.SellerSKU || "");
+        const summaries = item?.summaries || item?.Summaries || [];
+        const summary = Array.isArray(summaries)
+          ? summaries.find((x: any) => String(x?.marketplaceId || x?.marketplace_id || "") === String(marketplaceId))
+          : null;
+        const statuses = toStatusList(summary?.status || summary?.Status || item?.status || item?.Status).map((v) =>
+          String(v || "").toUpperCase()
+        );
+        const fnsku = String(summary?.fnSku || summary?.fnsku || summary?.FNSKU || "").trim() || null;
+        return { sku: foundSku, statuses, fnsku };
+      })
+      .filter((row: any) => row.sku);
+
+    if (!found.length) return null;
+    const preferred =
+      found.find((row: any) => row.statuses.includes("BUYABLE") || row.statuses.includes("ACTIVE")) ||
+      found.find((row: any) => row.statuses.includes("DISCOVERABLE")) ||
+      found[0];
+    return preferred || null;
+  };
 
   try {
     for (const candidateSku of skuCandidates) {
@@ -1425,6 +1473,29 @@ async function checkSkuStatus(params: {
     }
 
     if (sawNotFound && !non404ListingError) {
+      let asinResolved: { sku: string; statuses: string[]; fnsku: string | null } | null = null;
+      try {
+        asinResolved = await searchListingByAsin();
+      } catch (error) {
+        if (traceId) {
+          console.warn("sku-not-found-asin-search-error", {
+            traceId,
+            asin,
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      if (asinResolved?.sku) {
+        const resolvedStatus = Array.isArray(asinResolved.statuses) ? asinResolved.statuses.join(",") : "";
+        return {
+          state: "ok",
+          reason: resolvedStatus
+            ? `SKU input negăsit; mapat din ASIN pe listing activ (${resolvedStatus})`
+            : "SKU input negăsit; mapat din ASIN pe listing",
+          canonicalSku: asinResolved.sku,
+          fnsku: asinResolved.fnsku || null
+        };
+      }
       if (traceId) {
         console.warn("sku-not-found-diagnostics", {
           traceId,
