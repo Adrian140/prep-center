@@ -7,6 +7,7 @@ import DestinationBadge from '@/components/common/DestinationBadge';
 import { useMarket } from '@/contexts/MarketContext';
 
 const STORAGE_KEY = 'admin-prep-requests-state';
+const ASIN_QUERY_RE = /^[A-Z0-9]{10}$/;
 
 const StatusPill = ({ s }) => {
   const map = {
@@ -37,6 +38,8 @@ export default function AdminPrepRequests() {
   const [flash, setFlash] = useState('');
   const firstLoadRef = useRef(true);
   const initialPageRef = useRef(initialPage);
+  const trimmedQuery = q.trim();
+  const isAsinSearch = useMemo(() => ASIN_QUERY_RE.test(String(trimmedQuery || '').toUpperCase()), [trimmedQuery]);
 
  const handleDelete = async (row) => {
   const shortId = row.id?.slice(0, 8) || row.id;
@@ -74,7 +77,7 @@ export default function AdminPrepRequests() {
   try {
     const { data, error } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
-      warehouseCountry: currentMarket
+      warehouseCountry: isAsinSearch ? undefined : currentMarket
     });
     if (error) throw error;
 
@@ -90,8 +93,6 @@ export default function AdminPrepRequests() {
   }
 };
 
-  const trimmedQuery = q.trim();
-
   useEffect(() => {
     load(initialPageRef.current);
     firstLoadRef.current = false;
@@ -102,7 +103,7 @@ export default function AdminPrepRequests() {
     if (firstLoadRef.current) return;
     load(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, currentMarket]);
+  }, [status, currentMarket, isAsinSearch]);
 
   useEffect(() => {
     if (firstLoadRef.current) return;
@@ -124,6 +125,7 @@ export default function AdminPrepRequests() {
     const matchesSearch = (row) => {
       if (!tokens.length) return true;
       const snapshot = row?.amazon_snapshot || {};
+      const requestItems = Array.isArray(row?.prep_request_items) ? row.prep_request_items : [];
       const step2Shipments = Array.isArray(row?.step2_shipments) ? row.step2_shipments : [];
       const step2Text = step2Shipments
         .map((shipment) => {
@@ -144,6 +146,10 @@ export default function AdminPrepRequests() {
         .join(' ');
       const trackingText = (Array.isArray(row?.prep_request_tracking) ? row.prep_request_tracking : [])
         .map((entry) => entry?.tracking_id)
+        .filter(Boolean)
+        .join(' ');
+      const itemsText = requestItems
+        .map((item) => [item?.asin, item?.sku, item?.product_name].filter(Boolean).join(' '))
         .filter(Boolean)
         .join(' ');
       const fields = [
@@ -168,6 +174,7 @@ export default function AdminPrepRequests() {
         snapshot.status,
         step2Text,
         trackingText,
+        itemsText,
       ]
         .filter(Boolean)
         .map((v) => String(v).toLowerCase());
@@ -177,9 +184,22 @@ export default function AdminPrepRequests() {
 
     const base = rows.filter((row) => matchesSearch(row));
 
+    const shippingSortTs = (row) =>
+      new Date(
+        row.step4_confirmed_at ||
+          row.step2_confirmed_at ||
+          row.completed_at ||
+          row.confirmed_at ||
+          row.created_at ||
+          0
+      ).getTime();
+
     return base
       .slice()
       .sort((a, b) => {
+        if (isAsinSearch) {
+          return shippingSortTs(b) - shippingSortTs(a);
+        }
         const pa = STATUS_PRIORITY[a.status] ?? 99;
         const pb = STATUS_PRIORITY[b.status] ?? 99;
         if (pa !== pb) return pa - pb;
@@ -188,7 +208,7 @@ export default function AdminPrepRequests() {
         return tb - ta;
       })
       .map((row) => row);
-  }, [rows, trimmedQuery]);
+  }, [rows, trimmedQuery, isAsinSearch]);
 
   const totalBase = filtered.length;
   const totalPages = Math.max(1, Math.ceil(Math.max(1, totalBase) / pageSize));
@@ -226,7 +246,7 @@ export default function AdminPrepRequests() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Caută în ID / FBA ID / nume / email / companie / store / status / țară…"
+            placeholder="Caută în ID / FBA ID / ASIN / SKU / nume / email / companie / store / status / țară…"
             className="pl-9 pr-3 py-2 w-80 border rounded-lg"
           />
         </div>

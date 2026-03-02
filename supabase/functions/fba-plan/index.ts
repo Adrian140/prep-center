@@ -1437,26 +1437,6 @@ async function checkSkuStatus(params: {
           amazonMessages: notFoundMessages
         });
       }
-      if (asin) {
-        const cat = await catalogCheck({
-          asin,
-          marketplaceId,
-          host,
-          region,
-          lwaToken,
-          tempCreds,
-          traceId: traceId || crypto.randomUUID(),
-          sellerId
-        });
-        if (cat.found) {
-          return {
-            state: "ok",
-            reason: "Lookup pe SKU a returnat NOT_FOUND, dar ASIN există în catalog pe marketplace; continuăm cu fallback pe ASIN.",
-            canonicalSku: cleanSku,
-            fnsku: null
-          };
-        }
-      }
       return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație", canonicalSku: cleanSku, fnsku: null };
     }
 
@@ -2578,7 +2558,7 @@ serve(async (req) => {
           skuStatuses,
           ignoredItems,
           warning,
-          blocking: blocking.length > 0
+          blocking: blocking.length > 0 || missing.length > 0
         };
         return new Response(JSON.stringify({ plan, traceId, scopes: lwaScopes }), {
           status: 200,
