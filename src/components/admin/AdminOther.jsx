@@ -113,6 +113,7 @@ export default function AdminOther({
       company_id: companyId,
       service: form.service.trim(),
       service_date: form.service_date || todayStr(),
+      country: String(currentMarket || profile?.country || 'FR').toUpperCase(),
       unit_price: unitPrice,
       units,
       total: Number.isFinite(unitPrice * units) ? unitPrice * units : null,
