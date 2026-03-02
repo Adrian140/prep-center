@@ -237,6 +237,49 @@ function normalizeSku(val: string | null | undefined): string {
   return repaired;
 }
 
+function buildSkuLookupCandidates(input: string | null | undefined): string[] {
+  const base = normalizeSku(input);
+  if (!base) return [];
+
+  const out: string[] = [];
+  const push = (value: string | null | undefined) => {
+    const normalized = normalizeSku(value);
+    if (!normalized) return;
+    if (!out.includes(normalized)) out.push(normalized);
+  };
+
+  push(base);
+  push(base.replace(/\s*,\s*/g, ", "));
+  push(base.replace(/\s*,\s*/g, ","));
+  push(base.replace(/\s+/g, " "));
+
+  const trailingPriceMatch = base.match(/^(.*?)(?:\s*,\s*)(\d+(?:[.,]\d{1,2})?)\s*€\s*$/u);
+  if (trailingPriceMatch) {
+    const stem = normalizeSku(trailingPriceMatch[1] || "").replace(/[,\s]+$/g, "");
+    const amountRaw = String(trailingPriceMatch[2] || "").trim();
+    const amountWithComma = amountRaw.includes(".") ? amountRaw.replace(".", ",") : amountRaw;
+    const amountWithDot = amountRaw.includes(",") ? amountRaw.replace(",", ".") : amountRaw;
+    push(stem);
+    push(`${stem}, ${amountWithComma}€`);
+    push(`${stem},${amountWithComma}€`);
+    push(`${stem}, ${amountWithDot}€`);
+    push(`${stem},${amountWithDot}€`);
+  }
+
+  // Keep case variants last as weak fallbacks.
+  push(base.toLowerCase());
+  push(base.toUpperCase());
+  return out;
+}
+
+function utf8Hex(value: string | null | undefined): string {
+  const text = String(value || "");
+  const bytes = new TextEncoder().encode(text);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function extractBoolAttr(attrs: any, key: string): boolean | null {
   const raw = attrs?.[key];
   const direct = toBool(raw);
@@ -1256,9 +1299,7 @@ async function checkSkuStatus(params: {
   }
   const fallbackReason = "Nu am putut verifica statusul în Amazon";
 
-  const skuCandidates = Array.from(
-    new Set([cleanSku, cleanSku.toLowerCase(), cleanSku.toUpperCase()].map((v) => normalizeSku(v)).filter(Boolean))
-  );
+  const skuCandidates = buildSkuLookupCandidates(cleanSku);
   const toStatusList = (val: any): string[] => {
     if (Array.isArray(val)) return val.map((v) => String(v || "").trim()).filter(Boolean);
     if (typeof val === "string") return val.split(",").map((v) => v.trim()).filter(Boolean);
@@ -1269,6 +1310,7 @@ async function checkSkuStatus(params: {
   let canonicalFnsku: string | null = null;
   let sawNotFound = false;
   let non404ListingError: { status: number; text: string } | null = null;
+  const notFoundMessages: string[] = [];
 
   try {
     for (const candidateSku of skuCandidates) {
@@ -1291,6 +1333,8 @@ async function checkSkuStatus(params: {
 
       if (res.status === 404) {
         sawNotFound = true;
+        const errMsg = String(json?.errors?.[0]?.message || "").trim();
+        if (errMsg) notFoundMessages.push(errMsg);
         continue;
       }
       if (!res.ok) {
@@ -1381,6 +1425,38 @@ async function checkSkuStatus(params: {
     }
 
     if (sawNotFound && !non404ListingError) {
+      if (traceId) {
+        console.warn("sku-not-found-diagnostics", {
+          traceId,
+          inputSku: sku,
+          inputSkuHex: utf8Hex(sku),
+          cleanSku,
+          cleanSkuHex: utf8Hex(cleanSku),
+          candidates: skuCandidates,
+          candidateHex: skuCandidates.map((c) => ({ sku: c, hex: utf8Hex(c) })),
+          amazonMessages: notFoundMessages
+        });
+      }
+      if (asin) {
+        const cat = await catalogCheck({
+          asin,
+          marketplaceId,
+          host,
+          region,
+          lwaToken,
+          tempCreds,
+          traceId: traceId || crypto.randomUUID(),
+          sellerId
+        });
+        if (cat.found) {
+          return {
+            state: "ok",
+            reason: "Lookup pe SKU a returnat NOT_FOUND, dar ASIN există în catalog pe marketplace; continuăm cu fallback pe ASIN.",
+            canonicalSku: cleanSku,
+            fnsku: null
+          };
+        }
+      }
       return { state: "missing", reason: "Listing inexistent pe marketplace-ul destinație", canonicalSku: cleanSku, fnsku: null };
     }
 
@@ -1628,29 +1704,36 @@ async function fetchListingsExpiryRequired(params: {
     let listingShelfLife = false;
     let listingSuccess = false;
     let listingStatusCode: number | null = null;
+    const skuCandidates = buildSkuLookupCandidates(sku);
+    let listingSkuUsed = sku;
     try {
-      const path = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(sku)}`;
-      const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes`;
-      const { res, json } = await spapiGet({
-        host,
-        region,
-        path,
-        query,
-        lwaToken,
-        tempCreds,
-        traceId,
-        operationName: "listings.getItem",
-        marketplaceId,
-        sellerId
-      });
-      listingStatusCode = res.status;
-      listingAttrs = json?.payload?.attributes || json?.attributes || {};
-      if (res.ok) {
-        listingSuccess = true;
-        const flags = extractExpiryFlags(listingAttrs);
-        listingIedp = flags.iedp;
-        listingShelfLife = flags.hasShelfLife;
-        expiryRequired = flags.iedp === true || flags.hasShelfLife;
+      for (const candidateSku of skuCandidates) {
+        const path = `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(candidateSku)}`;
+        const query = `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes`;
+        const { res, json } = await spapiGet({
+          host,
+          region,
+          path,
+          query,
+          lwaToken,
+          tempCreds,
+          traceId,
+          operationName: "listings.getItem",
+          marketplaceId,
+          sellerId
+        });
+        listingStatusCode = res.status;
+        if (res.status === 404) continue;
+        listingAttrs = json?.payload?.attributes || json?.attributes || {};
+        if (res.ok) {
+          listingSkuUsed = candidateSku;
+          listingSuccess = true;
+          const flags = extractExpiryFlags(listingAttrs);
+          listingIedp = flags.iedp;
+          listingShelfLife = flags.hasShelfLife;
+          expiryRequired = flags.iedp === true || flags.hasShelfLife;
+        }
+        break;
       }
     } catch (error) {
       console.warn("listings expiry fetch failed", {
@@ -1696,6 +1779,7 @@ async function fetchListingsExpiryRequired(params: {
       console.log("expiry-debug", {
         traceId,
         sku,
+        listingSkuUsed,
         listingStatusCode,
         iedp: listingIedp,
         hasShelfLife: listingShelfLife,
