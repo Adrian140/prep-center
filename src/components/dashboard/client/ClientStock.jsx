@@ -3111,6 +3111,11 @@ const saveReqChanges = async () => {
       {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
       {renderIdentifierField('SKU', r.sku, 'sku', 'SKU...', 'SKU')}
       {renderIdentifierField('EAN', r.ean, 'ean', 'EAN...', 'EAN')}
+      {!String(r.sku || '').trim() && (
+        <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">
+          ⚠ {t('ClientStock.errors.localOnlyNoAmazonSku')}
+        </div>
+      )}
     </div>
 </td>
 {showPriceColumn && (
