@@ -1193,18 +1193,20 @@ const refreshStockData = useCallback(async () => {
       if (!stockIds.length) {
         setListingPresenceByItemId({});
       } else {
+        const visibleStockIds = new Set(stockIds.map((id) => String(id)));
         const { data, error } = await supabase
           .from('amazon_listing_presence')
           .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
           .eq('company_id', profile.company_id)
-          .in('stock_item_id', stockIds);
+          .eq('exists_on_marketplace', true);
         if (error) {
+          console.warn('Failed to load amazon listing presence badges', error);
           setListingPresenceByItemId({});
         } else {
           const grouped = {};
           (data || []).forEach((row) => {
-            if (!row?.exists_on_marketplace) return;
-            const stockId = row.stock_item_id;
+            const stockId = row?.stock_item_id;
+            if (!stockId || !visibleStockIds.has(String(stockId))) return;
             const country = MARKETPLACE_TO_COUNTRY[String(row.marketplace_id || '').toUpperCase()] || null;
             if (!stockId || !country) return;
             if (!grouped[stockId]) grouped[stockId] = [];
