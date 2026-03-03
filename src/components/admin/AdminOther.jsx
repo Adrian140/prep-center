@@ -13,6 +13,14 @@ const todayStr = () => {
 };
 
 const fmt = (value) => Number.isFinite(value) ? value.toFixed(2) : '0.00';
+const splitObs = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return { id: '', note: '' };
+  const parts = raw.split('|').map((part) => part.trim()).filter(Boolean);
+  const id = parts[0] || '';
+  const note = parts.slice(1).join(' | ') || '';
+  return { id, note };
+};
 
 const formatInvoiceTooltip = (invoice) => {
   if (!invoice) return null;
@@ -192,13 +200,46 @@ export default function AdminOther({
 
   const mergedRows = useMemo(() => {
     const baseRows = (rows || []).map((row) => ({ ...row, __billingSection: 'other' }));
-    const returnRows = (extraRows || []).map((row) => ({ ...row, __billingSection: 'returns' }));
+    const returnRows = (extraRows || []).map((row) => {
+      const { id: groupId, note } = splitObs(row?.obs_admin);
+      return {
+        ...row,
+        __billingSection: 'returns',
+        __groupId: groupId || 'Retur',
+        __groupNote: note
+      };
+    });
     return [...baseRows, ...returnRows].sort((a, b) => {
       const da = new Date(a?.service_date || a?.created_at || 0).getTime();
       const db = new Date(b?.service_date || b?.created_at || 0).getTime();
       return db - da;
     });
   }, [rows, extraRows]);
+
+  const groupedDisplayRows = useMemo(() => {
+    const result = [];
+    const groupedReturnRows = mergedRows.filter((row) => row.__billingSection === 'returns');
+    const nonReturnRows = mergedRows.filter((row) => row.__billingSection !== 'returns');
+    const groupedMap = new Map();
+    groupedReturnRows.forEach((row) => {
+      const key = String(row.__groupId || 'Retur');
+      if (!groupedMap.has(key)) groupedMap.set(key, []);
+      groupedMap.get(key).push(row);
+    });
+
+    groupedMap.forEach((rowsInGroup, key) => {
+      result.push({
+        __rowType: 'header',
+        __key: `header-${key}`,
+        label: key,
+        count: rowsInGroup.length
+      });
+      rowsInGroup.forEach((row) => result.push({ ...row, __rowType: 'data' }));
+    });
+
+    nonReturnRows.forEach((row) => result.push({ ...row, __rowType: 'data' }));
+    return result;
+  }, [mergedRows]);
 
   return (
     <Section
@@ -299,14 +340,28 @@ export default function AdminOther({
             </tr>
           </thead>
           <tbody>
-            {mergedRows.length === 0 ? (
+            {groupedDisplayRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-3 py-4 text-center text-text-secondary">
                   Nicio înregistrare.
                 </td>
               </tr>
             ) : (
-              mergedRows.map((row) => {
+              groupedDisplayRows.map((row) => {
+                if (row.__rowType === 'header') {
+                  return (
+                    <tr key={row.__key} className="bg-slate-50/80 border-t border-slate-200">
+                      <td colSpan={8} className="px-3 py-2 text-sm text-text-primary font-semibold">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
+                            {row.label}
+                          </span>
+                          <span className="text-text-secondary text-xs">{row.count} lines in this return</span>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                }
                 const isEdit = edit?.id === row.id;
                 const isReturnRow = row.__billingSection === 'returns';
                 const total =
