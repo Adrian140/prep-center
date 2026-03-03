@@ -3005,6 +3005,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   }, [step1BoxPlanForMarket?.groups]);
 
   const submitPackingInformation = async (payload = {}) => {
+    const skipRefresh = Boolean(payload?.skipRefresh);
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     const placementOptId =
