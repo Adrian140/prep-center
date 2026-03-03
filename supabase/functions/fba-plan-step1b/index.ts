@@ -49,6 +49,12 @@ function normalizeSku(val: string | null | undefined) {
     .replace(/\u0080/g, "€");
 }
 
+function normalizeSkuKey(val: string | null | undefined) {
+  const normalized = normalizeSku(val);
+  if (!normalized) return "";
+  return normalized.toLowerCase();
+}
+
 function maskValue(val: string) {
   if (!val) return "";
   if (val.length <= 8) return "***";
@@ -1743,7 +1749,7 @@ serve(async (req) => {
           .in("sku", skuList);
         if (Array.isArray(stockRowsBySku)) {
           stockBySku = stockRowsBySku.reduce((acc: any, row: any) => {
-            const key = normalizeSku(row.sku);
+            const key = normalizeSkuKey(row.sku);
             if (key) acc[key] = row;
             return acc;
           }, {});
@@ -1752,39 +1758,46 @@ serve(async (req) => {
 
       const skuMeta = new Map<string, { title: string | null; image: string | null; defaultQty: number }>();
       const confirmedQuantities: Record<string, number> = {};
+      const skuDisplayByKey: Record<string, string> = {};
 
       (prepItems || []).forEach((it: any) => {
-        const skuKey = normalizeSku(it.sku);
+        const skuRaw = normalizeSku(it.sku);
+        const skuKey = normalizeSkuKey(it.sku);
         if (!skuKey) return;
 
         const confirmedQty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
         confirmedQuantities[skuKey] = confirmedQty;
+        if (!skuDisplayByKey[skuKey]) {
+          skuDisplayByKey[skuKey] = skuRaw || skuKey;
+        }
 
         const fromId = it.stock_item_id ? stockById[it.stock_item_id] : null;
         const fromSku = stockBySku[skuKey] || null;
         const image = fromId?.image_url || fromSku?.image_url || null;
 
         skuMeta.set(skuKey, {
-          title: it.product_name || skuKey,
+          title: it.product_name || skuRaw || skuKey,
           image,
           defaultQty: confirmedQty
         });
       });
 
-      return { skuMeta, confirmedQuantities };
+      return { skuMeta, confirmedQuantities, skuDisplayByKey };
     };
 
-    const { skuMeta, confirmedQuantities } = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities, skuDisplayByKey } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
       (Array.isArray(items) ? items : []).map((it: any, idx: number) => {
-        const skuKey = normalizeSku(it.msku || it.sku || it.SellerSKU || `item-${idx + 1}`);
+        const skuRaw = normalizeSku(it.msku || it.sku || it.SellerSKU || `item-${idx + 1}`);
+        const skuKey = normalizeSkuKey(skuRaw);
         const meta = skuMeta.get(skuKey);
         return {
           ...it,
-          sku: skuKey,
-          title: meta?.title || skuKey,
+          sku: skuRaw || skuKey,
+          skuKey,
+          title: meta?.title || skuRaw || skuKey,
           image: meta?.image || null,
           quantity: Number(it.quantity || it.Quantity || meta?.defaultQty || 0) || 0
         };
@@ -1944,7 +1957,7 @@ serve(async (req) => {
     const summedFromAmazon: Record<string, number> = {};
     (effectivePackingGroups || []).forEach((g: any) => {
       (g?.items || []).forEach((it: any) => {
-        const sku = normalizeSku(it?.sku || it?.msku || "");
+        const sku = normalizeSkuKey(it?.sku || it?.msku || "");
         const q = Number(it?.quantity || 0) || 0;
         if (!sku) return;
         summedFromAmazon[sku] = (summedFromAmazon[sku] || 0) + q;
@@ -1955,7 +1968,7 @@ serve(async (req) => {
       .map((sku) => {
         const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
         const amazon = Number(summedFromAmazon[sku] || 0) || 0;
-        return { sku, confirmed, amazon, delta: amazon - confirmed };
+        return { sku: skuDisplayByKey[sku] || sku, confirmed, amazon, delta: amazon - confirmed };
       })
       .filter((r) => r.delta !== 0);
 
