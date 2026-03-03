@@ -131,6 +131,7 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [fbmRows, setFbmRows] = useState([]);
   const [otherRows, setOtherRows] = useState([]);
   const [returnRows, setReturnRows] = useState([]);
+  const [returnServiceRows, setReturnServiceRows] = useState([]);
   const [billingSelections, setBillingSelections] = useState({});
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingError, setBillingError] = useState('');
@@ -246,10 +247,48 @@ const ensureCompany = async () => {
       return res;
     };
     fetchPromises.push(loadReturns());
+    const loadReturnServices = async () => {
+      let query = supabase
+        .from('return_service_lines')
+        .select(invoiceSelect)
+        .eq('company_id', cid);
+      if (currentMarket) {
+        query = query.eq('country', currentMarket);
+      }
+      let res = await query.order('service_date', { ascending: false });
+      if (
+        res?.error &&
+        /relationship|foreign key|billing_invoice/i.test(String(res.error.message || ''))
+      ) {
+        let fallbackQuery = supabase
+          .from('return_service_lines')
+          .select('*')
+          .eq('company_id', cid);
+        if (currentMarket) {
+          fallbackQuery = fallbackQuery.eq('country', currentMarket);
+        }
+        res = await fallbackQuery.order('service_date', { ascending: false });
+      }
+      if (
+        currentMarket &&
+        res?.error &&
+        String(res.error.message || '').toLowerCase().includes('country')
+      ) {
+        res = await supabase
+          .from('return_service_lines')
+          .select(invoiceSelect)
+          .eq('company_id', cid)
+          .order('service_date', { ascending: false });
+      }
+      return res;
+    };
+    if (!isLimitedAdmin) {
+      fetchPromises.push(loadReturnServices());
+    }
 
     const results = await Promise.all(fetchPromises);
-    const [fbaRes, fbmRes, otherRes, returnsRes] = isLimitedAdmin
-      ? [null, null, null, results[0]]
+    const [fbaRes, fbmRes, otherRes, returnsRes, returnServicesRes] = isLimitedAdmin
+      ? [null, null, null, results[0], null]
       : results;
     let billingProfilesRes = await supabaseHelpers.getBillingProfiles(profile?.id);
     const [issuerSettingsRes, countersSettingsRes, proformaCountersRes, templateSettingsRes] = await Promise.all([
@@ -290,6 +329,11 @@ if (!isLimitedAdmin) {
   setOtherRows([]);
 }
 if (!returnsRes?.error) setReturnRows(returnsRes?.data || []);
+if (!isLimitedAdmin) {
+  if (!returnServicesRes?.error) setReturnServiceRows(returnServicesRes?.data || []);
+} else {
+  setReturnServiceRows([]);
+}
 if (!billingProfilesRes?.error) setBillingProfiles(billingProfilesRes?.data || []);
 if (!issuerSettingsRes?.error && issuerSettingsRes?.data?.value) {
   const normalizedIssuerProfiles = normalizeIssuerProfiles(issuerSettingsRes.data.value);
@@ -360,7 +404,9 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
           ? fbmRows
           : section === 'other'
             ? otherRows
-            : [];
+            : section === 'returns'
+              ? returnServiceRows
+              : [];
     if (!Array.isArray(source) || !source.length) return;
     setBillingSelections((prev) => {
       const next = { ...prev };
@@ -373,7 +419,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
       });
       return next;
     });
-  }, [canManageInvoices, fbaRows, fbmRows, otherRows]);
+  }, [canManageInvoices, fbaRows, fbmRows, otherRows, returnServiceRows]);
 
   const handleBillingSave = useCallback(
     async ({
@@ -839,7 +885,18 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
             <AdminStockClientView profile={profile} />
           )}
           {activeSection === 'returns' && (
-            <AdminReturns rows={returnRows} reload={loadAll} companyId={companyId} profile={profile} />
+            <AdminReturns
+              rows={returnRows}
+              reload={loadAll}
+              companyId={companyId}
+              profile={profile}
+              currentMarket={currentMarket}
+              returnServiceRows={returnServiceRows}
+              billingSelectedLines={billingSelections}
+              onToggleBillingSelection={toggleBillingSelection}
+              canSelectForBilling={canManageInvoices}
+              onSelectAllUninvoiced={() => selectAllUninvoicedForSection('returns')}
+            />
           )}
           {activeSection === 'requests' && (
             <ClientPrepShipments profileOverride={profile} />

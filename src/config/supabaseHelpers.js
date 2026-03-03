@@ -1269,6 +1269,8 @@ export const supabaseHelpers = {
             ? 'fbm_lines'
             : section === 'other'
               ? 'other_lines'
+              : section === 'returns'
+                ? 'return_service_lines'
               : 'fba_lines';
         if (!ids.size) return null;
         return supabase

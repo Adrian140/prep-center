@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { useSupabaseAuth } from "../../../contexts/SupabaseAuthContext";
+import { supabase } from "../../../config/supabase";
 import { supabaseHelpers } from "../../../config/supabase";
 import {
   ResponsiveContainer,
@@ -142,16 +143,19 @@ export default function SupabaseClientActivity() {
   const [fba, setFba] = useState([]);
   const [fbm, setFbm] = useState([]);
   const [other, setOther] = useState([]);
+  const [returnsLines, setReturnsLines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState("3m");
   const [activeReport, setActiveReport] = useState('fba');
   const [fbaMonth, setFbaMonth] = useState('');
   const [fbmMonth, setFbmMonth] = useState('');
   const [otherMonth, setOtherMonth] = useState('');
+  const [returnsMonth, setReturnsMonth] = useState('');
   const [baseMonths, setBaseMonths] = useState({
     fba: currentMonthStr(),
     fbm: currentMonthStr(),
-    other: currentMonthStr()
+    other: currentMonthStr(),
+    returns: currentMonthStr()
   });
   const [monthsInitialized, setMonthsInitialized] = useState(false);
 
@@ -164,22 +168,43 @@ export default function SupabaseClientActivity() {
       return;
     }
     setLoading(true);
-    const [{ data: fbaData }, { data: fbmData }, { data: otherData }] = await Promise.all([
+    const [
+      { data: fbaData },
+      { data: fbmData },
+      { data: otherData },
+      { data: returnsData },
+      { data: returnsStatusData }
+    ] = await Promise.all([
       supabaseHelpers.listFbaLinesByCompany(companyId, currentMarket),
       supabaseHelpers.listFbmLinesByCompany(companyId, currentMarket),
-      supabaseHelpers.listOtherLinesByCompany(companyId, currentMarket)
+      supabaseHelpers.listOtherLinesByCompany(companyId, currentMarket),
+      supabaseHelpers.listReturnServiceLinesByCompany(companyId, currentMarket),
+      supabase
+        .from('returns')
+        .select('id, status')
+        .eq('company_id', companyId)
     ]);
     const safeFba = sortByServiceDateDesc(fbaData || []);
     const safeFbm = sortByServiceDateDesc(fbmData || []);
     const safeOther = sortByServiceDateDesc(otherData || []);
+    const doneReturnIds = new Set(
+      (Array.isArray(returnsStatusData) ? returnsStatusData : [])
+        .filter((ret) => String(ret?.status || '').toLowerCase() === 'done')
+        .map((ret) => Number(ret.id))
+    );
+    const safeReturns = sortByServiceDateDesc(
+      (returnsData || []).filter((line) => doneReturnIds.has(Number(line.return_id)))
+    );
     setFba(safeFba);
     setFbm(safeFbm);
     setOther(safeOther);
+    setReturnsLines(safeReturns);
 
     const nextBase = {
       fba: deriveMonth(safeFba[0]?.service_date),
       fbm: deriveMonth(safeFbm[0]?.service_date),
-      other: deriveMonth(safeOther[0]?.service_date)
+      other: deriveMonth(safeOther[0]?.service_date),
+      returns: deriveMonth(safeReturns[0]?.service_date)
     };
     setBaseMonths(nextBase);
 
@@ -187,6 +212,7 @@ export default function SupabaseClientActivity() {
       setFbaMonth(nextBase.fba);
       setFbmMonth(nextBase.fbm);
       setOtherMonth(nextBase.other);
+      setReturnsMonth(nextBase.returns);
       setMonthsInitialized(true);
     }
 
@@ -204,6 +230,7 @@ export default function SupabaseClientActivity() {
   const effectiveFbaMonth = fbaMonth || baseMonths.fba;
   const effectiveFbmMonth = fbmMonth || baseMonths.fbm;
   const effectiveOtherMonth = otherMonth || baseMonths.other;
+  const effectiveReturnsMonth = returnsMonth || baseMonths.returns;
 
   const fbaMonthRows = useMemo(
     () => filterRowsByMonth(fba, effectiveFbaMonth),
@@ -225,6 +252,18 @@ export default function SupabaseClientActivity() {
     () => filterRowsByMonth(other, effectiveOtherMonth),
     [other, effectiveOtherMonth]
   );
+  const returnsMonthRows = useMemo(
+    () => filterRowsByMonth(returnsLines, effectiveReturnsMonth),
+    [returnsLines, effectiveReturnsMonth]
+  );
+  const returnsDecoratedRows = useMemo(
+    () =>
+      returnsMonthRows.map((row, idx) => {
+        const { id: parsedId, note } = splitObs(row?.obs_admin);
+        return { ...row, _order: idx, _groupKey: parsedId || '', _note: note };
+      }),
+    [returnsMonthRows]
+  );
 
   const fbaMonthTotals = useMemo(
     () => calcReportTotals(fbaDecoratedRows, 'units'),
@@ -237,6 +276,10 @@ export default function SupabaseClientActivity() {
   const otherMonthTotals = useMemo(
     () => calcReportTotals(otherMonthRows, 'units'),
     [otherMonthRows]
+  );
+  const returnsMonthTotals = useMemo(
+    () => calcReportTotals(returnsDecoratedRows, 'units'),
+    [returnsDecoratedRows]
   );
 
   const chartData = useMemo(() => {
@@ -335,7 +378,8 @@ export default function SupabaseClientActivity() {
   const reportTabs = useMemo(() => ([
     { id: 'fba', label: t('SupabaseClientActivity.fbaTitle') || 'FBA' },
     { id: 'fbm', label: t('SupabaseClientActivity.fbmTitle') || 'FBM' },
-    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' }
+    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' },
+    { id: 'returns', label: t('SupabaseClientActivity.returnsTitle') || 'Retururi' }
   ]), [t]);
 
   if (loading) {
@@ -348,38 +392,51 @@ export default function SupabaseClientActivity() {
 
   const isFbaView = activeReport === 'fba';
   const isFbmView = activeReport === 'fbm';
+  const isReturnsView = activeReport === 'returns';
   const activeRows = isFbaView
     ? fbaDecoratedRows
     : isFbmView
       ? fbmMonthRows
-      : otherMonthRows;
+      : isReturnsView
+        ? returnsDecoratedRows
+        : otherMonthRows;
   const activeTotals = isFbaView
     ? fbaMonthTotals
     : isFbmView
       ? fbmMonthTotals
-      : otherMonthTotals;
-  const activeMonth = isFbaView ? fbaMonth : isFbmView ? fbmMonth : otherMonth;
-  const setActiveMonth = isFbaView ? setFbaMonth : isFbmView ? setFbmMonth : setOtherMonth;
+      : isReturnsView
+        ? returnsMonthTotals
+        : otherMonthTotals;
+  const activeMonth = isFbaView ? fbaMonth : isFbmView ? fbmMonth : isReturnsView ? returnsMonth : otherMonth;
+  const setActiveMonth = isFbaView ? setFbaMonth : isFbmView ? setFbmMonth : isReturnsView ? setReturnsMonth : setOtherMonth;
   const reportTitle = isFbaView
     ? t('ClientFBAReport.title')
     : isFbmView
       ? t('ClientFBMReport.title')
-      : t('ClientOtherReport.title');
+      : isReturnsView
+        ? (t('ClientReturns.title') || 'Retururi')
+        : t('ClientOtherReport.title');
   const reportSubtitle = isFbaView
     ? t('ClientFBAReport.readonly')
     : isFbmView
       ? t('ClientFBMReport.readonly')
-      : t('ClientOtherReport.readonly');
+      : isReturnsView
+        ? (t('ClientReturns.readonly') || '')
+        : t('ClientOtherReport.readonly');
   const monthLabel = isFbaView
     ? t('ClientFBAReport.monthLabel')
     : isFbmView
       ? t('ClientFBMReport.monthLabel')
-      : t('ClientOtherReport.monthLabel');
+      : isReturnsView
+        ? (t('ClientReturns.monthLabel') || t('ClientOtherReport.monthLabel'))
+        : t('ClientOtherReport.monthLabel');
   const currentMonthLabel = isFbaView
     ? t('ClientFBAReport.currentMonth')
     : isFbmView
       ? t('ClientFBMReport.currentMonth')
-      : t('ClientOtherReport.currentMonth');
+      : isReturnsView
+        ? (t('ClientReturns.currentMonth') || t('ClientOtherReport.currentMonth'))
+        : t('ClientOtherReport.currentMonth');
   const qtyHeading = isFbmView
     ? t('SupabaseClientActivity.thead.ordersUnits')
     : t('SupabaseClientActivity.thead.units');
@@ -387,10 +444,20 @@ export default function SupabaseClientActivity() {
     ? t('ClientFBAReport.noDataMonth')
     : isFbmView
       ? t('ClientFBMReport.noDataMonth')
-      : t('ClientOtherReport.noDataMonth');
+      : isReturnsView
+        ? (t('ClientReturns.noDataMonth') || t('ClientOtherReport.noDataMonth'))
+        : t('ClientOtherReport.noDataMonth');
 
   const resetActiveMonth = () => {
-    setActiveMonth(isFbaView ? baseMonths.fba : isFbmView ? baseMonths.fbm : baseMonths.other);
+    setActiveMonth(
+      isFbaView
+        ? baseMonths.fba
+        : isFbmView
+          ? baseMonths.fbm
+          : isReturnsView
+            ? baseMonths.returns
+            : baseMonths.other
+    );
   };
 
   return (
@@ -485,7 +552,16 @@ export default function SupabaseClientActivity() {
             <label>{monthLabel}</label>
             <input
               type="month"
-              value={activeMonth || (isFbaView ? baseMonths.fba : isFbmView ? baseMonths.fbm : baseMonths.other)}
+              value={
+                activeMonth ||
+                (isFbaView
+                  ? baseMonths.fba
+                  : isFbmView
+                    ? baseMonths.fbm
+                    : isReturnsView
+                      ? baseMonths.returns
+                      : baseMonths.other)
+              }
               onChange={(e) => setActiveMonth(e.target.value)}
               className="border rounded px-2 py-1 text-sm"
             />
@@ -528,7 +604,7 @@ export default function SupabaseClientActivity() {
                     {emptyState}
                   </td>
                 </tr>
-              ) : !isFbaView ? (
+              ) : !(isFbaView || isReturnsView) ? (
                 activeRows.map((r) => {
                   const qty = Number(
                     isFbaView ? r.units || 0 : isFbmView ? r.orders_units || 0 : r.units || 0
@@ -544,7 +620,7 @@ export default function SupabaseClientActivity() {
                       title={formatInvoiceTooltip(r.billing_invoice)}
                     >
                       <td className="px-3 py-2">{r.service_date}</td>
-                      <td className="px-3 py-2">{formatFbaServiceName(r, t)}</td>
+                      <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
                       <td className="px-3 py-2 text-right">
                         {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                       </td>
@@ -611,7 +687,9 @@ export default function SupabaseClientActivity() {
                             title={formatInvoiceTooltip(r.billing_invoice)}
                           >
                             <td className="px-3 py-2">{r.service_date}</td>
-                            <td className="px-3 py-2">{formatFbaServiceName(r, t)}</td>
+                            <td className="px-3 py-2">
+                              {isFbaView ? formatFbaServiceName(r, t) : formatOtherServiceName(r.service, t)}
+                            </td>
                             <td className="px-3 py-2 text-right">
                               {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                             </td>

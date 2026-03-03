@@ -7,8 +7,50 @@ import { normalizeMarketCode } from '@/utils/market';
 import { buildPrepQtyPatch, getPrepQtyForMarket } from '@/utils/marketStock';
 
 const statusOptions = ['pending', 'processing', 'done', 'cancelled'];
+const returnServiceOptions = [
+  { value: 'Return fee', label: 'Return fee' },
+  { value: 'Return km', label: 'Km până la punctul de predare' },
+  { value: 'Transport', label: 'Transport' }
+];
+const formatMoney = (value) => (Number.isFinite(value) ? Number(value).toFixed(2) : '0.00');
+const formatInvoiceTooltip = (invoice) => {
+  if (!invoice) return null;
+  const formattedDate = invoice.invoice_date
+    ? new Date(invoice.invoice_date).toLocaleDateString('ro-RO')
+    : null;
+  return `Factură #${invoice.invoice_number}${formattedDate ? ` · ${formattedDate}` : ''}`;
+};
+const createServiceDraft = () => ({
+  service: 'Return fee',
+  service_date: new Date().toISOString().slice(0, 10),
+  unit_price: '',
+  units: '1',
+  amount: '',
+  transport_tracking_id: '',
+  obs_admin: ''
+});
+const buildReturnGroupLabel = (items = []) => {
+  const asins = Array.from(
+    new Set(
+      (Array.isArray(items) ? items : [])
+        .map((it) => String(it?.asin || it?.stock_item?.asin || '').trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+  return `Retur ${asins.join(',') || '-'}`;
+};
 
-export default function AdminReturns({ companyId = null, profile = null }) {
+export default function AdminReturns({
+  reload,
+  companyId = null,
+  profile = null,
+  currentMarket: currentMarketProp = null,
+  returnServiceRows = [],
+  billingSelectedLines = {},
+  onToggleBillingSelection,
+  canSelectForBilling = false,
+  onSelectAllUninvoiced
+}) {
   const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -18,6 +60,7 @@ export default function AdminReturns({ companyId = null, profile = null }) {
   const [editingId, setEditingId] = useState(null);
   const [editNotes, setEditNotes] = useState('');
   const [editItems, setEditItems] = useState({});
+  const [serviceDrafts, setServiceDrafts] = useState({});
 
   const load = async () => {
     setLoading(true);
@@ -55,7 +98,7 @@ export default function AdminReturns({ companyId = null, profile = null }) {
     if (profile?.id) {
       query = query.eq('user_id', profile.id);
     }
-    const marketCode = normalizeMarketCode(currentMarket);
+    const marketCode = normalizeMarketCode(currentMarketProp || currentMarket);
     if (marketCode) {
       query = query.eq('warehouse_country', marketCode);
     }
@@ -163,7 +206,7 @@ export default function AdminReturns({ companyId = null, profile = null }) {
           }, {})
         : {};
     }
-    baseRows = await Promise.all(
+    const mappedRows = await Promise.all(
       baseRows.map(async (r) => ({
         ...r,
         profile: profileMap[r.user_id] || null,
@@ -179,13 +222,63 @@ export default function AdminReturns({ companyId = null, profile = null }) {
       }))
     );
 
-    setRows(baseRows);
+    const rowIds = mappedRows.map((r) => r.id).filter(Boolean);
+    let serviceRows = [];
+    if (rowIds.length) {
+      let serviceQuery = supabase
+        .from('return_service_lines')
+        .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+        .in('return_id', rowIds)
+        .order('service_date', { ascending: false });
+      if (marketCode) {
+        serviceQuery = serviceQuery.eq('country', marketCode);
+      }
+      let serviceRes = await serviceQuery;
+      if (
+        serviceRes?.error &&
+        /relationship|foreign key|billing_invoice/i.test(String(serviceRes.error.message || ''))
+      ) {
+        let fallbackQuery = supabase
+          .from('return_service_lines')
+          .select('*')
+          .in('return_id', rowIds)
+          .order('service_date', { ascending: false });
+        if (marketCode) fallbackQuery = fallbackQuery.eq('country', marketCode);
+        serviceRes = await fallbackQuery;
+      }
+      if (
+        marketCode &&
+        serviceRes?.error &&
+        String(serviceRes.error.message || '').toLowerCase().includes('country')
+      ) {
+        serviceRes = await supabase
+          .from('return_service_lines')
+          .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+          .in('return_id', rowIds)
+          .order('service_date', { ascending: false });
+      }
+      serviceRows = Array.isArray(serviceRes?.data) ? serviceRes.data : [];
+    }
+
+    const servicesByReturnId = serviceRows.reduce((acc, srv) => {
+      const key = srv.return_id;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(srv);
+      return acc;
+    }, {});
+
+    const mergedRows = mappedRows.map((row) => ({
+      ...row,
+      return_service_lines: servicesByReturnId[row.id] || []
+    }));
+
+    setRows(mergedRows);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-  }, [currentMarket, companyId, profile?.id]);
+  }, [currentMarket, currentMarketProp, companyId, profile?.id]);
 
   const filtered = useMemo(() => {
     if (!filter) return rows;
@@ -336,6 +429,107 @@ export default function AdminReturns({ companyId = null, profile = null }) {
     cancelEdit();
   };
 
+  const getServiceLinesForReturn = (row) => {
+    const fromParent = Array.isArray(returnServiceRows)
+      ? returnServiceRows.filter((srv) => Number(srv.return_id) === Number(row.id))
+      : [];
+    const fromLocal = Array.isArray(row.return_service_lines) ? row.return_service_lines : [];
+    const byId = new Map();
+    [...fromParent, ...fromLocal].forEach((line) => {
+      if (!line?.id) return;
+      byId.set(line.id, line);
+    });
+    return Array.from(byId.values()).sort((a, b) => {
+      const da = new Date(a?.service_date || a?.created_at || 0).getTime();
+      const db = new Date(b?.service_date || b?.created_at || 0).getTime();
+      return db - da;
+    });
+  };
+
+  const addServiceLine = async (row) => {
+    const draft = serviceDrafts[row.id] || createServiceDraft();
+    const unitPrice = Number(draft.service === 'Transport' ? draft.amount : draft.unit_price);
+    const units = Number(draft.units || 0);
+    if (!draft.service) {
+      alert('Selectează serviciul.');
+      return;
+    }
+    if (!Number.isFinite(unitPrice)) {
+      alert('Completează suma/prețul.');
+      return;
+    }
+    if (!Number.isFinite(units) || units < 0) {
+      alert('Completează unitățile/km.');
+      return;
+    }
+    const returnLabel = buildReturnGroupLabel(row.return_items);
+    const extraNoteParts = [];
+    if (draft.transport_tracking_id) extraNoteParts.push(`Track ID: ${draft.transport_tracking_id}`);
+    if (draft.obs_admin) extraNoteParts.push(draft.obs_admin);
+    const obsAdmin = `${returnLabel}${extraNoteParts.length ? ` | ${extraNoteParts.join(' | ')}` : ''}`;
+    const payload = {
+      return_id: row.id,
+      company_id: row.company_id,
+      user_id: row.user_id || null,
+      country: normalizeMarketCode(row.warehouse_country || row.country || row.marketplace || currentMarketProp || currentMarket) || 'FR',
+      service_date: draft.service_date || new Date().toISOString().slice(0, 10),
+      service: draft.service,
+      unit_price: unitPrice,
+      units,
+      total: Number.isFinite(unitPrice * units) ? unitPrice * units : null,
+      transport_tracking_id: draft.transport_tracking_id || null,
+      obs_admin: obsAdmin
+    };
+    setSavingId(row.id);
+    const { data, error } = await supabase
+      .from('return_service_lines')
+      .insert(payload)
+      .select('*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)')
+      .single();
+    if (error) {
+      alert(error.message);
+      setSavingId(null);
+      return;
+    }
+    setRows((prev) =>
+      prev.map((entry) =>
+        entry.id === row.id
+          ? {
+              ...entry,
+              return_service_lines: [data, ...(entry.return_service_lines || [])]
+            }
+          : entry
+      )
+    );
+    setServiceDrafts((prev) => ({ ...prev, [row.id]: createServiceDraft() }));
+    if (typeof reload === 'function') {
+      await reload();
+    }
+    setSavingId(null);
+  };
+
+  const deleteServiceLine = async (rowId, serviceId) => {
+    if (!window.confirm('Ștergi această linie de serviciu?')) return;
+    const { error } = await supabase.from('return_service_lines').delete().eq('id', serviceId);
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              return_service_lines: (row.return_service_lines || []).filter((line) => Number(line.id) !== Number(serviceId))
+            }
+          : row
+      )
+    );
+    if (typeof reload === 'function') {
+      await reload();
+    }
+  };
+
   return (
     <Section
       title="Retururi"
@@ -360,6 +554,15 @@ export default function AdminReturns({ companyId = null, profile = null }) {
           >
             <RefreshCcw className="w-4 h-4" /> Reîmprospătează
           </button>
+          {canSelectForBilling && (
+            <button
+              type="button"
+              onClick={onSelectAllUninvoiced}
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded"
+            >
+              Select all uninvoiced
+            </button>
+          )}
         </div>
       }
     >
@@ -371,6 +574,9 @@ export default function AdminReturns({ companyId = null, profile = null }) {
         {filtered.map((r) => {
           const items = Array.isArray(r.return_items) ? r.return_items : [];
           const files = Array.isArray(r.return_files) ? r.return_files : [];
+          const services = getServiceLinesForReturn(r);
+          const serviceDraft = serviceDrafts[r.id] || createServiceDraft();
+          const isTransportDraft = serviceDraft.service === 'Transport';
           const profile = r.profile || {};
           const companyLabel =
             profile.company_name ||
@@ -530,6 +736,191 @@ export default function AdminReturns({ companyId = null, profile = null }) {
                       {r.notes || '—'}
                     </div>
                   )}
+
+                  <div className="mt-2 space-y-2">
+                    <div className="text-xs uppercase text-text-secondary">
+                      Servicii retur ({services.length})
+                    </div>
+                    {services.length > 0 && (
+                      <div className="overflow-auto border rounded">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-2 py-1 text-center w-8"></th>
+                              <th className="px-2 py-1 text-left">Data</th>
+                              <th className="px-2 py-1 text-left">Serviciu</th>
+                              <th className="px-2 py-1 text-right">Preț</th>
+                              <th className="px-2 py-1 text-right">Unități</th>
+                              <th className="px-2 py-1 text-right">Total</th>
+                              <th className="px-2 py-1 text-left">Transport track ID</th>
+                              <th className="px-2 py-1 text-left">Obs admin</th>
+                              <th className="px-2 py-1 text-right">Acțiuni</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {services.map((serviceLine) => {
+                              const lineTotal =
+                                serviceLine.total != null
+                                  ? Number(serviceLine.total)
+                                  : Number(serviceLine.unit_price || 0) * Number(serviceLine.units || 0);
+                              return (
+                                <tr
+                                  key={serviceLine.id}
+                                  className={`border-t ${
+                                    serviceLine.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : ''
+                                  }`}
+                                  title={formatInvoiceTooltip(serviceLine.billing_invoice)}
+                                >
+                                  <td className="px-2 py-1 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={Boolean(billingSelectedLines[`returns:${serviceLine.id}`])}
+                                      disabled={Boolean(serviceLine.billing_invoice_id) || !canSelectForBilling}
+                                      onChange={() =>
+                                        canSelectForBilling &&
+                                        onToggleBillingSelection?.('returns', serviceLine)
+                                      }
+                                      className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-1">{serviceLine.service_date || '—'}</td>
+                                  <td className="px-2 py-1">{serviceLine.service || '—'}</td>
+                                  <td className="px-2 py-1 text-right">{formatMoney(Number(serviceLine.unit_price || 0))}</td>
+                                  <td className="px-2 py-1 text-right">{Number(serviceLine.units || 0)}</td>
+                                  <td className="px-2 py-1 text-right">{formatMoney(lineTotal)}</td>
+                                  <td className="px-2 py-1">{serviceLine.transport_tracking_id || '—'}</td>
+                                  <td className="px-2 py-1">{serviceLine.obs_admin || '—'}</td>
+                                  <td className="px-2 py-1 text-right">
+                                    <button
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
+                                      onClick={() => deleteServiceLine(r.id, serviceLine.id)}
+                                    >
+                                      <Trash2 className="w-3 h-3" /> Șterge
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {services.length === 0 && (
+                      <div className="text-xs text-text-secondary border rounded px-2 py-2 bg-slate-50">
+                        Nu există servicii adăugate pe acest retur.
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-2 rounded border bg-slate-50 p-2">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+                        <select
+                          className="border rounded px-2 py-1 text-xs"
+                          value={serviceDraft.service}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                service: e.target.value
+                              }
+                            }))
+                          }
+                        >
+                          {returnServiceOptions.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          type="date"
+                          className="border rounded px-2 py-1 text-xs"
+                          value={serviceDraft.service_date}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                service_date: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                        <input
+                          type="text"
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder={isTransportDraft ? 'Suma transport' : 'Preț / unit'}
+                          value={isTransportDraft ? serviceDraft.amount : serviceDraft.unit_price}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                [isTransportDraft ? 'amount' : 'unit_price']: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder={serviceDraft.service === 'Return km' ? 'Km' : 'Unități'}
+                          value={serviceDraft.units}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                units: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                        <input
+                          type="text"
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Track ID transport"
+                          value={serviceDraft.transport_tracking_id}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                transport_tracking_id: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-center">
+                        <input
+                          type="text"
+                          className="border rounded px-2 py-1 text-xs"
+                          placeholder="Obs admin (opțional)"
+                          value={serviceDraft.obs_admin}
+                          onChange={(e) =>
+                            setServiceDrafts((prev) => ({
+                              ...prev,
+                              [r.id]: {
+                                ...(prev[r.id] || createServiceDraft()),
+                                obs_admin: e.target.value
+                              }
+                            }))
+                          }
+                        />
+                        <button
+                          className="inline-flex items-center justify-center gap-1 px-3 py-1.5 text-xs border rounded bg-white"
+                          onClick={() => addServiceLine(r)}
+                          disabled={savingId === r.id}
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Adaugă serviciu
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex flex-wrap gap-2">
                     {editingId === r.id ? (
                       <>

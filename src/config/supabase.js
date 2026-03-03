@@ -1209,6 +1209,8 @@ resetPassword: async (email) => {
             ? 'fbm_lines'
             : section === 'other'
               ? 'other_lines'
+              : section === 'returns'
+                ? 'return_service_lines'
               : 'fba_lines';
         if (!ids.size) return null;
         return supabase
@@ -1533,6 +1535,31 @@ resetPassword: async (email) => {
     const run = async (useCountry, withInvoice = true) => {
       let query = supabase
         .from('other_lines')
+        .select(
+          withInvoice
+            ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
+            : '*'
+        )
+        .eq('company_id', companyId);
+      if (useCountry) query = query.eq('country', useCountry);
+      return await query.order('service_date', { ascending: false });
+    };
+    let { data, error } = await run(country, true);
+    if (error && /relationship|foreign key|billing_invoice/i.test(String(error.message || ''))) {
+      const fallback = await run(country, false);
+      data = fallback.data;
+      error = fallback.error;
+    }
+    if (error && country && isMissingColumnError(error, 'country')) {
+      return await run(null, true);
+    }
+    return { data, error };
+  },
+
+  listReturnServiceLinesByCompany: async (companyId, country) => {
+    const run = async (useCountry, withInvoice = true) => {
+      let query = supabase
+        .from('return_service_lines')
         .select(
           withInvoice
             ? '*, billing_invoice:billing_invoices(id, invoice_number, invoice_date)'
