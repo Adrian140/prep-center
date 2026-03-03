@@ -91,7 +91,6 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
   const [inventoryRemote, setInventoryRemote] = useState([]);
   const [inventorySearch, setInventorySearch] = useState("");
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
-  const [useNewFlow, setUseNewFlow] = useState(Boolean(openWizard));
 
   const placeholderImg =
     'https://images.unsplash.com/photo-1582456891925-054d52d43a9c?auto=format&fit=crop&w=80&q=60';
@@ -117,13 +116,6 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     if (inbound && typeof inbound === 'object') return inbound;
     return wizardSnapshot && typeof wizardSnapshot === 'object' ? wizardSnapshot : {};
   }, [wizardSnapshot]);
-
-  useEffect(() => {
-    if (!requestId) return;
-    if (openWizard) {
-      setUseNewFlow(true);
-    }
-  }, [openWizard, requestId]);
 
   const wizardStep2Summary = useMemo(() => row?.step2_summary || null, [row]);
   const wizardStep2Shipments = useMemo(
@@ -1241,13 +1233,11 @@ onChanged?.();
       </div>
     );
 
-  if (useNewFlow && wizardPlan) {
+  if (wizardPlan) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <button onClick={() => setUseNewFlow(false)} className="inline-flex items-center text-sm">
-            <ArrowLeft className="w-4 h-4 mr-1" /> Înapoi la varianta veche
-          </button>
+          <span />
           <button onClick={onBack} className="text-sm text-blue-700 hover:underline">
             Înapoi la listă
           </button>
@@ -1312,13 +1302,6 @@ onChanged?.();
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setUseNewFlow(true)}
-              className="px-4 py-2 border border-blue-500 text-blue-700 rounded inline-flex items-center gap-2 hover:bg-blue-50"
-              type="button"
-            >
-              Try new Send to Amazon (beta)
-            </button>
             <button
               onClick={() => setShowBoxSummary(true)}
               className="px-4 py-2 border rounded inline-flex items-center gap-2"

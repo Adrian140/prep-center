@@ -348,7 +348,7 @@ export default function AdminPrepRequests() {
                     <button
                       onClick={() => {
                         setSelectedId(r.id);
-                        setSelectedView('detail');
+                        setSelectedView('shipping');
                       }}
                       className="px-3 py-1 bg-primary text-white rounded"
                     >
