@@ -531,6 +531,38 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isTransientNetworkError(err: any) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return (
+    msg.includes("connection reset") ||
+    msg.includes("econnreset") ||
+    msg.includes("timed out") ||
+    msg.includes("timeout") ||
+    msg.includes("network error") ||
+    msg.includes("connection closed") ||
+    msg.includes("temporarily unavailable")
+  );
+}
+
+async function runSupabaseWithRetry<T>(
+  fn: () => Promise<T>,
+  opts: { retries?: number; baseDelayMs?: number } = {}
+): Promise<T> {
+  const retries = Math.max(0, Number(opts.retries ?? 3));
+  const baseDelayMs = Math.max(100, Number(opts.baseDelayMs ?? 250));
+  let lastErr: any = null;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt >= retries || !isTransientNetworkError(err)) throw err;
+      await delay(baseDelayMs * (attempt + 1));
+    }
+  }
+  throw lastErr || new Error("runSupabaseWithRetry failed");
+}
+
 function formatAddress(addr: any) {
   if (!addr) return null;
   const parts = [
@@ -2196,17 +2228,19 @@ serve(async (req) => {
           selectedPartnered: optionMeta?.partnered,
           selectedSolution: optionMeta?.solution || null
         };
-        const { error: updErr } = await supabase
-          .from("prep_requests")
-          .update({
-            placement_option_id: effectivePlacementOptionId,
-            transportation_option_id: selectedTransportationOptionId,
-            step2_confirmed_at: new Date().toISOString(),
-            step2_summary: summaryWithSelection,
-            step2_shipments: normalizedShipments,
-            ...buildShipmentNameUpdate()
-          })
-          .eq("id", requestId);
+        const { error: updErr } = await runSupabaseWithRetry(() =>
+          supabase
+            .from("prep_requests")
+            .update({
+              placement_option_id: effectivePlacementOptionId,
+              transportation_option_id: selectedTransportationOptionId,
+              step2_confirmed_at: new Date().toISOString(),
+              step2_summary: summaryWithSelection,
+              step2_shipments: normalizedShipments,
+              ...buildShipmentNameUpdate()
+            })
+            .eq("id", requestId)
+        );
         if (updErr) {
           logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
         }
@@ -5042,17 +5076,19 @@ serve(async (req) => {
             selectedPartnered: optionMeta?.partnered,
             selectedSolution: optionMeta?.solution || null
           };
-          const { error: updErr } = await supabase
-            .from("prep_requests")
-            .update({
-              placement_option_id: effectivePlacementOptionId,
-              transportation_option_id: selectedTransportationOptionId,
-              step2_confirmed_at: new Date().toISOString(),
-              step2_summary: summaryWithSelection,
-              step2_shipments: normalizedShipments,
-              ...buildShipmentNameUpdate()
-            })
-            .eq("id", requestId);
+          const { error: updErr } = await runSupabaseWithRetry(() =>
+            supabase
+              .from("prep_requests")
+              .update({
+                placement_option_id: effectivePlacementOptionId,
+                transportation_option_id: selectedTransportationOptionId,
+                step2_confirmed_at: new Date().toISOString(),
+                step2_summary: summaryWithSelection,
+                step2_shipments: normalizedShipments,
+                ...buildShipmentNameUpdate()
+              })
+              .eq("id", requestId)
+          );
           if (updErr) {
             logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
           }
@@ -5154,13 +5190,15 @@ serve(async (req) => {
           logStep("sendPrepConfirmEmail_skipped", { traceId, reason: "missing_service_role_key" });
           return;
         }
-        const { data: prepRow, error: prepErr } = await supabase
-          .from("prep_requests")
-          .select(
-            "id, user_id, company_id, fba_shipment_id, obs_admin, destination_country, warehouse_country, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, units_removed, obs_admin)"
-          )
-          .eq("id", requestId)
-          .maybeSingle();
+        const { data: prepRow, error: prepErr } = await runSupabaseWithRetry(() =>
+          supabase
+            .from("prep_requests")
+            .select(
+              "id, user_id, company_id, fba_shipment_id, obs_admin, destination_country, warehouse_country, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, units_removed, obs_admin)"
+            )
+            .eq("id", requestId)
+            .maybeSingle()
+        );
         if (prepErr || !prepRow) {
           logStep("sendPrepConfirmEmail_skip", { traceId, reason: "prep_request_missing", error: prepErr?.message || null });
           return;
@@ -5229,23 +5267,34 @@ serve(async (req) => {
 
     sendPrepConfirmEmail();
 
-    const { error: updErr } = await supabase
-      .from("prep_requests")
-      .update({
-        placement_option_id: effectivePlacementOptionId,
-        transportation_option_id: selectedOption?.id || null,
-        step2_confirmed_at: new Date().toISOString(),
-        step2_summary: summaryWithSelection,
-        step2_shipments: shipmentsWithAmazonIds,
-        fba_shipment_id:
-          shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
-          shipmentsWithAmazonIds?.[0]?.shipmentId ||
-          null,
-        ...buildShipmentNameUpdate()
-      })
-      .eq("id", requestId);
+    const { error: updErr } = await runSupabaseWithRetry(() =>
+      supabase
+        .from("prep_requests")
+        .update({
+          placement_option_id: effectivePlacementOptionId,
+          transportation_option_id: selectedOption?.id || null,
+          step2_confirmed_at: new Date().toISOString(),
+          step2_summary: summaryWithSelection,
+          step2_shipments: shipmentsWithAmazonIds,
+          fba_shipment_id:
+            shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
+            shipmentsWithAmazonIds?.[0]?.shipmentId ||
+            null,
+          ...buildShipmentNameUpdate()
+        })
+        .eq("id", requestId)
+    );
     if (updErr) {
       logStep("prepRequestUpdateFailed", { traceId, requestId, error: updErr.message });
+      return new Response(
+        JSON.stringify({
+          error: "STEP2_PERSIST_FAILED",
+          message: "Amazon confirm succeeded, but local step state could not be saved. Retry Step 2.",
+          traceId,
+          prepRequestId: requestId || null
+        }),
+        { status: 503, headers: { ...corsHeaders, "content-type": "application/json" } }
+      );
     }
 
     return new Response(
