@@ -42,7 +42,7 @@ export default function AdminOther({
   canSelectForBilling = true,
   onSelectAllUninvoiced
 }) {
-  const { t } = useAdminTranslation();
+  const { t, tp } = useAdminTranslation();
   const [edit, setEdit] = useState(null);
   const formStorageKey = companyId
     ? `admin-other-form-${companyId}`
@@ -176,16 +176,29 @@ export default function AdminOther({
   const serviceLabels = useMemo(
     () => ({
       manual: t('serviceNames.manualPhoto') || 'Manual photo capture',
-      subscription: t('serviceNames.photoSubscription') || 'Photo storage subscription'
+      subscription: t('serviceNames.photoSubscription') || 'Photo storage subscription',
+      returnFee: t('adminOther.serviceNames.returnFee') || 'Return fee',
+      transport: t('adminOther.serviceNames.transport') || 'Transport',
+      kmDropoff: t('adminOther.serviceNames.kmDropoff') || 'Km până la punctul de predare'
     }),
     [t]
   );
 
+  const localizeReturnPrefix = (value) => {
+    if (!value) return value;
+    const prefix = t('adminOther.returnGroup.prefix') || 'Retur';
+    return String(value).replace(/^retur\b/i, prefix);
+  };
+
   const renderServiceName = (value) => {
     if (!value) return '—';
     const normalized = value.trim();
+    const lowered = normalized.toLowerCase();
     if (/^manual photo capture/i.test(normalized)) return serviceLabels.manual;
     if (/^photo storage subscription$/i.test(normalized)) return serviceLabels.subscription;
+    if (lowered === 'return fee' || lowered === 'retur fee') return serviceLabels.returnFee;
+    if (lowered === 'transport') return serviceLabels.transport;
+    if (lowered === 'km până la punctul de predare') return serviceLabels.kmDropoff;
     return normalized.replace(/ \(6 images\)/i, '');
   };
 
@@ -354,9 +367,11 @@ export default function AdminOther({
                       <td colSpan={8} className="px-3 py-2 text-sm text-text-primary font-semibold">
                         <span className="inline-flex items-center gap-2">
                           <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
-                            {row.label}
+                            {localizeReturnPrefix(row.label)}
                           </span>
-                          <span className="text-text-secondary text-xs">{row.count} lines in this return</span>
+                          <span className="text-text-secondary text-xs">
+                            {tp('adminOther.returnGroup.lines', { count: row.count })}
+                          </span>
                         </span>
                       </td>
                     </tr>
@@ -437,7 +452,7 @@ export default function AdminOther({
                           value={edit.obs_admin || ''}
                           onChange={(e) => setEdit((s) => ({ ...s, obs_admin: e.target.value }))}
                         />
-                      ) : row.obs_admin || '—'}
+                      ) : (isReturnRow ? localizeReturnPrefix(row.obs_admin || '—') : row.obs_admin || '—')}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {isEdit && !isReturnRow ? (
@@ -473,7 +488,9 @@ export default function AdminOther({
                               </button>
                             </>
                           ) : (
-                            <span className="text-xs text-text-secondary">Gestionare din tabul Retururi</span>
+                            <span className="text-xs text-text-secondary">
+                              {t('adminOther.returnGroup.manageInReturnsTab')}
+                            </span>
                           )}
                         </div>
                       )}

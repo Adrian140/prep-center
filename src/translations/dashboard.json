@@ -302,7 +302,9 @@
       "otherTitle": "Other",
       "group": {
         "noId": "No ID (—)",
-        "lines": "{count} lines for this shipment"
+        "lines": "{count} lines for this shipment",
+        "returnLines": "{count} lines in this return",
+        "returnPrefix": "Return"
       }
     },
     "ClientFBAReport": {
@@ -1075,7 +1077,10 @@
       "noDataMonth": "No entries for this month.",
       "serviceNames": {
         "photoSubscription": "Photo storage subscription",
-        "manualPhoto": "Manual photo capture"
+        "manualPhoto": "Manual photo capture",
+        "returnFee": "Return fee",
+        "transport": "Transport",
+        "kmDropoff": "Km to drop-off point"
       }
     },
     "market": {
@@ -1381,7 +1386,9 @@
       "otherTitle": "Altele",
       "group": {
         "noId": "Fără ID (—)",
-        "lines": "{count} linii pentru această expediere"
+        "lines": "{count} linii pentru această expediere",
+        "returnLines": "{count} linii în acest retur",
+        "returnPrefix": "Retur"
       }
     },
     "ClientFBAReport": {
@@ -2100,7 +2107,10 @@
       "noDataMonth": "Nu există înregistrări în această lună.",
       "serviceNames": {
         "photoSubscription": "Abonament stocare fotografii",
-        "manualPhoto": "Fotografiere manuală"
+        "manualPhoto": "Fotografiere manuală",
+        "returnFee": "Taxă retur",
+        "transport": "Transport",
+        "kmDropoff": "Km până la punctul de predare"
       }
     },
     "market": {
@@ -2498,7 +2508,9 @@
       "otherTitle": "Autres",
       "group": {
         "noId": "Pas d'ID (—)",
-        "lines": "{count} lignes pour cet envoi"
+        "lines": "{count} lignes pour cet envoi",
+        "returnLines": "{count} lignes dans ce retour",
+        "returnPrefix": "Retour"
       }
     },
     "ClientFBAReport": {
@@ -3139,7 +3151,10 @@
       "noDataMonth": "Aucune entrée pour ce mois.",
       "serviceNames": {
         "photoSubscription": "Abonnement stockage photos",
-        "manualPhoto": "Prise de photos manuelle"
+        "manualPhoto": "Prise de photos manuelle",
+        "returnFee": "Frais de retour",
+        "transport": "Transport",
+        "kmDropoff": "Km jusqu’au point de dépôt"
       }
     },
     "market": {
@@ -3485,7 +3500,9 @@
       "otherTitle": "Sonstiges",
       "group": {
         "noId": "Keine ID (—)",
-        "lines": "{count} Zeilen für diese Sendung"
+        "lines": "{count} Zeilen für diese Sendung",
+        "returnLines": "{count} Zeilen in dieser Retoure",
+        "returnPrefix": "Retoure"
       }
     },
     "ClientFBAReport": {
@@ -4126,7 +4143,10 @@
       "noDataMonth": "Keine Einträge für diesen Monat.",
       "serviceNames": {
         "photoSubscription": "Foto-Speicher-Abonnement",
-        "manualPhoto": "Manuelle Produktfotografie"
+        "manualPhoto": "Manuelle Produktfotografie",
+        "returnFee": "Rücksendegebühr",
+        "transport": "Transport",
+        "kmDropoff": "Km bis zur Abgabestelle"
       }
     },
     "market": {
@@ -4472,7 +4492,9 @@
       "otherTitle": "Altro",
       "group": {
         "noId": "Senza ID (—)",
-        "lines": "{count} righe per questa spedizione"
+        "lines": "{count} righe per questa spedizione",
+        "returnLines": "{count} righe in questo reso",
+        "returnPrefix": "Reso"
       }
     },
     "ClientFBAReport": {
@@ -5113,7 +5135,10 @@
       "noDataMonth": "Nessuna voce per questo mese.",
       "serviceNames": {
         "photoSubscription": "Abbonamento archiviazione foto",
-        "manualPhoto": "Servizio foto manuale"
+        "manualPhoto": "Servizio foto manuale",
+        "returnFee": "Costo di reso",
+        "transport": "Trasporto",
+        "kmDropoff": "Km fino al punto di consegna"
       }
     },
     "market": {
@@ -5459,7 +5484,9 @@
       "otherTitle": "Otros",
       "group": {
         "noId": "Sin ID (—)",
-        "lines": "{count} líneas para este envío"
+        "lines": "{count} líneas para este envío",
+        "returnLines": "{count} líneas en esta devolución",
+        "returnPrefix": "Devolución"
       }
     },
     "ClientFBAReport": {
@@ -6100,7 +6127,10 @@
       "noDataMonth": "No hay registros este mes.",
       "serviceNames": {
         "photoSubscription": "Suscripción almacenamiento de fotos",
-        "manualPhoto": "Captura manual de fotos"
+        "manualPhoto": "Captura manual de fotos",
+        "returnFee": "Tarifa de devolución",
+        "transport": "Transporte",
+        "kmDropoff": "Km hasta el punto de entrega"
       }
     },
     "market": {

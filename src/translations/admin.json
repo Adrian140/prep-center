@@ -428,6 +428,18 @@
       "group": {
         "shippingCompletedAt": "Shipping completed: {when}"
       }
+    },
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} lines in this return",
+        "prefix": "Return",
+        "manageInReturnsTab": "Manage from Returns tab"
+      },
+      "serviceNames": {
+        "returnFee": "Return fee",
+        "transport": "Transport",
+        "kmDropoff": "Km to drop-off point"
+      }
     }
   },
   "fr": {
@@ -535,6 +547,18 @@
     "adminFBA": {
       "group": {
         "shippingCompletedAt": "Expédition terminée : {when}"
+      }
+    },
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} lignes dans ce retour",
+        "prefix": "Retour",
+        "manageInReturnsTab": "Gestion depuis l’onglet Retours"
+      },
+      "serviceNames": {
+        "returnFee": "Frais de retour",
+        "transport": "Transport",
+        "kmDropoff": "Km jusqu’au point de dépôt"
       }
     }
   },
@@ -921,6 +945,60 @@
     "adminFBA": {
       "group": {
         "shippingCompletedAt": "Shipping încheiat: {when}"
+      }
+    },
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} linii în acest retur",
+        "prefix": "Retur",
+        "manageInReturnsTab": "Gestionare din tabul Retururi"
+      },
+      "serviceNames": {
+        "returnFee": "Taxă retur",
+        "transport": "Transport",
+        "kmDropoff": "Km până la punctul de predare"
+      }
+    }
+  },
+  "de": {
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} Zeilen in dieser Retoure",
+        "prefix": "Retoure",
+        "manageInReturnsTab": "Verwaltung im Tab Rücksendungen"
+      },
+      "serviceNames": {
+        "returnFee": "Rücksendegebühr",
+        "transport": "Transport",
+        "kmDropoff": "Km bis zur Abgabestelle"
+      }
+    }
+  },
+  "it": {
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} righe in questo reso",
+        "prefix": "Reso",
+        "manageInReturnsTab": "Gestione dalla scheda Resi"
+      },
+      "serviceNames": {
+        "returnFee": "Costo di reso",
+        "transport": "Trasporto",
+        "kmDropoff": "Km fino al punto di consegna"
+      }
+    }
+  },
+  "es": {
+    "adminOther": {
+      "returnGroup": {
+        "lines": "{count} líneas en esta devolución",
+        "prefix": "Devolución",
+        "manageInReturnsTab": "Gestión desde la pestaña Devoluciones"
+      },
+      "serviceNames": {
+        "returnFee": "Tarifa de devolución",
+        "transport": "Transporte",
+        "kmDropoff": "Km hasta el punto de entrega"
       }
     }
   }

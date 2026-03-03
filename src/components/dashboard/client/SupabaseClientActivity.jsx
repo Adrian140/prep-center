@@ -103,9 +103,21 @@ const formatOtherServiceName = (service, t) => {
   const value = service.trim();
   const manualLabel = t('ClientOtherReport.serviceNames.manualPhoto');
   const subscriptionLabel = t('ClientOtherReport.serviceNames.photoSubscription');
+  const returnFeeLabel = t('ClientOtherReport.serviceNames.returnFee') || 'Return fee';
+  const transportLabel = t('ClientOtherReport.serviceNames.transport') || 'Transport';
+  const kmDropoffLabel = t('ClientOtherReport.serviceNames.kmDropoff') || 'Km până la punctul de predare';
   if (/^manual photo capture/i.test(value)) return manualLabel;
   if (/^photo storage subscription$/i.test(value)) return subscriptionLabel;
+  if (/^return fee$/i.test(value) || /^retur fee$/i.test(value)) return returnFeeLabel;
+  if (/^transport$/i.test(value)) return transportLabel;
+  if (/^km până la punctul de predare$/i.test(value)) return kmDropoffLabel;
   return value.replace(/ \(6 images\)/i, '');
+};
+
+const localizeReturnPrefix = (value, t) => {
+  if (!value) return value;
+  const prefix = t('SupabaseClientActivity.group.returnPrefix') || 'Retur';
+  return String(value).replace(/^retur\b/i, prefix);
 };
 
 const normalizeServiceName = (service) => String(service || '').trim().toLowerCase();
@@ -662,13 +674,17 @@ export default function SupabaseClientActivity() {
                           {group.key && group.key !== '—' ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
-                                {group.key}
+                                {isReturnsView ? localizeReturnPrefix(group.key, t) : group.key}
                               </span>
                               <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                                 <ChevronDown className="w-4 h-4" />
-                                {tp('SupabaseClientActivity.group.lines', {
-                                  count: Array.isArray(group.items) ? group.items.length : 0
-                                })}
+                                {isReturnsView
+                                  ? tp('SupabaseClientActivity.group.returnLines', {
+                                      count: Array.isArray(group.items) ? group.items.length : 0
+                                    })
+                                  : tp('SupabaseClientActivity.group.lines', {
+                                      count: Array.isArray(group.items) ? group.items.length : 0
+                                    })}
                               </span>
                             </span>
                           ) : (
