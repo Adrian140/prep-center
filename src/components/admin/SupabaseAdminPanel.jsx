@@ -1651,8 +1651,10 @@ if (!isAdmin) {
   );
 }
 
+  const isAnalyticsTab = activeTab === 'analytics';
+
  return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={isAnalyticsTab ? 'min-h-screen bg-dark-950' : 'min-h-screen bg-gray-50'}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {message && (
@@ -1668,7 +1670,7 @@ if (!isAdmin) {
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
           {/* Sidebar */}
           <div>
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className={isAnalyticsTab ? 'bg-dark-900/80 border border-white/10 rounded-xl p-4' : 'bg-white rounded-xl shadow-sm p-4'}>
               <nav className="space-y-1.5">
                 {tabs.map((tab) => (
                   <button
@@ -1697,7 +1699,9 @@ if (!isAdmin) {
                               : 'bg-green-50 text-green-700 hover:bg-green-100'
                           : activeTab === tab.id
                             ? 'bg-primary text-white'
-                            : 'text-text-secondary hover:bg-gray-50'
+                            : isAnalyticsTab
+                              ? 'text-white/70 hover:bg-white/10'
+                              : 'text-text-secondary hover:bg-gray-50'
                     }`}
                   >
                     <tab.icon className="w-4 h-4 mr-2" />
@@ -1724,7 +1728,7 @@ if (!isAdmin) {
 
           {/* Main Content */}
           <div>
-           <div className="bg-white rounded-xl shadow-sm p-6 animate-fade-in">
+           <div className={isAnalyticsTab ? 'bg-transparent rounded-xl p-0 animate-fade-in' : 'bg-white rounded-xl shadow-sm p-6 animate-fade-in'}>
              {loading ? (
                 <div className="flex justify-center items-center py-12">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
