@@ -2303,54 +2303,54 @@ serve(async (req) => {
       const images: Record<string, string> = {};
       const missing = validItems.filter((it) => {
         const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
+        const asinKey = String(it.asin || stock?.asin || "").trim().toUpperCase();
         const hasLocalImage = Boolean(stock?.image_url);
-        return it.sku && !hasLocalImage;
+        return asinKey && !hasLocalImage;
       });
       const limited = missing.slice(0, 6); // evităm rate limiting
       for (const it of limited) {
-        const skuKey = normalizeSku(it.sku || "");
-        if (!skuKey) continue;
+        const asinKey = String(it.asin || "").trim().toUpperCase();
+        if (!asinKey) continue;
         try {
           const res = await signedFetch({
             method: "GET",
             service: "execute-api",
             region: awsRegion,
             host,
-            path: `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(it.sku)}`,
-            query: `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=attributes,summaries`,
+            path: `/catalog/2022-04-01/items/${encodeURIComponent(asinKey)}`,
+            query: `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=images`,
             payload: "",
             accessKey: tempCreds.accessKeyId,
             secretKey: tempCreds.secretAccessKey,
             sessionToken: tempCreds.sessionToken,
             lwaToken: lwaAccessToken,
             traceId,
-            operationName: "listings.getItem",
+            operationName: "catalog.getItem.images",
             marketplaceId,
             sellerId
           });
           const mainImage =
-            res.json?.summaries?.[0]?.mainImage?.link ||
-            res.json?.attributes?.main_product_image_locator?.[0]?.media_location ||
-            res.json?.summaries?.[0]?.images?.[0]?.link ||
+            res.json?.images?.[0]?.images?.[0]?.link ||
+            res.json?.images?.[0]?.images?.[0]?.url ||
             null;
           if (mainImage) {
-            images[skuKey] = mainImage;
+            images[asinKey] = mainImage;
           }
         } catch (e) {
-          console.warn("listings.getItem image fallback failed", { traceId, sku: it.sku, error: `${e}` });
+          console.warn("catalog.getItem image fallback failed", { traceId, asin: asinKey, error: `${e}` });
         }
       }
       return images;
     };
 
     const listingImages = await fetchListingImages();
-    const stockImageBySku: Record<string, string> = {};
+    const stockImageByAsin: Record<string, string> = {};
     validItems.forEach((it) => {
-      const skuKey = normalizeSku(it.sku || "");
-      if (!skuKey) return;
-      if (stockImageBySku[skuKey]) return;
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
-      if (stock?.image_url) stockImageBySku[skuKey] = stock.image_url;
+      const asinKey = String(it.asin || stock?.asin || "").trim().toUpperCase();
+      if (!asinKey) return;
+      if (stockImageByAsin[asinKey]) return;
+      if (stock?.image_url) stockImageByAsin[asinKey] = stock.image_url;
     });
 
     const warehouseCountryInput =
@@ -4328,10 +4328,11 @@ serve(async (req) => {
       const stock = it.stock_item_id ? stockMap[it.stock_item_id] : null;
       const key = normalizeSku(it.sku || stock?.sku || it.asin || "");
       if (!key) return;
-      const listingImage = listingImages[key] || it.amazon_image || it.image || null;
+      const asinKey = String(it.asin || stock?.asin || "").trim().toUpperCase();
+      const listingImage = (asinKey ? listingImages[asinKey] : null) || it.amazon_image || it.image || null;
       skuMeta.set(key, {
         title: it.product_name || stock?.name || key,
-        image: stock?.image_url || listingImage || null
+        image: (asinKey ? stockImageByAsin[asinKey] : null) || listingImage || null
       });
     });
 
@@ -4460,7 +4461,8 @@ serve(async (req) => {
       const requiresExpiry =
         (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
         expiryRequiredBySku[skuKey] === true;
-      const image = stockImageBySku[skuKey] || listingImages[skuKey] || null;
+      const asinKey = String(c.asin || "").trim().toUpperCase();
+      const image = (asinKey ? stockImageByAsin[asinKey] : null) || (asinKey ? listingImages[asinKey] : null) || null;
       const expiryVal = expirations[skuKey] || "";
       return {
         // Folosim id-ul real din prep_request_items pentru a evita erorile de tip UUID în UI/DB.

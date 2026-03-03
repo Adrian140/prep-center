@@ -1711,21 +1711,6 @@ serve(async (req) => {
         .select("sku, asin, product_name, units_sent, units_requested, stock_item_id")
         .eq("prep_request_id", requestId);
 
-      const stockIds = Array.from(
-        new Set(
-          (prepItems || [])
-            .map((it: any) => it.stock_item_id)
-            .filter((id: any) => typeof id === "number" && Number.isFinite(id))
-        )
-      );
-      const skuList = Array.from(
-        new Set(
-          (prepItems || [])
-            .map((it: any) => normalizeSku(it.sku))
-            .filter((s: string) => s)
-        )
-      );
-
       const asinList = Array.from(
         new Set(
           (prepItems || [])
@@ -1734,36 +1719,8 @@ serve(async (req) => {
         )
       );
 
-      let stockById: Record<number, { image_url?: string | null; sku?: string | null }> = {};
-      let stockBySku: Record<string, { image_url?: string | null; sku?: string | null; asin?: string | null }> = {};
       let stockByAsin: Record<string, { image_url?: string | null; sku?: string | null; asin?: string | null }> = {};
 
-      if (stockIds.length) {
-        const { data: stockRows } = await supabase
-          .from("stock_items")
-          .select("id, sku, asin, image_url")
-          .in("id", stockIds);
-        if (Array.isArray(stockRows)) {
-          stockById = stockRows.reduce((acc: any, row: any) => {
-            acc[row.id] = row;
-            return acc;
-          }, {});
-        }
-      }
-
-      if (skuList.length) {
-        const { data: stockRowsBySku } = await supabase
-          .from("stock_items")
-          .select("id, sku, asin, image_url")
-          .in("sku", skuList);
-        if (Array.isArray(stockRowsBySku)) {
-          stockBySku = stockRowsBySku.reduce((acc: any, row: any) => {
-            const key = normalizeSkuKey(row.sku);
-            if (key) acc[key] = row;
-            return acc;
-          }, {});
-        }
-      }
       if (asinList.length) {
         const { data: stockRowsByAsin } = await supabase
           .from("stock_items")
@@ -1793,10 +1750,9 @@ serve(async (req) => {
           skuDisplayByKey[skuKey] = skuRaw || skuKey;
         }
 
-        const fromId = it.stock_item_id ? stockById[it.stock_item_id] : null;
-        const fromSku = stockBySku[skuKey] || null;
-        const fromAsin = stockByAsin[String(it?.asin || "").trim().toUpperCase()] || null;
-        const image = fromId?.image_url || fromSku?.image_url || fromAsin?.image_url || null;
+        const itemAsin = String(it?.asin || "").trim().toUpperCase();
+        const fromAsin = itemAsin ? stockByAsin[itemAsin] || null : null;
+        const image = fromAsin?.image_url || null;
 
         skuMeta.set(skuKey, {
           title: it.product_name || skuRaw || skuKey,
