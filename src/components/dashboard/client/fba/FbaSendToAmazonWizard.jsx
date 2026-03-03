@@ -784,6 +784,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const autoPackingRef = useRef({ planId: null, attempted: false });
   const step1BoxPlanPersistTimerRef = useRef(null);
   const lastStep1BoxPlanPersistedRef = useRef("");
+  const step1UnitsPersistTimerRef = useRef(null);
+  const step1bDraftPersistTimerRef = useRef(null);
+  const lastStep1bDraftPersistedRef = useRef("");
   const sanitizePackingOptions = useCallback((options) => {
     const list = Array.isArray(options) ? options : [];
     const filtered = list.filter((opt) => {
@@ -1962,6 +1965,48 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     };
   }, [resolveRequestId, step1BoxPlanByMarket, currentMarket]);
 
+  // Autosave Step 1 quantities so values survive refresh/re-entry even before pressing Next.
+  useEffect(() => {
+    const requestId = resolveRequestId();
+    if (!requestId) return;
+    const rows = (Array.isArray(plan?.skus) ? plan.skus : [])
+      .filter((sku) => typeof sku?.id === 'string' && sku.id)
+      .map((sku) => ({
+        id: String(sku.id),
+        qty: Math.max(0, Number(sku?.units || 0) || 0)
+      }));
+    if (!rows.length) return;
+
+    const changed = rows.filter((row) => {
+      const prevQty = Number(serverUnitsRef.current.get(row.id) || 0);
+      return prevQty !== row.qty;
+    });
+    if (!changed.length) return;
+
+    if (step1UnitsPersistTimerRef.current) clearTimeout(step1UnitsPersistTimerRef.current);
+    step1UnitsPersistTimerRef.current = setTimeout(async () => {
+      try {
+        await Promise.all(
+          changed.map(async (row) => {
+            const { error } = await supabase
+              .from('prep_request_items')
+              .update({ units_sent: row.qty })
+              .eq('id', row.id);
+            if (error) throw error;
+            serverUnitsRef.current.set(row.id, row.qty);
+          })
+        );
+      } catch (e) {
+        console.warn('Autosave units_sent failed', { requestId, error: e?.message || e });
+      }
+    }, 500);
+
+    return () => {
+      if (step1UnitsPersistTimerRef.current) clearTimeout(step1UnitsPersistTimerRef.current);
+    };
+  }, [plan?.skus, resolveRequestId]);
+
+
   useEffect(() => {
     const requestId = resolveRequestId();
     if (!requestId) {
@@ -2549,6 +2594,75 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       })
       .filter(Boolean);
   }, [packGroupsPreview, normalizeGroupItemsForUnits]);
+
+  // Persist Step 1b draft values (boxes/dimensions/weight/per-box allocations) in amazon_snapshot.
+  useEffect(() => {
+    const requestId = resolveRequestId();
+    const inboundPlanId = resolveInboundPlanId();
+    if (!requestId || !inboundPlanId) return;
+
+    const groupsForDraft = (Array.isArray(packGroupsForUnits) ? packGroupsForUnits : [])
+      .filter((g) => g?.packingGroupId && !isFallbackId(g.packingGroupId))
+      .map((g) => ({
+        id: g.id || g.packingGroupId,
+        packingGroupId: g.packingGroupId,
+        title: g.title || null,
+        boxes: Number(g.boxes || 1) || 1,
+        packMode: g.packMode || 'single',
+        boxDimensions: g.boxDimensions || null,
+        boxWeight: g.boxWeight ?? null,
+        perBoxDetails: Array.isArray(g.perBoxDetails) ? g.perBoxDetails : null,
+        perBoxItems: Array.isArray(g.perBoxItems) ? g.perBoxItems : null,
+        contentInformationSource: g.contentInformationSource || null,
+        items: Array.isArray(g.items)
+          ? g.items.map((it) => ({
+              sku: it?.sku || it?.msku || it?.SellerSKU || null,
+              quantity: Number(it?.quantity || 0) || 0
+            }))
+          : []
+      }));
+
+    if (!groupsForDraft.length) return;
+    const serialized = JSON.stringify(groupsForDraft);
+    if (serialized === lastStep1bDraftPersistedRef.current) return;
+
+    if (step1bDraftPersistTimerRef.current) clearTimeout(step1bDraftPersistTimerRef.current);
+    step1bDraftPersistTimerRef.current = setTimeout(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('prep_requests')
+          .select('amazon_snapshot')
+          .eq('id', requestId)
+          .maybeSingle();
+        if (error) throw error;
+        const snapshotBase =
+          data?.amazon_snapshot && typeof data.amazon_snapshot === 'object' ? data.amazon_snapshot : {};
+        const nextSnapshot = {
+          ...snapshotBase,
+          fba_inbound: {
+            ...(snapshotBase?.fba_inbound || {}),
+            inboundPlanId,
+            packingOptionId: packingOptionIdRef.current || snapshotBase?.fba_inbound?.packingOptionId || null,
+            placementOptionId: placementOptionIdRef.current || snapshotBase?.fba_inbound?.placementOptionId || null,
+            packingGroups: groupsForDraft,
+            savedAt: new Date().toISOString()
+          }
+        };
+        const { error: updateErr } = await supabase
+          .from('prep_requests')
+          .update({ amazon_snapshot: nextSnapshot })
+          .eq('id', requestId);
+        if (updateErr) throw updateErr;
+        lastStep1bDraftPersistedRef.current = serialized;
+      } catch (e) {
+        console.warn('Persist Step1b draft to snapshot failed', { requestId, error: e?.message || e });
+      }
+    }, 700);
+
+    return () => {
+      if (step1bDraftPersistTimerRef.current) clearTimeout(step1bDraftPersistTimerRef.current);
+    };
+  }, [packGroupsForUnits, resolveRequestId, resolveInboundPlanId, isFallbackId]);
 
   const packGroupsForAuto = useMemo(() => (Array.isArray(packGroupsDecorated) ? packGroupsDecorated : []), [packGroupsDecorated]);
 
