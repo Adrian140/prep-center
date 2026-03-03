@@ -29,7 +29,7 @@ import UpdatePasswordForm from './components/auth/UpdatePasswordForm';
 
 import SupabaseDashboard from './components/dashboard/SupabaseDashboard';
 import ClientChatWidget from './components/dashboard/client/ClientChatWidget';
-import AdminAnalytics from './components/admin/AdminAnalytics';
+import VisitorTracker from './components/analytics/VisitorTracker';
 
 import { supabase } from './config/supabase';
 import { tabSessionStorage, tabLocalStorage } from './utils/tabStorage';
@@ -185,6 +185,7 @@ export default function App() {
       <Header />
       <main>
         <MaintenanceGate skipPaths={['/admin', '/admin-login', '/admin-info']}>
+          <VisitorTracker />
           <RoutePersistence />
           <StartupRedirect />
           <Routes>
@@ -286,14 +287,6 @@ export default function App() {
               element={
                 <AdminRoute>
                   <SupabaseAdminPanel />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/admin/analytics"
-              element={
-                <AdminRoute>
-                  <AdminAnalytics />
                 </AdminRoute>
               }
             />
