@@ -3079,8 +3079,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPackingSubmitLoading(true);
     setPackingSubmitError('');
     try {
-      // forțează o reîmprospătare rapidă a packing groups ca să nu trimitem ID-uri vechi
-      const refreshRes = await refreshPackingGroups();
+      // Pentru auto-flow evităm refresh-ul redundant (reduce semnificativ latența spre Step 2).
+      const refreshRes = skipRefresh ? { ok: true } : await refreshPackingGroups();
       const effectivePackGroups = Array.isArray(refreshRes?.packingGroups)
         ? refreshRes.packingGroups
         : packGroups;
@@ -3133,17 +3133,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
 
       const packageGroupings = packageGroupingsFallback.length ? packageGroupingsFallback : null;
-      const { data, error } = await supabase.functions.invoke('fba-set-packing-information', {
-        body: {
-          request_id: requestId,
-          inbound_plan_id: inboundPlanId,
-          packing_option_id: effectivePackingOptId,
-          placement_option_id: placementOptId,
-          packing_groups: packingGroupsPayload,
-          package_groupings: packageGroupings || undefined,
-          generate_placement_options: true
-        }
-      });
+      const invokeBody = {
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId,
+        packing_option_id: effectivePackingOptId,
+        placement_option_id: placementOptId,
+        packing_groups: packingGroupsPayload,
+        package_groupings: packageGroupings || undefined,
+        generate_placement_options: true
+      };
+      const invokeWithTimeout = Promise.race([
+        supabase.functions.invoke('fba-set-packing-information', { body: invokeBody }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout while waiting for Amazon packing confirmation (70s). Please retry.')), 70000)
+        )
+      ]);
+      const { data, error } = await invokeWithTimeout;
       let responseData = data;
       if (error) {
         const parsed = await extractFunctionInvokeError(error);
@@ -3201,7 +3206,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (autoPackingRef.current.attempted) return;
     autoPackingRef.current.attempted = true;
     const payload = buildPackingPayload(packGroupsForAuto);
-    submitPackingInformation({ packingGroups: payload.packingGroups });
+    submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
   }, [
     currentStep,
     autoPackingEnabled,
@@ -5477,3 +5482,4 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     </div>
   );
 }
+    const skipRefresh = Boolean(payload?.skipRefresh);
