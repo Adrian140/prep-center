@@ -871,6 +871,7 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
             {activeSection === 'other' && (
               <AdminOther
               rows={otherRows}
+              extraRows={returnServiceRows}
               reload={loadAll}
               companyId={companyId}
               profile={profile}
@@ -878,7 +879,10 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
               billingSelectedLines={billingSelections}
               onToggleBillingSelection={toggleBillingSelection}
               canSelectForBilling={canManageInvoices}
-              onSelectAllUninvoiced={() => selectAllUninvoicedForSection('other')}
+              onSelectAllUninvoiced={() => {
+                selectAllUninvoicedForSection('other');
+                selectAllUninvoicedForSection('returns');
+              }}
             />
           )}
           {activeSection === 'stock' && (

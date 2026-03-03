@@ -24,6 +24,7 @@ const formatInvoiceTooltip = (invoice) => {
 
 export default function AdminOther({
   rows = [],
+  extraRows = [],
   reload,
   companyId,
   profile,
@@ -181,13 +182,23 @@ export default function AdminOther({
   };
 
   const totalSum = useMemo(() => {
-    return (rows || []).reduce((acc, row) => {
+    return ([...(rows || []), ...(extraRows || [])]).reduce((acc, row) => {
       const v = row.total != null
         ? Number(row.total)
         : Number(row.unit_price || 0) * Number(row.units || 0);
       return acc + (Number.isFinite(v) ? v : 0);
     }, 0);
-  }, [rows]);
+  }, [rows, extraRows]);
+
+  const mergedRows = useMemo(() => {
+    const baseRows = (rows || []).map((row) => ({ ...row, __billingSection: 'other' }));
+    const returnRows = (extraRows || []).map((row) => ({ ...row, __billingSection: 'returns' }));
+    return [...baseRows, ...returnRows].sort((a, b) => {
+      const da = new Date(a?.service_date || a?.created_at || 0).getTime();
+      const db = new Date(b?.service_date || b?.created_at || 0).getTime();
+      return db - da;
+    });
+  }, [rows, extraRows]);
 
   return (
     <Section
@@ -288,15 +299,16 @@ export default function AdminOther({
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {mergedRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-3 py-4 text-center text-text-secondary">
                   Nicio înregistrare.
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
+              mergedRows.map((row) => {
                 const isEdit = edit?.id === row.id;
+                const isReturnRow = row.__billingSection === 'returns';
                 const total =
                   row.total != null
                     ? Number(row.total)
@@ -312,9 +324,12 @@ export default function AdminOther({
                   <td className="px-3 py-2 text-center">
                     <input
                       type="checkbox"
-                      checked={Boolean(billingSelectedLines[`other:${row.id}`])}
+                      checked={Boolean(billingSelectedLines[`${row.__billingSection || 'other'}:${row.id}`])}
                       disabled={Boolean(row.billing_invoice_id) || !canSelectForBilling}
-                      onChange={() => canSelectForBilling && onToggleBillingSelection?.('other', row)}
+                      onChange={() =>
+                        canSelectForBilling &&
+                        onToggleBillingSelection?.(row.__billingSection || 'other', row)
+                      }
                       className="rounded border-gray-300 focus:ring-2 focus:ring-primary"
                     />
                   </td>
@@ -329,7 +344,7 @@ export default function AdminOther({
                       ) : row.service_date}
                     </td>
                     <td className="px-3 py-2">
-                      {isEdit ? (
+                      {isEdit && !isReturnRow ? (
                         <input
                           className="border rounded px-2 py-1 w-56"
                           value={edit.service || ''}
@@ -338,7 +353,7 @@ export default function AdminOther({
                       ) : renderServiceName(row.service)}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit ? (
+                      {isEdit && !isReturnRow ? (
                         <input
                           className="border rounded px-2 py-1 w-24 text-right"
                           value={edit.unit_price ?? ''}
@@ -350,7 +365,7 @@ export default function AdminOther({
                       ) : fmt(Number(row.unit_price || 0))}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit ? (
+                      {isEdit && !isReturnRow ? (
                         <input
                           className="border rounded px-2 py-1 w-20 text-right"
                           value={edit.units ?? ''}
@@ -361,7 +376,7 @@ export default function AdminOther({
                     </td>
                     <td className="px-3 py-2 text-right">{fmt(total)}</td>
                     <td className="px-3 py-2">
-                      {isEdit ? (
+                      {isEdit && !isReturnRow ? (
                         <input
                           className="border rounded px-2 py-1 w-full"
                           value={edit.obs_admin || ''}
@@ -370,7 +385,7 @@ export default function AdminOther({
                       ) : row.obs_admin || '—'}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit ? (
+                      {isEdit && !isReturnRow ? (
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={saveEdit}
@@ -387,18 +402,24 @@ export default function AdminOther({
                         </div>
                       ) : (
                         <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setEdit({ ...row })}
-                            className="px-2 py-1 border rounded inline-flex items-center gap-1"
-                          >
-                            <Edit3 className="w-4 h-4" /> Edit
-                          </button>
-                          <button
-                            onClick={() => confirmAndDelete(row.id)}
-                            className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
-                          >
-                            <Trash2 className="w-4 h-4" /> Delete
-                          </button>
+                          {!isReturnRow ? (
+                            <>
+                              <button
+                                onClick={() => setEdit({ ...row })}
+                                className="px-2 py-1 border rounded inline-flex items-center gap-1"
+                              >
+                                <Edit3 className="w-4 h-4" /> Edit
+                              </button>
+                              <button
+                                onClick={() => confirmAndDelete(row.id)}
+                                className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
+                              >
+                                <Trash2 className="w-4 h-4" /> Delete
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-text-secondary">Gestionare din tabul Retururi</span>
+                          )}
                         </div>
                       )}
                     </td>
