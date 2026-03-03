@@ -2785,8 +2785,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (Array.isArray(data?.packingGroups)) {
         const normalized = normalizePackGroups(data.packingGroups);
+        const hasReal = Array.isArray(normalized) && normalized.some((g) => {
+          const id = g?.packingGroupId || g?.id || '';
+          return Boolean(id) && !String(id).toLowerCase().startsWith('fallback-');
+        });
         setPackGroupsPreview(normalized);
         setPackGroupsPreviewError('');
+        if (hasReal) setInboundPlanMissing(false);
         return { ok: true, packingGroups: normalized };
       }
       setPackGroupsPreview([]);
@@ -3369,6 +3374,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           return { ok: false, code: 'PACKING_GROUPS_NOT_READY', message: msg };
         } else {
           setPackGroupsLoaded(true);
+          setInboundPlanMissing(false);
         }
           // combinăm grupurile noi de la Amazon cu valorile introduse în UI (dimensiuni/greutate) ca să nu le pierdem
           setPackGroups((prev) => mergePackGroups(prev, filtered));
