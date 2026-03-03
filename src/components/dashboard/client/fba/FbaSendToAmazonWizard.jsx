@@ -2791,7 +2791,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         });
         setPackGroupsPreview(normalized);
         setPackGroupsPreviewError('');
-        if (hasReal) setInboundPlanMissing(false);
+        if (hasReal) {
+          setInboundPlanMissing(false);
+          setStep1SaveError('');
+          setPlanError('');
+        }
         return { ok: true, packingGroups: normalized };
       }
       setPackGroupsPreview([]);
@@ -3375,6 +3379,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         } else {
           setPackGroupsLoaded(true);
           setInboundPlanMissing(false);
+          setStep1SaveError('');
+          setPlanError('');
         }
           // combinăm grupurile noi de la Amazon cu valorile introduse în UI (dimensiuni/greutate) ca să nu le pierdem
           setPackGroups((prev) => mergePackGroups(prev, filtered));
@@ -5149,6 +5155,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     );
     const step1PlanData = { ...plan, skus: step1VisibleSkus };
     if (stepKey === '1') {
+      const rawStep1Error = planError || step1SaveError;
+      const step1HasPreviewGroups = Array.isArray(packGroupsPreviewForUnits)
+        && packGroupsPreviewForUnits.some((g) => {
+          const id = g?.packingGroupId || g?.id || '';
+          return Boolean(id) && !String(id).toLowerCase().startsWith('fallback-');
+        });
+      const normalizedStep1Error = String(rawStep1Error || '').trim();
+      const isTransientPackingWaitError =
+        normalizedStep1Error === String(wizardCopy.packingWait || '').trim()
+        || (/packing groups/i.test(normalizedStep1Error) && /try again/i.test(normalizedStep1Error));
+      const suppressGenericStep1Error = step1HasPreviewGroups && isTransientPackingWaitError;
       return (
         <FbaStep1Inventory
           data={step1PlanData}
@@ -5185,7 +5202,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           operationProblems={operationProblems}
           onSubmitListingAttributes={submitListingAttributesForSku}
           notice={planNotice}
-          error={planError || step1SaveError}
+          error={suppressGenericStep1Error ? '' : rawStep1Error}
         />
       );
     }
