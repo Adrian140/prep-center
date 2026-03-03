@@ -5482,4 +5482,3 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     </div>
   );
 }
-    const skipRefresh = Boolean(payload?.skipRefresh);
