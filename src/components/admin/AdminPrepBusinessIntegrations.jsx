@@ -3,6 +3,7 @@ import { supabase } from '@/config/supabase';
 import { AlertTriangle, CheckCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
 
 const INTEGRATIONS_KEY = 'integrations_visibility';
+const AMAZON_PAGE_SIZE = 10;
 
 const INTEGRATIONS = [
   {
@@ -156,6 +157,7 @@ export default function AdminPrepBusinessIntegrations() {
   const [tokenDrafts, setTokenDrafts] = useState({});
   const [savingMerchant, setSavingMerchant] = useState('');
   const [savingToken, setSavingToken] = useState('');
+  const [amazonPage, setAmazonPage] = useState(1);
 
   const load = async () => {
     setRefreshing(true);
@@ -168,7 +170,7 @@ export default function AdminPrepBusinessIntegrations() {
       supabase.from('prep_business_integrations').select('*'),
       supabase
         .from('amazon_integrations')
-        .select('id, user_id, status, last_error, last_synced_at, updated_at, created_at'),
+        .select('id, user_id, company_id, status, last_error, last_synced_at, updated_at, created_at, marketplace_id, region'),
       supabase
         .from('ups_integrations')
         .select('id, user_id, status, last_error, connected_at, last_synced_at, updated_at'),
@@ -203,22 +205,36 @@ export default function AdminPrepBusinessIntegrations() {
       if (row?.user_id && !prepMap[row.user_id]) prepMap[row.user_id] = row;
     });
 
+    const profileIdByCompanyId = {};
+    Object.values(profilesMap).forEach((profile) => {
+      if (!profile?.company_id || profileIdByCompanyId[profile.company_id]) return;
+      profileIdByCompanyId[profile.company_id] = profile.id;
+    });
+
     const amazonMap = {};
     (amazonRes.data || []).forEach((row) => {
-      if (!row?.user_id) return;
-      if (!amazonMap[row.user_id]) {
-        amazonMap[row.user_id] = {
+      const integrationKey =
+        row?.user_id ||
+        (row?.company_id ? `company:${row.company_id}` : null);
+      if (!integrationKey) return;
+      if (!amazonMap[integrationKey]) {
+        amazonMap[integrationKey] = {
+          user_id: row?.user_id || null,
+          company_id: row?.company_id || null,
+          profile_id: row?.user_id || profileIdByCompanyId[row?.company_id] || null,
           count: 0,
           status: row.status || 'pending',
           last_error: row.last_error || null,
-          last_synced_at: row.last_synced_at || null
+          last_synced_at: row.last_synced_at || null,
+          marketplace_ids: new Set()
         };
       }
-      const entry = amazonMap[row.user_id];
+      const entry = amazonMap[integrationKey];
       entry.count += 1;
       if (row.status === 'error') entry.status = 'error';
       if (entry.status !== 'error' && row.status === 'active') entry.status = 'active';
       if (row.last_error) entry.last_error = row.last_error;
+      if (row.marketplace_id) entry.marketplace_ids.add(String(row.marketplace_id));
       if (new Date(row.last_synced_at || 0).getTime() > new Date(entry.last_synced_at || 0).getTime()) {
         entry.last_synced_at = row.last_synced_at;
       }
@@ -353,13 +369,26 @@ export default function AdminPrepBusinessIntegrations() {
 
   const amazonRows = useMemo(() => {
     return Object.entries(amazonByUser)
-      .map(([userId, item]) => ({
-        userId,
+      .map(([rowKey, item]) => ({
+        rowKey,
         item,
-        profile: profilesById[userId]
+        profile: item?.profile_id ? profilesById[item.profile_id] : null
       }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [amazonByUser, profilesById]);
+
+  const amazonTotalPages = Math.max(1, Math.ceil(amazonRows.length / AMAZON_PAGE_SIZE));
+  const safeAmazonPage = Math.min(amazonPage, amazonTotalPages);
+  const amazonPageRows = useMemo(() => {
+    const from = (safeAmazonPage - 1) * AMAZON_PAGE_SIZE;
+    return amazonRows.slice(from, from + AMAZON_PAGE_SIZE);
+  }, [amazonRows, safeAmazonPage]);
+
+  useEffect(() => {
+    if (amazonPage > amazonTotalPages) {
+      setAmazonPage(amazonTotalPages);
+    }
+  }, [amazonPage, amazonTotalPages]);
 
   const profitPathRows = useMemo(() => {
     return Object.entries(prepRowsByUser)
@@ -441,18 +470,51 @@ export default function AdminPrepBusinessIntegrations() {
 
               {integration.id === 'amazon' && (
                 amazonRows.length ? (
-                  <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {amazonRows.map(({ userId, item, profile }) => (
-                      <div key={`amazon-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
+                  <div className="space-y-3">
+                    <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+                    {amazonPageRows.map(({ rowKey, item, profile }) => (
+                      <div key={`amazon-${rowKey}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[260px]">
-                          <div className="font-medium text-text-primary">{displayClient(profile)}</div>
+                          <div className="font-medium text-text-primary">
+                            {profile ? displayClient(profile) : (item.company_id ? `Company ${item.company_id}` : 'Client necunoscut')}
+                          </div>
                           <div className="text-xs text-text-secondary">{profile?.email || '—'}</div>
-                          <div className="text-xs text-text-secondary">Accounts: {item.count || 0} · Last sync: {fmt(item.last_synced_at)}</div>
+                          <div className="text-xs text-text-secondary">
+                            Accounts: {item.count || 0}
+                            {' · '}
+                            Marketplaces: {item.marketplace_ids?.size || 0}
+                            {' · '}
+                            Last sync: {fmt(item.last_synced_at)}
+                          </div>
                           {item.last_error && <div className="text-xs text-red-600 break-all mt-1">{item.last_error}</div>}
                         </div>
                         <StatusBadge status={item.status || 'inactive'} />
                       </div>
                     ))}
+                  </div>
+                  {amazonRows.length > AMAZON_PAGE_SIZE && (
+                    <div className="flex items-center justify-between text-xs text-text-secondary">
+                      <span>Page {safeAmazonPage} / {amazonTotalPages}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAmazonPage((p) => Math.max(1, p - 1))}
+                          disabled={safeAmazonPage <= 1}
+                          className="px-2 py-1 rounded border border-gray-200 disabled:opacity-50"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAmazonPage((p) => Math.min(amazonTotalPages, p + 1))}
+                          disabled={safeAmazonPage >= amazonTotalPages}
+                          className="px-2 py-1 rounded border border-gray-200 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   </div>
                 ) : emptyBlock
               )}

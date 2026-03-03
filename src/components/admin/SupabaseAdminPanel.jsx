@@ -185,6 +185,7 @@ useEffect(() => {
   const [pendingPrepCount, setPendingPrepCount] = useState(0);
   const [pendingReturnsCount, setPendingReturnsCount] = useState(0);
   const [pendingAffiliateCount, setPendingAffiliateCount] = useState(0);
+  const [pendingIntegrationCount, setPendingIntegrationCount] = useState(0);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const pendingCountsInFlightRef = useRef(false);
   const pendingCountsLastRunRef = useRef(0);
@@ -249,15 +250,19 @@ useEffect(() => {
           .from('affiliate_requests')
           .select('id', { count: 'exact', head: true })
           .eq('status', 'pending');
-        let [prepRes, returnsRes, affiliateRes] = await Promise.all([
+        let [prepRes, returnsRes, affiliateRes, integrationsRes] = await Promise.all([
           prepQuery,
           returnsQuery,
-          affiliateQuery
+          affiliateQuery,
+          supabase
+            .from('prep_business_integrations')
+            .select('id, status, email_arbitrage_one, email_prep_business, merchant_id, profit_path_token_id')
+            .eq('status', 'pending')
         ]);
         const missingWarehouse = (err) =>
           String(err?.message || '').toLowerCase().includes('warehouse_country');
         if (currentMarket && (missingWarehouse(prepRes?.error) || missingWarehouse(returnsRes?.error))) {
-          [prepRes, returnsRes, affiliateRes] = await Promise.all([
+          [prepRes, returnsRes, affiliateRes, integrationsRes] = await Promise.all([
             supabase
               .from('prep_requests')
               .select('id', { count: 'exact', head: true })
@@ -266,13 +271,27 @@ useEffect(() => {
               .from('returns')
               .select('id', { count: 'exact', head: true })
               .eq('status', 'pending'),
-            affiliateQuery
+            affiliateQuery,
+            supabase
+              .from('prep_business_integrations')
+              .select('id, status, email_arbitrage_one, email_prep_business, merchant_id, profit_path_token_id')
+              .eq('status', 'pending')
           ]);
         }
         if (!mounted) return;
+        const pendingIntegrations = (integrationsRes?.data || []).filter((row) => {
+          const hasProfitPathRequest = Boolean(
+            String(row?.email_prep_business || '').trim() || String(row?.profit_path_token_id || '').trim()
+          );
+          const hasArbitrageRequest = Boolean(
+            String(row?.email_arbitrage_one || '').trim() || String(row?.merchant_id || '').trim()
+          );
+          return hasProfitPathRequest || hasArbitrageRequest;
+        }).length;
         setPendingPrepCount(prepRes?.count || 0);
         setPendingReturnsCount(returnsRes?.count || 0);
         setPendingAffiliateCount(affiliateRes?.count || 0);
+        setPendingIntegrationCount(pendingIntegrations);
         pendingCountsLastRunRef.current = Date.now();
       } finally {
         pendingCountsInFlightRef.current = false;
@@ -1672,6 +1691,10 @@ if (!isAdmin) {
                             ? activeTab === tab.id
                               ? 'bg-red-600 text-white'
                               : 'bg-red-50 text-red-700 hover:bg-red-100'
+                          : tab.id === 'prep-business' && pendingIntegrationCount > 0
+                            ? activeTab === tab.id
+                              ? 'bg-green-600 text-white'
+                              : 'bg-green-50 text-green-700 hover:bg-green-100'
                           : activeTab === tab.id
                             ? 'bg-primary text-white'
                             : 'text-text-secondary hover:bg-gray-50'
@@ -1679,6 +1702,13 @@ if (!isAdmin) {
                   >
                     <tab.icon className="w-4 h-4 mr-2" />
                     {tab.label}
+                    {tab.id === 'prep-business' && pendingIntegrationCount > 0 && (
+                      <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
+                        activeTab === tab.id ? 'bg-white text-green-700' : 'bg-green-600 text-white'
+                      }`}>
+                        {pendingIntegrationCount > 99 ? '99+' : pendingIntegrationCount}
+                      </span>
+                    )}
                     {tab.id === 'chat' && chatUnreadCount > 0 && (
                       <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
                         activeTab === tab.id ? 'bg-white text-red-600' : 'bg-red-600 text-white'

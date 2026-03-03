@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
-import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2 } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2, X } from 'lucide-react';
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import DestinationBadge from '@/components/common/DestinationBadge';
@@ -247,8 +247,19 @@ export default function AdminPrepRequests() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Caută în ID / FBA ID / ASIN / SKU / nume / email / companie / store / status / țară…"
-            className="pl-9 pr-3 py-2 w-80 border rounded-lg"
+            className="pl-9 pr-9 py-2 w-80 border rounded-lg"
           />
+          {q && (
+            <button
+              type="button"
+              onClick={() => setQ('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
+              aria-label="Clear search"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2">

@@ -67,6 +67,35 @@ const normalizeCode = (value) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 };
+const pickPrepBusinessMerchantName = (payload = null, merchantId = null) => {
+  const source =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload
+      : {};
+  const merchant =
+    source.merchant && typeof source.merchant === 'object' && !Array.isArray(source.merchant)
+      ? source.merchant
+      : {};
+  const candidates = [
+    source.merchant_name,
+    source.merchantName,
+    merchant.name,
+    merchant.merchant_name,
+    source.client_store_name,
+    source.store_name,
+    source.storeName,
+    source.client_name,
+    source.clientName,
+    source.name,
+    source.reference_id,
+    merchantId
+  ];
+  for (const candidate of candidates) {
+    const value = normalizeCode(candidate);
+    if (value) return value;
+  }
+  return null;
+};
 const normalizePrepDestinationCountry = (value) => {
   const code = String(value || 'FR').trim().toUpperCase();
   return code === 'GB' ? 'UK' : code;
@@ -3580,6 +3609,24 @@ getAllReceivingShipments: async (options = {}) => {
   }
 
   const shipments = data || [];
+  const prepBusinessShipmentIds = shipments
+    .filter((row) => String(row?.import_source || '').trim().toLowerCase() === 'prepbusiness')
+    .map((row) => row.id)
+    .filter(Boolean);
+
+  const prepBusinessImportByShipmentId = {};
+  if (prepBusinessShipmentIds.length > 0) {
+    const { data: importRows } = await supabase
+      .from('prep_business_imports')
+      .select('receiving_shipment_id, merchant_id, payload, created_at')
+      .in('receiving_shipment_id', prepBusinessShipmentIds)
+      .order('created_at', { ascending: false });
+    (importRows || []).forEach((row) => {
+      const shipmentId = row?.receiving_shipment_id;
+      if (!shipmentId || prepBusinessImportByShipmentId[shipmentId]) return;
+      prepBusinessImportByShipmentId[shipmentId] = row;
+    });
+  }
 
   const missingItemShipments = shipments
     .filter((row) => !row.receiving_items || row.receiving_items.length === 0)
@@ -3704,7 +3751,16 @@ getAllReceivingShipments: async (options = {}) => {
     const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
     const profileMeta = profilesById[r.user_id] || {};
     const rawStore = (rest.client_store_name || rest.store_name || '').trim();
-    const store_name = rawStore || null; // explicit: store reference provided by client, not profile fallback
+    const isPrepBusiness = String(rest.import_source || '').trim().toLowerCase() === 'prepbusiness';
+    const importMeta = prepBusinessImportByShipmentId[r.id] || null;
+    const prepMerchantName = isPrepBusiness
+      ? pickPrepBusinessMerchantName(importMeta?.payload, importMeta?.merchant_id)
+      : null;
+    const store_name = prepMerchantName || rawStore || null;
+    const profileClientName =
+      profileMeta.store_name ||
+      [profileMeta.first_name, profileMeta.last_name].filter(Boolean).join(' ') ||
+      null;
 
     return {
       ...rest,
@@ -3720,10 +3776,11 @@ getAllReceivingShipments: async (options = {}) => {
       })),
       produits_count: items.length,
       store_name,
+      prep_merchant_name: prepMerchantName,
       client_name:
-        profileMeta.store_name ||
-        [profileMeta.first_name, profileMeta.last_name].filter(Boolean).join(' ') ||
-        rest.client_name ||
+        (isPrepBusiness
+          ? (rest.client_name || profileClientName)
+          : (profileClientName || rest.client_name)) ||
         null,
       client_email: profileMeta.email || rest.user_email || null,
       company_name: companies?.name || null

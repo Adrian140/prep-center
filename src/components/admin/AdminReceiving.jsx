@@ -15,6 +15,7 @@ import { FALLBACK_CARRIERS, normalizeCarriers } from '@/utils/carriers';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
+const AUTO_NAME_UUID_REGEX = /^auto-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 
@@ -73,8 +74,11 @@ const getClientDisplayName = (shipment = {}) => {
   const companyName = String(shipment?.company_name || '').trim();
   const storeName = String(shipment?.store_name || '').trim();
   const clientName = String(shipment?.client_name || '').trim();
+  const prepMerchantName = String(shipment?.prep_merchant_name || '').trim();
+  const cleanStoreName = AUTO_NAME_UUID_REGEX.test(storeName) ? '' : storeName;
+  const cleanClientName = AUTO_NAME_UUID_REGEX.test(clientName) ? '' : clientName;
   if (isPrepBusinessSource(shipment)) {
-    return companyName || storeName || clientName || '—';
+    return prepMerchantName || cleanStoreName || cleanClientName || companyName || '—';
   }
   return storeName || clientName || companyName || '—';
 };
@@ -1347,6 +1351,8 @@ const filteredShipments = useMemo(() => {
       matchesReceptionId ||
       hasTracking ||
       String(shipment.client_name || '').toLowerCase().includes(q) ||
+      String(shipment.store_name || '').toLowerCase().includes(q) ||
+      String(shipment.prep_merchant_name || '').toLowerCase().includes(q) ||
       String(shipment.user_email || '').toLowerCase().includes(q) ||
       String(shipment.company_name || '').toLowerCase().includes(q) ||
       matchesItem
