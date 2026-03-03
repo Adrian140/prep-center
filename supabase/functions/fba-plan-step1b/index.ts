@@ -1708,7 +1708,7 @@ serve(async (req) => {
     const fetchSkuMeta = async () => {
       const { data: prepItems } = await supabase
         .from("prep_request_items")
-        .select("sku, product_name, units_sent, units_requested, stock_item_id")
+        .select("sku, asin, product_name, units_sent, units_requested, stock_item_id")
         .eq("prep_request_id", requestId);
 
       const stockIds = Array.from(
@@ -1726,13 +1726,22 @@ serve(async (req) => {
         )
       );
 
+      const asinList = Array.from(
+        new Set(
+          (prepItems || [])
+            .map((it: any) => String(it?.asin || "").trim().toUpperCase())
+            .filter((a: string) => a)
+        )
+      );
+
       let stockById: Record<number, { image_url?: string | null; sku?: string | null }> = {};
-      let stockBySku: Record<string, { image_url?: string | null; sku?: string | null }> = {};
+      let stockBySku: Record<string, { image_url?: string | null; sku?: string | null; asin?: string | null }> = {};
+      let stockByAsin: Record<string, { image_url?: string | null; sku?: string | null; asin?: string | null }> = {};
 
       if (stockIds.length) {
         const { data: stockRows } = await supabase
           .from("stock_items")
-          .select("id, sku, image_url")
+          .select("id, sku, asin, image_url")
           .in("id", stockIds);
         if (Array.isArray(stockRows)) {
           stockById = stockRows.reduce((acc: any, row: any) => {
@@ -1745,11 +1754,24 @@ serve(async (req) => {
       if (skuList.length) {
         const { data: stockRowsBySku } = await supabase
           .from("stock_items")
-          .select("id, sku, image_url")
+          .select("id, sku, asin, image_url")
           .in("sku", skuList);
         if (Array.isArray(stockRowsBySku)) {
           stockBySku = stockRowsBySku.reduce((acc: any, row: any) => {
             const key = normalizeSkuKey(row.sku);
+            if (key) acc[key] = row;
+            return acc;
+          }, {});
+        }
+      }
+      if (asinList.length) {
+        const { data: stockRowsByAsin } = await supabase
+          .from("stock_items")
+          .select("id, sku, asin, image_url")
+          .in("asin", asinList);
+        if (Array.isArray(stockRowsByAsin)) {
+          stockByAsin = stockRowsByAsin.reduce((acc: any, row: any) => {
+            const key = String(row?.asin || "").trim().toUpperCase();
             if (key) acc[key] = row;
             return acc;
           }, {});
@@ -1773,7 +1795,8 @@ serve(async (req) => {
 
         const fromId = it.stock_item_id ? stockById[it.stock_item_id] : null;
         const fromSku = stockBySku[skuKey] || null;
-        const image = fromId?.image_url || fromSku?.image_url || null;
+        const fromAsin = stockByAsin[String(it?.asin || "").trim().toUpperCase()] || null;
+        const image = fromId?.image_url || fromSku?.image_url || fromAsin?.image_url || null;
 
         skuMeta.set(skuKey, {
           title: it.product_name || skuRaw || skuKey,

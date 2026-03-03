@@ -71,6 +71,12 @@ function normalizeSku(val: string | null | undefined) {
     .replace(/\u0080/g, "€");
 }
 
+function normalizeSkuKey(val: string | null | undefined) {
+  const normalized = normalizeSku(val);
+  if (!normalized) return "";
+  return normalized.toLowerCase();
+}
+
 function parseNumber(input: unknown) {
   if (input == null) return 0;
   if (typeof input === "number") return Number.isFinite(input) ? input : 0;
@@ -1440,10 +1446,13 @@ serve(async (req) => {
     }
 
     const confirmed: Record<string, number> = {};
+    const skuDisplayByKey: Record<string, string> = {};
     (dbItems || []).forEach((it: any) => {
-      const sku = normalizeSku(it?.sku || "");
+      const skuRaw = normalizeSku(it?.sku || "");
+      const sku = normalizeSkuKey(it?.sku || "");
       if (!sku) return;
       confirmed[sku] = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+      if (!skuDisplayByKey[sku]) skuDisplayByKey[sku] = skuRaw || sku;
     });
 
     const summed: Record<string, number> = {};
@@ -1451,7 +1460,7 @@ serve(async (req) => {
       (g?.boxes || []).forEach((b: any) => {
         if (b?.contentInformationSource !== "BOX_CONTENT_PROVIDED") return;
         (b?.items || []).forEach((it: any) => {
-          const sku = normalizeSku(it?.msku || "");
+          const sku = normalizeSkuKey(it?.msku || "");
           const q = Number(it?.quantity || 0) || 0;
           if (!sku || q <= 0) return;
           const boxQty = Number(b?.quantity || 1) || 1;
@@ -1464,7 +1473,7 @@ serve(async (req) => {
       .map((sku) => {
         const c = Number(confirmed[sku] || 0) || 0;
         const p = Number(summed[sku] || 0) || 0;
-        return { sku, confirmed: c, payload: p, delta: p - c };
+        return { sku: skuDisplayByKey[sku] || sku, confirmed: c, payload: p, delta: p - c };
       })
       .filter((r) => r.delta !== 0);
     const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
