@@ -256,6 +256,14 @@ export default function SupabaseClientActivity() {
     () => filterRowsByMonth(returnsLines, effectiveReturnsMonth),
     [returnsLines, effectiveReturnsMonth]
   );
+  const otherWithReturnsRows = useMemo(
+    () => sortByServiceDateDesc([...(other || []), ...(returnsLines || [])]),
+    [other, returnsLines]
+  );
+  const otherWithReturnsMonthRows = useMemo(
+    () => filterRowsByMonth(otherWithReturnsRows, effectiveOtherMonth),
+    [otherWithReturnsRows, effectiveOtherMonth]
+  );
   const returnsDecoratedRows = useMemo(
     () =>
       returnsMonthRows.map((row, idx) => {
@@ -274,8 +282,8 @@ export default function SupabaseClientActivity() {
     [fbmMonthRows]
   );
   const otherMonthTotals = useMemo(
-    () => calcReportTotals(otherMonthRows, 'units'),
-    [otherMonthRows]
+    () => calcReportTotals(otherWithReturnsMonthRows, 'units'),
+    [otherWithReturnsMonthRows]
   );
   const returnsMonthTotals = useMemo(
     () => calcReportTotals(returnsDecoratedRows, 'units'),
@@ -304,7 +312,7 @@ export default function SupabaseClientActivity() {
       map[d].fbm += isFinite(total) ? total : 0;
       map[d].fbmUnits += Number(r.orders_units || 0);
     }
-    for (const r of other) {
+    for (const r of otherWithReturnsRows) {
       const d = r.service_date;
       const total =
         r.total != null
@@ -315,7 +323,7 @@ export default function SupabaseClientActivity() {
       map[d].otherUnits += Number(r.units || 0);
     }
     return Object.values(map).sort((a, b) => new Date(a.date) - new Date(b.date));
-  }, [fba, fbm, other]);
+  }, [fba, fbm, otherWithReturnsRows]);
 
   useEffect(() => {
     if (!chartData.length) return;
@@ -399,7 +407,7 @@ export default function SupabaseClientActivity() {
       ? fbmMonthRows
       : isReturnsView
         ? returnsDecoratedRows
-        : otherMonthRows;
+        : otherWithReturnsMonthRows;
   const activeTotals = isFbaView
     ? fbaMonthTotals
     : isFbmView
