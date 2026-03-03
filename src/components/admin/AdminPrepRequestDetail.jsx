@@ -419,7 +419,13 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     };
   }, [row, wizardSelectedCarrier, wizardSelectedMode, wizardSelectedPartnered, wizardStep2Summary]);
 
-  const wizardHistoryMode = Boolean(openWizard || row?.step2_confirmed_at || row?.step4_confirmed_at || row?.status === 'confirmed');
+  const wizardHistoryMode = Boolean(
+    row?.step2_confirmed_at ||
+      row?.step4_confirmed_at ||
+      row?.fba_shipment_id ||
+      row?.status === 'confirmed' ||
+      wizardTrackingIds.length
+  );
   const wizardHasStep1 = Boolean(Array.isArray(row?.prep_request_items) && row.prep_request_items.length);
   const wizardHasStep1b = Boolean(
     wizardPackGroups.length ||
@@ -445,12 +451,13 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
   }, [wizardHasStep1, wizardHasStep1b, wizardHasStep2, wizardHasStep3, wizardHasStep4]);
 
   const wizardInitialStep = useMemo(() => {
+    if (!wizardHistoryMode) return '1';
     if (wizardHasStep4) return '4';
     if (wizardHasStep3) return '3';
     if (wizardHasStep2) return '2';
     if (wizardHasStep1b) return '1b';
     return '1';
-  }, [wizardHasStep1b, wizardHasStep2, wizardHasStep3, wizardHasStep4]);
+  }, [wizardHasStep1b, wizardHasStep2, wizardHasStep3, wizardHasStep4, wizardHistoryMode]);
 
   // ---- helpers (afisare cod + nume)
   const codeOf = (it) => (it?.asin || it?.sku || "");
