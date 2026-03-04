@@ -3604,26 +3604,54 @@ getAllReceivingShipments: async (options = {}) => {
     }
   };
 
-  if (allStockIds.size > 0) {
-    await fetchStockRowsByField('id', allStockIds, 200);
-  }
-  if (asinSet.size > 0) {
-    await fetchStockRowsByField('asin', asinSet, 200);
-  }
-  if (skuSet.size > 0) {
-    // PostgREST `in(...)` pe SKU-uri cu virgule/ghilimele/paranteze poate rupe parser-ul.
-    // Le ignorăm aici; acele rânduri se rezolvă de obicei prin stock_item_id / ASIN / EAN.
-    const safeSkuValues = Array.from(skuSet).filter((raw) => {
-      const sku = String(raw || '').trim();
-      if (!sku) return false;
-      return !/[(),"]/u.test(sku);
+  const lookupIds = Array.from(allStockIds)
+    .map((v) => Number(v))
+    .filter((v) => Number.isFinite(v));
+  const lookupAsins = Array.from(asinSet).map((v) => String(v || '').trim()).filter(Boolean);
+  const lookupSkus = Array.from(skuSet).map((v) => String(v || '').trim()).filter(Boolean);
+  const lookupEans = Array.from(eanSet).map((v) => String(v || '').trim()).filter(Boolean);
+
+  let rpcLookupSucceeded = false;
+  if (lookupIds.length || lookupAsins.length || lookupSkus.length || lookupEans.length) {
+    const { data: rpcRows, error: rpcError } = await supabase.rpc('lookup_stock_items_bulk', {
+      p_ids: lookupIds,
+      p_asins: lookupAsins,
+      p_skus: lookupSkus,
+      p_eans: lookupEans,
+      p_company_id: options.companyId || null
     });
-    if (safeSkuValues.length) {
-      await fetchStockRowsByField('sku', safeSkuValues, 120);
+    if (rpcError) {
+      console.warn('getAllReceivingShipments bulk RPC lookup failed, using fallback', {
+        message: rpcError.message
+      });
+    } else {
+      addStockRows(rpcRows);
+      rpcLookupSucceeded = true;
     }
   }
-  if (eanSet.size > 0) {
-    await fetchStockRowsByField('ean', eanSet, 200);
+
+  if (!rpcLookupSucceeded) {
+    if (allStockIds.size > 0) {
+      await fetchStockRowsByField('id', allStockIds, 200);
+    }
+    if (asinSet.size > 0) {
+      await fetchStockRowsByField('asin', asinSet, 200);
+    }
+    if (skuSet.size > 0) {
+      // PostgREST `in(...)` pe SKU-uri cu virgule/ghilimele/paranteze poate rupe parser-ul.
+      // Le ignorăm aici; acele rânduri se rezolvă de obicei prin stock_item_id / ASIN / EAN.
+      const safeSkuValues = Array.from(skuSet).filter((raw) => {
+        const sku = String(raw || '').trim();
+        if (!sku) return false;
+        return !/[(),"]/u.test(sku);
+      });
+      if (safeSkuValues.length) {
+        await fetchStockRowsByField('sku', safeSkuValues, 120);
+      }
+    }
+    if (eanSet.size > 0) {
+      await fetchStockRowsByField('ean', eanSet, 200);
+    }
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
