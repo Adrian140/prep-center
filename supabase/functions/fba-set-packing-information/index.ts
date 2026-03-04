@@ -1091,6 +1091,7 @@ serve(async (req) => {
       });
     };
     let mergedPackingGroupsInput = mergePackingGroups(packingGroupsInput, snapshotPackingGroups);
+    let groupsForSkuAliasMapping = mergedPackingGroupsInput;
     const mergedPackingGroupsSummary = Array.isArray(mergedPackingGroupsInput)
       ? mergedPackingGroupsInput.map((g: any) => ({
           packingGroupId: g?.packingGroupId || g?.id || g?.groupId || null,
@@ -1339,6 +1340,7 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
+        groupsForSkuAliasMapping = hydratedGroups;
         packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
       } catch (err) {
         console.error("fetch packing group items failed", { traceId, error: err });
@@ -1435,7 +1437,7 @@ serve(async (req) => {
     // Server-side guard: payload quantities must match confirmed quantities from DB
     const { data: dbItems, error: dbItemsErr } = await supabase
       .from("prep_request_items")
-      .select("sku, units_sent, units_requested")
+      .select("sku, asin, units_sent, units_requested")
       .eq("prep_request_id", requestId);
 
     if (dbItemsErr) {
@@ -1447,12 +1449,21 @@ serve(async (req) => {
 
     const confirmed: Record<string, number> = {};
     const skuDisplayByKey: Record<string, string> = {};
+    const confirmedSkuKeysByAsin: Record<string, string[]> = {};
     (dbItems || []).forEach((it: any) => {
       const skuRaw = normalizeSku(it?.sku || "");
       const sku = normalizeSkuKey(it?.sku || "");
       if (!sku) return;
-      confirmed[sku] = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+      const qty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
+      confirmed[sku] = (confirmed[sku] || 0) + qty;
       if (!skuDisplayByKey[sku]) skuDisplayByKey[sku] = skuRaw || sku;
+      const asin = String(it?.asin || "").trim().toUpperCase();
+      if (asin) {
+        if (!Array.isArray(confirmedSkuKeysByAsin[asin])) confirmedSkuKeysByAsin[asin] = [];
+        if (!confirmedSkuKeysByAsin[asin].includes(sku)) {
+          confirmedSkuKeysByAsin[asin].push(sku);
+        }
+      }
     });
 
     const summed: Record<string, number> = {};
@@ -1469,14 +1480,58 @@ serve(async (req) => {
       });
     });
 
+    const payloadAsinBySku: Record<string, string> = {};
+    (Array.isArray(groupsForSkuAliasMapping) ? groupsForSkuAliasMapping : []).forEach((group: any) => {
+      const expectedItems = Array.isArray(group?.expectedItems) ? group.expectedItems : [];
+      expectedItems.forEach((it: any) => {
+        const sku = normalizeSkuKey(it?.msku || it?.sellerSku || it?.sku || "");
+        const asin = String(it?.asin || it?.ASIN || "").trim().toUpperCase();
+        if (sku && asin && !payloadAsinBySku[sku]) payloadAsinBySku[sku] = asin;
+      });
+      const rawItems = Array.isArray(group?.items) ? group.items : [];
+      rawItems.forEach((it: any) => {
+        const sku = normalizeSkuKey(it?.msku || it?.sellerSku || it?.sku || "");
+        const asin = String(it?.asin || it?.ASIN || "").trim().toUpperCase();
+        if (sku && asin && !payloadAsinBySku[sku]) payloadAsinBySku[sku] = asin;
+      });
+    });
+
+    const reconciledSummed: Record<string, number> = { ...summed };
+    const skuAliasReconciliations: Array<{
+      fromSku: string;
+      toSku: string;
+      asin: string;
+      quantity: number;
+    }> = [];
+
+    Object.entries(summed).forEach(([incomingSku, qtyRaw]) => {
+      if (Object.prototype.hasOwnProperty.call(confirmed, incomingSku)) return;
+      const asin = payloadAsinBySku[incomingSku];
+      if (!asin) return;
+      const candidates = (confirmedSkuKeysByAsin[asin] || []).filter(Boolean).filter((sku) => sku !== incomingSku);
+      if (!candidates.length) return;
+      const targetSku = candidates.find((sku) => !Object.prototype.hasOwnProperty.call(reconciledSummed, sku)) || candidates[0];
+      const qty = Number(qtyRaw || 0) || 0;
+      if (qty <= 0 || !targetSku) return;
+
+      reconciledSummed[targetSku] = (reconciledSummed[targetSku] || 0) + qty;
+      delete reconciledSummed[incomingSku];
+      skuAliasReconciliations.push({
+        fromSku: incomingSku,
+        toSku: targetSku,
+        asin,
+        quantity: qty
+      });
+    });
+
     const mismatches = Object.keys(confirmed)
       .map((sku) => {
         const c = Number(confirmed[sku] || 0) || 0;
-        const p = Number(summed[sku] || 0) || 0;
+        const p = Number(reconciledSummed[sku] || 0) || 0;
         return { sku: skuDisplayByKey[sku] || sku, confirmed: c, payload: p, delta: p - c };
       })
       .filter((r) => r.delta !== 0);
-    const extraSkus = Object.keys(summed).filter((sku) => !(sku in confirmed));
+    const extraSkus = Object.keys(reconciledSummed).filter((sku) => !(sku in confirmed));
 
     if (mismatches.length || extraSkus.length) {
       console.warn(
@@ -1486,8 +1541,11 @@ serve(async (req) => {
             traceId,
             confirmed,
             summed,
+            reconciledSummed,
             mismatches,
             extraSkus,
+            skuAliasReconciliations,
+            payloadAsinBySku,
             packageGroupingsSummary: summarizePackageGroupings(packageGroupings)
           },
           null,
@@ -1500,7 +1558,8 @@ serve(async (req) => {
           code: "PACKING_QTY_MISMATCH",
           traceId,
           mismatches,
-          extraSkus
+          extraSkus,
+          skuAliasReconciliations
         }),
         { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
