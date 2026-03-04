@@ -42,6 +42,9 @@ Optional knobs for catalog dimensions sync:
 | `SPAPI_CATALOG_DIM_MARKETPLACE_IDS` | Lista marketplace-urilor permise pentru fallback lookup (`DE,FR,IT,ES` implicit) |
 | `SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN` | Numar maxim de integrari procesate per run (`0` = nelimitat) |
 | `SPAPI_CATALOG_DIM_ASINS_PER_RUN` | Numar maxim de ASIN-uri procesate per run (`0` = nelimitat) |
+| `SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS` | Buget runtime per job; la depășire scriptul salvează checkpoint și iese clean (implicit `18000` = 5h) |
+| `SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS` | Buffer de oprire înainte de limită (implicit `180`) |
+| `SPAPI_CATALOG_DIM_SYNC_STATE_KEY` | Cheia rândului de checkpoint din `amazon_catalog_dimensions_sync_state` (implicit `default`) |
 
 Optional knobs for catalog codes sync (EAN + FNSKU):
 

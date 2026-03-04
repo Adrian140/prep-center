@@ -10,9 +10,14 @@ concurrency:
   group: sync-amazon-catalog-dimensions
   cancel-in-progress: false
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
+    timeout-minutes: 330
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,6 +32,7 @@ jobs:
         run: npm ci
 
       - name: Run catalog dimensions sync
+        id: run_sync
         working-directory: tools/spapi-worker
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -45,4 +51,27 @@ jobs:
           # 0 means unlimited in this script.
           SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_CATALOG_DIM_MAX_INTEGRATIONS_PER_RUN || '0' }}
           SPAPI_CATALOG_DIM_ASINS_PER_RUN: ${{ secrets.SPAPI_CATALOG_DIM_ASINS_PER_RUN || '0' }}
-        run: npm run sync-amazon-catalog-dimensions
+          # Stop gracefully around 5h and save checkpoint before the job hard timeout.
+          SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS: ${{ secrets.SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS || '18000' }}
+          SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS: ${{ secrets.SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS || '180' }}
+        run: |
+          set -o pipefail
+          npm run sync-amazon-catalog-dimensions | tee sync-catalog-dimensions.log
+          if grep -q "CATALOG_DIMENSIONS_CONTINUE=1" sync-catalog-dimensions.log; then
+            echo "continue_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "continue_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger follow-up run when budget reached
+        if: steps.run_sync.outputs.continue_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$REPO/actions/workflows/sync-amazon-catalog-dimensions.yml/dispatches" \
+            -d "{\"ref\":\"$REF\"}"
