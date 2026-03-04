@@ -238,26 +238,49 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     };
   }, [row, wizardInboundSnapshot, wizardPackGroups, wizardStep2Shipments]);
 
-  const fetchPlanFromEdge = useCallback(async () => {
-    if (!row?.id) throw new Error('Missing request id');
+  const invokeEdgeWithAuth = useCallback(async (functionName, options = {}) => {
+    const invokeWithToken = async (token) => {
+      const headers = {
+        ...(options?.headers && typeof options.headers === 'object' ? options.headers : {}),
+        Authorization: `Bearer ${token}`
+      };
+      return await supabase.functions.invoke(functionName, {
+        ...options,
+        headers
+      });
+    };
+
     const {
       data: { session: freshSession },
       error: sessionError
     } = await supabase.auth.getSession();
-
     if (sessionError) throw sessionError;
-    const activeSession = freshSession || session;
 
-    if (!activeSession?.access_token) {
+    let token = freshSession?.access_token || session?.access_token || null;
+    if (!token) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) throw refreshError;
+      token = refreshed?.session?.access_token || null;
+    }
+    if (!token) {
       const err = new Error('You must be signed in to load the Amazon plan. Please refresh and sign in again.');
-      setFlash(err.message);
+      err.status = 401;
       throw err;
     }
 
-    const authHeaders = { Authorization: `Bearer ${activeSession.access_token}` };
+    let result = await invokeWithToken(token);
+    if (result?.error?.status === 401) {
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (!refreshError && refreshed?.session?.access_token) {
+        result = await invokeWithToken(refreshed.session.access_token);
+      }
+    }
+    return result;
+  }, [session?.access_token]);
 
-    const { data, error } = await supabase.functions.invoke('fba-plan', {
-      headers: authHeaders,
+  const fetchPlanFromEdge = useCallback(async () => {
+    if (!row?.id) throw new Error('Missing request id');
+    const { data, error } = await invokeEdgeWithAuth('fba-plan', {
       body: { request_id: row.id }
     });
     if (error) {
@@ -324,7 +347,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       inboundPlanStatus: data?.inboundPlanStatus || plan.inboundPlanStatus || null,
       shipmentsPending: data?.shipmentsPending ?? plan.shipmentsPending ?? false
     };
-  }, [row?.id, session]);
+  }, [invokeEdgeWithAuth, row?.id]);
 
   const wizardShipments = useMemo(() => {
     if (wizardStep2Shipments.length) return wizardStep2Shipments;
