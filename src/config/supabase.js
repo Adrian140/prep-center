@@ -3560,9 +3560,18 @@ getAllReceivingShipments: async (options = {}) => {
   let stockByAsin = {};
   let stockBySku = {};
   let stockByEan = {};
-  const collected = [];
+  const chunkArray = (values = [], chunkSize = 200) => {
+    const source = Array.isArray(values) ? values : [];
+    if (!source.length) return [];
+    const out = [];
+    for (let i = 0; i < source.length; i += chunkSize) {
+      out.push(source.slice(i, i + chunkSize));
+    }
+    return out;
+  };
 
-  const addStockRows = (rows = []) => {
+  const addStockRows = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return;
     rows.forEach((s) => {
       if (!s) return;
       stockMap[s.id] = s;
@@ -3572,33 +3581,49 @@ getAllReceivingShipments: async (options = {}) => {
     });
   };
 
+  const fetchStockRowsByField = async (field, values, chunkSize = 200) => {
+    const list = Array.from(values || [])
+      .map((v) => (v == null ? '' : String(v).trim()))
+      .filter(Boolean);
+    if (!list.length) return;
+    const chunks = chunkArray(list, chunkSize);
+    for (const chunk of chunks) {
+      const { data: stockData, error: stockErr } = await supabase
+        .from('stock_items')
+        .select('id, asin, name, sku, ean, image_url')
+        .in(field, chunk);
+      if (stockErr) {
+        console.warn('getAllReceivingShipments stock lookup failed', {
+          field,
+          chunkSize: chunk.length,
+          message: stockErr.message
+        });
+        continue;
+      }
+      addStockRows(stockData);
+    }
+  };
+
   if (allStockIds.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('id', Array.from(allStockIds));
-    addStockRows(stockData);
+    await fetchStockRowsByField('id', allStockIds, 200);
   }
   if (asinSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('asin', Array.from(asinSet));
-    addStockRows(stockData);
+    await fetchStockRowsByField('asin', asinSet, 200);
   }
   if (skuSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('sku', Array.from(skuSet));
-    addStockRows(stockData);
+    // PostgREST `in(...)` pe SKU-uri cu virgule/ghilimele/paranteze poate rupe parser-ul.
+    // Le ignorăm aici; acele rânduri se rezolvă de obicei prin stock_item_id / ASIN / EAN.
+    const safeSkuValues = Array.from(skuSet).filter((raw) => {
+      const sku = String(raw || '').trim();
+      if (!sku) return false;
+      return !/[(),"]/u.test(sku);
+    });
+    if (safeSkuValues.length) {
+      await fetchStockRowsByField('sku', safeSkuValues, 120);
+    }
   }
   if (eanSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('ean', Array.from(eanSet));
-    addStockRows(stockData);
+    await fetchStockRowsByField('ean', eanSet, 200);
   }
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
