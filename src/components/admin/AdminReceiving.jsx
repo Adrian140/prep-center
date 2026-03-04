@@ -1191,8 +1191,10 @@ function AdminReceiving() {
   const [listState, setListState] = useSessionStorage('admin-receiving-list', listDefaults);
   const [shipments, setShipments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncingFullList, setSyncingFullList] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [message, setMessage] = useState('');
+  const loadSeqRef = useRef(0);
 
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState(listState.statusFilter ?? 'all');
@@ -1247,28 +1249,27 @@ function AdminReceiving() {
   useEffect(() => {
     const storedId = listState?.selectedShipmentId;
     if (!storedId) return;
-    if (selectedShipment && selectedShipment.id === storedId) return;
     const match = shipments.find((s) => s.id === storedId);
+    if (selectedShipment && selectedShipment.id === storedId) {
+      if (match && match !== selectedShipment) {
+        setSelectedShipment(match);
+      }
+      return;
+    }
     if (match) {
       setSelectedShipment(match);
     }
-  }, [shipments, listState?.selectedShipmentId]); 
+  }, [shipments, listState?.selectedShipmentId, selectedShipment]); 
 
 const loadShipments = async () => {
-  setLoading(true);
-  try {
-    const { data, error } = await supabaseHelpers.getAllReceivingShipments({
-      fetchAll: true,
-      warehouseCountry: currentMarket
-    });
-    if (error) throw error;
-
-    const enriched = (data || []).map((row) => ({
+  const seq = ++loadSeqRef.current;
+  const isActive = () => loadSeqRef.current === seq;
+  const sortShipmentsForList = (rows = []) => {
+    const enriched = (rows || []).map((row) => ({
       ...row,
       computed_status: computeShipmentStatus(row)
     }));
-
-    const sorted = enriched.slice().sort((a, b) => {
+    return enriched.slice().sort((a, b) => {
       const statusA = a.computed_status || a.status;
       const statusB = b.computed_status || b.status;
       const priorityA = STATUS_PRIORITY[statusA] ?? 999;
@@ -1283,15 +1284,47 @@ const loadShipments = async () => {
       const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
       return dateB - dateA;
     });
+  };
 
+  setLoading(true);
+  setSyncingFullList(false);
+  try {
+    // Phase 1: quick list (pending/partial first) to unblock UI fast.
+    const { data: quickData, error: quickError } = await supabaseHelpers.getAllReceivingShipments({
+      fetchAll: true,
+      maxRows: 400,
+      warehouseCountry: currentMarket,
+      statusIn: ['draft', 'submitted', 'partial'],
+      lightweight: true
+    });
+    const quickSorted = quickError ? [] : sortShipmentsForList(quickData || []);
+    if (isActive() && quickSorted.length > 0) {
+      setShipments(quickSorted);
+      setLoading(false);
+      setSyncingFullList(true);
+    }
+
+    // Phase 2: full dataset with all enrichments in background.
+    const { data, error } = await supabaseHelpers.getAllReceivingShipments({
+      fetchAll: true,
+      warehouseCountry: currentMarket
+    });
+    if (error) throw error;
+
+    const sorted = sortShipmentsForList(data || []);
+    if (!isActive()) return [];
     setShipments(sorted);
     return sorted;
   } catch (error) {
+    if (!isActive()) return [];
     setMessage(`Erreur de chargement: ${error.message}`);
     setShipments([]);
     return [];
   } finally {
-    setLoading(false);
+    if (isActive()) {
+      setLoading(false);
+      setSyncingFullList(false);
+    }
   }
 };
 
@@ -1487,6 +1520,9 @@ useEffect(() => {
           <p className="text-text-secondary">Review and process client receiving announcements</p>
         </div>
         <div className="flex items-center space-x-3">
+          {syncingFullList && (
+            <span className="text-xs text-text-secondary">Loading full list in background...</span>
+          )}
           {selectedIds.size > 0 && (
             <button
               onClick={handleBulkReceived}
