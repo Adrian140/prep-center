@@ -203,6 +203,7 @@ useEffect(() => {
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'returns', label: 'Returns', icon: Package },
     { id: 'chat', label: 'Chat', icon: Users },
+    { id: 'invoices', label: t('sidebar.invoices'), icon: FileText },
     { id: 'ups', label: 'UPS', icon: Truck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'prep-business', label: 'Integrations', icon: Link2 },
@@ -211,7 +212,6 @@ useEffect(() => {
     { id: 'affiliates', label: t('sidebar.affiliates'), icon: Users },
     { id: 'security', label: t('sidebar.security'), icon: Shield },
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
-    { id: 'invoices', label: t('sidebar.invoices'), icon: FileText },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
   ]), [t]);
 
