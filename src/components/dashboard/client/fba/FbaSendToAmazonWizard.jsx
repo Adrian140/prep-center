@@ -4647,20 +4647,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   };
 
+  const isFbaShipmentId = (value) => {
+    const normalized = String(value || '').trim();
+    return /^FBA[0-9A-Z]+$/i.test(normalized);
+  };
+
   const resolveFbaShipmentId = () => {
     const list = Array.isArray(shipments) ? shipments : [];
-    const fromApi = list.find((s) => s?.source === 'api' && (s?.amazonShipmentId || s?.shipmentConfirmationId || s?.shipmentId || s?.id));
-    const fallback = fromApi || list.find((s) => s?.amazonShipmentId || s?.shipmentConfirmationId || s?.shipmentId || s?.id);
-    const candidate =
-      fallback?.amazonShipmentId ||
-      fallback?.shipmentConfirmationId ||
-      fallback?.shipmentId ||
-      fallback?.id ||
-      null;
-    if (!candidate) return null;
-    const asText = String(candidate);
-    if (asText.startsWith('s-') || asText.toLowerCase().startsWith('fallback-')) return null;
-    return asText;
+    const candidates = list.flatMap((s) => [
+      s?.amazonShipmentId,
+      s?.shipmentId,
+      s?.id
+    ]);
+    const picked = candidates.find((candidate) => isFbaShipmentId(candidate));
+    return picked ? String(picked).trim().toUpperCase() : null;
   };
 
   const finalizeStep3 = async () => {
@@ -4674,8 +4674,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setStep3Error('Confirm shipping before finishing the request.');
       return;
     }
-    const existingId = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
-    const shipmentId = existingId || resolveFbaShipmentId();
+    const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
+    const existingFbaId = isFbaShipmentId(existingIdRaw) ? String(existingIdRaw).trim().toUpperCase() : null;
+    const shipmentId = resolveFbaShipmentId() || existingFbaId;
     if (!shipmentId) {
       setStep3Error('Could not find FBA shipment ID from Amazon. Retry after confirming shipping.');
       return;
@@ -4685,7 +4686,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     try {
       const updatePayload = {};
       if (plan?.status !== 'confirmed') updatePayload.status = 'confirmed';
-      if (!existingId || String(existingId) !== String(shipmentId)) {
+      if (!existingFbaId || String(existingFbaId) !== String(shipmentId)) {
         updatePayload.fba_shipment_id = shipmentId;
       }
       if (Object.keys(updatePayload).length) {

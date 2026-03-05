@@ -190,6 +190,26 @@ function normalizeShipmentName(value: string | null | undefined) {
     .toLowerCase();
 }
 
+function normalizeTextId(value: any): string | null {
+  if (value == null) return null;
+  const out = String(value).trim();
+  return out ? out : null;
+}
+
+function isFbaShipmentId(value: any): boolean {
+  const normalized = normalizeTextId(value);
+  return Boolean(normalized && /^FBA[0-9A-Z]+$/i.test(normalized));
+}
+
+function pickFbaShipmentId(...values: any[]): string | null {
+  for (const value of values) {
+    const normalized = normalizeTextId(value);
+    if (!normalized) continue;
+    if (isFbaShipmentId(normalized)) return normalized.toUpperCase();
+  }
+  return null;
+}
+
 function toHex(buffer: ArrayBuffer): string {
   return Array.prototype.map
     .call(new Uint8Array(buffer), (x: number) => ("00" + x.toString(16)).slice(-2))
@@ -731,13 +751,13 @@ serve(async (req) => {
 
     let { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
+      .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id, fba_shipment_id")
       .eq("id", requestId)
       .maybeSingle();
     if (!reqData && inboundPlanId) {
       const alt = await supabase
         .from("prep_requests")
-        .select("id, destination_country, company_id, user_id")
+        .select("id, destination_country, company_id, user_id, fba_shipment_id")
         .eq("user_id", user.id)
         .eq("inbound_plan_id", inboundPlanId)
         .order("created_at", { ascending: false })
@@ -779,7 +799,7 @@ serve(async (req) => {
       // Request-ul din UI poate rămâne stale după regenerări; încercăm fallback pe request-ul care deține inboundPlanId.
       const alt = await supabase
         .from("prep_requests")
-        .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id")
+        .select("id, destination_country, warehouse_country, company_id, user_id, amazon_snapshot, packing_option_id, placement_option_id, inbound_plan_id, fba_shipment_id")
         .eq("inbound_plan_id", inboundPlanId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -2610,16 +2630,18 @@ serve(async (req) => {
           payload?.SourceAddress ||
           null;
         const contents = payload?.contents || payload?.Contents || {};
-        const amazonShipmentId =
+        const shipmentConfirmationId =
           payload?.shipmentConfirmationId ||
           payload?.shipmentConfirmationID ||
           payload?.ShipmentConfirmationId ||
           payload?.ShipmentConfirmationID ||
+          null;
+        const amazonShipmentId = pickFbaShipmentId(
           payload?.shipmentId ||
           payload?.ShipmentId ||
           payload?.shipmentID ||
-          payload?.ShipmentID ||
-          null;
+          payload?.ShipmentID
+        );
         const shipmentName =
           payload?.shipmentName ||
           payload?.ShipmentName ||
@@ -2718,6 +2740,7 @@ serve(async (req) => {
         list.push({
           id: shId,
           amazonShipmentId,
+          shipmentConfirmationId,
           name: shipmentName,
           from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
           to: (() => {
@@ -5134,7 +5157,7 @@ serve(async (req) => {
     const shipments = await normalizeShipmentsFromPlan();
 
     const attachAmazonShipmentIds = async (list: any[]) => {
-      const needs = (list || []).filter((sh) => !sh?.amazonShipmentId && sh?.name);
+      const needs = (list || []).filter((sh) => !isFbaShipmentId(sh?.amazonShipmentId) && sh?.name);
       if (!needs.length || !marketplaceId) return list;
       try {
         const lastUpdatedAfter = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -5158,22 +5181,30 @@ serve(async (req) => {
           byName.get(nameKey)?.push(sh);
         });
         return list.map((sh) => {
-          if (sh?.amazonShipmentId || !sh?.name) return sh;
+          if (isFbaShipmentId(sh?.amazonShipmentId) || !sh?.name) return sh;
           const nameKey = normalizeShipmentName(sh.name);
           const candidates = byName.get(nameKey) || [];
-          if (!candidates.length) return sh;
+          if (!candidates.length) {
+            return {
+              ...sh,
+              amazonShipmentId: null
+            };
+          }
           const dest = sh?.destinationWarehouseId || null;
           const picked =
             candidates.find((c) => dest && c?.DestinationFulfillmentCenterId === dest) ||
             candidates[0];
-          const fbaId = picked?.ShipmentId || null;
+          const fbaId = pickFbaShipmentId(picked?.ShipmentId);
           return fbaId
             ? {
                 ...sh,
                 amazonShipmentId: fbaId,
                 legacyShipmentId: picked?.ShipmentReferenceId || null
               }
-            : sh;
+            : {
+                ...sh,
+                amazonShipmentId: null
+              };
         });
       } catch (err) {
         logStep("amazon_shipment_id_lookup_failed", { traceId, error: `${err}` });
@@ -5182,6 +5213,11 @@ serve(async (req) => {
     };
 
     const shipmentsWithAmazonIds = await attachAmazonShipmentIds(shipments);
+    const resolvedFbaShipmentId = pickFbaShipmentId(
+      ...(Array.isArray(shipmentsWithAmazonIds) ? shipmentsWithAmazonIds.flatMap((sh: any) => [sh?.amazonShipmentId]) : [])
+    );
+    const existingPersistedFbaShipmentId = pickFbaShipmentId((reqData as any)?.fba_shipment_id);
+    const effectivePersistedFbaShipmentId = resolvedFbaShipmentId || existingPersistedFbaShipmentId || null;
 
     // Trimite email de confirmare către client (non-blocant)
     const sendPrepConfirmEmail = async () => {
@@ -5238,10 +5274,7 @@ serve(async (req) => {
           company_name: profileRow.company_name || null,
           note: prepRow.obs_admin || null,
           items,
-          fba_shipment_id: shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
-            shipmentsWithAmazonIds?.[0]?.shipmentId ||
-            prepRow.fba_shipment_id ||
-            null,
+          fba_shipment_id: resolvedFbaShipmentId || pickFbaShipmentId(prepRow.fba_shipment_id) || null,
           marketplace: marketplaceId || null,
           country: prepRow.destination_country || prepRow.warehouse_country || null
         };
@@ -5276,10 +5309,7 @@ serve(async (req) => {
           step2_confirmed_at: new Date().toISOString(),
           step2_summary: summaryWithSelection,
           step2_shipments: shipmentsWithAmazonIds,
-          fba_shipment_id:
-            shipmentsWithAmazonIds?.[0]?.amazonShipmentId ||
-            shipmentsWithAmazonIds?.[0]?.shipmentId ||
-            null,
+          fba_shipment_id: effectivePersistedFbaShipmentId,
           ...buildShipmentNameUpdate()
         })
         .eq("id", requestId)

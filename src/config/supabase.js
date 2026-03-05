@@ -105,6 +105,16 @@ const normalizeAsin = (value) => {
   return trimmed ? trimmed.toUpperCase() : null;
 };
 const normalizeSku = (value) => normalizeCode(value);
+const normalizeFbaShipmentId = (value) => String(value || '').trim().toUpperCase();
+const isAmazonShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(normalizeFbaShipmentId(value));
+const extractFbaShipmentId = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const firstToken = raw.split('|')[0]?.trim() || '';
+  if (isAmazonShipmentId(firstToken)) return normalizeFbaShipmentId(firstToken);
+  if (isAmazonShipmentId(raw)) return normalizeFbaShipmentId(raw);
+  return null;
+};
 const isLikelyAsin = (value) => {
   if (!value) return false;
   return /^[A-Z0-9]{10}$/.test(String(value).toUpperCase());
@@ -1603,6 +1613,20 @@ resetPassword: async (email) => {
       .eq('id', id);
   },
 
+  updateReturnServiceLine: async (id, updates) => {
+    return await supabase
+      .from('return_service_lines')
+      .update(updates)
+      .eq('id', id);
+  },
+
+  deleteReturnServiceLine: async (id) => {
+    return await supabase
+      .from('return_service_lines')
+      .delete()
+      .eq('id', id);
+  },
+
   listStockByCompany: async (companyId) => {
     return await supabase
       .from('stock_items')
@@ -2431,7 +2455,7 @@ createPrepItem: async (requestId, item) => {
       if (!effectiveDate) return;
       const day = String(effectiveDate).slice(0, 10);
       fbaFinalizedDateByRequestId.set(row.id, day);
-      const shipmentId = (row?.fba_shipment_id || '').trim();
+      const shipmentId = extractFbaShipmentId(row?.fba_shipment_id);
       if (shipmentId) fbaFinalizedDateByShipmentId.set(shipmentId, day);
     });
 
@@ -2491,7 +2515,7 @@ createPrepItem: async (requestId, item) => {
       const requestId = row?.prep_request_id || null;
       const finalizedDate = requestId ? fbaFinalizedDateByRequestId.get(requestId) : null;
       if (finalizedDate) return { ...row, service_date: finalizedDate };
-      const shipmentId = String(row?.obs_admin || '').trim();
+      const shipmentId = extractFbaShipmentId(row?.obs_admin);
       const shipmentFinalizedDate = shipmentId ? fbaFinalizedDateByShipmentId.get(shipmentId) : null;
       if (shipmentFinalizedDate) return { ...row, service_date: shipmentFinalizedDate };
       return row;

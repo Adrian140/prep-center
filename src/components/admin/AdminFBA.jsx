@@ -46,6 +46,9 @@ const formatInvoiceTooltip = (invoice) => {
   return `Factură #${invoice.invoice_number}${formattedDate ? ` · ${formattedDate}` : ''}`;
 };
 
+const normalizeFbaShipmentId = (value) => String(value || '').trim().toUpperCase();
+const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(normalizeFbaShipmentId(value));
+
 export default function AdminFBA({
   rows = [],
   reload,
@@ -161,12 +164,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
 
   useEffect(() => {
     let active = true;
-    const normalizeFbaId = (value) => String(value || '').trim().toUpperCase();
     const extractShipmentIds = (row) => {
       const ids = new Set();
       const add = (value) => {
-        const normalized = normalizeFbaId(value);
-        if (normalized) ids.add(normalized);
+        const normalized = normalizeFbaShipmentId(value);
+        if (isFbaShipmentId(normalized)) ids.add(normalized);
       };
       add(row?.fba_shipment_id);
       add(row?.amazon_snapshot?.shipment_id);
@@ -176,7 +178,6 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
         add(shipment?.shipment_id);
         add(shipment?.amazonShipmentId);
         add(shipment?.amazon_shipment_id);
-        add(shipment?.shipmentConfirmationId);
       });
       return Array.from(ids);
     };
@@ -296,8 +297,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
   }, [rows]);
 
   useEffect(() => {
-    const latestWithId = (orderedRows || []).find((r) => (r?.obs_admin || '').trim() !== '');
-    const latestId = latestWithId ? splitObs(latestWithId.obs_admin || '').id : '';
+    const latestWithId = (orderedRows || []).find((r) => {
+      const parsedId = splitObs(r?.obs_admin || '').id;
+      return isFbaShipmentId(parsedId);
+    });
+    const latestId = latestWithId ? normalizeFbaShipmentId(splitObs(latestWithId.obs_admin || '').id) : '';
     setLastObsAdmin(latestId);
   }, [orderedRows]);
 
@@ -321,7 +325,11 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
       form.service === 'Other'
         ? (form.custom_service && form.custom_service.trim()) || 'Other'
         : form.service;
-    const fbaId = (form.fba_id || '').trim();
+    const fbaIdRaw = (form.fba_id || '').trim();
+    if (fbaIdRaw && !isFbaShipmentId(fbaIdRaw)) {
+      return alert('FBA Shipment ID trebuie să înceapă cu FBA (ex: FBA15XXXXXX).');
+    }
+    const fbaId = isFbaShipmentId(fbaIdRaw) ? normalizeFbaShipmentId(fbaIdRaw) : '';
     const note = (form.obs_admin || '').trim();
     const obsPayload = [fbaId, note].filter(Boolean).join(note ? ' | ' : '');
 
@@ -542,7 +550,10 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
               </tr>
             ) : (
               (() => {
-                const normalizeId = (val) => (val || '').trim();
+                const normalizeId = (val) => {
+                  const normalized = normalizeFbaShipmentId(val);
+                  return isFbaShipmentId(normalized) ? normalized : '';
+                };
                 const groupsMap = new Map();
                 const groupsArr = [];
 

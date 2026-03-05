@@ -30,6 +30,7 @@ const StatusPill = ({ s }) => {
 
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 const ADMIN_NOTE_MARKER = "[ADMIN_NOTE]";
+const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(String(value || '').trim());
 
 const parseHeaderNotes = (raw) => {
   const text = String(raw || "");
@@ -419,10 +420,11 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     };
   }, [row, wizardSelectedCarrier, wizardSelectedMode, wizardSelectedPartnered, wizardStep2Summary]);
 
+  const hasValidFbaShipmentId = isFbaShipmentId(row?.fba_shipment_id);
   const wizardHistoryMode = Boolean(
     row?.step2_confirmed_at ||
       row?.step4_confirmed_at ||
-      row?.fba_shipment_id ||
+      hasValidFbaShipmentId ||
       row?.status === 'confirmed' ||
       wizardTrackingIds.length
   );
@@ -437,7 +439,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       wizardStep2Summary?.selectedOptionId ||
       wizardStep2Shipments.length
   );
-  const wizardHasStep3 = Boolean(row?.fba_shipment_id || row?.status === 'confirmed');
+  const wizardHasStep3 = hasValidFbaShipmentId;
   const wizardHasStep4 = Boolean(wizardTrackingIds.length || row?.step4_confirmed_at);
 
   const wizardCompletedSteps = useMemo(() => {
@@ -672,7 +674,9 @@ const mapBoxRows = (rows = []) => {
       setFlash(error.message || "Failed to load request");
     } else {
       setRow(data);
-      setShipmentId(data?.fba_shipment_id || "");
+      setShipmentId(
+        isFbaShipmentId(data?.fba_shipment_id) ? String(data.fba_shipment_id).trim().toUpperCase() : ""
+      );
       const parsed = parseHeaderNotes(data?.obs_admin || "");
       setHeaderNote(parsed.adminNote || "");
       setClientNote(parsed.clientNote || "");
@@ -1083,7 +1087,9 @@ if (error) throw error;
 
 // 5.2) Folosește FBA Shipment ID din starea proaspăt reîncărcată
 const fallbackId = `FBA${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-const subject_id = (freshRow?.fba_shipment_id || '').trim() || fallbackId;
+const subject_id = isFbaShipmentId(freshRow?.fba_shipment_id)
+  ? String(freshRow.fba_shipment_id).trim().toUpperCase()
+  : fallbackId;
 
 // compune payloadul de email
 const mailItems = (freshRow?.prep_request_items || []).map((item) => {
@@ -1106,7 +1112,9 @@ const mailPayload = {
   client_name: freshRow?.client_name || null,
   company_name: freshRow?.company_name || null,
   note: freshRow?.obs_admin || null,
-  fba_shipment_id: freshRow?.fba_shipment_id || null,
+  fba_shipment_id: isFbaShipmentId(freshRow?.fba_shipment_id)
+    ? String(freshRow.fba_shipment_id).trim().toUpperCase()
+    : null,
   tracking_ids: (freshRow?.prep_request_tracking || [])
     .map((t) => t.tracking_id)
     .filter(Boolean),

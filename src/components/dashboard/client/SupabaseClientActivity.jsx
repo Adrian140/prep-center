@@ -120,6 +120,8 @@ const localizeReturnPrefix = (value, t) => {
   return String(value).replace(/^retur\b/i, prefix);
 };
 
+const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(String(value || '').trim());
+
 const normalizeServiceName = (service) => String(service || '').trim().toLowerCase();
 
 const isHeavyParcelServiceRow = (row) => {
@@ -162,12 +164,10 @@ export default function SupabaseClientActivity() {
   const [fbaMonth, setFbaMonth] = useState('');
   const [fbmMonth, setFbmMonth] = useState('');
   const [otherMonth, setOtherMonth] = useState('');
-  const [returnsMonth, setReturnsMonth] = useState('');
   const [baseMonths, setBaseMonths] = useState({
     fba: currentMonthStr(),
     fbm: currentMonthStr(),
-    other: currentMonthStr(),
-    returns: currentMonthStr()
+    other: currentMonthStr()
   });
   const [monthsInitialized, setMonthsInitialized] = useState(false);
 
@@ -199,6 +199,26 @@ export default function SupabaseClientActivity() {
     const safeFba = sortByServiceDateDesc(fbaData || []);
     const safeFbm = sortByServiceDateDesc(fbmData || []);
     const safeOther = sortByServiceDateDesc(otherData || []);
+    const prepRequestIdsForFba = Array.from(
+      new Set((safeFba || []).map((row) => row?.prep_request_id).filter(Boolean))
+    );
+    const prepRequestFbaIdById = new Map();
+    if (prepRequestIdsForFba.length) {
+      const { data: prepRequestRows } = await supabase
+        .from('prep_requests')
+        .select('id, fba_shipment_id')
+        .in('id', prepRequestIdsForFba);
+      (Array.isArray(prepRequestRows) ? prepRequestRows : []).forEach((row) => {
+        const fbaId = String(row?.fba_shipment_id || '').trim();
+        if (isFbaShipmentId(fbaId)) {
+          prepRequestFbaIdById.set(row.id, fbaId.toUpperCase());
+        }
+      });
+    }
+    const safeFbaResolved = safeFba.map((row) => ({
+      ...row,
+      _resolved_fba_shipment_id: prepRequestFbaIdById.get(row?.prep_request_id) || null
+    }));
     const doneReturnIds = new Set(
       (Array.isArray(returnsStatusData) ? returnsStatusData : [])
         .filter((ret) => String(ret?.status || '').toLowerCase() === 'done')
@@ -207,7 +227,7 @@ export default function SupabaseClientActivity() {
     const safeReturns = sortByServiceDateDesc(
       (returnsData || []).filter((line) => doneReturnIds.has(Number(line.return_id)))
     );
-    setFba(safeFba);
+    setFba(safeFbaResolved);
     setFbm(safeFbm);
     setOther(safeOther);
     setReturnsLines(safeReturns);
@@ -215,8 +235,7 @@ export default function SupabaseClientActivity() {
     const nextBase = {
       fba: deriveMonth(safeFba[0]?.service_date),
       fbm: deriveMonth(safeFbm[0]?.service_date),
-      other: deriveMonth(safeOther[0]?.service_date),
-      returns: deriveMonth(safeReturns[0]?.service_date)
+      other: deriveMonth(safeOther[0]?.service_date)
     };
     setBaseMonths(nextBase);
 
@@ -224,7 +243,6 @@ export default function SupabaseClientActivity() {
       setFbaMonth(nextBase.fba);
       setFbmMonth(nextBase.fbm);
       setOtherMonth(nextBase.other);
-      setReturnsMonth(nextBase.returns);
       setMonthsInitialized(true);
     }
 
@@ -242,7 +260,6 @@ export default function SupabaseClientActivity() {
   const effectiveFbaMonth = fbaMonth || baseMonths.fba;
   const effectiveFbmMonth = fbmMonth || baseMonths.fbm;
   const effectiveOtherMonth = otherMonth || baseMonths.other;
-  const effectiveReturnsMonth = returnsMonth || baseMonths.returns;
 
   const fbaMonthRows = useMemo(
     () => filterRowsByMonth(fba, effectiveFbaMonth),
@@ -252,21 +269,18 @@ export default function SupabaseClientActivity() {
     () =>
       fbaMonthRows.map((row, idx) => {
         const { id: parsedId, note } = splitObs(row?.obs_admin);
-        return { ...row, _order: idx, _groupKey: parsedId || '', _note: note };
+        const idFromObs = isFbaShipmentId(parsedId) ? String(parsedId).trim().toUpperCase() : '';
+        const idFromPrep = isFbaShipmentId(row?._resolved_fba_shipment_id)
+          ? String(row._resolved_fba_shipment_id).trim().toUpperCase()
+          : '';
+        const groupKey = idFromPrep || idFromObs || '';
+        return { ...row, _order: idx, _groupKey: groupKey, _note: note };
       }),
     [fbaMonthRows]
   );
   const fbmMonthRows = useMemo(
     () => filterRowsByMonth(fbm, effectiveFbmMonth),
     [fbm, effectiveFbmMonth]
-  );
-  const otherMonthRows = useMemo(
-    () => filterRowsByMonth(other, effectiveOtherMonth),
-    [other, effectiveOtherMonth]
-  );
-  const returnsMonthRows = useMemo(
-    () => filterRowsByMonth(returnsLines, effectiveReturnsMonth),
-    [returnsLines, effectiveReturnsMonth]
   );
   const otherWithReturnsRows = useMemo(
     () => sortByServiceDateDesc([...(other || []), ...(returnsLines || [])]),
@@ -276,13 +290,29 @@ export default function SupabaseClientActivity() {
     () => filterRowsByMonth(otherWithReturnsRows, effectiveOtherMonth),
     [otherWithReturnsRows, effectiveOtherMonth]
   );
-  const returnsDecoratedRows = useMemo(
+  const otherDecoratedRows = useMemo(
     () =>
-      returnsMonthRows.map((row, idx) => {
+      otherWithReturnsMonthRows.map((row, idx) => {
+        const isReturnRow = row?.return_id != null;
+        if (!isReturnRow) {
+          return {
+            ...row,
+            _order: idx,
+            _groupKey: '',
+            _note: row?.obs_admin || '',
+            _isReturn: false
+          };
+        }
         const { id: parsedId, note } = splitObs(row?.obs_admin);
-        return { ...row, _order: idx, _groupKey: parsedId || '', _note: note };
+        return {
+          ...row,
+          _order: idx,
+          _groupKey: parsedId || '',
+          _note: note,
+          _isReturn: true
+        };
       }),
-    [returnsMonthRows]
+    [otherWithReturnsMonthRows]
   );
 
   const fbaMonthTotals = useMemo(
@@ -296,10 +326,6 @@ export default function SupabaseClientActivity() {
   const otherMonthTotals = useMemo(
     () => calcReportTotals(otherWithReturnsMonthRows, 'units'),
     [otherWithReturnsMonthRows]
-  );
-  const returnsMonthTotals = useMemo(
-    () => calcReportTotals(returnsDecoratedRows, 'units'),
-    [returnsDecoratedRows]
   );
 
   const chartData = useMemo(() => {
@@ -398,8 +424,7 @@ export default function SupabaseClientActivity() {
   const reportTabs = useMemo(() => ([
     { id: 'fba', label: t('SupabaseClientActivity.fbaTitle') || 'FBA' },
     { id: 'fbm', label: t('SupabaseClientActivity.fbmTitle') || 'FBM' },
-    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' },
-    { id: 'returns', label: t('SupabaseClientActivity.returnsTitle') || 'Retururi' }
+    { id: 'other', label: t('SupabaseClientActivity.otherTitle') || 'Other' }
   ]), [t]);
 
   if (loading) {
@@ -412,51 +437,38 @@ export default function SupabaseClientActivity() {
 
   const isFbaView = activeReport === 'fba';
   const isFbmView = activeReport === 'fbm';
-  const isReturnsView = activeReport === 'returns';
   const activeRows = isFbaView
     ? fbaDecoratedRows
     : isFbmView
       ? fbmMonthRows
-      : isReturnsView
-        ? returnsDecoratedRows
-        : otherWithReturnsMonthRows;
+      : otherDecoratedRows;
   const activeTotals = isFbaView
     ? fbaMonthTotals
     : isFbmView
       ? fbmMonthTotals
-      : isReturnsView
-        ? returnsMonthTotals
-        : otherMonthTotals;
-  const activeMonth = isFbaView ? fbaMonth : isFbmView ? fbmMonth : isReturnsView ? returnsMonth : otherMonth;
-  const setActiveMonth = isFbaView ? setFbaMonth : isFbmView ? setFbmMonth : isReturnsView ? setReturnsMonth : setOtherMonth;
+      : otherMonthTotals;
+  const activeMonth = isFbaView ? fbaMonth : isFbmView ? fbmMonth : otherMonth;
+  const setActiveMonth = isFbaView ? setFbaMonth : isFbmView ? setFbmMonth : setOtherMonth;
   const reportTitle = isFbaView
     ? t('ClientFBAReport.title')
     : isFbmView
       ? t('ClientFBMReport.title')
-      : isReturnsView
-        ? (t('ClientReturns.title') || 'Retururi')
-        : t('ClientOtherReport.title');
+      : t('ClientOtherReport.title');
   const reportSubtitle = isFbaView
     ? t('ClientFBAReport.readonly')
     : isFbmView
       ? t('ClientFBMReport.readonly')
-      : isReturnsView
-        ? (t('ClientReturns.readonly') || '')
-        : t('ClientOtherReport.readonly');
+      : t('ClientOtherReport.readonly');
   const monthLabel = isFbaView
     ? t('ClientFBAReport.monthLabel')
     : isFbmView
       ? t('ClientFBMReport.monthLabel')
-      : isReturnsView
-        ? (t('ClientReturns.monthLabel') || t('ClientOtherReport.monthLabel'))
-        : t('ClientOtherReport.monthLabel');
+      : t('ClientOtherReport.monthLabel');
   const currentMonthLabel = isFbaView
     ? t('ClientFBAReport.currentMonth')
     : isFbmView
       ? t('ClientFBMReport.currentMonth')
-      : isReturnsView
-        ? (t('ClientReturns.currentMonth') || t('ClientOtherReport.currentMonth'))
-        : t('ClientOtherReport.currentMonth');
+      : t('ClientOtherReport.currentMonth');
   const qtyHeading = isFbmView
     ? t('SupabaseClientActivity.thead.ordersUnits')
     : t('SupabaseClientActivity.thead.units');
@@ -464,9 +476,7 @@ export default function SupabaseClientActivity() {
     ? t('ClientFBAReport.noDataMonth')
     : isFbmView
       ? t('ClientFBMReport.noDataMonth')
-      : isReturnsView
-        ? (t('ClientReturns.noDataMonth') || t('ClientOtherReport.noDataMonth'))
-        : t('ClientOtherReport.noDataMonth');
+      : t('ClientOtherReport.noDataMonth');
 
   const resetActiveMonth = () => {
     setActiveMonth(
@@ -474,9 +484,7 @@ export default function SupabaseClientActivity() {
         ? baseMonths.fba
         : isFbmView
           ? baseMonths.fbm
-          : isReturnsView
-            ? baseMonths.returns
-            : baseMonths.other
+          : baseMonths.other
     );
   };
 
@@ -578,9 +586,7 @@ export default function SupabaseClientActivity() {
                   ? baseMonths.fba
                   : isFbmView
                     ? baseMonths.fbm
-                    : isReturnsView
-                      ? baseMonths.returns
-                      : baseMonths.other)
+                    : baseMonths.other)
               }
               onChange={(e) => setActiveMonth(e.target.value)}
               className="border rounded px-2 py-1 text-sm"
@@ -624,7 +630,7 @@ export default function SupabaseClientActivity() {
                     {emptyState}
                   </td>
                 </tr>
-              ) : !(isFbaView || isReturnsView) ? (
+              ) : isFbmView ? (
                 activeRows.map((r) => {
                   const qty = Number(
                     isFbaView ? r.units || 0 : isFbmView ? r.orders_units || 0 : r.units || 0
@@ -654,7 +660,7 @@ export default function SupabaseClientActivity() {
                     </tr>
                   );
                 })
-              ) : (
+              ) : isFbaView ? (
                 (() => {
                   const groups = [];
                   const seen = new Set();
@@ -674,17 +680,13 @@ export default function SupabaseClientActivity() {
                           {group.key && group.key !== '—' ? (
                             <span className="inline-flex items-center gap-2">
                               <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
-                                {isReturnsView ? localizeReturnPrefix(group.key, t) : group.key}
+                                {group.key}
                               </span>
                               <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                                 <ChevronDown className="w-4 h-4" />
-                                {isReturnsView
-                                  ? tp('SupabaseClientActivity.group.returnLines', {
-                                      count: Array.isArray(group.items) ? group.items.length : 0
-                                    })
-                                  : tp('SupabaseClientActivity.group.lines', {
-                                      count: Array.isArray(group.items) ? group.items.length : 0
-                                    })}
+                                {tp('SupabaseClientActivity.group.lines', {
+                                  count: Array.isArray(group.items) ? group.items.length : 0
+                                })}
                               </span>
                             </span>
                           ) : (
@@ -712,7 +714,7 @@ export default function SupabaseClientActivity() {
                           >
                             <td className="px-3 py-2">{r.service_date}</td>
                             <td className="px-3 py-2">
-                              {isFbaView ? formatFbaServiceName(r, t) : formatOtherServiceName(r.service, t)}
+                              {formatFbaServiceName(r, t)}
                             </td>
                             <td className="px-3 py-2 text-right">
                               {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
@@ -729,6 +731,77 @@ export default function SupabaseClientActivity() {
                       })}
                     </React.Fragment>
                   ));
+                })()
+              ) : (
+                (() => {
+                  const returnCounts = new Map();
+                  activeRows.forEach((row) => {
+                    if (!row?._isReturn) return;
+                    const rawKey = String(row._groupKey || '').trim();
+                    const key = rawKey || `return-${row.return_id || row.id}`;
+                    returnCounts.set(key, (returnCounts.get(key) || 0) + 1);
+                  });
+
+                  const emittedHeaders = new Set();
+                  const renderedRows = [];
+
+                  activeRows.forEach((r, idx) => {
+                    const qty = Number(r.units || 0);
+                    const lineTotal =
+                      r.total != null
+                        ? Number(r.total)
+                        : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+
+                    if (r?._isReturn) {
+                      const rawKey = String(r._groupKey || '').trim();
+                      const groupKey = rawKey || `return-${r.return_id || r.id}`;
+                      if (!emittedHeaders.has(groupKey)) {
+                        emittedHeaders.add(groupKey);
+                        renderedRows.push(
+                          <tr key={`ret-header-${groupKey}-${idx}`} className="bg-slate-50/70 border-t border-slate-200">
+                            <td colSpan={6} className="px-3 py-2 text-sm text-text-primary font-semibold">
+                              {rawKey ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
+                                    {localizeReturnPrefix(rawKey, t)}
+                                  </span>
+                                  <span className="text-text-secondary text-xs inline-flex items-center gap-1">
+                                    <ChevronDown className="w-4 h-4" />
+                                    {tp('SupabaseClientActivity.group.returnLines', { count: returnCounts.get(groupKey) || 0 })}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-text-secondary">{t('SupabaseClientActivity.group.noId')}</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    }
+
+                    renderedRows.push(
+                      <tr
+                        key={`row-${r._isReturn ? 'ret' : 'oth'}-${r.id}`}
+                        className={`border-t ${r.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : ''}`}
+                        title={formatInvoiceTooltip(r.billing_invoice)}
+                      >
+                        <td className="px-3 py-2">{r.service_date}</td>
+                        <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                        <td className="px-3 py-2 text-right">
+                          {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {Number.isFinite(qty) ? qty : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
+                        </td>
+                        <td className="px-3 py-2">{r._isReturn ? (r._note || '—') : (r.obs_admin || '—')}</td>
+                      </tr>
+                    );
+                  });
+
+                  return renderedRows;
                 })()
               )}
             </tbody>

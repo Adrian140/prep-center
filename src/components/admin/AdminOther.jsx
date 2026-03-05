@@ -146,6 +146,7 @@ export default function AdminOther({
 
   const saveEdit = async () => {
     if (!edit) return;
+    const isReturnLine = edit.__billingSection === 'returns';
     const payload = {
       service: edit.service?.trim() || '',
       service_date: edit.service_date || todayStr(),
@@ -154,7 +155,9 @@ export default function AdminOther({
       total: Number(edit.total ?? (Number(edit.unit_price || 0) * Number(edit.units || 0))),
       obs_admin: edit.obs_admin || null
     };
-    const { error } = await supabaseHelpers.updateOtherLine(edit.id, payload);
+    const { error } = isReturnLine
+      ? await supabaseHelpers.updateReturnServiceLine(edit.id, payload)
+      : await supabaseHelpers.updateOtherLine(edit.id, payload);
     if (error) {
       alert(error.message);
       return;
@@ -163,9 +166,14 @@ export default function AdminOther({
     reload?.();
   };
 
-  const confirmAndDelete = async (id) => {
+  const confirmAndDelete = async (row) => {
+    const isReturnLine = row?.__billingSection === 'returns';
+    const id = row?.id;
+    if (!id) return;
     if (!window.confirm('Ștergi această înregistrare?')) return;
-    const { error } = await supabaseHelpers.deleteOtherLine(id);
+    const { error } = isReturnLine
+      ? await supabaseHelpers.deleteReturnServiceLine(id)
+      : await supabaseHelpers.deleteOtherLine(id);
     if (error) {
       alert(error.message);
       return;
@@ -414,7 +422,7 @@ export default function AdminOther({
                       ) : row.service_date}
                     </td>
                     <td className="px-3 py-2">
-                      {isEdit && !isReturnRow ? (
+                      {isEdit ? (
                         <input
                           className="border rounded px-2 py-1 w-56"
                           value={edit.service || ''}
@@ -423,7 +431,7 @@ export default function AdminOther({
                       ) : renderServiceName(row.service)}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit && !isReturnRow ? (
+                      {isEdit ? (
                         <input
                           className="border rounded px-2 py-1 w-24 text-right"
                           value={edit.unit_price ?? ''}
@@ -435,7 +443,7 @@ export default function AdminOther({
                       ) : fmt(Number(row.unit_price || 0))}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit && !isReturnRow ? (
+                      {isEdit ? (
                         <input
                           className="border rounded px-2 py-1 w-20 text-right"
                           value={edit.units ?? ''}
@@ -446,7 +454,7 @@ export default function AdminOther({
                     </td>
                     <td className="px-3 py-2 text-right">{fmt(total)}</td>
                     <td className="px-3 py-2">
-                      {isEdit && !isReturnRow ? (
+                      {isEdit ? (
                         <input
                           className="border rounded px-2 py-1 w-full"
                           value={edit.obs_admin || ''}
@@ -455,7 +463,7 @@ export default function AdminOther({
                       ) : (isReturnRow ? localizeReturnPrefix(row.obs_admin || '—') : row.obs_admin || '—')}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {isEdit && !isReturnRow ? (
+                      {isEdit ? (
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={saveEdit}
@@ -472,26 +480,18 @@ export default function AdminOther({
                         </div>
                       ) : (
                         <div className="flex justify-end gap-2">
-                          {!isReturnRow ? (
-                            <>
-                              <button
-                                onClick={() => setEdit({ ...row })}
-                                className="px-2 py-1 border rounded inline-flex items-center gap-1"
-                              >
-                                <Edit3 className="w-4 h-4" /> Edit
-                              </button>
-                              <button
-                                onClick={() => confirmAndDelete(row.id)}
-                                className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
-                              >
-                                <Trash2 className="w-4 h-4" /> Delete
-                              </button>
-                            </>
-                          ) : (
-                            <span className="text-xs text-text-secondary">
-                              {t('adminOther.returnGroup.manageInReturnsTab')}
-                            </span>
-                          )}
+                          <button
+                            onClick={() => setEdit({ ...row })}
+                            className="px-2 py-1 border rounded inline-flex items-center gap-1"
+                          >
+                            <Edit3 className="w-4 h-4" /> Edit
+                          </button>
+                          <button
+                            onClick={() => confirmAndDelete(row)}
+                            className="px-2 py-1 border rounded text-red-600 inline-flex items-center gap-1"
+                          >
+                            <Trash2 className="w-4 h-4" /> Delete
+                          </button>
                         </div>
                       )}
                     </td>

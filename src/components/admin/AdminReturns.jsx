@@ -197,7 +197,7 @@ export default function AdminReturns({
     if (userIds.length) {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, company_name, store_name, email')
+        .select('id, first_name, last_name, company_name, store_name, email, phone')
         .in('id', userIds);
       profileMap = Array.isArray(profiles)
         ? profiles.reduce((acc, p) => {
@@ -584,6 +584,7 @@ export default function AdminReturns({
             r.company_id ||
             '—';
           const userLabel = profile.email || profile.id || r.user_id || '—';
+          const phoneLabel = profile.phone || '—';
           return (
             <div key={r.id} className="border rounded-lg bg-white shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
@@ -595,6 +596,7 @@ export default function AdminReturns({
                     <div className="text-xs text-text-secondary">Company / Store</div>
                     <div className="font-semibold text-text-primary">{companyLabel}</div>
                     <div className="text-xs text-text-secondary">User: {userLabel}</div>
+                    <div className="text-xs text-text-secondary">Phone: {phoneLabel}</div>
                   </div>
                   <div className="h-4 w-px bg-gray-200" />
                   <div>

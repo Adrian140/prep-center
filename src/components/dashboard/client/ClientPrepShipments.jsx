@@ -891,7 +891,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   }, [reqLines, reqBoxServices, reqHeavyParcel]);
   const headerShipmentIds = reqStep2Shipments.length
     ? reqStep2Shipments
-        .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
+        .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }))
         .filter(Boolean)
         .join(' · ')
     : (isAmazonShipmentId(reqHeader?.fba_shipment_id) ? reqHeader?.fba_shipment_id : '');
@@ -1087,7 +1087,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   snapshot.shipment_name ||
                   fallbackName;
                 const amazonShipmentId = pickAmazonShipmentId({ shipment, row, snapshot });
-                const shipmentId = amazonShipmentId || shipment?.shipmentId || row.fba_shipment_id || snapshot.shipment_id || '—';
+                const shipmentId =
+                  amazonShipmentId ||
+                  (isAmazonShipmentId(row?.fba_shipment_id) ? String(row.fba_shipment_id).trim().toUpperCase() : null) ||
+                  (isAmazonShipmentId(snapshot?.shipment_id) ? String(snapshot.shipment_id).trim().toUpperCase() : null) ||
+                  '—';
                 const referenceId = row.amazon_reference_id || snapshot.reference_id || snapshot.shipment_reference_id || '';
                 const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
                 const perShipmentSkusRaw = Number(shipment?.skuCount ?? shipment?.skus ?? NaN);
@@ -1261,7 +1265,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   <div className="mx-6 mt-6 mb-2 text-xs text-text-secondary">
                     Amazon shipments:{' '}
                     {reqStep2Shipments
-                      .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) || sh.shipmentId)
+                      .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }))
                       .filter(Boolean)
                       .join(' · ')}
                   </div>
