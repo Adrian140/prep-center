@@ -1155,49 +1155,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     initialPlan?.id,
     initialPlan?.request_id
   ]);
-  const invokeEdgeWithAuth = useCallback(async (functionName, options = {}, retryOnUnauthorized = true) => {
-    const buildHeaders = (token) => {
-      const existing = options?.headers && typeof options.headers === 'object' ? options.headers : {};
-      return {
-        ...existing,
-        Authorization: `Bearer ${token}`
-      };
-    };
-
-    const invokeWithToken = async (token) => {
-      return await supabase.functions.invoke(functionName, {
-        ...options,
-        headers: buildHeaders(token)
-      });
-    };
-
-    const {
-      data: { session: currentSession },
-      error: sessionError
-    } = await supabase.auth.getSession();
-    if (sessionError) throw sessionError;
-
-    let token = currentSession?.access_token || null;
-    if (!token) {
-      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError) throw refreshError;
-      token = refreshed?.session?.access_token || null;
-    }
-    if (!token) {
-      const err = new Error('Session expired. Please sign in again.');
-      err.status = 401;
-      throw err;
-    }
-
-    let result = await invokeWithToken(token);
-    if (retryOnUnauthorized && result?.error?.status === 401) {
-      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
-      if (!refreshError && refreshed?.session?.access_token) {
-        result = await invokeWithToken(refreshed.session.access_token);
-      }
-    }
-    return result;
-  }, []);
   const sanitizeInboundPlanId = (id) => {
     if (!id) return null;
     const val = String(id);
@@ -2920,7 +2877,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPackGroupsPreviewLoading(true);
     setPackGroupsPreviewError('');
     try {
-      const { data, error } = await invokeEdgeWithAuth('fba-plan-step1-preview', {
+      const { data, error } = await supabase.functions.invoke('fba-plan-step1-preview', {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
@@ -3301,7 +3258,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         generate_placement_options: true
       };
       const invokeWithTimeout = Promise.race([
-        invokeEdgeWithAuth('fba-set-packing-information', { body: invokeBody }),
+        supabase.functions.invoke('fba-set-packing-information', { body: invokeBody }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Timeout while waiting for Amazon packing confirmation (70s). Please retry.')), 70000)
         )
@@ -3457,7 +3414,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
       });
       const resetSnapshot = false;
-      const { data, error } = await invokeEdgeWithAuth('fba-plan-step1b', {
+      const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
@@ -3968,7 +3925,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           selectedTransportationOptionId
         });
       }
-      const { data: json, error } = await invokeEdgeWithAuth("fba-step2-confirm-shipping", {
+      const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
@@ -4241,7 +4198,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
       const globalReadyEnd =
         Object.values(readyWindowByShipment || {}).find((w) => w?.end)?.end || null;
-      const { data: json, error } = await invokeEdgeWithAuth("fba-step2-confirm-shipping", {
+      const { data: json, error } = await supabase.functions.invoke("fba-step2-confirm-shipping", {
         body: {
           request_id: requestId,
           inbound_plan_id: inboundPlanId,
@@ -4618,7 +4575,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const fetchShipmentDetails = async (shipmentId, inboundPlanId, requestId) => {
-    const { data, error } = await invokeEdgeWithAuth('fba-inbound-actions', {
+    const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
       body: {
         action: 'get_shipment',
         request_id: requestId,
@@ -4659,7 +4616,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const packageCount = Number(shipment?.boxes || 0) || 1;
       const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
-      const { data, error } = await invokeEdgeWithAuth('fba-inbound-actions', {
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'get_labels_v0',
           request_id: requestId,
@@ -4766,7 +4723,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (row?.boxId) existingByBoxId.set(String(row.boxId), row);
         if (row?.label) existingByLabel.set(String(row.label), row);
       });
-      const { data, error } = await invokeEdgeWithAuth('fba-inbound-actions', {
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'list_inbound_plan_boxes',
           request_id: requestId,
@@ -4865,7 +4822,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setTrackingLoading(true);
     setTrackingError('');
     try {
-      const { data, error } = await invokeEdgeWithAuth('fba-inbound-actions', {
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'update_shipment_tracking_details',
           request_id: requestId,
@@ -4986,7 +4943,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (!requestId) throw new Error('Missing requestId.');
       const cleanSku = String(sku || '').trim();
       if (!cleanSku) throw new Error('Missing SKU.');
-      const { data, error } = await invokeEdgeWithAuth('fba-plan', {
+      const { data, error } = await supabase.functions.invoke('fba-plan', {
         body: {
           request_id: requestId,
           listingAttributesBySku: {
@@ -5045,8 +5002,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       normalizePackGroups,
       mergePackGroups,
       hasRealPackGroups,
-      toFriendlyPlanNotice,
-      invokeEdgeWithAuth
+      toFriendlyPlanNotice
     ]
   );
 
