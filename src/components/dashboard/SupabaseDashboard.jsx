@@ -1,5 +1,5 @@
 // FILE: src/components/dashboard/SupabaseDashboard.jsx
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
@@ -38,6 +38,7 @@ import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
+import ClientFbaShipmentDetailsDrawer from './client/ClientFbaShipmentDetailsDrawer';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
@@ -183,6 +184,24 @@ function SupabaseDashboard() {
   const [reviewModal, setReviewModal] = useState(false);
   const [reviewForm, setReviewForm] = useState({ rating: 5, text: '' });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [fbaDetailsDrawer, setFbaDetailsDrawer] = useState({
+    open: false,
+    requestId: null,
+    shipmentId: null
+  });
+
+  const openFbaDetailsDrawer = useCallback(({ requestId, shipmentId } = {}) => {
+    if (!requestId) return;
+    setFbaDetailsDrawer({
+      open: true,
+      requestId,
+      shipmentId: shipmentId || null
+    });
+  }, []);
+
+  const closeFbaDetailsDrawer = useCallback(() => {
+    setFbaDetailsDrawer((prev) => ({ ...prev, open: false }));
+  }, []);
 
   const tabs = useMemo(() => {
     const list = [
@@ -306,7 +325,8 @@ function SupabaseDashboard() {
 
 const renderTabContent = useMemo(() => {
   switch (activeTab) {
-    case 'activity':  return <SupabaseClientActivity />;
+    case 'activity':
+      return <SupabaseClientActivity onOpenFbaShipmentDetails={openFbaDetailsDrawer} />;
     case 'stock':     return <ClientStock />;
     case 'exports':   return <ClientExports />;
     case 'box-estimator': return <ClientBoxEstimator />;
@@ -338,7 +358,7 @@ const renderTabContent = useMemo(() => {
         </div>
       );
   }
-}, [activeTab, isLimitedAdmin, t]);
+}, [activeTab, isLimitedAdmin, t, openFbaDetailsDrawer]);
 
   const groups = [
     { key: 'Operations', label: t('common.groups.operations') },
@@ -543,6 +563,13 @@ const renderTabContent = useMemo(() => {
           </div>
         </div>
     )}
+
+    <ClientFbaShipmentDetailsDrawer
+      open={fbaDetailsDrawer.open}
+      requestId={fbaDetailsDrawer.requestId}
+      shipmentId={fbaDetailsDrawer.shipmentId}
+      onClose={closeFbaDetailsDrawer}
+    />
     </>
   );
 }

@@ -170,7 +170,7 @@ const formatFbaServiceName = (row, t) => {
   return formatOtherServiceName(row?.service, t);
 };
 
-export default function SupabaseClientActivity() {
+export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}) {
   const { t, tp } = useDashboardTranslation();
   const { profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
@@ -723,30 +723,56 @@ export default function SupabaseClientActivity() {
                     const grp = groups.find((g) => g.key === key);
                     grp.items.push(row);
                   });
-                  return groups.map((group) => (
+                  return groups.map((group) => {
+                    const groupedItems = Array.isArray(group.items) ? group.items : [];
+                    const groupRequestIds = Array.from(
+                      new Set(groupedItems.map((item) => item?.prep_request_id).filter(Boolean))
+                    );
+                    const primaryRequestId = groupRequestIds[0] || null;
+                    const canOpenDetails =
+                      Boolean(primaryRequestId) && Boolean(group.key && group.key !== '—');
+                    return (
                     <React.Fragment key={group.key || group.order}>
                       <tr className="bg-slate-50/70 border-t border-slate-200">
                         <td colSpan={6} className="px-3 py-2 text-sm text-text-primary font-semibold">
-                          {group.key && group.key !== '—' ? (
-                            <span className="inline-flex items-center gap-2">
-                              <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
-                                {group.key}
-                              </span>
-                              <span className="text-text-secondary text-xs inline-flex items-center gap-1">
-                                <ChevronDown className="w-4 h-4" />
-                                {tp('SupabaseClientActivity.group.lines', {
-                                  count: Array.isArray(group.items) ? group.items.length : 0
-                                })}
-                              </span>
-                            </span>
-                          ) : (
-                            <span className="text-text-secondary">
-                              {t('SupabaseClientActivity.group.noId')}
-                            </span>
-                          )}
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              {group.key && group.key !== '—' ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="px-2 py-1 rounded bg-primary/10 text-primary text-xs font-semibold uppercase">
+                                    {group.key}
+                                  </span>
+                                  <span className="text-text-secondary text-xs inline-flex items-center gap-1">
+                                    <ChevronDown className="w-4 h-4" />
+                                    {tp('SupabaseClientActivity.group.lines', {
+                                      count: groupedItems.length
+                                    })}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="text-text-secondary">
+                                  {t('SupabaseClientActivity.group.noId')}
+                                </span>
+                              )}
+                            </div>
+                            {canOpenDetails && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onOpenFbaShipmentDetails?.({
+                                    requestId: primaryRequestId,
+                                    shipmentId: group.key
+                                  })
+                                }
+                                className="px-2.5 py-1 text-xs rounded-md border border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+                              >
+                                See more
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
-                      {(Array.isArray(group.items) ? group.items : []).map((r, idx, arr) => {
+                      {groupedItems.map((r, idx, arr) => {
                         const isFirst = idx === 0;
                         const isLast = idx === arr.length - 1;
                         const qty = Number(r.units || 0);
@@ -780,7 +806,7 @@ export default function SupabaseClientActivity() {
                         );
                       })}
                     </React.Fragment>
-                  ));
+                  )});
                 })()
               ) : (
                 (() => {
