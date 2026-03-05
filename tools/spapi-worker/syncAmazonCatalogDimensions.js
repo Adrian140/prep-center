@@ -35,6 +35,9 @@ const RUN_TIME_BUDGET_BUFFER_MS =
 const MARKETPLACE_FILTER = process.env.SPAPI_CATALOG_DIM_MARKETPLACE_ID || null;
 const SYNC_STATE_KEY = process.env.SPAPI_CATALOG_DIM_SYNC_STATE_KEY || 'default';
 const SYNC_STATE_APP_SETTINGS_KEY = `catalog_dimensions_sync_state:${SYNC_STATE_KEY}`;
+const NEW_ONLY_MODE = ['1', 'true', 'yes']
+  .includes(String(process.env.SPAPI_CATALOG_DIM_NEW_ONLY || '1').trim().toLowerCase());
+const NEW_ONLY_CURSOR_APP_SETTINGS_KEY = `catalog_dimensions_new_only_cursor:${SYNC_STATE_KEY}`;
 const ALLOWED_MARKETPLACE_IDS = String(
   process.env.SPAPI_CATALOG_DIM_MARKETPLACE_IDS ||
     'A1PA6795UKMFR9,A13V1IB3VIYZZH,APJ6JRA9NG5V4,A1RKKUPIHCS9HS'
@@ -79,6 +82,14 @@ function defaultSyncState() {
     current_integration_id: null,
     cycle_started_at: null,
     cycle_completed_at: null,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function defaultNewOnlyCursorState() {
+  return {
+    key: SYNC_STATE_KEY,
+    integration_last_stock_item_id: {},
     updated_at: new Date().toISOString()
   };
 }
@@ -239,6 +250,72 @@ async function saveSyncStateToAppSettings(patch) {
         key: SYNC_STATE_APP_SETTINGS_KEY,
         value: merged,
         updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
+  if (error) throw error;
+}
+
+function normalizeCursorMap(raw) {
+  const input = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const out = {};
+  for (const [k, v] of Object.entries(input)) {
+    const key = String(k || '').trim();
+    const num = Number(v);
+    if (!key) continue;
+    if (!Number.isFinite(num) || num <= 0) continue;
+    out[key] = Math.floor(num);
+  }
+  return out;
+}
+
+async function getNewOnlyCursorState() {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value, updated_at')
+    .eq('key', NEW_ONLY_CURSOR_APP_SETTINGS_KEY)
+    .maybeSingle();
+  if (error) throw error;
+
+  if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
+    return {
+      ...defaultNewOnlyCursorState(),
+      ...data.value,
+      key: SYNC_STATE_KEY,
+      integration_last_stock_item_id: normalizeCursorMap(data.value.integration_last_stock_item_id)
+    };
+  }
+
+  const seed = defaultNewOnlyCursorState();
+  const { error: upsertError } = await supabase
+    .from('app_settings')
+    .upsert(
+      {
+        key: NEW_ONLY_CURSOR_APP_SETTINGS_KEY,
+        value: seed,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
+  if (upsertError) throw upsertError;
+  return seed;
+}
+
+async function saveNewOnlyCursorState(state) {
+  const normalized = {
+    ...defaultNewOnlyCursorState(),
+    ...(state && typeof state === 'object' ? state : {}),
+    key: SYNC_STATE_KEY,
+    integration_last_stock_item_id: normalizeCursorMap(state?.integration_last_stock_item_id),
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert(
+      {
+        key: NEW_ONLY_CURSOR_APP_SETTINGS_KEY,
+        value: normalized,
+        updated_at: normalized.updated_at
       },
       { onConflict: 'key' }
     );
@@ -555,9 +632,9 @@ async function getCatalogData(spClient, asin, marketplaceId) {
   };
 }
 
-async function fetchRowsMissingCatalogFields(companyId, limit) {
+async function fetchRowsMissingCatalogFields(companyId, limit, minStockItemIdExclusive = 0) {
   const safeLimit = Number.isFinite(limit) ? Math.max(1, limit) : 5000;
-  const { data, error } = await supabase
+  let query = supabase
     .from('stock_items')
     .select('id, asin, length_cm, width_cm, height_cm, weight_kg, ean')
     .eq('company_id', companyId)
@@ -568,8 +645,27 @@ async function fetchRowsMissingCatalogFields(companyId, limit) {
     .order('asin', { ascending: true })
     .order('id', { ascending: true })
     .limit(safeLimit);
+  const minId = Number(minStockItemIdExclusive);
+  if (Number.isFinite(minId) && minId > 0) {
+    query = query.gt('id', Math.floor(minId));
+  }
+  const { data, error } = await query;
   if (error) throw error;
   return data || [];
+}
+
+async function fetchMaxStockItemId(companyId) {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('id')
+    .eq('company_id', companyId)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  const id = Number(data?.id);
+  if (!Number.isFinite(id) || id <= 0) return 0;
+  return Math.floor(id);
 }
 
 function normalizeCatalogSnapshot(candidate) {
@@ -650,7 +746,12 @@ async function fillMissingCatalogForAsin(companyId, asin, snapshot) {
   await updateEanIfMissing(companyId, asin, snapshot.ean);
 }
 
-async function syncIntegrationDimensions(integration, runState, startAsinIndex = 0) {
+async function syncIntegrationDimensions(
+  integration,
+  runState,
+  startAsinIndex = 0,
+  { minStockItemIdExclusive = 0 } = {}
+) {
   const marketplaceIds = resolveMarketplaceIds(integration);
   if (!marketplaceIds.length) {
     console.warn(
@@ -674,7 +775,11 @@ async function syncIntegrationDimensions(integration, runState, startAsinIndex =
   const rowBudget = Number.isFinite(remaining)
     ? Math.min(Math.max(remaining * 20, 200), 10000)
     : 10000;
-  const rows = await fetchRowsMissingCatalogFields(integration.company_id, rowBudget);
+  const rows = await fetchRowsMissingCatalogFields(
+    integration.company_id,
+    rowBudget,
+    minStockItemIdExclusive
+  );
   if (!rows.length) {
     console.log(
       `[Catalog dimension sync] Integration ${integration.id} has no stock_items with missing dimensions/EAN.`
@@ -862,14 +967,27 @@ async function main() {
   };
 
   console.log(
-    `[Catalog dimension sync] Start: integrations=${integrations.length} resumeIntegrationIndex=${nextIntegrationIndex} resumeAsinIndex=${nextAsinIndex} maxIntegrationsPerRun=${Number.isFinite(MAX_INTEGRATIONS_PER_RUN) ? MAX_INTEGRATIONS_PER_RUN : 'inf'} maxAsinsPerRun=${Number.isFinite(MAX_ASINS_PER_RUN) ? MAX_ASINS_PER_RUN : 'inf'} runtimeBudgetSec=${Math.round(RUN_TIME_BUDGET_MS / 1000)} bufferSec=${Math.round(RUN_TIME_BUDGET_BUFFER_MS / 1000)}`
+    `[Catalog dimension sync] Start: integrations=${integrations.length} resumeIntegrationIndex=${nextIntegrationIndex} resumeAsinIndex=${nextAsinIndex} maxIntegrationsPerRun=${Number.isFinite(MAX_INTEGRATIONS_PER_RUN) ? MAX_INTEGRATIONS_PER_RUN : 'inf'} maxAsinsPerRun=${Number.isFinite(MAX_ASINS_PER_RUN) ? MAX_ASINS_PER_RUN : 'inf'} runtimeBudgetSec=${Math.round(RUN_TIME_BUDGET_MS / 1000)} bufferSec=${Math.round(RUN_TIME_BUDGET_BUFFER_MS / 1000)} newOnlyMode=${NEW_ONLY_MODE ? 'on' : 'off'}`
   );
 
   let stoppedEarly = false;
+  const newOnlyCursorState = NEW_ONLY_MODE ? await getNewOnlyCursorState() : null;
+  const integrationCursorMap = NEW_ONLY_MODE
+    ? normalizeCursorMap(newOnlyCursorState?.integration_last_stock_item_id)
+    : {};
 
   for (let integrationIndex = nextIntegrationIndex; integrationIndex < integrations.length; integrationIndex += 1) {
     const integration = integrations[integrationIndex];
     const resumeAsin = integrationIndex === nextIntegrationIndex ? nextAsinIndex : 0;
+    const integrationCursorKey = String(integration?.id || '').trim();
+    const minStockItemIdExclusive =
+      NEW_ONLY_MODE && integrationCursorKey
+        ? Number(integrationCursorMap[integrationCursorKey] || 0)
+        : 0;
+    const integrationHighWatermark =
+      NEW_ONLY_MODE && integrationCursorKey
+        ? await fetchMaxStockItemId(integration.company_id)
+        : 0;
 
     if (isRuntimeBudgetReached(runState)) {
       await saveSyncState({
@@ -899,7 +1017,9 @@ async function main() {
       break;
     }
 
-    const stats = await syncIntegrationDimensions(integration, runState, resumeAsin);
+    const stats = await syncIntegrationDimensions(integration, runState, resumeAsin, {
+      minStockItemIdExclusive
+    });
     if (!stats.completed) {
       await saveSyncState({
         next_integration_index: integrationIndex,
@@ -917,6 +1037,16 @@ async function main() {
         `[Catalog dimension sync] Stopped early (${reason}) at integration ${integration.id}. Saved checkpoint integrationIndex=${integrationIndex} asinIndex=${stats.nextAsinIndex}.`
       );
       break;
+    }
+
+    if (NEW_ONLY_MODE && integrationCursorKey) {
+      const currentCursor = Number(integrationCursorMap[integrationCursorKey] || 0);
+      if (Number.isFinite(integrationHighWatermark) && integrationHighWatermark > currentCursor) {
+        integrationCursorMap[integrationCursorKey] = Math.floor(integrationHighWatermark);
+        await saveNewOnlyCursorState({
+          integration_last_stock_item_id: integrationCursorMap
+        });
+      }
     }
 
     await saveSyncState({

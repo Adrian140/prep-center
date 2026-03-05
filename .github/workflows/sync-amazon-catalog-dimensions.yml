@@ -54,6 +54,8 @@ jobs:
           # Stop gracefully around 5h and save checkpoint before the job hard timeout.
           SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS: ${{ secrets.SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS || '18000' }}
           SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS: ${{ secrets.SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS || '180' }}
+          # New-only mode: scan only stock_items added after each integration cursor.
+          SPAPI_CATALOG_DIM_NEW_ONLY: ${{ secrets.SPAPI_CATALOG_DIM_NEW_ONLY || '1' }}
         run: |
           set -o pipefail
           npm run sync-amazon-catalog-dimensions | tee sync-catalog-dimensions.log
@@ -63,13 +65,19 @@ jobs:
             echo "continue_needed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Trigger follow-up run when budget reached
-        if: steps.run_sync.outputs.continue_needed == 'true'
+      - name: Trigger follow-up run (continuous loop)
+        if: ${{ !cancelled() && steps.run_sync.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           REF: ${{ github.ref_name }}
+          LOOP_DELAY_SECONDS: ${{ secrets.SPAPI_CATALOG_DIM_LOOP_DELAY_SECONDS || '20' }}
         run: |
+          delay="$(echo "${LOOP_DELAY_SECONDS:-20}" | tr -cd '0-9')"
+          if [ -n "$delay" ] && [ "$delay" -gt 0 ]; then
+            echo "Waiting ${delay}s before dispatching next loop..."
+            sleep "$delay"
+          fi
           curl -sS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
