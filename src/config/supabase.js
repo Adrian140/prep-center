@@ -3404,28 +3404,19 @@ createReceivingItems: async (items) => {
 getAllReceivingShipments: async (options = {}) => {
   const from = (options.page ? (options.page - 1) * (options.pageSize || 20) : 0);
   const to = from + ((options.pageSize || 20) - 1);
-  const lightweight = Boolean(options.lightweight);
-  const statusIn = Array.isArray(options.statusIn)
-    ? options.statusIn.map((s) => String(s || '').trim()).filter(Boolean)
-    : [];
-  const selectClause = lightweight
-    ? `
-      *,
-      companies:companies(name),
-      receiving_shipment_items(id, shipment_id, stock_item_id, asin, sku, ean, fnsku, quantity, qty, requested, quantity_received, received_units),
-      receiving_items(id, shipment_id, stock_item_id, asin, sku, ean_asin, fnsku, quantity_received, units_requested, quantity, qty, requested, received_units)
-    `
-    : `
-      *,
-      companies:companies(name),
-      receiving_shipment_items(*),
-      receiving_items(*, stock_item:stock_items(*))
-    `;
 
   // aduce ambele versiuni de tabele de items
   let query = supabase
     .from('receiving_shipments')
-    .select(selectClause, { count: 'exact' })
+    .select(
+      `
+      *,
+      companies:companies(name),
+      receiving_shipment_items(*),
+      receiving_items(*, stock_item:stock_items(*))
+    `,
+      { count: 'exact' }
+    )
     .order('created_at', { ascending: false });
 
   if (options.fetchAll) {
@@ -3434,11 +3425,7 @@ getAllReceivingShipments: async (options = {}) => {
     query = query.range(from, to);
   }
 
-  if (options.status) {
-    query = query.eq('status', options.status);
-  } else if (statusIn.length) {
-    query = query.in('status', statusIn);
-  }
+  if (options.status) query = query.eq('status', options.status);
   if (options.companyId) query = query.eq('company_id', options.companyId);
   const filterCountry = options.warehouseCountry || options.destinationCountry;
   if (filterCountry) {
@@ -3449,18 +3436,22 @@ getAllReceivingShipments: async (options = {}) => {
   if (error && isMissingColumnError(error, 'warehouse_country') && filterCountry) {
     let retry = supabase
       .from('receiving_shipments')
-      .select(selectClause, { count: 'exact' })
+      .select(
+        `
+      *,
+      companies:companies(name),
+      receiving_shipment_items(*),
+      receiving_items(*, stock_item:stock_items(*))
+    `,
+        { count: 'exact' }
+      )
       .order('created_at', { ascending: false });
     if (options.fetchAll) {
       retry = retry.limit(options.maxRows || 2000);
     } else {
       retry = retry.range(from, to);
     }
-    if (options.status) {
-      retry = retry.eq('status', options.status);
-    } else if (statusIn.length) {
-      retry = retry.in('status', statusIn);
-    }
+    if (options.status) retry = retry.eq('status', options.status);
     if (options.companyId) retry = retry.eq('company_id', options.companyId);
     const retryRes = await retry;
     data = retryRes.data;
@@ -3469,27 +3460,8 @@ getAllReceivingShipments: async (options = {}) => {
   }
   if (error) return { data: [], error, count: 0 };
 
-  const shipments = data || [];
-  if (lightweight) {
-    const processedLight = shipments.map((r) => {
-      const items = [
-        ...(r.receiving_shipment_items || []),
-        ...(r.receiving_items || [])
-      ];
-      const { companies, receiving_shipment_items, receiving_items, ...rest } = r;
-      return {
-        ...rest,
-        receiving_items: items,
-        produits_count: items.length,
-        client_email: rest.user_email || null,
-        company_name: companies?.name || null
-      };
-    });
-    return { data: processedLight, error: null, count };
-  }
-
   // colectăm user_id-urile pentru a aduce store_name din profiles
-  const userIds = [...new Set(shipments.map(r => r.user_id).filter(Boolean))];
+  const userIds = [...new Set((data || []).map(r => r.user_id).filter(Boolean))];
   let profilesById = {};
   if (userIds.length > 0) {
     const { data: profilesData } = await supabase
@@ -3501,6 +3473,7 @@ getAllReceivingShipments: async (options = {}) => {
     );
   }
 
+  const shipments = data || [];
   const prepBusinessShipmentIds = shipments
     .filter((row) => String(row?.import_source || '').trim().toLowerCase() === 'prepbusiness')
     .map((row) => row.id)
