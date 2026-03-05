@@ -265,6 +265,7 @@ export default function ClientFbaShipmentDetailsDrawer({
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-text-secondary">
                   <tr>
+                    <th className="px-3 py-2 text-left w-16">Photo</th>
                     <th className="px-3 py-2 text-left">Product</th>
                     <th className="px-3 py-2 text-left">ASIN / SKU</th>
                     <th className="px-3 py-2 text-left">Line services</th>
@@ -275,18 +276,32 @@ export default function ClientFbaShipmentDetailsDrawer({
                 <tbody>
                   {lines.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-5 text-center text-text-secondary">
+                      <td colSpan={6} className="px-3 py-5 text-center text-text-secondary">
                         No line details available.
                       </td>
                     </tr>
                   ) : (
                     lines.map((line) => {
                       const productName = line?.stock_item?.name || line?.product_name || '—';
+                      const imageUrl = line?.stock_item?.image_url || null;
                       const asin = line?.asin || line?.stock_item?.asin || '';
                       const sku = line?.sku || line?.stock_item?.sku || '';
                       const services = Array.isArray(line?.services) ? line.services : [];
                       return (
                         <tr key={line.id || `${productName}-${asin}-${sku}`} className="border-t">
+                          <td className="px-3 py-2">
+                            {imageUrl ? (
+                              <img
+                                src={imageUrl}
+                                alt={productName}
+                                className="h-10 w-10 rounded object-cover border border-gray-200"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded border border-gray-200 bg-gray-100 text-[10px] text-gray-400 flex items-center justify-center">
+                                No Img
+                              </div>
+                            )}
+                          </td>
                           <td className="px-3 py-2">{productName}</td>
                           <td className="px-3 py-2">
                             <div className="font-mono text-xs">{asin || '—'}</div>
