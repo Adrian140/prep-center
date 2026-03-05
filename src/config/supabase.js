@@ -41,7 +41,6 @@ const formatSqlDate = (date = new Date()) =>
 let supportsReceivingFbaMode = true;
 let supportsReceivingItemFbaColumns = true;
 let supportsReceivingShipmentArrays = true;
-let supportsBulkStockLookupRpc = true;
 let receivingSupportPromise = null;
 
 const isMissingColumnError = (error, column) => {
@@ -2212,8 +2211,7 @@ createPrepItem: async (requestId, item) => {
           .from('prep_requests')
           .select('id, fba_shipment_id, completed_at, step4_confirmed_at, confirmed_at')
           .eq('status', 'confirmed')
-      ),
-      'warehouse_country'
+      )
     )
       .gte('completed_at', startIso)
       .lte('completed_at', endIso)
@@ -2277,8 +2275,7 @@ createPrepItem: async (requestId, item) => {
             .from('prep_requests')
             .select('id, fba_shipment_id, step4_confirmed_at, confirmed_at')
             .eq('status', 'confirmed')
-        ),
-        'warehouse_country'
+        )
       )
         .gte('confirmed_at', startIso)
         .lte('confirmed_at', endIso)
@@ -3615,26 +3612,7 @@ getAllReceivingShipments: async (options = {}) => {
   const lookupEans = Array.from(eanSet).map((v) => String(v || '').trim()).filter(Boolean);
 
   let rpcLookupSucceeded = false;
-  const isMissingRpcFn = (error, fnName) => {
-    const haystack = [
-      String(error?.message || ''),
-      String(error?.details || ''),
-      String(error?.hint || ''),
-      String(error?.code || '')
-    ]
-      .join(' ')
-      .toLowerCase();
-    return (
-      haystack.includes(String(fnName || '').toLowerCase()) ||
-      haystack.includes('could not find the function') ||
-      haystack.includes('schema cache')
-    );
-  };
-
-  if (
-    supportsBulkStockLookupRpc &&
-    (lookupIds.length || lookupAsins.length || lookupSkus.length || lookupEans.length)
-  ) {
+  if (lookupIds.length || lookupAsins.length || lookupSkus.length || lookupEans.length) {
     const { data: rpcRows, error: rpcError } = await supabase.rpc('lookup_stock_items_bulk', {
       p_ids: lookupIds,
       p_asins: lookupAsins,
@@ -3643,9 +3621,6 @@ getAllReceivingShipments: async (options = {}) => {
       p_company_id: options.companyId || null
     });
     if (rpcError) {
-      if (isMissingRpcFn(rpcError, 'lookup_stock_items_bulk')) {
-        supportsBulkStockLookupRpc = false;
-      }
       console.warn('getAllReceivingShipments bulk RPC lookup failed, using fallback', {
         message: rpcError.message
       });
