@@ -45,8 +45,6 @@ Optional knobs for catalog dimensions sync:
 | `SPAPI_CATALOG_DIM_MAX_RUNTIME_SECONDS` | Buget runtime per job; la depășire scriptul salvează checkpoint și iese clean (implicit `18000` = 5h) |
 | `SPAPI_CATALOG_DIM_RUNTIME_BUFFER_SECONDS` | Buffer de oprire înainte de limită (implicit `180`) |
 | `SPAPI_CATALOG_DIM_SYNC_STATE_KEY` | Cheia rândului de checkpoint din `amazon_catalog_dimensions_sync_state` (implicit `default`) |
-| `SPAPI_CATALOG_DIM_NEW_ONLY` | `1/true` (implicit) = procesează doar `stock_items` noi (ID mai mare decât cursorul per integrare), ignorând recrawl-ul complet |
-| `SPAPI_CATALOG_DIM_LOOP_DELAY_SECONDS` | Delay între self-dispatch-uri în workflow-ul GitHub Actions (implicit `20`) |
 
 Optional knobs for catalog codes sync (EAN + FNSKU):
 
