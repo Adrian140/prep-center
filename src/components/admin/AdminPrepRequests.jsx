@@ -9,6 +9,33 @@ import { useMarket } from '@/contexts/MarketContext';
 const STORAGE_KEY = 'admin-prep-requests-state';
 const ASIN_QUERY_RE = /^[A-Z0-9]{10}$/;
 
+const parseRequestedUnits = (item) => {
+  const value = Number(
+    item?.units_requested ??
+      item?.units ??
+      item?.qty ??
+      item?.quantity ??
+      0
+  );
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+
+const getPendingItemsSummary = (row) => {
+  const items = Array.isArray(row?.prep_request_items) ? row.prep_request_items : [];
+  const uniqueSkus = new Set();
+  let unitsTotal = 0;
+
+  items.forEach((item) => {
+    const sku = String(item?.sku || '').trim();
+    const asin = String(item?.asin || '').trim();
+    const uniqueKey = sku || asin || '';
+    if (uniqueKey) uniqueSkus.add(uniqueKey.toUpperCase());
+    unitsTotal += parseRequestedUnits(item);
+  });
+
+  return { skuCount: uniqueSkus.size, unitsTotal };
+};
+
 const StatusPill = ({ s }) => {
   const map = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -332,6 +359,15 @@ export default function AdminPrepRequests() {
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
                       <StatusPill s={r.status} />
+                      {String(r.status || '').toLowerCase() === 'pending' && (() => {
+                        const pendingSummary = getPendingItemsSummary(r);
+                        if (!pendingSummary.skuCount && !pendingSummary.unitsTotal) return null;
+                        return (
+                          <span className="px-2 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 w-fit">
+                            SKU {pendingSummary.skuCount} • Units {pendingSummary.unitsTotal}
+                          </span>
+                        );
+                      })()}
                       {r.step2_confirmed_at && (
                         <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-800 w-fit">
                           Shipping confirmed

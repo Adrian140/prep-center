@@ -1779,7 +1779,7 @@ const items = (draftData.items || []).map((it) => ({
       step2_shipments,
       step2_confirmed_at,
       step4_confirmed_at,
-      prep_request_items(asin, sku, product_name),
+      prep_request_items(asin, sku, product_name, units_requested),
       prep_request_tracking(tracking_id),
       profiles(first_name, last_name, email, company_name, store_name),
       companies(name)
