@@ -10,6 +10,16 @@ const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 // Amazon reports pot dura mai mult; permitem timeout configurabil.
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000); // ms
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 300); // 300 * 10s ≈ 50 min
+const REPORT_PROGRESS_LOG_EVERY = Number(process.env.SPAPI_REPORT_PROGRESS_LOG_EVERY || 6); // ~1 min
+const LISTINGS_TIME_BUDGET_MS = Number(
+  process.env.SPAPI_LISTINGS_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
+);
+const LISTINGS_TIME_BUDGET_BUFFER_MS = Number(
+  process.env.SPAPI_LISTINGS_TIME_BUDGET_BUFFER_MS || 20 * 60 * 1000
+);
+const LISTING_DOCUMENT_FETCH_TIMEOUT_MS = Number(
+  process.env.SPAPI_LISTING_DOCUMENT_FETCH_TIMEOUT_MS || 120_000
+);
 
 const MAX_INTEGRATIONS_PER_RUN = Number(
   process.env.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN ||
@@ -35,6 +45,15 @@ const TRANSIENT_RETRY_MAX_ATTEMPTS = Number(
   process.env.SPAPI_TRANSIENT_RETRY_MAX_ATTEMPTS || 5
 );
 const TRANSIENT_RETRY_BASE_MS = Number(process.env.SPAPI_TRANSIENT_RETRY_BASE_MS || 2000);
+
+const fmtMs = (ms) => {
+  const total = Math.max(0, Math.floor(Number(ms) || 0));
+  const s = Math.floor(total / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}h ${m}m ${sec}s`;
+};
 
 function assertBaseEnv() {
   const missing = [];
@@ -257,11 +276,15 @@ async function createListingReport(spClient, marketplaceId) {
     marketplaceIds: [marketplaceId]
   };
 
-  const response = await spClient.callAPI({
-    operation: 'createReport',
-    endpoint: 'reports',
-    body
-  });
+  const response = await runWithTransientRetry(
+    () =>
+      spClient.callAPI({
+        operation: 'createReport',
+        endpoint: 'reports',
+        body
+      }),
+    `createReport marketplace=${marketplaceId}`
+  );
 
   if (!response?.reportId) {
     throw new Error('Failed to create listing report');
@@ -271,21 +294,39 @@ async function createListingReport(spClient, marketplaceId) {
 }
 
 async function waitForReport(spClient, reportId) {
+  const startedAt = Date.now();
   for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
-    const report = await spClient.callAPI({
-      operation: 'getReport',
-      endpoint: 'reports',
-      path: { reportId }
-    });
+    const report = await runWithTransientRetry(
+      () =>
+        spClient.callAPI({
+          operation: 'getReport',
+          endpoint: 'reports',
+          path: { reportId }
+        }),
+      `getReport reportId=${reportId} poll=${attempt + 1}`
+    );
 
     if (!report) throw new Error('Empty response when polling report status');
+    const status = String(report.processingStatus || 'UNKNOWN');
+    if (
+      attempt === 0 ||
+      (Number.isFinite(REPORT_PROGRESS_LOG_EVERY) &&
+        REPORT_PROGRESS_LOG_EVERY > 0 &&
+        (attempt + 1) % REPORT_PROGRESS_LOG_EVERY === 0)
+    ) {
+      console.log(
+        `[Listings sync] report=${reportId} poll=${attempt + 1}/${REPORT_POLL_LIMIT} status=${status} elapsed=${fmtMs(
+          Date.now() - startedAt
+        )}`
+      );
+    }
 
-    switch (report.processingStatus) {
+    switch (status) {
       case 'DONE':
         return report.reportDocumentId;
       case 'FATAL':
       case 'CANCELLED':
-        throw new Error(`Amazon report failed with status ${report.processingStatus}`);
+        throw new Error(`Amazon report failed with status ${status}`);
       case 'DONE_NO_DATA':
         throw new Error('Amazon listing report completed without data');
       default:
@@ -298,17 +339,36 @@ async function waitForReport(spClient, reportId) {
 }
 
 async function downloadReportDocument(spClient, reportDocumentId) {
-  const document = await spClient.callAPI({
-    operation: 'getReportDocument',
-    endpoint: 'reports',
-    path: { reportDocumentId }
-  });
+  const document = await runWithTransientRetry(
+    () =>
+      spClient.callAPI({
+        operation: 'getReportDocument',
+        endpoint: 'reports',
+        path: { reportDocumentId }
+      }),
+    `getReportDocument id=${reportDocumentId}`
+  );
 
   if (!document?.url) throw new Error('Listing report document missing download URL');
 
   const fetchImpl =
     globalThis.fetch || (await import('node-fetch').then((mod) => mod.default));
-  const response = await fetchImpl(document.url);
+  const controller = new AbortController();
+  const timeoutHandle = setTimeout(() => {
+    try {
+      controller.abort();
+    } catch {
+      // ignore
+    }
+  }, LISTING_DOCUMENT_FETCH_TIMEOUT_MS);
+  let response;
+  try {
+    response = await fetchImpl(document.url, {
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
   if (!response.ok) {
     throw new Error(`Failed to download listing report document (${response.status})`);
   }
@@ -1339,6 +1399,9 @@ async function syncListingsIntegration(integration) {
 
 async function main() {
   assertBaseEnv();
+  const startedAt = Date.now();
+  const hasTimeBudget =
+    Number.isFinite(LISTINGS_TIME_BUDGET_MS) && LISTINGS_TIME_BUDGET_MS > 0;
   const integrations = await runWithTransientRetry(
     () => fetchActiveIntegrations(),
     'fetchActiveIntegrations'
@@ -1347,8 +1410,35 @@ async function main() {
     console.log('No active amazon_integrations found for listings. Nothing to do.');
     return;
   }
+  console.log(
+    `[Listings sync] Start: integrations=${integrations.length} maxIntegrationsPerRun=${Number.isFinite(
+      MAX_INTEGRATIONS_PER_RUN
+    ) ? MAX_INTEGRATIONS_PER_RUN : 'inf'} runtimeBudget=${fmtMs(LISTINGS_TIME_BUDGET_MS)} buffer=${fmtMs(
+      LISTINGS_TIME_BUDGET_BUFFER_MS
+    )}`
+  );
 
-  for (const integration of integrations) {
+  for (let index = 0; index < integrations.length; index += 1) {
+    const integration = integrations[index];
+    const elapsed = Date.now() - startedAt;
+    const remaining = LISTINGS_TIME_BUDGET_MS - elapsed;
+    if (hasTimeBudget && elapsed >= LISTINGS_TIME_BUDGET_MS) {
+      console.log(
+        `[Listings sync] Time budget reached (${fmtMs(elapsed)}). Stopping before integration ${integration.id}.`
+      );
+      break;
+    }
+    if (hasTimeBudget && remaining <= LISTINGS_TIME_BUDGET_BUFFER_MS) {
+      console.log(
+        `[Listings sync] Remaining budget ${fmtMs(remaining)} is below safety buffer before integration ${
+          integration.id
+        }; stopping gracefully.`
+      );
+      break;
+    }
+    console.log(
+      `[Listings sync] Processing integration ${index + 1}/${integrations.length}: ${integration.id}`
+    );
     await syncListingsIntegration(integration);
   }
 
