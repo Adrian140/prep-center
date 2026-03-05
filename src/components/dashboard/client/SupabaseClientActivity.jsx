@@ -729,8 +729,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
                       new Set(groupedItems.map((item) => item?.prep_request_id).filter(Boolean))
                     );
                     const primaryRequestId = groupRequestIds[0] || null;
-                    const canOpenDetails =
-                      Boolean(primaryRequestId) && Boolean(group.key && group.key !== '—');
+                    const canOpenDetails = Boolean(group.key && group.key !== '—');
                     return (
                     <React.Fragment key={group.key || group.order}>
                       <tr className="bg-slate-50/70 border-t border-slate-200">

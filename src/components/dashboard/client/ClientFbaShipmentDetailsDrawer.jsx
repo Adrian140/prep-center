@@ -50,17 +50,40 @@ export default function ClientFbaShipmentDetailsDrawer({
   const [lines, setLines] = useState([]);
   const [boxServices, setBoxServices] = useState([]);
   const [heavyParcel, setHeavyParcel] = useState(null);
+  const [resolvedRequestId, setResolvedRequestId] = useState(null);
 
   useEffect(() => {
-    if (!open || !requestId) return;
+    if (!open || (!requestId && !shipmentId)) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       setError('');
+      setHeader(null);
+      setLines([]);
+      setBoxServices([]);
+      setHeavyParcel(null);
+      setResolvedRequestId(requestId || null);
       try {
-        const { data, error: prepError } = await supabaseHelpers.getPrepRequest(requestId);
+        let targetRequestId = requestId || null;
+        if (!targetRequestId && shipmentId) {
+          const lookup = await supabase
+            .from('prep_requests')
+            .select('id')
+            .eq('fba_shipment_id', shipmentId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (lookup?.error) throw lookup.error;
+          targetRequestId = lookup?.data?.id || null;
+        }
+        if (!targetRequestId) {
+          throw new Error('No prep request found for this FBA shipment.');
+        }
+
+        const { data, error: prepError } = await supabaseHelpers.getPrepRequest(targetRequestId);
         if (prepError) throw prepError;
         if (cancelled) return;
+        setResolvedRequestId(targetRequestId);
 
         const baseLines = Array.isArray(data?.prep_request_items) ? data.prep_request_items : [];
         const normalizedLines = baseLines.map((line) => ({
@@ -73,7 +96,7 @@ export default function ClientFbaShipmentDetailsDrawer({
         const { data: serviceRows, error: serviceError } = await supabase
           .from('prep_request_services')
           .select('prep_request_item_id, service_name, units, unit_price, item_type')
-          .eq('request_id', requestId);
+          .eq('request_id', targetRequestId);
 
         if (!cancelled && !serviceError) {
           const byItem = {};
@@ -109,7 +132,7 @@ export default function ClientFbaShipmentDetailsDrawer({
         const { data: heavyRows, error: heavyError } = await supabase
           .from('prep_request_heavy_parcel')
           .select('market, heavy_boxes, labels_count, unit_price, total_price')
-          .eq('request_id', requestId);
+          .eq('request_id', targetRequestId);
         if (!cancelled) {
           if (!heavyError) {
             const list = Array.isArray(heavyRows) ? heavyRows : [];
@@ -120,6 +143,7 @@ export default function ClientFbaShipmentDetailsDrawer({
         }
       } catch (e) {
         if (!cancelled) {
+          setResolvedRequestId(null);
           setError(e?.message || 'Unable to load shipment details.');
         }
       } finally {
@@ -131,7 +155,7 @@ export default function ClientFbaShipmentDetailsDrawer({
     return () => {
       cancelled = true;
     };
-  }, [open, requestId]);
+  }, [open, requestId, shipmentId]);
 
   const summary = useMemo(() => {
     const serviceTotal = lines.reduce((sum, line) => {
@@ -184,7 +208,7 @@ export default function ClientFbaShipmentDetailsDrawer({
             <div className="text-xs uppercase tracking-wide text-text-secondary">FBA shipment details</div>
             <div className="text-lg font-semibold text-text-primary">{displayShipmentId}</div>
             <div className="text-xs text-text-secondary">
-              Request ID: {requestId || '—'}
+              Request ID: {resolvedRequestId || requestId || '—'}
             </div>
           </div>
           <button
