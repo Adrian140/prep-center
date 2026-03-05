@@ -3584,9 +3584,9 @@ getAllReceivingShipments: async (options = {}) => {
   let stockByAsin = {};
   let stockBySku = {};
   let stockByEan = {};
-  const collected = [];
 
-  const addStockRows = (rows = []) => {
+  const addStockRows = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) return;
     rows.forEach((s) => {
       if (!s) return;
       stockMap[s.id] = s;
@@ -3596,34 +3596,32 @@ getAllReceivingShipments: async (options = {}) => {
     });
   };
 
-  if (allStockIds.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('id', Array.from(allStockIds));
-    addStockRows(stockData);
-  }
-  if (asinSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('asin', Array.from(asinSet));
-    addStockRows(stockData);
-  }
-  if (skuSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('sku', Array.from(skuSet));
-    addStockRows(stockData);
-  }
-  if (eanSet.size > 0) {
-    const { data: stockData } = await supabase
-      .from('stock_items')
-      .select('id, asin, name, sku, ean, image_url')
-      .in('ean', Array.from(eanSet));
-    addStockRows(stockData);
-  }
+  const fetchStockByColumnInChunks = async (column, values, chunkSize) => {
+    const list = (Array.isArray(values) ? values : [])
+      .filter((value) => value != null && String(value).trim() !== '');
+    if (list.length === 0) return;
+
+    for (let i = 0; i < list.length; i += chunkSize) {
+      const chunk = list.slice(i, i + chunkSize);
+      const { data: stockData, error: stockError } = await supabase
+        .from('stock_items')
+        .select('id, asin, name, sku, ean, image_url')
+        .in(column, chunk);
+      if (stockError) {
+        console.warn(
+          '[getAllReceivingShipments] stock lookup chunk failed',
+          { column, chunkSize: chunk.length, error: stockError?.message || stockError }
+        );
+        continue;
+      }
+      addStockRows(stockData);
+    }
+  };
+
+  await fetchStockByColumnInChunks('id', Array.from(allStockIds), 300);
+  await fetchStockByColumnInChunks('asin', Array.from(asinSet), 120);
+  await fetchStockByColumnInChunks('sku', Array.from(skuSet), 60);
+  await fetchStockByColumnInChunks('ean', Array.from(eanSet), 120);
 
   // combinăm datele din ambele tabele (receiving_shipment_items și receiving_items)
     const processed = shipments.map(r => {
