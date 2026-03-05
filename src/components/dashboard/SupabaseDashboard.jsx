@@ -191,7 +191,7 @@ function SupabaseDashboard() {
   });
 
   const openFbaDetailsDrawer = useCallback(({ requestId, shipmentId } = {}) => {
-    if (!requestId) return;
+    if (!requestId && !shipmentId) return;
     setFbaDetailsDrawer({
       open: true,
       requestId,
