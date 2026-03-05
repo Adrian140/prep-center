@@ -18,34 +18,6 @@ const isUuid = (value) => typeof value === 'string' && UUID_REGEX.test(value);
 const AUTO_NAME_UUID_REGEX = /^auto-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
-const ASIN_CODE_REGEX = /^[A-Z0-9]{10}$/;
-
-const normalizeUpperCode = (value) => String(value || '').trim().toUpperCase();
-const asAsinCode = (value) => {
-  const normalized = normalizeUpperCode(value);
-  return ASIN_CODE_REGEX.test(normalized) ? normalized : null;
-};
-
-const getItemAsinValue = (item = {}) =>
-  asAsinCode(item?.asin) ||
-  asAsinCode(item?.stock_item?.asin) ||
-  asAsinCode(item?.ean_asin) ||
-  asAsinCode(item?.ean) ||
-  null;
-
-const getItemSkuValue = (item = {}) => item?.sku || item?.stock_item?.sku || null;
-
-const getItemEanValue = (item = {}) => {
-  const directEan = String(item?.ean || '').trim();
-  if (directEan && !asAsinCode(directEan)) return directEan;
-  const stockEan = String(item?.stock_item?.ean || '').trim();
-  if (stockEan && !asAsinCode(stockEan)) return stockEan;
-  const rawFallback = String(item?.ean_asin || '').trim();
-  if (!rawFallback || asAsinCode(rawFallback)) return null;
-  return rawFallback;
-};
-
-const getItemImageUrl = (item = {}) => item?.stock_item?.image_url || item?.image_url || '';
 
 const STATUS_PRIORITY = {
   draft: 1,
@@ -182,7 +154,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
   const [selectedPrepIds, setSelectedPrepIds] = useState(new Set());
   const [creatingPrep, setCreatingPrep] = useState(false);
   const [receivedDrafts, setReceivedDrafts] = useState({});
-  const [hydratingCatalog, setHydratingCatalog] = useState(false);
   const pbNotifyRef = useRef(new Set());
   const rawNotes = String(shipment.notes || '').trim();
   const trimmedNotes =
@@ -209,156 +180,6 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     setEditHeader(buildHeaderState(shipment));
       setSyncedStatus(shipment.status || 'submitted');
   }, [shipment]);
-
-  useEffect(() => {
-    if (!shipment?.id) return;
-    const currentRows = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
-    const needsHydration = currentRows.some(
-      (row) => !row?.stock_item || !getItemAsinValue(row) || !getItemImageUrl(row)
-    );
-    if (!needsHydration) return;
-    let cancelled = false;
-
-    const hydrateShipmentItems = async () => {
-      setHydratingCatalog(true);
-      try {
-        const stockSelectFields = 'id, asin, name, sku, ean, fnsku, image_url';
-        const nextItems = [];
-        const seenRows = new Set();
-        const appendRows = (rows = [], normalizeLegacy = false) => {
-          rows.forEach((row) => {
-            if (!row) return;
-            const key = row.id ? `id:${row.id}` : `idx:${nextItems.length}`;
-            if (seenRows.has(key)) return;
-            seenRows.add(key);
-            if (normalizeLegacy) {
-              nextItems.push({
-                ...row,
-                quantity_received:
-                  row.quantity_received ??
-                  row.quantity ??
-                  row.qty ??
-                  row.requested ??
-                  0,
-                received_units: row.received_units ?? 0
-              });
-              return;
-            }
-            nextItems.push(row);
-          });
-        };
-
-        const { data: modernItems, error: modernError } = await supabase
-          .from('receiving_items')
-          .select(`*, stock_item:stock_items(${stockSelectFields})`)
-          .eq('shipment_id', shipment.id);
-        if (modernError) throw modernError;
-        appendRows(modernItems || []);
-
-        const { data: legacyItems, error: legacyError } = await supabase
-          .from('receiving_shipment_items')
-          .select('*')
-          .eq('shipment_id', shipment.id);
-        if (!legacyError) {
-          appendRows(legacyItems || [], true);
-        }
-
-        if (nextItems.length === 0) return;
-
-        const stockById = {};
-        const stockByAsin = {};
-        const stockBySku = {};
-        const stockByEan = {};
-        const addStockRows = (rows = []) => {
-          rows.forEach((row) => {
-            if (!row?.id) return;
-            stockById[row.id] = row;
-            if (row.asin) stockByAsin[normalizeUpperCode(row.asin)] = row;
-            if (row.sku) stockBySku[String(row.sku).trim()] = row;
-            if (row.ean) stockByEan[String(row.ean).trim()] = row;
-          });
-        };
-
-        nextItems.forEach((row) => {
-          if (row?.stock_item?.id) addStockRows([row.stock_item]);
-        });
-
-        const lookupIds = new Set();
-        const lookupAsins = new Set();
-        const lookupEans = new Set();
-        const lookupSkus = new Set();
-
-        nextItems.forEach((row) => {
-          if (row?.stock_item_id) lookupIds.add(Number(row.stock_item_id));
-          const asinCandidate = asAsinCode(row?.asin) || asAsinCode(row?.ean_asin) || asAsinCode(row?.ean);
-          if (asinCandidate) lookupAsins.add(asinCandidate);
-          const eanCandidate = String(row?.ean || row?.ean_asin || '').trim();
-          if (eanCandidate && !asAsinCode(eanCandidate)) lookupEans.add(eanCandidate);
-          const skuCandidate = String(row?.sku || '').trim();
-          if (skuCandidate && !/[(),"]/u.test(skuCandidate)) lookupSkus.add(skuCandidate);
-        });
-
-        const fetchByField = async (field, values) => {
-          if (!values.length) return;
-          const chunkSize = 150;
-          for (let i = 0; i < values.length; i += chunkSize) {
-            const chunk = values.slice(i, i + chunkSize);
-            let query = supabase
-              .from('stock_items')
-              .select(stockSelectFields)
-              .in(field, chunk);
-            if (shipment.company_id) {
-              query = query.eq('company_id', shipment.company_id);
-            }
-            const { data: rows, error } = await query;
-            if (error) continue;
-            addStockRows(rows || []);
-          }
-        };
-
-        const idValues = Array.from(lookupIds).filter((v) => Number.isFinite(v));
-        await fetchByField('id', idValues);
-        await fetchByField('asin', Array.from(lookupAsins));
-        await fetchByField('ean', Array.from(lookupEans));
-        await fetchByField('sku', Array.from(lookupSkus));
-
-        const hydratedItems = nextItems.map((row) => {
-          const rowAsin = asAsinCode(row?.asin) || asAsinCode(row?.ean_asin) || asAsinCode(row?.ean);
-          const rowSku = String(row?.sku || '').trim();
-          const rowEan = String(row?.ean || row?.ean_asin || '').trim();
-          const resolvedStock =
-            row?.stock_item ||
-            stockById[row?.stock_item_id] ||
-            (rowAsin ? stockByAsin[rowAsin] : null) ||
-            (rowSku ? stockBySku[rowSku] : null) ||
-            (rowEan ? stockByEan[rowEan] : null) ||
-            null;
-          return {
-            ...row,
-            stock_item: resolvedStock
-          };
-        });
-
-        if (!cancelled) {
-          setItems(hydratedItems);
-        }
-      } catch (error) {
-        console.warn('AdminReceivingDetail hydrateShipmentItems failed', {
-          shipmentId: shipment.id,
-          message: error?.message
-        });
-      } finally {
-        if (!cancelled) {
-          setHydratingCatalog(false);
-        }
-      }
-    };
-
-    hydrateShipmentItems();
-    return () => {
-      cancelled = true;
-    };
-  }, [shipment?.id, shipment?.company_id]);
 
   const getExpectedQty = (item) =>
     Math.max(0, Number(item?.quantity_received || 0));
@@ -637,8 +458,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
       const confirmedQty = getConfirmedQty(item);
       const fbaValue = Math.max(0, Math.min(confirmedQty, Number(item.fba_qty || 0)));
       const toStock = Math.max(0, confirmedQty - fbaValue);
-      const asinValue = getItemAsinValue(item);
-      const skuValue = getItemSkuValue(item);
+      const asinValue = item.asin || item.stock_item?.asin || null;
+      const skuValue = item.sku || item.stock_item?.sku || null;
       const sendDirect = fbaValue > 0;
       return {
         ...item,
@@ -745,7 +566,7 @@ const checkStockMatches = async () => {
   const eans = Array.from(
     new Set(
       items
-        .map((i) => getItemEanValue(i))
+        .map((i) => i.ean || i.ean_asin || i.stock_item?.ean || null)
         .filter(Boolean)
     )
   );
@@ -1136,9 +957,6 @@ const checkStockMatches = async () => {
               ? `${selectedPrepIds.size} line${selectedPrepIds.size === 1 ? '' : 's'} ready to send to Amazon`
               : 'Select received lines to create a prep request.'}
           </p>
-          {hydratingCatalog && (
-            <p className="text-xs text-text-secondary">Refreshing ASIN/SKU/photos…</p>
-          )}
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 text-sm text-text-secondary">
               <input
@@ -1174,12 +992,12 @@ const checkStockMatches = async () => {
             </thead>
             <tbody>
               {items.map((item, idx) => {
-                const asinValue = getItemAsinValue(item);
-                const skuValue = getItemSkuValue(item);
-                const eanValue = getItemEanValue(item);
+                const asinValue = item.asin || item.stock_item?.asin || null;
+                const skuValue = item.sku || item.stock_item?.sku || null;
+                const eanValue = item.ean || item.stock_item?.ean || item.ean_asin || null;
                 const fnskuValue = item.fnsku || item.stock_item?.fnsku || null;
                 const productName = item.product_name || item.stock_item?.name || '—';
-                const imageUrl = getItemImageUrl(item);
+                const imageUrl = item.stock_item?.image_url || item.image_url || '';
                 const intent = resolveFbaIntent(item);
                 const confirmedQty = getConfirmedQty(item);
                 const expectedQty = getExpectedQty(item);

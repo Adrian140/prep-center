@@ -10,31 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call trigger_monthly_snapshots
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE: ${{ secrets.SUPABASE_SERVICE_ROLE }}
         run: |
-          set -euo pipefail
-
-          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE:-}" ]; then
-            echo "Missing secrets: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE"
-            exit 1
-          fi
-
-          ENDPOINT="${SUPABASE_URL%/}/functions/v1/trigger_monthly_snapshots"
-          RESPONSE="$(curl -sS -w '\n%{http_code}' -X POST "$ENDPOINT" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE" \
+          curl -X POST \
+            https://muswtkzjfrldhgokkmqw.supabase.co/functions/v1/trigger_monthly_snapshots \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
-            -d '{"regenerateAll":false}')"
-
-          HTTP_CODE="$(printf '%s\n' "$RESPONSE" | tail -n1)"
-          BODY="$(printf '%s\n' "$RESPONSE" | sed '$d')"
-
-          echo "HTTP $HTTP_CODE"
-          echo "$BODY"
-
-          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-            echo "Monthly stock snapshot trigger failed"
-            exit 1
-          fi
+            -d '{"regenerateAll":false}'
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
