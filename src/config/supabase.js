@@ -3425,7 +3425,22 @@ getAllReceivingShipments: async (options = {}) => {
       *,
       companies:companies(name),
       receiving_shipment_items(id, shipment_id, stock_item_id, asin, sku, ean, fnsku, quantity, qty, requested, quantity_received, received_units),
-      receiving_items(id, shipment_id, stock_item_id, asin, sku, ean_asin, fnsku, quantity_received, units_requested, quantity, qty, requested, received_units)
+      receiving_items(
+        id,
+        shipment_id,
+        stock_item_id,
+        asin,
+        sku,
+        ean_asin,
+        fnsku,
+        quantity_received,
+        units_requested,
+        quantity,
+        qty,
+        requested,
+        received_units,
+        stock_item:stock_items(id, asin, name, sku, ean, fnsku, image_url)
+      )
     `
     : `
       *,
@@ -3437,7 +3452,7 @@ getAllReceivingShipments: async (options = {}) => {
       *,
       companies:companies(name),
       receiving_shipment_items(*),
-      receiving_items(*)
+      receiving_items(*, stock_item:stock_items(id, asin, name, sku, ean, fnsku, image_url))
     `;
   const filterCountry = options.warehouseCountry || options.destinationCountry;
   const buildQuery = (selectedFields, includeCountryFilter = true) => {
