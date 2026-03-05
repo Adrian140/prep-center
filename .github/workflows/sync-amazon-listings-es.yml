@@ -10,7 +10,6 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,22 +39,7 @@ jobs:
           SPAPI_LISTING_CATALOG_MARKETPLACE_IDS: ${{ secrets.SPAPI_LISTING_CATALOG_MARKETPLACE_IDS || 'A13V1IB3VIYZZH,A1PA6795UKMFR9,APJ6JRA9NG5V4,A1RKKUPIHCS9HS' }}
           SPAPI_REFRESH_TOKEN: ${{ secrets.SPAPI_REFRESH_TOKEN }}
           SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
-          SPAPI_LISTINGS_TIME_BUDGET_MS: ${{ secrets.SPAPI_LISTINGS_TIME_BUDGET_MS || '19800000' }}
-          SPAPI_LISTINGS_TIME_BUDGET_BUFFER_MS: ${{ secrets.SPAPI_LISTINGS_TIME_BUDGET_BUFFER_MS || '1200000' }}
-          SPAPI_TIMEOUT_RESPONSE_MS: ${{ secrets.SPAPI_TIMEOUT_RESPONSE_MS || '120000' }}
-          SPAPI_TIMEOUT_IDLE_MS: ${{ secrets.SPAPI_TIMEOUT_IDLE_MS || '120000' }}
-          SPAPI_TIMEOUT_DEADLINE_MS: ${{ secrets.SPAPI_TIMEOUT_DEADLINE_MS || '300000' }}
-        run: |
-          set +e
-          timeout --signal=TERM --kill-after=30s 330m npm run sync-products
-          exit_code=$?
-
-          if [ "$exit_code" -eq 124 ]; then
-            echo "Listings ES sync reached runtime guard; ending successfully for relaunch."
-            exit 0
-          fi
-
-          exit "$exit_code"
+        run: npm run sync-products
 
       - name: Pause and relaunch
         if: ${{ success() }}
