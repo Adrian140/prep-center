@@ -55,18 +55,6 @@ const isMissingColumnError = (error, column) => {
   return parts.some((part) => part.includes(needle));
 };
 
-const isUndefinedColumnError = (error) => {
-  if (!error) return false;
-  const code = String(error.code || '').trim();
-  if (code === '42703') return true;
-  const message = String(error.message || '').toLowerCase();
-  const details = String(error.details || '').toLowerCase();
-  return (
-    (message.includes('column') && message.includes('does not exist')) ||
-    (details.includes('column') && details.includes('does not exist'))
-  );
-};
-
 const receivingItemColumnMissing = (error) =>
   ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) =>
     isMissingColumnError(error, col)
@@ -3433,52 +3421,48 @@ getAllReceivingShipments: async (options = {}) => {
       receiving_shipment_items(*),
       receiving_items(*, stock_item:stock_items(*))
     `;
-  const lightweightFallbackSelectClause = `
-      *,
-      companies:companies(name),
-      receiving_shipment_items(*),
-      receiving_items(*)
-    `;
-  const filterCountry = options.warehouseCountry || options.destinationCountry;
-  const buildQuery = (selectedFields, includeCountryFilter = true) => {
-    let query = supabase
-      .from('receiving_shipments')
-      .select(selectedFields, { count: 'exact' })
-      .order('created_at', { ascending: false });
-
-    if (options.fetchAll) {
-      query = query.limit(options.maxRows || 2000);
-    } else {
-      query = query.range(from, to);
-    }
-
-    if (options.status) {
-      query = query.eq('status', options.status);
-    } else if (statusIn.length) {
-      query = query.in('status', statusIn);
-    }
-    if (options.companyId) query = query.eq('company_id', options.companyId);
-    if (includeCountryFilter && filterCountry) {
-      query = query.eq('warehouse_country', filterCountry);
-    }
-    return query;
-  };
 
   // aduce ambele versiuni de tabele de items
-  let activeSelectClause = selectClause;
-  let query = buildQuery(activeSelectClause, true);
-  let { data, error, count } = await query;
+  let query = supabase
+    .from('receiving_shipments')
+    .select(selectClause, { count: 'exact' })
+    .order('created_at', { ascending: false });
 
-  if (lightweight && error && isUndefinedColumnError(error)) {
-    activeSelectClause = lightweightFallbackSelectClause;
-    const retryLight = await buildQuery(activeSelectClause, true);
-    data = retryLight.data;
-    error = retryLight.error;
-    count = retryLight.count;
+  if (options.fetchAll) {
+    query = query.limit(options.maxRows || 2000);
+  } else {
+    query = query.range(from, to);
   }
 
+  if (options.status) {
+    query = query.eq('status', options.status);
+  } else if (statusIn.length) {
+    query = query.in('status', statusIn);
+  }
+  if (options.companyId) query = query.eq('company_id', options.companyId);
+  const filterCountry = options.warehouseCountry || options.destinationCountry;
+  if (filterCountry) {
+    query = query.eq('warehouse_country', filterCountry);
+  }
+
+  let { data, error, count } = await query;
   if (error && isMissingColumnError(error, 'warehouse_country') && filterCountry) {
-    const retryRes = await buildQuery(activeSelectClause, false);
+    let retry = supabase
+      .from('receiving_shipments')
+      .select(selectClause, { count: 'exact' })
+      .order('created_at', { ascending: false });
+    if (options.fetchAll) {
+      retry = retry.limit(options.maxRows || 2000);
+    } else {
+      retry = retry.range(from, to);
+    }
+    if (options.status) {
+      retry = retry.eq('status', options.status);
+    } else if (statusIn.length) {
+      retry = retry.in('status', statusIn);
+    }
+    if (options.companyId) retry = retry.eq('company_id', options.companyId);
+    const retryRes = await retry;
     data = retryRes.data;
     error = retryRes.error;
     count = retryRes.count;

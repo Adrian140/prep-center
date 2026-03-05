@@ -1504,13 +1504,7 @@ useEffect(() => {
       <AdminReceivingDetail
         shipment={selectedShipment}
         carriers={carrierOptions}
-        onBack={() => {
-          setSelectedShipment(null);
-          setListState((prev) => ({
-            ...(prev || {}),
-            selectedShipmentId: null
-          }));
-        }}
+        onBack={() => setSelectedShipment(null)}
         onUpdate={handleStayOnDetailRefresh}
       />
     );
