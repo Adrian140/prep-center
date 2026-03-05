@@ -1738,7 +1738,6 @@ serve(async (req) => {
       const skuMeta = new Map<string, { title: string | null; image: string | null; defaultQty: number }>();
       const confirmedQuantities: Record<string, number> = {};
       const skuDisplayByKey: Record<string, string> = {};
-      const confirmedSkuKeysByAsin: Record<string, string[]> = {};
 
       (prepItems || []).forEach((it: any) => {
         const skuRaw = normalizeSku(it.sku);
@@ -1746,18 +1745,12 @@ serve(async (req) => {
         if (!skuKey) return;
 
         const confirmedQty = Number(it.units_sent ?? it.units_requested ?? 0) || 0;
-        confirmedQuantities[skuKey] = (confirmedQuantities[skuKey] || 0) + confirmedQty;
+        confirmedQuantities[skuKey] = confirmedQty;
         if (!skuDisplayByKey[skuKey]) {
           skuDisplayByKey[skuKey] = skuRaw || skuKey;
         }
 
         const itemAsin = String(it?.asin || "").trim().toUpperCase();
-        if (itemAsin) {
-          if (!Array.isArray(confirmedSkuKeysByAsin[itemAsin])) confirmedSkuKeysByAsin[itemAsin] = [];
-          if (!confirmedSkuKeysByAsin[itemAsin].includes(skuKey)) {
-            confirmedSkuKeysByAsin[itemAsin].push(skuKey);
-          }
-        }
         const fromAsin = itemAsin ? stockByAsin[itemAsin] || null : null;
         const image = fromAsin?.image_url || null;
 
@@ -1768,10 +1761,10 @@ serve(async (req) => {
         });
       });
 
-      return { skuMeta, confirmedQuantities, skuDisplayByKey, confirmedSkuKeysByAsin };
+      return { skuMeta, confirmedQuantities, skuDisplayByKey };
     };
 
-    const { skuMeta, confirmedQuantities, skuDisplayByKey, confirmedSkuKeysByAsin } = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities, skuDisplayByKey } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
@@ -1950,34 +1943,10 @@ serve(async (req) => {
       });
     });
 
-    const payloadAsinBySku: Record<string, string> = {};
-    (effectivePackingGroups || []).forEach((g: any) => {
-      (g?.items || []).forEach((it: any) => {
-        const sku = normalizeSkuKey(it?.sku || it?.msku || "");
-        const asin = String(it?.asin || it?.ASIN || "").trim().toUpperCase();
-        if (sku && asin && !payloadAsinBySku[sku]) payloadAsinBySku[sku] = asin;
-      });
-    });
-
-    const reconciledSummedFromAmazon: Record<string, number> = { ...summedFromAmazon };
-    Object.entries(summedFromAmazon).forEach(([incomingSku, qtyRaw]) => {
-      if (Object.prototype.hasOwnProperty.call(confirmedQuantities, incomingSku)) return;
-      const asin = payloadAsinBySku[incomingSku];
-      if (!asin) return;
-      const candidates = (confirmedSkuKeysByAsin[asin] || []).filter(Boolean).filter((sku) => sku !== incomingSku);
-      if (!candidates.length) return;
-      const targetSku =
-        candidates.find((sku) => !Object.prototype.hasOwnProperty.call(reconciledSummedFromAmazon, sku)) || candidates[0];
-      const qty = Number(qtyRaw || 0) || 0;
-      if (qty <= 0 || !targetSku) return;
-      reconciledSummedFromAmazon[targetSku] = (reconciledSummedFromAmazon[targetSku] || 0) + qty;
-      delete reconciledSummedFromAmazon[incomingSku];
-    });
-
     const quantityMismatches = Object.keys(confirmedQuantities || {})
       .map((sku) => {
         const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
-        const amazon = Number(reconciledSummedFromAmazon[sku] || 0) || 0;
+        const amazon = Number(summedFromAmazon[sku] || 0) || 0;
         return { sku: skuDisplayByKey[sku] || sku, confirmed, amazon, delta: amazon - confirmed };
       })
       .filter((r) => r.delta !== 0);
