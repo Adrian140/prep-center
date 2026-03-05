@@ -248,17 +248,44 @@ export default function AdminOther({
       groupedMap.get(key).push(row);
     });
 
+    const groupedEntries = [];
+    const singleReturnRows = [];
     groupedMap.forEach((rowsInGroup, key) => {
-      result.push({
-        __rowType: 'header',
-        __key: `header-${key}`,
-        label: key,
-        count: rowsInGroup.length
-      });
-      rowsInGroup.forEach((row) => result.push({ ...row, __rowType: 'data' }));
+      if (rowsInGroup.length > 1) {
+        groupedEntries.push({ key, rows: rowsInGroup });
+      } else {
+        singleReturnRows.push(...rowsInGroup);
+      }
     });
 
-    nonReturnRows.forEach((row) => result.push({ ...row, __rowType: 'data' }));
+    groupedEntries.forEach((entry) => {
+      result.push({
+        __rowType: 'header',
+        __key: `header-${entry.key}`,
+        label: entry.key,
+        count: entry.rows.length
+      });
+      entry.rows.forEach((row) =>
+        result.push({ ...row, __rowType: 'data', __isSingleLine: false })
+      );
+    });
+
+    const singleRows = [...singleReturnRows, ...nonReturnRows].sort((a, b) => {
+      const da = new Date(a?.service_date || a?.created_at || 0).getTime();
+      const db = new Date(b?.service_date || b?.created_at || 0).getTime();
+      return db - da;
+    });
+    if (singleRows.length) {
+      result.push({
+        __rowType: 'single-section',
+        __key: 'single-section',
+        count: singleRows.length
+      });
+      singleRows.forEach((row) =>
+        result.push({ ...row, __rowType: 'data', __isSingleLine: true })
+      );
+    }
+
     return result;
   }, [mergedRows]);
 
@@ -385,8 +412,24 @@ export default function AdminOther({
                     </tr>
                   );
                 }
+                if (row.__rowType === 'single-section') {
+                  const singleLabelRaw = t('adminOther.returnGroup.singleLines');
+                  const singleLabel =
+                    singleLabelRaw &&
+                    !String(singleLabelRaw).includes('adminOther.returnGroup.singleLines')
+                      ? singleLabelRaw
+                      : 'Lignes individuelles';
+                  return (
+                    <tr key={row.__key} className="bg-slate-50/40 border-t border-slate-200">
+                      <td colSpan={8} className="px-3 py-2 text-sm text-text-secondary font-semibold">
+                        {singleLabel}
+                      </td>
+                    </tr>
+                  );
+                }
                 const isEdit = edit?.id === row.id;
                 const isReturnRow = row.__billingSection === 'returns';
+                const isSingleLine = Boolean(row.__isSingleLine);
                 const total =
                   row.total != null
                     ? Number(row.total)
@@ -395,7 +438,11 @@ export default function AdminOther({
                 <tr
                   key={row.id}
                   className={`border-t ${
-                    row.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : 'hover:bg-gray-50'
+                    row.billing_invoice_id
+                      ? 'bg-blue-50 hover:bg-blue-50'
+                      : isSingleLine
+                        ? 'bg-slate-50/20 hover:bg-gray-50'
+                        : 'hover:bg-gray-50'
                   }`}
                   title={formatInvoiceTooltip(row.billing_invoice)}
                 >
@@ -428,7 +475,16 @@ export default function AdminOther({
                           value={edit.service || ''}
                           onChange={(e) => setEdit((s) => ({ ...s, service: e.target.value }))}
                         />
-                      ) : renderServiceName(row.service)}
+                      ) : (
+                        <span className="inline-flex items-center gap-2">
+                          <span>{renderServiceName(row.service)}</span>
+                          {isSingleLine && (
+                            <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-semibold uppercase tracking-wide">
+                              {t('adminOther.returnGroup.singleTag') || 'Single'}
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {isEdit ? (

@@ -433,7 +433,9 @@
       "returnGroup": {
         "lines": "{count} lines in this return",
         "prefix": "Return",
-        "manageInReturnsTab": "Manage from Returns tab"
+        "manageInReturnsTab": "Manage from Returns tab",
+        "singleLines": "Single lines",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Return fee",
@@ -553,7 +555,9 @@
       "returnGroup": {
         "lines": "{count} lignes dans ce retour",
         "prefix": "Retour",
-        "manageInReturnsTab": "Gestion depuis l’onglet Retours"
+        "manageInReturnsTab": "Gestion depuis l’onglet Retours",
+        "singleLines": "Lignes individuelles",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Frais de retour",
@@ -951,7 +955,9 @@
       "returnGroup": {
         "lines": "{count} linii în acest retur",
         "prefix": "Retur",
-        "manageInReturnsTab": "Gestionare din tabul Retururi"
+        "manageInReturnsTab": "Gestionare din tabul Retururi",
+        "singleLines": "Linii individuale",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Taxă retur",
@@ -965,7 +971,9 @@
       "returnGroup": {
         "lines": "{count} Zeilen in dieser Retoure",
         "prefix": "Retoure",
-        "manageInReturnsTab": "Verwaltung im Tab Rücksendungen"
+        "manageInReturnsTab": "Verwaltung im Tab Rücksendungen",
+        "singleLines": "Einzelzeilen",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Rücksendegebühr",
@@ -979,7 +987,9 @@
       "returnGroup": {
         "lines": "{count} righe in questo reso",
         "prefix": "Reso",
-        "manageInReturnsTab": "Gestione dalla scheda Resi"
+        "manageInReturnsTab": "Gestione dalla scheda Resi",
+        "singleLines": "Righe singole",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Costo di reso",
@@ -993,7 +1003,9 @@
       "returnGroup": {
         "lines": "{count} líneas en esta devolución",
         "prefix": "Devolución",
-        "manageInReturnsTab": "Gestión desde la pestaña Devoluciones"
+        "manageInReturnsTab": "Gestión desde la pestaña Devoluciones",
+        "singleLines": "Líneas individuales",
+        "singleTag": "Single"
       },
       "serviceNames": {
         "returnFee": "Tarifa de devolución",

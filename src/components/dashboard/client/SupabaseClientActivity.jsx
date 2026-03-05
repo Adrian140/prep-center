@@ -120,7 +120,29 @@ const localizeReturnPrefix = (value, t) => {
   return String(value).replace(/^retur\b/i, prefix);
 };
 
-const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(String(value || '').trim());
+const normalizeShipmentToken = (value) => String(value || '').trim().toUpperCase();
+const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(normalizeShipmentToken(value));
+const pickFbaShipmentId = (...values) => {
+  for (const value of values) {
+    const normalized = normalizeShipmentToken(value);
+    if (normalized && isFbaShipmentId(normalized)) return normalized;
+  }
+  return null;
+};
+const extractPrimaryObsId = (obsAdmin) => splitObs(obsAdmin).id || '';
+const extractFbaFromStep2Shipments = (step2Shipments) => {
+  if (!Array.isArray(step2Shipments)) return null;
+  for (const shipment of step2Shipments) {
+    const picked = pickFbaShipmentId(
+      shipment?.amazonShipmentId,
+      shipment?.amazon_shipment_id,
+      shipment?.shipmentId,
+      shipment?.shipment_id
+    );
+    if (picked) return picked;
+  }
+  return null;
+};
 
 const normalizeServiceName = (service) => String(service || '').trim().toLowerCase();
 
@@ -199,25 +221,53 @@ export default function SupabaseClientActivity() {
     const safeFba = sortByServiceDateDesc(fbaData || []);
     const safeFbm = sortByServiceDateDesc(fbmData || []);
     const safeOther = sortByServiceDateDesc(otherData || []);
-    const prepRequestIdsForFba = Array.from(
-      new Set((safeFba || []).map((row) => row?.prep_request_id).filter(Boolean))
+    const prepRequestIdsForFba = Array.from(new Set((safeFba || []).map((row) => row?.prep_request_id).filter(Boolean)));
+    const legacyObsShipmentIds = Array.from(
+      new Set(
+        (safeFba || [])
+          .map((row) => normalizeShipmentToken(extractPrimaryObsId(row?.obs_admin)))
+          .filter(Boolean)
+      )
     );
     const prepRequestFbaIdById = new Map();
+    const prepRequestFbaIdByLegacyId = new Map();
+    const toEffectiveFbaId = (prepRow) => {
+      const fromDirect = pickFbaShipmentId(prepRow?.fba_shipment_id);
+      const fromStep2 = extractFbaFromStep2Shipments(prepRow?.step2_shipments);
+      const fromSnapshot = pickFbaShipmentId(prepRow?.amazon_snapshot?.shipment_id);
+      return fromDirect || fromStep2 || fromSnapshot || null;
+    };
     if (prepRequestIdsForFba.length) {
       const { data: prepRequestRows } = await supabase
         .from('prep_requests')
-        .select('id, fba_shipment_id')
+        .select('id, fba_shipment_id, step2_shipments, amazon_snapshot')
         .in('id', prepRequestIdsForFba);
       (Array.isArray(prepRequestRows) ? prepRequestRows : []).forEach((row) => {
-        const fbaId = String(row?.fba_shipment_id || '').trim();
-        if (isFbaShipmentId(fbaId)) {
-          prepRequestFbaIdById.set(row.id, fbaId.toUpperCase());
+        const effectiveFbaId = toEffectiveFbaId(row);
+        if (effectiveFbaId) {
+          prepRequestFbaIdById.set(row.id, effectiveFbaId);
+        }
+      });
+    }
+    if (legacyObsShipmentIds.length) {
+      const { data: legacyPrepRows } = await supabase
+        .from('prep_requests')
+        .select('id, fba_shipment_id, step2_shipments, amazon_snapshot')
+        .in('fba_shipment_id', legacyObsShipmentIds);
+      (Array.isArray(legacyPrepRows) ? legacyPrepRows : []).forEach((row) => {
+        const legacyId = normalizeShipmentToken(row?.fba_shipment_id);
+        const effectiveFbaId = toEffectiveFbaId(row);
+        if (legacyId && effectiveFbaId) {
+          prepRequestFbaIdByLegacyId.set(legacyId, effectiveFbaId);
         }
       });
     }
     const safeFbaResolved = safeFba.map((row) => ({
       ...row,
-      _resolved_fba_shipment_id: prepRequestFbaIdById.get(row?.prep_request_id) || null
+      _resolved_fba_shipment_id:
+        prepRequestFbaIdById.get(row?.prep_request_id) ||
+        prepRequestFbaIdByLegacyId.get(normalizeShipmentToken(extractPrimaryObsId(row?.obs_admin))) ||
+        null
     }));
     const doneReturnIds = new Set(
       (Array.isArray(returnsStatusData) ? returnsStatusData : [])
@@ -744,6 +794,13 @@ export default function SupabaseClientActivity() {
 
                   const emittedHeaders = new Set();
                   const renderedRows = [];
+                  let singlesSectionOpen = false;
+                  const singleSectionLabelRaw = t('SupabaseClientActivity.group.singleLines');
+                  const singleSectionLabel =
+                    singleSectionLabelRaw &&
+                    !String(singleSectionLabelRaw).includes('SupabaseClientActivity.group.singleLines')
+                      ? singleSectionLabelRaw
+                      : 'Lignes individuelles';
 
                   activeRows.forEach((r, idx) => {
                     const qty = Number(r.units || 0);
@@ -751,10 +808,13 @@ export default function SupabaseClientActivity() {
                       r.total != null
                         ? Number(r.total)
                         : Number(r.unit_price || 0) * (Number.isFinite(qty) ? qty : 0);
+                    const rawKey = String(r._groupKey || '').trim();
+                    const groupKey = rawKey || `return-${r.return_id || r.id}`;
+                    const returnLinesCount = r?._isReturn ? (returnCounts.get(groupKey) || 0) : 0;
+                    const isGroupedReturn = Boolean(r?._isReturn && returnLinesCount > 1);
 
-                    if (r?._isReturn) {
-                      const rawKey = String(r._groupKey || '').trim();
-                      const groupKey = rawKey || `return-${r.return_id || r.id}`;
+                    if (isGroupedReturn) {
+                      singlesSectionOpen = false;
                       if (!emittedHeaders.has(groupKey)) {
                         emittedHeaders.add(groupKey);
                         renderedRows.push(
@@ -767,7 +827,7 @@ export default function SupabaseClientActivity() {
                                   </span>
                                   <span className="text-text-secondary text-xs inline-flex items-center gap-1">
                                     <ChevronDown className="w-4 h-4" />
-                                    {tp('SupabaseClientActivity.group.returnLines', { count: returnCounts.get(groupKey) || 0 })}
+                                    {tp('SupabaseClientActivity.group.returnLines', { count: returnLinesCount })}
                                   </span>
                                 </span>
                               ) : (
@@ -777,16 +837,40 @@ export default function SupabaseClientActivity() {
                           </tr>
                         );
                       }
+                    } else if (!singlesSectionOpen) {
+                      singlesSectionOpen = true;
+                      renderedRows.push(
+                        <tr key={`single-header-${idx}`} className="bg-slate-50/40 border-t border-slate-200">
+                          <td colSpan={6} className="px-3 py-2 text-sm text-text-secondary font-semibold">
+                            {singleSectionLabel}
+                          </td>
+                        </tr>
+                      );
                     }
 
                     renderedRows.push(
                       <tr
                         key={`row-${r._isReturn ? 'ret' : 'oth'}-${r.id}`}
-                        className={`border-t ${r.billing_invoice_id ? 'bg-blue-50 hover:bg-blue-50' : ''}`}
+                        className={`border-t ${
+                          r.billing_invoice_id
+                            ? 'bg-blue-50 hover:bg-blue-50'
+                            : isGroupedReturn
+                              ? ''
+                              : 'bg-slate-50/20'
+                        }`}
                         title={formatInvoiceTooltip(r.billing_invoice)}
                       >
                         <td className="px-3 py-2">{r.service_date}</td>
-                        <td className="px-3 py-2">{formatOtherServiceName(r.service, t)}</td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex items-center gap-2">
+                            <span>{formatOtherServiceName(r.service, t)}</span>
+                            {!isGroupedReturn && (
+                              <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-semibold uppercase tracking-wide">
+                                Single
+                              </span>
+                            )}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-right">
                           {r.unit_price != null ? fmt2(Number(r.unit_price)) : '—'}
                         </td>
