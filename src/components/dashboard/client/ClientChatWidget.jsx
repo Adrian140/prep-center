@@ -8,6 +8,18 @@ import ChatThread from '@/components/chat/ChatThread';
 const SUPPORTED_CHAT_MARKETS = ['FR', 'DE'];
 const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 const MAX_B2B_FILE_SIZE = 20 * 1024 * 1024;
+const ATTACHMENT_SIZE_ERRORS = {
+  FR: 'Fichier trop volumineux (max 20 Mo).',
+  DE: 'Datei zu groß (max. 20 MB).',
+  ES: 'Archivo demasiado grande (máx. 20 MB).',
+  IT: 'File troppo grande (max 20 MB).',
+  EN: 'File exceeds 20 MB limit.'
+};
+
+const getAttachmentSizeError = (market) => {
+  const code = String(market || 'FR').trim().toUpperCase();
+  return ATTACHMENT_SIZE_ERRORS[code] || ATTACHMENT_SIZE_ERRORS.FR;
+};
 const ALLOWED_B2B_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 const buildClientName = (profile, user) => {
@@ -65,6 +77,7 @@ export default function ClientChatWidget() {
   const [b2bMessages, setB2bMessages] = useState([]);
   const [b2bInput, setB2bInput] = useState('');
   const [b2bFiles, setB2bFiles] = useState([]);
+  const [b2bFileError, setB2bFileError] = useState('');
   const [b2bAttachmentUrls, setB2bAttachmentUrls] = useState({});
   const [b2bSending, setB2bSending] = useState(false);
   const [b2bSendError, setB2bSendError] = useState('');
@@ -458,6 +471,7 @@ export default function ClientChatWidget() {
     }
     setB2bInput('');
     setB2bFiles([]);
+    setB2bFileError('');
     if (b2bFileInputRef.current) b2bFileInputRef.current.value = '';
     await loadB2bMessages(activeB2bConversationId);
     await loadB2bConversations({ silent: true });
@@ -505,6 +519,13 @@ export default function ClientChatWidget() {
         Number(file.size || 0) > 0 &&
         Number(file.size || 0) <= MAX_B2B_FILE_SIZE
     );
+    const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_B2B_FILE_SIZE);
+    if (tooLarge.length) {
+      const market = activeB2bConversation?.country || selectedMarket;
+      setB2bFileError(getAttachmentSizeError(market));
+    } else {
+      setB2bFileError('');
+    }
     setB2bFiles(valid);
   };
 
@@ -801,6 +822,7 @@ export default function ClientChatWidget() {
                       </button>
                     </div>
                       <div className="mt-1 text-[11px] text-slate-400">Files: JPG, PNG, PDF up to 20MB</div>
+                    {!!b2bFileError && <div className="mt-1 text-[11px] text-rose-600">{b2bFileError}</div>}
                     {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
                     {!!b2bSendError && <div className="mt-1 text-[11px] text-rose-600">{b2bSendError}</div>}
                   </div>
