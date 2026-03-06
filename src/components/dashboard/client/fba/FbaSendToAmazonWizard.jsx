@@ -4004,15 +4004,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
               fallbackById.get(String(s?.packingGroupId || "")) ||
               fallbackById.get(`index:${idx}`) ||
               {};
-            return {
-              ...fb,
-              ...s,
-              units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
-              weight: s.weight ?? fb.weight ?? null,
-              source: "api"
-            };
-          })
-        );
+          return {
+            ...fb,
+            ...s,
+            units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
+            weight: s.weight ?? fb.weight ?? null,
+            source: "api"
+          };
+        })
+      );
+        const resolvedFbaFromResponse = resolveFbaShipmentIdFromList(json.shipments);
+        if (resolvedFbaFromResponse) {
+          setPlan((prev) => ({
+            ...prev,
+            fba_shipment_id: resolvedFbaFromResponse
+          }));
+        }
       }
     } catch (e) {
       const parsed = await extractFunctionInvokeError(e);
@@ -4652,8 +4659,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return /^FBA[0-9A-Z]+$/i.test(normalized);
   };
 
-  const resolveFbaShipmentId = () => {
-    const list = Array.isArray(shipments) ? shipments : [];
+  const resolveFbaShipmentIdFromList = (inputList) => {
+    const list = Array.isArray(inputList) ? inputList : [];
     const candidates = list.flatMap((s) => [
       s?.amazonShipmentId,
       s?.shipmentId,
@@ -4662,6 +4669,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const picked = candidates.find((candidate) => isFbaShipmentId(candidate));
     return picked ? String(picked).trim().toUpperCase() : null;
   };
+
+  const resolveFbaShipmentId = () => resolveFbaShipmentIdFromList(shipments);
 
   const finalizeStep3 = async () => {
     if (step3Confirming) return;
