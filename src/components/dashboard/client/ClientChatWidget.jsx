@@ -4,23 +4,15 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import ChatThread from '@/components/chat/ChatThread';
+import {
+  ALLOWED_CHAT_ATTACHMENT_TYPES,
+  MAX_CHAT_ATTACHMENT_SIZE,
+  CHAT_ATTACHMENT_SIZE_MB,
+  getAttachmentSizeError
+} from '@/utils/attachmentLimits';
 
 const SUPPORTED_CHAT_MARKETS = ['FR', 'DE'];
 const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
-const MAX_B2B_FILE_SIZE = 20 * 1024 * 1024;
-const ATTACHMENT_SIZE_ERRORS = {
-  FR: 'Fichier trop volumineux (max 20 Mo).',
-  DE: 'Datei zu groß (max. 20 MB).',
-  ES: 'Archivo demasiado grande (máx. 20 MB).',
-  IT: 'File troppo grande (max 20 MB).',
-  EN: 'File exceeds 20 MB limit.'
-};
-
-const getAttachmentSizeError = (market) => {
-  const code = String(market || 'FR').trim().toUpperCase();
-  return ATTACHMENT_SIZE_ERRORS[code] || ATTACHMENT_SIZE_ERRORS.FR;
-};
-const ALLOWED_B2B_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 const buildClientName = (profile, user) => {
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
@@ -515,11 +507,11 @@ export default function ClientChatWidget() {
     const selected = Array.from(event.target.files || []);
     const valid = selected.filter(
       (file) =>
-        ALLOWED_B2B_FILE_TYPES.includes(file.type) &&
+        ALLOWED_CHAT_ATTACHMENT_TYPES.includes(file.type) &&
         Number(file.size || 0) > 0 &&
-        Number(file.size || 0) <= MAX_B2B_FILE_SIZE
+        Number(file.size || 0) <= MAX_CHAT_ATTACHMENT_SIZE
     );
-    const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_B2B_FILE_SIZE);
+    const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_CHAT_ATTACHMENT_SIZE);
     if (tooLarge.length) {
       const market = activeB2bConversation?.country || selectedMarket;
       setB2bFileError(getAttachmentSizeError(market));
@@ -541,24 +533,18 @@ export default function ClientChatWidget() {
   const getB2bPartnerName = (conv) => {
     if (!conv || !user?.id) return 'Client';
     const isSeller = conv.seller_user_id === user.id;
+    const partnerRoleFallback = isSeller ? 'Buyer' : 'Seller';
+    const partnerId = isSeller ? conv.buyer_user_id : conv.seller_user_id;
+    const partnerDisplay =
+      (isSeller ? conv?.buyer_display_name : conv?.seller_display_name) || '';
     const listing = listingFromConversation(conv);
     const listingOwnerCompanyId = listing?.owner_company_id || null;
     const listingOwnerName = listingOwnerCompanyId ? b2bCompanyNamesById?.[listingOwnerCompanyId] : '';
-    const partnerRoleFallback = isSeller ? 'Buyer' : 'Seller';
-    const partnerId = isSeller ? conv.buyer_user_id : conv.seller_user_id;
-    const partnerProfile = isSeller ? conv?.buyer_user : conv?.seller_user;
-    const partnerDisplay =
-      partnerProfile &&
-      ([
-        partnerProfile.first_name,
-        partnerProfile.last_name
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .trim() ||
-        partnerProfile.store_name ||
-        partnerProfile.company_name);
-    if (partnerDisplay) return partnerDisplay;
+    if (partnerDisplay && partnerDisplay.trim() && partnerDisplay !== partnerRoleFallback) {
+      return partnerDisplay;
+    }
+    const partnerCompany = isSeller ? conv?.buyer_company_name : conv?.seller_company_name;
+    if (partnerCompany) return partnerCompany;
     if (!isSeller && listingOwnerName) return listingOwnerName;
     if (b2bProfileNamesById?.[partnerId] && b2bProfileNamesById[partnerId] !== 'Client') {
       return b2bProfileNamesById[partnerId];
@@ -651,14 +637,15 @@ export default function ClientChatWidget() {
                 </div>
                 <div className="min-h-0 flex-1">
                   {selectedSupportConversation ? (
-                    <ChatThread
-                      conversation={selectedSupportConversation}
-                      currentUserId={user.id}
-                      senderRole="client"
-                      staffLabel={staffLabel}
-                      clientName={clientName}
-                      onClose={() => setOpen(false)}
-                    />
+                  <ChatThread
+                    conversation={selectedSupportConversation}
+                    currentUserId={user.id}
+                    senderRole="client"
+                    staffLabel={staffLabel}
+                    clientName={clientName}
+                    market={selectedMarket}
+                    onClose={() => setOpen(false)}
+                  />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500">
                       {selectedSupportStatus?.loading ? (
@@ -683,8 +670,8 @@ export default function ClientChatWidget() {
                 </div>
               </>
             ) : (
-              <div className="grid min-h-0 flex-1 grid-cols-[130px_minmax(0,1fr)]">
-                <div className="border-r border-slate-200 p-2">
+            <div className="grid min-h-0 flex-1 grid-cols-[130px_minmax(0,1fr)] h-full">
+              <div className="border-r border-slate-200 p-2">
                   <div className="max-h-full space-y-2 overflow-y-auto pr-1">
                     {b2bLoading && <div className="text-[11px] text-slate-500">Loading...</div>}
                     {!b2bLoading && b2bConversations.length === 0 && (
@@ -732,7 +719,7 @@ export default function ClientChatWidget() {
                   </div>
                 </div>
 
-                <div className="relative flex min-h-0 flex-col">
+                <div className="relative flex min-h-0 flex-1 flex-col h-full overflow-hidden">
                   <div className="border-b border-slate-200 px-3 py-2">
                     <div className="text-xs font-semibold text-slate-800 truncate">
                       {listingFromConversation(activeB2bConversation)?.product_name || 'B2B chat'}
@@ -741,7 +728,11 @@ export default function ClientChatWidget() {
                       {getB2bPartnerName(activeB2bConversation)}
                     </div>
                   </div>
-                  <div ref={b2bScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-28">
+                  <div
+                    ref={b2bScrollRef}
+                    className="min-h-0 flex-1 overflow-y-auto px-3 py-2 pb-28"
+                    style={{ maxHeight: '100%' }}
+                  >
                     {!activeB2bConversationId && (
                       <div className="text-xs text-slate-500">Select a B2B conversation.</div>
                     )}
@@ -821,7 +812,9 @@ export default function ClientChatWidget() {
                         <Send size={14} />
                       </button>
                     </div>
-                      <div className="mt-1 text-[11px] text-slate-400">Files: JPG, PNG, PDF up to 20MB</div>
+                    <div className="mt-1 text-[11px] text-slate-400">
+                      Files: JPG, PNG, PDF up to {CHAT_ATTACHMENT_SIZE_MB}MB
+                    </div>
                     {!!b2bFileError && <div className="mt-1 text-[11px] text-rose-600">{b2bFileError}</div>}
                     {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
                     {!!b2bSendError && <div className="mt-1 text-[11px] text-rose-600">{b2bSendError}</div>}

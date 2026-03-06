@@ -2,9 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Paperclip, Send, Trash2, Pencil, X } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { supabaseHelpers } from '@/config/supabase';
+import {
+  ALLOWED_CHAT_ATTACHMENT_TYPES,
+  MAX_CHAT_ATTACHMENT_SIZE,
+  CHAT_ATTACHMENT_SIZE_MB,
+  getAttachmentSizeError
+} from '@/utils/attachmentLimits';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 const PAGE_SIZE = 50;
 
 const formatTime = (value) => {
@@ -28,6 +32,7 @@ export default function ChatThread({
   headerTitle,
   headerSubtitle,
   isAdmin = false,
+  market = 'FR',
   onClose
 }) {
   const [messages, setMessages] = useState([]);
@@ -38,6 +43,7 @@ export default function ChatThread({
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [editText, setEditText] = useState('');
   const [attachmentUrls, setAttachmentUrls] = useState({});
@@ -193,8 +199,17 @@ export default function ChatThread({
   const handleFiles = (event) => {
     const selected = Array.from(event.target.files || []);
     const valid = selected.filter(
-      (file) => ALLOWED_TYPES.includes(file.type) && file.size <= MAX_FILE_SIZE
+      (file) =>
+        ALLOWED_CHAT_ATTACHMENT_TYPES.includes(file.type) &&
+        Number(file.size || 0) > 0 &&
+        Number(file.size || 0) <= MAX_CHAT_ATTACHMENT_SIZE
     );
+    const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_CHAT_ATTACHMENT_SIZE);
+    if (tooLarge.length) {
+      setAttachmentError(getAttachmentSizeError(market));
+    } else {
+      setAttachmentError('');
+    }
     setFiles(valid);
   };
 
@@ -230,6 +245,7 @@ export default function ChatThread({
       }
       setInput('');
       setFiles([]);
+      setAttachmentError('');
       supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
     }
     setSending(false);
@@ -463,8 +479,11 @@ export default function ChatThread({
           </button>
         </div>
         <div className="mt-1 text-[11px] text-slate-400">
-          Files: JPG, PNG, PDF up to 10MB
+          Files: JPG, PNG, PDF up to {CHAT_ATTACHMENT_SIZE_MB}MB
         </div>
+        {!!attachmentError && (
+          <div className="mt-1 text-[11px] text-rose-600">{attachmentError}</div>
+        )}
         {!!sendError && (
           <div className="mt-1 text-[11px] text-rose-600">{sendError}</div>
         )}

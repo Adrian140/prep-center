@@ -4327,13 +4327,9 @@ getAllReceivingShipments: async (options = {}) => {
   },
 
   listClientMarketConversations: async ({ country } = {}) => {
-    let query = supabase
-      .from('client_market_conversations')
-      .select('id, listing_id, country, seller_user_id, buyer_user_id, created_at, last_message_at, client_market_listings(id, owner_user_id, owner_company_id, asin, ean, product_name, price_eur, quantity, country)')
-      .order('last_message_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false });
-    if (country) query = query.eq('country', String(country).toUpperCase());
-    return await query;
+    return await supabase.rpc('client_market_list_conversations_with_names', {
+      p_country: country ? String(country).toUpperCase() : null
+    });
   },
 
   listClientMarketMessages: async ({ conversationId, limit = 200 } = {}) => {
