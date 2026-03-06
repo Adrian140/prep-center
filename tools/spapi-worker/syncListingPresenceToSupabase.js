@@ -8,7 +8,13 @@ const TARGET_MARKETS = [
   { id: 'A13V1IB3VIYZZH', code: 'FR' },
   { id: 'A1PA6795UKMFR9', code: 'DE' },
   { id: 'APJ6JRA9NG5V4', code: 'IT' },
-  { id: 'A1RKKUPIHCS9HS', code: 'ES' }
+  { id: 'A1RKKUPIHCS9HS', code: 'ES' },
+  { id: 'AMEN7PMS3EDWL', code: 'BE' },
+  { id: 'A1805IZSGTT6HS', code: 'NL' },
+  { id: 'A2NODRKZP88ZB9', code: 'SE' },
+  { id: 'A1C3SOZRARQ6R3', code: 'PL' },
+  { id: 'A1F83G8C2ARO7P', code: 'UK' }
+  // Ireland nu are marketplace dedicat; folosim UK pentru acoperire.
 ];
 
 const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';

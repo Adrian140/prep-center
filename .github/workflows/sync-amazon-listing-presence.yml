@@ -1,4 +1,4 @@
-name: Sync Amazon Listing Presence (FR/DE/IT/ES)
+name: Sync Amazon Listing Presence (FR/DE/IT/ES/BE/NL/SE/PL/UK)
 
 on:
   workflow_dispatch:

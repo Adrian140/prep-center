@@ -46,12 +46,17 @@ const COUNTRY_LABEL_LOOKUP = SALES_COUNTRIES.reduce((acc, item) => {
   acc[item.value] = item.label;
   return acc;
 }, {});
-const PREP_COUNTRY_PRIORITY = ['FR', 'DE', 'IT', 'ES', 'RO', 'UK', 'GB'];
+const PREP_COUNTRY_PRIORITY = ['FR', 'DE', 'IT', 'ES', 'BE', 'NL', 'SE', 'PL', 'UK', 'GB', 'IE', 'RO'];
 const MARKETPLACE_TO_COUNTRY = {
   A13V1IB3VIYZZH: 'FR',
   A1PA6795UKMFR9: 'DE',
   APJ6JRA9NG5V4: 'IT',
-  A1RKKUPIHCS9HS: 'ES'
+  A1RKKUPIHCS9HS: 'ES',
+  AMEN7PMS3EDWL: 'BE',
+  A1805IZSGTT6HS: 'NL',
+  A2NODRKZP88ZB9: 'SE',
+  A1C3SOZRARQ6R3: 'PL',
+  A1F83G8C2ARO7P: 'UK'
 };
 
 const normalizePrepCountryCode = (code) => {
@@ -1213,7 +1218,10 @@ const refreshStockData = useCallback(async () => {
             if (!grouped[stockId].includes(country)) grouped[stockId].push(country);
           });
           Object.keys(grouped).forEach((stockId) => {
-            grouped[stockId] = grouped[stockId].sort((a, b) =>
+            const list = grouped[stockId] || [];
+            // Amazon nu are marketplace distinct pentru IE; UK acoperă și Irlanda, așa că afișăm ambele când există UK.
+            if (list.includes('UK') && !list.includes('IE')) list.push('IE');
+            grouped[stockId] = list.sort((a, b) =>
               PREP_COUNTRY_PRIORITY.indexOf(a) - PREP_COUNTRY_PRIORITY.indexOf(b)
             );
           });
