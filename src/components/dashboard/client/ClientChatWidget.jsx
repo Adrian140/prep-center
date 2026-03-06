@@ -503,6 +503,13 @@ export default function ClientChatWidget() {
     };
   }, [b2bMessages, b2bAttachmentUrls]);
 
+  useEffect(() => {
+    if (!b2bScrollRef.current) return;
+    requestAnimationFrame(() => {
+      b2bScrollRef.current.scrollTop = b2bScrollRef.current.scrollHeight;
+    });
+  }, [b2bMessages.length]);
+
   const handleB2bFiles = (event) => {
     const selected = Array.from(event.target.files || []);
     const valid = selected.filter(
