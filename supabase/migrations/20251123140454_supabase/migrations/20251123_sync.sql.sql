@@ -1996,7 +1996,7 @@ declare
   jnew jsonb := to_jsonb(NEW);
   jold jsonb := to_jsonb(OLD);
 begin
-  if is_admin then
+  if is_admin or current_user = 'postgres' then
     return NEW;
   end if;
 
@@ -6823,5 +6823,4 @@ CREATE TRIGGER trg_stock_items_before_update BEFORE UPDATE ON public.stock_items
 CREATE TRIGGER trg_stock_limited_update BEFORE UPDATE ON public.stock_items FOR EACH ROW EXECUTE FUNCTION public.fn_stock_limited_update();
 
 CREATE TRIGGER trg_user_guides_updated_at BEFORE UPDATE ON public.user_guides FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
-
 

@@ -31,6 +31,12 @@ export const sanitizeText = (value) => {
     .trim();
 };
 
+const normalizeAsin = (value) => {
+  if (!value) return null;
+  const normalized = String(value).trim().toUpperCase();
+  return normalized || null;
+};
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const resolveMarketplaceId = (integration) => {
@@ -285,7 +291,7 @@ function normalizeInventory(rawRows = []) {
   const normalized = [];
   for (const row of rawRows) {
     const sku = (row.sku || '').trim();
-    const asin = (row.asin || '').trim();
+    const asin = normalizeAsin(row.asin);
     // Cerință: folosim doar SKU pentru update-ul de inventar.
     if (!sku) continue;
 
@@ -301,7 +307,7 @@ function normalizeInventory(rawRows = []) {
     normalized.push({
       key: sku.toLowerCase(),
       sku: sku || null,
-      asin: asin || null,
+      asin,
       amazon_stock: fulfillable,
       amazon_inbound: inboundTotal,
       amazon_reserved: reserved,
@@ -352,7 +358,9 @@ async function fetchAllStockItems(companyId, { filter } = {}) {
   while (true) {
     const query = supabase
       .from('stock_items')
-      .select('id, company_id, user_id, sku, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable')
+      .select(
+        'id, company_id, user_id, sku, asin, amazon_stock, amazon_inbound, amazon_reserved, amazon_unfulfillable'
+      )
       .eq('company_id', companyId)
       .range(from, to);
 
@@ -377,9 +385,19 @@ async function syncToSupabase({ items, companyId, userId, seenSkus }) {
 
   const existing = await fetchAllStockItems(companyId);
   const existingByKey = new Map();
+  const rowsWithoutSkuByAsin = new Map();
   existing.forEach((row) => {
     const key = keyFromRow(row);
-    if (key) existingByKey.set(key, row);
+    if (key) {
+      existingByKey.set(key, row);
+      return;
+    }
+    const asin = normalizeAsin(row?.asin);
+    if (!asin) return;
+    if (!rowsWithoutSkuByAsin.has(asin)) {
+      rowsWithoutSkuByAsin.set(asin, []);
+    }
+    rowsWithoutSkuByAsin.get(asin).push(row);
   });
 
   const seenKeys = seenSkus || new Map();
@@ -403,7 +421,23 @@ async function syncToSupabase({ items, companyId, userId, seenSkus }) {
     } else {
       seenKeys.set(key, hasStock);
     }
-    const row = existingByKey.get(key);
+    let row = existingByKey.get(key);
+    if (!row && item.asin) {
+      const asinQueue = rowsWithoutSkuByAsin.get(item.asin) || [];
+      if (asinQueue.length) {
+        row = asinQueue.shift();
+        if (!asinQueue.length) {
+          rowsWithoutSkuByAsin.delete(item.asin);
+        }
+        if (!row.sku && item.sku) {
+          row.sku = item.sku;
+        }
+        if (!row.asin && item.asin) {
+          row.asin = item.asin;
+        }
+        existingByKey.set(key, row);
+      }
+    }
     if (!row) {
       inserts.push({
         company_id: companyId,
@@ -419,13 +453,22 @@ async function syncToSupabase({ items, companyId, userId, seenSkus }) {
       continue;
     }
     // Actualizăm strict stocurile Amazon pe SKU.
-    insertsOrUpdates.push({
+    const updatePayload = {
       id: row.id,
       amazon_stock: item.amazon_stock,
       amazon_inbound: item.amazon_inbound,
       amazon_reserved: item.amazon_reserved,
       amazon_unfulfillable: item.amazon_unfulfillable
-    });
+    };
+    if (!row.sku && item.sku) {
+      updatePayload.sku = item.sku;
+      row.sku = item.sku;
+    }
+    if (!row.asin && item.asin) {
+      updatePayload.asin = item.asin;
+      row.asin = item.asin;
+    }
+    insertsOrUpdates.push(updatePayload);
   }
 
   await cleanupInvalidRows(companyId);
