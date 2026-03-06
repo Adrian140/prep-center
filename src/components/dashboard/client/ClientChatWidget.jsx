@@ -7,7 +7,7 @@ import ChatThread from '@/components/chat/ChatThread';
 
 const SUPPORTED_CHAT_MARKETS = ['FR', 'DE'];
 const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
-const MAX_B2B_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_B2B_FILE_SIZE = 20 * 1024 * 1024;
 const ALLOWED_B2B_FILE_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
 
 const buildClientName = (profile, user) => {
@@ -800,7 +800,7 @@ export default function ClientChatWidget() {
                         <Send size={14} />
                       </button>
                     </div>
-                    <div className="mt-1 text-[11px] text-slate-400">Files: JPG, PNG, PDF up to 10MB</div>
+                      <div className="mt-1 text-[11px] text-slate-400">Files: JPG, PNG, PDF up to 20MB</div>
                     {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
                     {!!b2bSendError && <div className="mt-1 text-[11px] text-rose-600">{b2bSendError}</div>}
                   </div>
