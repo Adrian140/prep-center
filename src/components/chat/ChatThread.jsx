@@ -178,6 +178,13 @@ export default function ChatThread({
     };
   }, [conversationId]);
 
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    requestAnimationFrame(() => {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+  }, [messages.length]);
+
   const loadMore = async () => {
     if (!conversationId || loadingMore || !hasMore) return;
     setLoadingMore(true);
