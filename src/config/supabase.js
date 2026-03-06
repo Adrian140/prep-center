@@ -3447,6 +3447,9 @@ getAllReceivingShipments: async (options = {}) => {
   }
 
   if (options.status) query = query.eq('status', options.status);
+  if (Array.isArray(options.statusIn) && options.statusIn.length > 0) {
+    query = query.in('status', options.statusIn);
+  }
   if (options.companyId) query = query.eq('company_id', options.companyId);
   const filterCountry = options.warehouseCountry || options.destinationCountry;
   if (filterCountry) {

@@ -1189,11 +1189,14 @@ const checkStockMatches = async () => {
 function AdminReceiving() {
   const { profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
+  const ACTIVE_STATUSES = ['submitted', 'partial'];
+  const ARCHIVE_STATUSES = ['received', 'processed', 'cancelled', 'draft'];
   const listDefaults = {
     statusFilter: 'all',
     searchQuery: '',
     page: 1,
-    selectedShipmentId: null
+    selectedShipmentId: null,
+    includeArchive: false
   };
   const [listState, setListState] = useSessionStorage('admin-receiving-list', listDefaults);
   const [shipments, setShipments] = useState([]);
@@ -1205,6 +1208,7 @@ function AdminReceiving() {
   const [statusFilter, setStatusFilter] = useState(listState.statusFilter ?? 'all');
   const [searchQuery, setSearchQuery] = useState(listState.searchQuery ?? '');
   const [page, setPage] = useState(listState.page ?? 1);
+  const [includeArchive, setIncludeArchive] = useState(listState.includeArchive ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
   const formatTrackingValue = (value = '') =>
@@ -1240,16 +1244,17 @@ function AdminReceiving() {
       statusFilter,
       searchQuery,
       page,
-      selectedShipmentId: selectedShipment?.id || null
+      selectedShipmentId: selectedShipment?.id || null,
+      includeArchive
     });
-  }, [statusFilter, searchQuery, page, selectedShipment, setListState]);
+  }, [statusFilter, searchQuery, page, selectedShipment, includeArchive, setListState]);
 
   const pageSize = 50;
 
   useEffect(() => {
-    loadShipments();
+    loadShipments(includeArchive);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMarket]);
+  }, [currentMarket, includeArchive]);
 
   useEffect(() => {
     const storedId = listState?.selectedShipmentId;
@@ -1261,36 +1266,55 @@ function AdminReceiving() {
     }
   }, [shipments, listState?.selectedShipmentId]); 
 
-const loadShipments = async () => {
+const buildShipmentsList = (data = [], isArchive = false) =>
+  (data || []).map((row) => ({
+    ...row,
+    computed_status: computeShipmentStatus(row),
+    isArchive
+  }));
+
+const sortShipments = (rows = []) =>
+  rows.slice().sort((a, b) => {
+    const statusA = a.computed_status || a.status;
+    const statusB = b.computed_status || b.status;
+    const priorityA = STATUS_PRIORITY[statusA] ?? 999;
+    const priorityB = STATUS_PRIORITY[statusB] ?? 999;
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
+    const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
+    const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
+    const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
+    return dateB - dateA;
+  });
+
+const loadShipments = async (withArchive = false) => {
   setLoading(true);
   try {
-    const { data, error } = await supabaseHelpers.getAllReceivingShipments({
+    const { data: activeData, error: activeError } = await supabaseHelpers.getAllReceivingShipments({
       fetchAll: true,
-      warehouseCountry: currentMarket
+      maxRows: withArchive ? 800 : 400,
+      warehouseCountry: currentMarket,
+      statusIn: ACTIVE_STATUSES
     });
-    if (error) throw error;
+    if (activeError) throw activeError;
 
-    const enriched = (data || []).map((row) => ({
-      ...row,
-      computed_status: computeShipmentStatus(row)
-    }));
+    let combined = buildShipmentsList(activeData, false);
 
-    const sorted = enriched.slice().sort((a, b) => {
-      const statusA = a.computed_status || a.status;
-      const statusB = b.computed_status || b.status;
-      const priorityA = STATUS_PRIORITY[statusA] ?? 999;
-      const priorityB = STATUS_PRIORITY[statusB] ?? 999;
+    if (withArchive) {
+      const { data: archiveData, error: archiveError } = await supabaseHelpers.getAllReceivingShipments({
+        fetchAll: true,
+        maxRows: 800,
+        warehouseCountry: currentMarket,
+        statusIn: ARCHIVE_STATUSES
+      });
+      if (archiveError) throw archiveError;
+      combined = combined.concat(buildShipmentsList(archiveData, true));
+    }
 
-      if (priorityA !== priorityB) {
-        return priorityA - priorityB;
-      }
-
-      const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
-      const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
-      const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
-      return dateB - dateA;
-    });
-
+    const sorted = sortShipments(combined);
     setShipments(sorted);
     return sorted;
   } catch (error) {
@@ -1380,7 +1404,7 @@ useEffect(() => {
 
 useEffect(() => {
   setPage(1);
-}, [statusFilter, searchQuery]);
+}, [statusFilter, searchQuery, includeArchive]);
 
   const handleBulkReceived = async () => {
     if (selectedIds.size === 0) {
@@ -1454,7 +1478,7 @@ useEffect(() => {
 
   const handleStayOnDetailRefresh = async (updatedId) => {
     const targetId = updatedId || selectedShipment?.id;
-    const data = await loadShipments();
+    const data = await loadShipments(includeArchive);
     if (targetId) {
       const match = (data || []).find((s) => s.id === targetId);
       if (match) {
@@ -1504,7 +1528,7 @@ useEffect(() => {
             </button>
           )}
           <button
-            onClick={loadShipments}
+            onClick={() => loadShipments(includeArchive)}
             className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Package className="w-4 h-4 mr-2" />
@@ -1563,6 +1587,22 @@ useEffect(() => {
               </button>
             )}
           </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() => setIncludeArchive((prev) => !prev)}
+            className={`inline-flex items-center px-3 py-2 border rounded-lg text-sm font-medium transition ${
+              includeArchive
+                ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                : 'border-gray-300 bg-white text-text-primary hover:bg-gray-50'
+            }`}
+            title="Toggle searching in archive statuses (Received/Processed/Cancelled/Draft)"
+          >
+            {includeArchive ? 'Archive on (slower)' : 'Archive off (faster)'}
+          </button>
+          <span className="text-xs text-text-secondary">Active = Submitted + Partial</span>
         </div>
       </div>
 
@@ -1639,6 +1679,8 @@ useEffect(() => {
                 );
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
+                  : shipment.isArchive
+                  ? 'border-t bg-gray-50/40 hover:bg-gray-100/60'
                   : 'border-t hover:bg-gray-50';
                 return (
                 <tr key={shipment.id} className={rowClass}>
@@ -1706,6 +1748,11 @@ useEffect(() => {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <StatusPill status={shipment.computed_status || shipment.status} />
+                      {shipment.isArchive && (
+                        <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-gray-100 text-gray-700">
+                          Archive
+                        </span>
+                      )}
                       {hasFbaIntent && (
                         <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
                           FBA
