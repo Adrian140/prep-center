@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MessageCircle, Paperclip, Send } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -71,6 +71,8 @@ export default function ClientChatWidget() {
   const [b2bFiles, setB2bFiles] = useState([]);
   const [b2bFileError, setB2bFileError] = useState('');
   const [b2bAttachmentUrls, setB2bAttachmentUrls] = useState({});
+  const [b2bAttachmentErrors, setB2bAttachmentErrors] = useState({});
+  const [b2bAttachmentLoading, setB2bAttachmentLoading] = useState({});
   const [b2bSending, setB2bSending] = useState(false);
   const [b2bSendError, setB2bSendError] = useState('');
 
@@ -471,6 +473,37 @@ export default function ClientChatWidget() {
     setB2bSending(false);
   };
 
+  const fetchB2bAttachmentUrl = useCallback(
+    async (att) => {
+      if (!att?.id || !att?.storage_path) return null;
+      if (b2bAttachmentUrls[att.id]) return b2bAttachmentUrls[att.id];
+      setB2bAttachmentLoading((prev) => ({ ...prev, [att.id]: true }));
+      const res = await supabaseHelpers.getClientMarketAttachmentUrl({
+        path: att.storage_path
+      });
+      setB2bAttachmentLoading((prev) => {
+        const next = { ...prev };
+        delete next[att.id];
+        return next;
+      });
+      if (!res?.data?.signedUrl || res?.error) {
+        setB2bAttachmentErrors((prev) => ({
+          ...prev,
+          [att.id]: res?.error?.message || 'Nu s-a putut descărca fișierul.'
+        }));
+        return null;
+      }
+      setB2bAttachmentErrors((prev) => {
+        const next = { ...prev };
+        delete next[att.id];
+        return next;
+      });
+      setB2bAttachmentUrls((prev) => ({ ...prev, [att.id]: res.data.signedUrl }));
+      return res.data.signedUrl;
+    },
+    [b2bAttachmentUrls]
+  );
+
   useEffect(() => {
     const pending = [];
     b2bMessages.forEach((msg) => {
@@ -478,7 +511,7 @@ export default function ClientChatWidget() {
         ? msg.client_market_message_attachments
         : [];
       attachments.forEach((att) => {
-        if (att?.id && att?.storage_path && !b2bAttachmentUrls[att.id]) {
+        if (att?.id && att?.storage_path) {
           pending.push(att);
         }
       });
@@ -486,22 +519,16 @@ export default function ClientChatWidget() {
     if (!pending.length) return;
     let cancelled = false;
     const fetchUrls = async () => {
-      const updates = {};
       for (const att of pending) {
-        const res = await supabaseHelpers.getClientMarketAttachmentUrl({
-          path: att.storage_path
-        });
-        if (res?.data?.signedUrl) updates[att.id] = res.data.signedUrl;
-      }
-      if (!cancelled && Object.keys(updates).length > 0) {
-        setB2bAttachmentUrls((prev) => ({ ...prev, ...updates }));
+        if (cancelled) break;
+        await fetchB2bAttachmentUrl(att);
       }
     };
     fetchUrls();
     return () => {
       cancelled = true;
     };
-  }, [b2bMessages, b2bAttachmentUrls]);
+  }, [b2bMessages, fetchB2bAttachmentUrl]);
 
   useEffect(() => {
     if (!b2bScrollRef.current) return;
@@ -754,27 +781,53 @@ export default function ClientChatWidget() {
                             <div className="whitespace-pre-wrap">{msg.body}</div>
                             {attachments.map((att) => {
                               const url = b2bAttachmentUrls[att.id];
-                              if (!url) return null;
-                              if (String(att.mime_type || '').startsWith('image/')) {
+                              const error = b2bAttachmentErrors[att.id];
+                              const loading = b2bAttachmentLoading[att.id];
+                              if (url) {
+                                if (String(att.mime_type || '').startsWith('image/')) {
+                                  return (
+                                    <img
+                                      key={att.id}
+                                      src={url}
+                                      alt={att.file_name || 'attachment'}
+                                      className="mt-2 max-h-36 rounded border border-slate-200"
+                                    />
+                                  );
+                                }
                                 return (
-                                  <img
+                                  <a
                                     key={att.id}
-                                    src={url}
-                                    alt={att.file_name || 'attachment'}
-                                    className="mt-2 max-h-36 rounded border border-slate-200"
-                                  />
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className={`mt-2 block underline ${mine ? 'text-white' : 'text-primary'}`}
+                                  >
+                                    {att.file_name || 'Attachment'}
+                                  </a>
                                 );
                               }
                               return (
-                                <a
-                                  key={att.id}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className={`mt-2 block underline ${mine ? 'text-white' : 'text-primary'}`}
-                                >
-                                  {att.file_name || 'Attachment'}
-                                </a>
+                                <div key={att.id} className="mt-2 space-y-1 text-[10px]">
+                                  <button
+                                    disabled={loading}
+                                    onClick={() => fetchB2bAttachmentUrl(att)}
+                                    className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-1 text-[9px] font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                                  >
+                                    {loading ? 'Se încarcă...' : `Descarcă ${att.file_name || 'fișierul'}`}
+                                  </button>
+                                  {error && (
+                                    <div className="text-rose-600">
+                                      {error}
+                                      <button
+                                        onClick={() => fetchB2bAttachmentUrl(att)}
+                                        className="ml-2 text-xs font-semibold underline"
+                                        type="button"
+                                      >
+                                        Reîncearcă
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                             <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-500'}`}>
