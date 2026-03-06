@@ -525,8 +525,23 @@ export default function ClientChatWidget() {
     const listingOwnerName = listingOwnerCompanyId ? b2bCompanyNamesById?.[listingOwnerCompanyId] : '';
     const partnerRoleFallback = isSeller ? 'Buyer' : 'Seller';
     const partnerId = isSeller ? conv.buyer_user_id : conv.seller_user_id;
+    const partnerProfile = isSeller ? conv?.buyer_user : conv?.seller_user;
+    const partnerDisplay =
+      partnerProfile &&
+      ([
+        partnerProfile.first_name,
+        partnerProfile.last_name
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .trim() ||
+        partnerProfile.store_name ||
+        partnerProfile.company_name);
+    if (partnerDisplay) return partnerDisplay;
     if (!isSeller && listingOwnerName) return listingOwnerName;
-    if (b2bProfileNamesById?.[partnerId]) return b2bProfileNamesById[partnerId];
+    if (b2bProfileNamesById?.[partnerId] && b2bProfileNamesById[partnerId] !== 'Client') {
+      return b2bProfileNamesById[partnerId];
+    }
     if (partnerId) return `${partnerRoleFallback} ${String(partnerId).slice(0, 8)}`;
     return partnerRoleFallback;
   };
