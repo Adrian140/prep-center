@@ -670,8 +670,8 @@ export default function ClientChatWidget() {
                 </div>
               </>
             ) : (
-            <div className="grid min-h-0 flex-1 grid-cols-[130px_minmax(0,1fr)] h-full">
-              <div className="border-r border-slate-200 p-2">
+              <div className="grid min-h-0 flex-1 grid-cols-[130px_minmax(0,1fr)] h-full">
+                <div className="border-r border-slate-200 p-2 h-full overflow-y-auto">
                   <div className="max-h-full space-y-2 overflow-y-auto pr-1">
                     {b2bLoading && <div className="text-[11px] text-slate-500">Loading...</div>}
                     {!b2bLoading && b2bConversations.length === 0 && (
