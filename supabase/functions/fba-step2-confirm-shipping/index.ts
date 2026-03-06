@@ -5332,7 +5332,7 @@ serve(async (req) => {
         inboundPlanId,
         placementOptionId: effectivePlacementOptionId || null,
         options: optionsPayload,
-        shipments,
+        shipments: shipmentsWithAmazonIds,
           summary: summaryWithSelection,
           status: {
             placementConfirm: placementConfirm?.res?.status ?? null,
