@@ -4019,6 +4019,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             ...prev,
             fba_shipment_id: resolvedFbaFromResponse
           }));
+          if (requestId) {
+            try {
+              const { error: persistErr } = await supabase
+                .from('prep_requests')
+                .update({ fba_shipment_id: resolvedFbaFromResponse })
+                .eq('id', requestId);
+              if (persistErr) {
+                console.warn('persist fba_shipment_id failed', { requestId, error: persistErr });
+              }
+            } catch (persistErr) {
+              console.warn('persist fba_shipment_id threw', { requestId, error: persistErr });
+            }
+          }
         }
       }
     } catch (e) {
@@ -5059,14 +5072,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setPackGroupsPreview([]);
       setPackGroupsPreviewError('');
       setPackGroupsLoaded(false);
-      setShipments([]);
       setTracking([]);
       setPackingOptionId(null);
       setPlacementOptionId(null);
       setCarrierTouched(false);
       setShippingConfirmed(false);
     } else if (stepKey === '1b') {
-      setShipments([]);
       setTracking([]);
       setPackGroupsLoaded(false);
       setCarrierTouched(false);
