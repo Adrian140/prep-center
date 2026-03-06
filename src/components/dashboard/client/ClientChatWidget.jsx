@@ -508,7 +508,7 @@ export default function ClientChatWidget() {
     requestAnimationFrame(() => {
       b2bScrollRef.current.scrollTop = b2bScrollRef.current.scrollHeight;
     });
-  }, [b2bMessages.length]);
+  }, [b2bMessages.length, open, mode, activeB2bConversationId]);
 
   const handleB2bFiles = (event) => {
     const selected = Array.from(event.target.files || []);
