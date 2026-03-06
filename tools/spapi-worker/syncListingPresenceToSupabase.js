@@ -205,6 +205,12 @@ async function fetchActiveIntegrations() {
   });
 }
 
+function isAccessDenied(err) {
+  const text = String(err?.message || err?.details || '').toLowerCase();
+  const status = Number(err?.status || err?.code || err?.response?.status || 0);
+  return status === 401 || status === 403 || text.includes('access to requested resource is denied');
+}
+
 async function getSyncState() {
   const { data, error } = await supabase
     .from('amazon_listing_presence_sync_state')
@@ -326,6 +332,24 @@ async function syncIntegration(integration, startedAt) {
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
   });
+
+  // Validare rapidă: dacă token-ul nu are permisiuni SP-API, sărim tot seller-ul.
+  try {
+    await spClient.callAPI({
+      operation: 'getMarketplaceParticipations',
+      endpoint: 'sellers'
+    });
+  } catch (err) {
+    if (isAccessDenied(err)) {
+      console.warn(
+        `[listing-presence] skipping seller ${integration.seller_id || integration.selling_partner_id
+        } (company ${integration.company_id}) — SP-API access denied`
+      );
+      return [];
+    }
+    throw err;
+  }
+
   console.log(`[listing-presence] syncing company ${integration.company_id}, seller ${integration.seller_id}`);
 
   const marketResults = [];
