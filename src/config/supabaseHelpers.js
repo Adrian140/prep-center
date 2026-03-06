@@ -112,7 +112,35 @@ const extractIdentifier = (identifiers, types) => {
   const hit = identifiers.find((row) =>
     allowed.has(normalizeIdentifierType(row?.identifier_type))
   );
-  return normalizeCode(hit?.identifier) || null;
+  return normalizeCode(hit?.identifier) || normalizeCode(hit?.value) || null;
+};
+
+const collectIdentifierArrays = (node, depth = 0) => {
+  if (!node || typeof node !== 'object' || depth >= 3) return [];
+  const arrays = [];
+  Object.entries(node).forEach(([key, value]) => {
+    if (Array.isArray(value) && /identifier/i.test(key)) {
+      arrays.push(...value);
+    } else if (typeof value === 'object' && value !== null) {
+      arrays.push(...collectIdentifierArrays(value, depth + 1));
+    }
+  });
+  return arrays;
+};
+
+const findPrepBusinessAsin = (rawItem) => {
+  const direct = normalizeCode(rawItem?.asin) || normalizeCode(rawItem?.item?.asin);
+  if (direct) return direct;
+
+  const nested = rawItem && typeof rawItem.item === 'object' ? rawItem.item : null;
+  const identifierSources = [rawItem, nested, nested?.item];
+  for (const source of identifierSources) {
+    const candidates = collectIdentifierArrays(source);
+    const found = extractIdentifier(candidates, ['ASIN']);
+    if (found) return found;
+  }
+
+  return null;
 };
 
 const normalizePrepBusinessInboundItem = (rawItem) => {
@@ -120,21 +148,13 @@ const normalizePrepBusinessInboundItem = (rawItem) => {
     rawItem && typeof rawItem.item === 'object' && rawItem.item && !Array.isArray(rawItem.item)
       ? rawItem.item
       : {};
-  const identifiers = Array.isArray(nested.identifiers)
-    ? nested.identifiers
-    : Array.isArray(rawItem?.identifiers)
-    ? rawItem.identifiers
-    : [];
+  const identifierCandidates = collectIdentifierArrays(rawItem);
 
-  const asin =
-    normalizeCode(rawItem?.asin) ||
-    normalizeCode(nested?.asin) ||
-    extractIdentifier(identifiers, ['ASIN']) ||
-    null;
+  const asin = findPrepBusinessAsin(rawItem);
   const ean =
     normalizeCode(rawItem?.ean) ||
     normalizeCode(nested?.ean) ||
-    extractIdentifier(identifiers, ['EAN', 'GTIN', 'UPC']) ||
+    extractIdentifier(identifierCandidates, ['EAN', 'GTIN', 'UPC']) ||
     null;
   const sku =
     normalizeCode(rawItem?.sku) ||
