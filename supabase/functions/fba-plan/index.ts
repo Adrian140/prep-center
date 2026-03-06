@@ -4417,8 +4417,10 @@ serve(async (req) => {
         p.DestinationFulfillmentCenterId ||
         null;
       const boxes = Number(p.estimatedBoxCount || p.EstimatedBoxCount || p.estimatedBoxes || itemsList.length || 1) || 1;
+      const normalizedShipId = p.ShipmentId || p.shipmentId || (p.Shipment || p.shipment)?.ShipmentId || null;
       return {
-        id: p.ShipmentId || p.shipmentId || p.id || `shipment-${idx + 1}`,
+        id: normalizedShipId || p.id || `shipment-${idx + 1}`,
+        amazonShipmentId: normalizedShipId,
         name: `Shipment ${p.ShipmentId || p.shipmentId || idx + 1}`,
         from: formatAddress(shipFromAddress),
         to: destAddress ? formatAddress(destAddress) : destinationFc || "—",
