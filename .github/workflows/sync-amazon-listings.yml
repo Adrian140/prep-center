@@ -41,15 +41,20 @@ jobs:
           SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN: ${{ secrets.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN || '20' }}
         run: npm run sync-products
 
-      - name: Pause and relaunch
+      - name: Pause and relaunch (tolerant)
         if: ${{ success() }}
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
             const waitMs = 0;
+            const maxRetries = 3;
+            const backoffMs = 5000;
+
             core.info(`Aștept ${waitMs / 1000}s înainte să pornesc următorul run.`);
             await new Promise((resolve) => setTimeout(resolve, waitMs));
+
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -64,10 +69,24 @@ jobs:
               core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
               return;
             }
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'sync-amazon-listings.yml',
-              ref: 'main'
-            });
-            core.info('Run nou trimis prin workflow_dispatch.');
+
+            let lastErr = null;
+            for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'sync-amazon-listings.yml',
+                  ref: 'main'
+                });
+                core.info(`Run nou trimis prin workflow_dispatch (în încercarea ${attempt}).`);
+                return;
+              } catch (err) {
+                lastErr = err;
+                core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed: ${err?.message || err}`);
+                if (attempt < maxRetries) {
+                  await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
+                }
+              }
+            }
+            core.warning(`Nu am reușit să trimit workflow_dispatch după ${maxRetries} încercări. Jobul nu va fi marcat failed (continue-on-error). Ultima eroare: ${lastErr?.message || lastErr}`);
