@@ -34,6 +34,15 @@ const STATUS_SORT_DATE = {
   processed: 'updated_at'
 };
 
+const EDITABLE_RECEIVING_STATUSES = [
+  'draft',
+  'submitted',
+  'partial',
+  'received',
+  'processed',
+  'cancelled'
+];
+
 const StatusPill = ({ status }) => {
   const statusMap = {
     draft: { color: 'bg-gray-100 text-gray-800', text: 'Draft' },
@@ -631,9 +640,7 @@ const checkStockMatches = async () => {
           <ArrowLeft className="w-4 h-4 mr-1" />
           Back to list
         </button>
-        {(
-          ['draft', 'submitted', 'received', 'processed', 'cancelled'].includes(shipment.status)
-        ) && (
+        {EDITABLE_RECEIVING_STATUSES.includes(shipment.status) && (
           <button
             onClick={() => setEditMode(true)}
             className="px-3 py-1 border border-blue-500 text-blue-600 rounded hover:bg-blue-50"

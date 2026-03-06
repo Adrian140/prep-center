@@ -2,6 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { useDashboardTranslation } from '@/translations';
 
+const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(String(value || '').trim());
+const normalizeFbaShipmentId = (value) => {
+  const candidate = String(value || '').trim();
+  return isFbaShipmentId(candidate) ? candidate.toUpperCase() : null;
+};
+
+const getDisplayShipmentId = (shipment = {}) =>
+  normalizeFbaShipmentId(shipment.amazonShipmentId) ||
+  normalizeFbaShipmentId(shipment.amazon_shipment_id) ||
+  normalizeFbaShipmentId(shipment.fbaShipmentId);
+
 export default function FbaStep2Shipping({
   // Default the whole shipment object so we don't crash if the caller hasn't loaded data yet.
   shipment = {},
@@ -336,10 +347,11 @@ export default function FbaStep2Shipping({
 
   const renderShipmentCard = (s) => {
     const shKey = String(s.id || s.shipmentId || '').trim();
+    const displayShipmentId = getDisplayShipmentId(s) || shKey;
     return (
     <div key={shKey || s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-        <div className="font-semibold text-slate-900">Shipment #{shKey || s.id}</div>
+        <div className="font-semibold text-slate-900">Shipment #{displayShipmentId || '—'}</div>
         <div className="text-sm text-slate-600">
           Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight:{' '}
           {Number.isFinite(toKg(s.weight, s.weight_unit)) && toKg(s.weight, s.weight_unit) > 0
