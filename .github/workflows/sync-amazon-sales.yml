@@ -57,12 +57,16 @@ jobs:
           SPAPI_SALES_TIME_BUDGET_MS: 19800000
         run: npm run sync-sales
 
-      - name: Relaunch immediately
+      - name: Relaunch immediately (tolerant)
         if: ${{ always() }}
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
+            const maxRetries = 3;
+            const backoffMs = 5000;
+
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -77,10 +81,24 @@ jobs:
               core.info('Există deja un run în desfășurare/queue; nu mai trimit unul nou.');
               return;
             }
-            await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'sync-amazon-sales.yml',
-              ref: 'main'
-            });
-            core.info('Run nou trimis prin workflow_dispatch.');
+
+            let lastErr = null;
+            for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'sync-amazon-sales.yml',
+                  ref: 'main'
+                });
+                core.info(`Run nou trimis prin workflow_dispatch (încercarea ${attempt}).`);
+                return;
+              } catch (err) {
+                lastErr = err;
+                core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed: ${err?.message || err}`);
+                if (attempt < maxRetries) {
+                  await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
+                }
+              }
+            }
+            core.warning(`Nu am reușit să trimit workflow_dispatch după ${maxRetries} încercări. Jobul nu va fi marcat failed datorită continue-on-error. Ultima eroare: ${lastErr?.message || lastErr}`);
