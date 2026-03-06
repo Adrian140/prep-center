@@ -4857,79 +4857,97 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
   };
 
+  const reloadShippingOptions = useCallback(async () => {
+    setStep2Loaded(false);
+    setShippingError('');
+    setShippingSummary(null);
+    setShippingOptions([]);
+    await fetchShippingOptions();
+  }, [fetchShippingOptions]);
+
+  const reloadPlan = useCallback(async () => {
+    setPlanLoaded(false);
+    setLoadingPlan(true);
+    if (fetchPlan) {
+      let skip = false;
+      await runFetchPlan().then((response) => {
+        if (response?.__skip) {
+          skip = true;
+          return;
+        }
+        if (!response) return;
+        const {
+          shipFrom: pFrom,
+          marketplace: pMarket,
+          skus: pSkus,
+          packGroups: pGroups,
+          shipments: pShipments,
+          warning: pWarning,
+          shipmentMode: pShipmentMode,
+          skuStatuses: pSkuStatuses,
+          operationProblems: pOperationProblems,
+          blocking: pBlocking
+        } = response;
+        if (pFrom && pMarket && Array.isArray(pSkus)) {
+          const mergedSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
+          setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: mergedSkus }));
+          snapshotServerUnits(mergedSkus);
+        } else {
+          setPlan((prev) => ({ ...prev, ...response }));
+          if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
+        }
+        if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
+        if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
+        if (Array.isArray(pGroups)) {
+          const normalized = normalizePackGroups(pGroups);
+          setPackGroups((prev) => mergePackGroups(prev, normalized));
+          setPackGroupsLoaded(hasRealPackGroups(normalized));
+        }
+        if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
+        if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
+        if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
+        setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
+        setBlocking(Boolean(pBlocking));
+        if (typeof pWarning === 'string' && pWarning.trim()) {
+          setPlanNotice((prevNotice) => prevNotice || toFriendlyPlanNotice(pWarning));
+        }
+        // Nu declanșăm automat Step 1b la refresh Step 1.
+      });
+      if (!skip) {
+        setLoadingPlan(false);
+        setPlanLoaded(true);
+      }
+      return;
+    }
+    setLoadingPlan(false);
+    setPlanLoaded(true);
+  }, [
+    fetchPlan,
+    mergeSkusWithLocal,
+    normalizePackGroups,
+    runFetchPlan,
+    snapshotServerUnits,
+    toFriendlyPlanNotice
+  ]);
+
   const refreshStep = useCallback(
     async (stepKey) => {
-      if (stepKey === '2' || stepKey === '3' || stepKey === '4') {
-        setStep2Loaded(false);
-        setShippingError('');
-        setShippingSummary(null);
-        setShippingOptions([]);
-        await fetchShippingOptions();
+      if (stepKey === '3') {
+        await reloadShippingOptions();
+        await reloadPlan();
+        return;
+      }
+      if (stepKey === '2' || stepKey === '4') {
+        await reloadShippingOptions();
         return;
       }
       if (stepKey === '1b') {
         await refreshPackingGroups();
         return;
       }
-      setPlanLoaded(false);
-      setLoadingPlan(true);
-      if (fetchPlan) {
-        let skip = false;
-        await runFetchPlan().then((response) => {
-          if (response?.__skip) {
-            skip = true;
-            return;
-          }
-          if (!response) return;
-          const {
-            shipFrom: pFrom,
-            marketplace: pMarket,
-            skus: pSkus,
-            packGroups: pGroups,
-            shipments: pShipments,
-            warning: pWarning,
-            shipmentMode: pShipmentMode,
-            skuStatuses: pSkuStatuses,
-            operationProblems: pOperationProblems,
-            blocking: pBlocking,
-            requestId: respReqId,
-            inboundPlanId: respInboundId
-          } = response;
-          if (pFrom && pMarket && Array.isArray(pSkus)) {
-            const mergedSkus = mergeSkusWithLocal(pSkus, planRef.current?.skus || []);
-            setPlan((prev) => ({ ...prev, ...response, shipFrom: pFrom, marketplace: pMarket, skus: mergedSkus }));
-            snapshotServerUnits(mergedSkus);
-          } else {
-            setPlan((prev) => ({ ...prev, ...response }));
-            if (Array.isArray(response?.skus)) snapshotServerUnits(mergeSkusWithLocal(response.skus, planRef.current?.skus || []));
-          }
-          if (response?.packingOptionId) setPackingOptionId(response.packingOptionId);
-          if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
-          if (Array.isArray(pGroups)) {
-            const normalized = normalizePackGroups(pGroups);
-            setPackGroups((prev) => mergePackGroups(prev, normalized));
-            setPackGroupsLoaded(hasRealPackGroups(normalized));
-          }
-          if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
-          if (pShipmentMode) setShipmentMode((prev) => ({ ...prev, ...pShipmentMode }));
-          if (Array.isArray(pSkuStatuses)) setSkuStatuses(pSkuStatuses);
-          setOperationProblems(Array.isArray(pOperationProblems) ? pOperationProblems : []);
-          setBlocking(Boolean(pBlocking));
-          if (typeof pWarning === 'string' && pWarning.trim()) {
-            setPlanNotice((prevNotice) => prevNotice || toFriendlyPlanNotice(pWarning));
-          }
-          // Nu declanșăm automat Step 1b la refresh Step 1.
-        });
-        if (!skip) {
-          setLoadingPlan(false);
-          setPlanLoaded(true);
-        }
-        return;
-      }
-      setLoadingPlan(false);
-      setPlanLoaded(true);
+      await reloadPlan();
     },
-    [fetchPlan, fetchShippingOptions, mergeSkusWithLocal, normalizePackGroups, runFetchPlan, snapshotServerUnits, toFriendlyPlanNotice]
+    [refreshPackingGroups, reloadPlan, reloadShippingOptions]
   );
 
   const handleInboundPlanRetry = useCallback(() => {
