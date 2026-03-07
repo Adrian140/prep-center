@@ -1199,34 +1199,49 @@ const refreshStockData = useCallback(async () => {
         setListingPresenceByItemId({});
       } else {
         const visibleStockIds = new Set(stockIds.map((id) => String(id)));
-        const { data, error } = await supabase
-          .from('amazon_listing_presence')
-          .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
-          .eq('company_id', profile.company_id)
-          .eq('exists_on_marketplace', true);
-        if (error) {
-          console.warn('Failed to load amazon listing presence badges', error);
-          setListingPresenceByItemId({});
-        } else {
-          const grouped = {};
-          (data || []).forEach((row) => {
-            const stockId = row?.stock_item_id;
-            if (!stockId || !visibleStockIds.has(String(stockId))) return;
-            const country = MARKETPLACE_TO_COUNTRY[String(row.marketplace_id || '').toUpperCase()] || null;
-            if (!stockId || !country) return;
-            if (!grouped[stockId]) grouped[stockId] = [];
-            if (!grouped[stockId].includes(country)) grouped[stockId].push(country);
-          });
-          Object.keys(grouped).forEach((stockId) => {
-            const list = grouped[stockId] || [];
-            // Amazon nu are marketplace distinct pentru IE; UK acoperă și Irlanda, așa că afișăm ambele când există UK.
-            if (list.includes('UK') && !list.includes('IE')) list.push('IE');
-            grouped[stockId] = list.sort((a, b) =>
-              PREP_COUNTRY_PRIORITY.indexOf(a) - PREP_COUNTRY_PRIORITY.indexOf(b)
-            );
-          });
-          setListingPresenceByItemId(grouped);
+
+        // Supabase implicit limits selects to 1,000 rows; chunk the stock IDs so we always fetch
+        // presence data for every visible item, even when a company has a large catalog.
+        const chunkSize = 500;
+        const presenceRows = [];
+        for (let i = 0; i < stockIds.length; i += chunkSize) {
+          const chunk = stockIds.slice(i, i + chunkSize);
+          const { data, error } = await supabase
+            .from('amazon_listing_presence')
+            .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
+            .eq('company_id', profile.company_id)
+            .eq('exists_on_marketplace', true)
+            .in('stock_item_id', chunk);
+
+          if (error) {
+            console.warn('Failed to load amazon listing presence badges', error);
+            setListingPresenceByItemId({});
+            return;
+          }
+
+          if (Array.isArray(data)) presenceRows.push(...data);
         }
+
+        const grouped = {};
+        (presenceRows || []).forEach((row) => {
+          const stockId = row?.stock_item_id;
+          if (!stockId || !visibleStockIds.has(String(stockId))) return;
+          const country = MARKETPLACE_TO_COUNTRY[String(row.marketplace_id || '').toUpperCase()] || null;
+          if (!stockId || !country) return;
+          if (!grouped[stockId]) grouped[stockId] = [];
+          if (!grouped[stockId].includes(country)) grouped[stockId].push(country);
+        });
+
+        Object.keys(grouped).forEach((stockId) => {
+          const list = grouped[stockId] || [];
+          // Amazon nu are marketplace distinct pentru IE; UK acoperă și Irlanda, așa că afișăm ambele când există UK.
+          if (list.includes('UK') && !list.includes('IE')) list.push('IE');
+          grouped[stockId] = list.sort((a, b) =>
+            PREP_COUNTRY_PRIORITY.indexOf(a) - PREP_COUNTRY_PRIORITY.indexOf(b)
+          );
+        });
+
+        setListingPresenceByItemId(grouped);
       }
     }
   } catch {
