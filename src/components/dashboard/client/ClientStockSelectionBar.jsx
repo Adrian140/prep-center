@@ -29,6 +29,7 @@ const ClientStockSelectionBar = ({
   deleteInProgress,
   returnError,
   actionError = '',
+  actionWarning = '',
   returnNotes,
   onReturnNotesChange,
   returnInsideFiles = [],
@@ -36,6 +37,7 @@ const ClientStockSelectionBar = ({
   onReturnFilesUpload,
   onReturnFileRemove,
   onReturnSubmit,
+  onProceedAnyway,
   savingReturn
 }) => {
   if (!selectedIds?.size) return null;
@@ -422,6 +424,22 @@ const ClientStockSelectionBar = ({
       {actionError ? (
         <div className="w-full text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">
           {actionError}
+        </div>
+      ) : null}
+      {actionWarning ? (
+        <div className="w-full text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex flex-col gap-2">
+          <div>{actionWarning}</div>
+          {typeof onProceedAnyway === 'function' && (
+            <div>
+              <button
+                type="button"
+                className="text-xs font-semibold px-3 py-1 rounded border border-amber-400 text-amber-800 hover:bg-amber-100"
+                onClick={() => onProceedAnyway()}
+              >
+                Continuă oricum
+              </button>
+            </div>
+          )}
         </div>
       ) : null}
 

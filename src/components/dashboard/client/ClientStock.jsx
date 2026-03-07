@@ -59,6 +59,25 @@ const MARKETPLACE_TO_COUNTRY = {
   A1F83G8C2ARO7P: 'UK'
 };
 
+const SELLER_CENTRAL_TLD = {
+  FR: 'fr',
+  DE: 'de',
+  IT: 'it',
+  ES: 'es',
+  BE: 'be',
+  NL: 'nl',
+  SE: 'se',
+  PL: 'pl',
+  UK: 'co.uk',
+  IE: 'co.uk'
+};
+
+const buildSellerCentralUrl = (countryCode, asin) => {
+  const tld = SELLER_CENTRAL_TLD[countryCode] || 'eu';
+  const term = encodeURIComponent(asin || '');
+  return `https://sellercentral.amazon.${tld}/catalog?searchTerms=${term}`;
+};
+
 const normalizePrepCountryCode = (code) => {
   const upper = String(code || '').trim().toUpperCase();
   if (!upper) return '';
@@ -1006,6 +1025,9 @@ const [listingPresenceByItemId, setListingPresenceByItemId] = useState({});
   const [returnNotes, setReturnNotes] = useState('');
   const [returnError, setReturnError] = useState('');
   const [selectionActionError, setSelectionActionError] = useState('');
+  const [selectionActionWarning, setSelectionActionWarning] = useState('');
+  const [listingWarningIds, setListingWarningIds] = useState(new Set());
+  const [listingWarningDetails, setListingWarningDetails] = useState({});
   const [savingReturn, setSavingReturn] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
@@ -2463,8 +2485,11 @@ const openReception = async () => {
   }
 };
 
-const openPrep = async () => {
+const openPrep = async (force = false) => {
   setSelectionActionError('');
+  setSelectionActionWarning('');
+  setListingWarningIds(new Set());
+  setListingWarningDetails({});
   const selectedRows = rows.filter(r => selectedIds.has(r.id));
 
   if (selectedRows.length === 0) {
@@ -2529,11 +2554,33 @@ const openPrep = async () => {
     return;
   }
 
+  const destination = normalizePrepCountryCode((receptionForm.destinationCountry || 'FR').toUpperCase());
+  const missingListings = selectedRows.filter((r) => {
+    const presence = listingPresenceByItemId?.[r.id] || [];
+    const hasIeUkAlias = destination === 'IE' && presence.includes('UK');
+    return !(presence.includes(destination) || hasIeUkAlias);
+  });
+  if (missingListings.length > 0 && !force) {
+    const warnText = `Listing lipsă pe ${COUNTRY_LABEL_LOOKUP[destination] || destination}: ${missingListings
+      .map((r) => String(r.asin || r.sku || r.ean || r.id || '').trim())
+      .filter(Boolean)
+      .join(', ')}`;
+    setSelectionActionWarning(warnText);
+    const warnMap = {};
+    missingListings.forEach((r) => {
+      warnMap[r.id] = { destination };
+    });
+    setListingWarningIds(new Set(missingListings.map((r) => r.id)));
+    setListingWarningDetails(warnMap);
+    setToast({ type: 'warning', text: warnText });
+    return;
+  }
+
   const payload = {
     company_id: profile.company_id,
     user_id: profile.id,
     warehouse_country: currentMarket,
-    destination_country: (receptionForm.destinationCountry || 'FR').toUpperCase(),
+    destination_country: destination,
     items: selectedRows.map(r => ({
       stock_item_id: r.id,
       ean: r.ean || null,
@@ -2570,6 +2617,9 @@ const openPrep = async () => {
 
 useEffect(() => {
   setSelectionActionError('');
+  setSelectionActionWarning('');
+  setListingWarningIds(new Set());
+  setListingWarningDetails({});
 }, [submitType, selectedIdList.length, currentMarket]);
 
 // ===== Request Editor logic =====
@@ -2899,10 +2949,15 @@ const saveReqChanges = async () => {
         deleteInProgress={deleteInProgress}
         clearSelection={() => {
           setSelectionActionError('');
+          setSelectionActionWarning('');
+          setListingWarningIds(new Set());
+          setListingWarningDetails({});
           setSelectedIdList([]);
         }}
         returnError={returnError}
         actionError={selectionActionError}
+        actionWarning={selectionActionWarning}
+        onProceedAnyway={() => openPrep(true)}
         returnNotes={returnNotes}
         onReturnNotesChange={setReturnNotes}
         returnInsideFiles={returnInsideFiles}
@@ -3081,9 +3136,11 @@ const saveReqChanges = async () => {
       const priceDraft = edit.purchase_price ?? serverPrice;
       const priceInputValue = priceDraft == null ? '' : String(priceDraft);
       const priceDirty = priceInputValue !== serverPrice;
-      const pendingInfo = pendingShipmentByItemId?.[r.id] || null;
-      const pendingTotal = Math.max(0, Number(pendingInfo?.total || 0));
-      const pendingByCountry = getPendingCountryEntries(pendingInfo?.byCountry || {});
+    const pendingInfo = pendingShipmentByItemId?.[r.id] || null;
+    const pendingTotal = Math.max(0, Number(pendingInfo?.total || 0));
+    const pendingByCountry = getPendingCountryEntries(pendingInfo?.byCountry || {});
+    const listingWarn = listingWarningIds?.has(r.id);
+    const warningDest = listingWarningDetails?.[r.id]?.destination || null;
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3128,7 +3185,10 @@ const saveReqChanges = async () => {
         );
       };
       return (
-        <tr key={r.id} className="border-t align-middle">
+        <tr
+          key={r.id}
+          className={`border-t align-middle ${listingWarn ? 'bg-amber-50' : ''}`}
+        >
           {/* 1) Checkbox */}
           <td className="px-2 py-2">
             <input
@@ -3191,6 +3251,25 @@ const saveReqChanges = async () => {
         <div className="mt-1 rounded border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-800">
           <span className="font-semibold">{t('ClientStock.listingPresence.label')}</span>{' '}
           {listingPresenceByItemId[r.id].join(', ')}
+        </div>
+      )}
+      {listingWarn && (
+        <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
+          <span className="font-semibold">Atenție:</span>{' '}
+          Listing lipsă pe {COUNTRY_LABEL_LOOKUP[warningDest] || warningDest || 'piața aleasă'}.
+          {r.asin && (
+            <>
+              {' '}
+              <a
+                className="underline font-semibold"
+                href={buildSellerCentralUrl(warningDest || 'FR', r.asin)}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Deschide Seller Central
+              </a>
+            </>
+          )}
         </div>
       )}
     </div>
