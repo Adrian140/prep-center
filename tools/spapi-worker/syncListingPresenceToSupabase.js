@@ -22,6 +22,18 @@ const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 240);
 const TIME_BUDGET_MS = Number(process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_MS || 16_200_000); // 4.5h
 const TIME_BUDGET_BUFFER_MS = Number(process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_BUFFER_MS || 180_000); // 3m
+const DEBUG_SKUS = new Set(
+  (process.env.LISTING_PRESENCE_DEBUG_SKUS || '')
+    .split(',')
+    .map((v) => normalizeIdentifier(v))
+    .filter(Boolean)
+);
+const DEBUG_COMPANIES = new Set(
+  (process.env.LISTING_PRESENCE_DEBUG_COMPANIES || '')
+    .split(',')
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+);
 
 function assertBaseEnv() {
   const required = [
@@ -49,6 +61,14 @@ function normalizeIdentifier(value) {
     .replace(/[‐‑‒–—―]/g, '-') // unify dash variants to ASCII hyphen
     .trim()
     .toLowerCase();
+}
+
+function shouldDebug(companyId, skuKey, asinKey) {
+  if (!DEBUG_SKUS.size) return false;
+  if (DEBUG_COMPANIES.size && !DEBUG_COMPANIES.has(String(companyId))) return false;
+  if (skuKey && DEBUG_SKUS.has(skuKey)) return true;
+  if (asinKey && DEBUG_SKUS.has(asinKey)) return true;
+  return false;
 }
 
 function normalizeHeaderKey(rawHeader) {
@@ -299,6 +319,14 @@ async function syncIntegrationMarket(params) {
     const hitBySku = skuKey ? bySku.get(skuKey) : null;
     const hitByAsin = !hitBySku && asinKey ? byAsin.get(asinKey) : null;
     const hit = hitBySku || hitByAsin || null;
+    if (shouldDebug(companyId, skuKey, asinKey)) {
+      console.log(
+        `[listing-presence][debug] company=${companyId} market=${marketId} sku=${item.sku} asin=${item.asin} ` +
+          `status=${hit?.status || 'NOT_FOUND'} reportSku=${hit?.sku || ''} source=${
+            hitBySku ? 'sku_report_match' : hitByAsin ? 'asin_report_match' : 'report_not_found'
+          }`
+      );
+    }
     return {
       company_id: item.company_id,
       stock_item_id: item.id,
