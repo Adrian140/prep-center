@@ -313,6 +313,13 @@ async function syncIntegrationMarket(params) {
   const listings = normalizeListings(rawRows);
   const { bySku, byAsin } = buildListingIndex(listings);
 
+  if (!listings.length) {
+    console.warn(
+      `[listing-presence] report empty for company ${companyId}, market ${marketId}; skipping overwrite to avoid false negatives.`
+    );
+    return { marketId, total: stockItems.length, matched: 0, skipped: true, emptyReport: true };
+  }
+
   const rows = stockItems.map((item) => {
     const skuKey = normalizeIdentifier(item.sku);
     const asinKey = normalizeIdentifier(item.asin);
