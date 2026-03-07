@@ -3,6 +3,7 @@ import { subDays } from 'date-fns';
 import { gunzipSync } from 'zlib';
 import { supabase } from './supabaseClient.js';
 import { createSpClient } from './spapiClient.js';
+import { getCompanyNameMap, companyLabel } from './companyHelpers.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
@@ -17,6 +18,7 @@ const SALES_SYNC_INTERVAL_MS = Number(
 const SALES_TIME_BUDGET_MS = Number(
   process.env.SPAPI_SALES_TIME_BUDGET_MS || 5.5 * 60 * 60 * 1000
 );
+let COMPANY_NAME_MAP = new Map();
 const SUPPORTED_MARKETPLACES = [
   'A13V1IB3VIYZZH', // FR
   'A1PA6795UKMFR9', // DE
@@ -263,6 +265,7 @@ async function fetchActiveIntegrations() {
   if (error) throw error;
 
   const integrations = data || [];
+  COMPANY_NAME_MAP = await getCompanyNameMap(integrations);
   const sellerIds = integrations
     .map((row) => row.selling_partner_id)
     .filter((id) => typeof id === 'string' && id.length > 0);
@@ -315,7 +318,8 @@ async function fetchActiveIntegrations() {
         ...row,
         marketplace_ids: marketplaceList.length ? marketplaceList : null,
         refresh_token:
-          token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null
+          token?.refresh_token || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null,
+        company_name: companyLabel(row.company_id, COMPANY_NAME_MAP)
       };
     })
     .filter((row) => !!row?.refresh_token && (!!row.marketplace_id || (row.marketplace_ids || []).length));
@@ -533,7 +537,9 @@ function accumulateSalesRows(map, rows) {
 async function upsertSales({ rows, companyId, userId }) {
   if (!rows.length) return;
   const now = new Date().toISOString();
-  console.log(`[Sales sync] Writing ${rows.length} aggregated rows for company ${companyId}.`);
+  console.log(
+    `[Sales sync] Writing ${rows.length} aggregated rows for company ${companyLabel(companyId, COMPANY_NAME_MAP)}.`
+  );
   // Curățăm valorile vechi pentru companie înainte de a scrie din nou
   await supabase.from('amazon_sales_30d').delete().eq('company_id', companyId);
   const chunkSize = 500;
@@ -556,7 +562,7 @@ async function upsertSales({ rows, companyId, userId }) {
     if (error) {
       if (/duplicate key value/.test(error.message)) {
         console.warn(
-          `[Sales sync] Duplicate key on amazon_sales_30d for company ${companyId} — skipping corrupt chunk.`
+          `[Sales sync] Duplicate key on amazon_sales_30d for company ${companyLabel(companyId, COMPANY_NAME_MAP)} — skipping corrupt chunk.`
         );
         continue;
       }
@@ -580,7 +586,7 @@ async function syncIntegration(integration) {
   });
 
   console.log(
-    `Syncing 30d sales for integration ${integration.id} (company ${integration.company_id}, marketplace ${integration.marketplace_id})`
+    `Syncing 30d sales for integration ${integration.id} (company ${integration.company_name || companyLabel(integration.company_id, COMPANY_NAME_MAP)}, marketplace ${integration.marketplace_id})`
   );
 
   // Folosim implementarea bazată pe Orders API,
@@ -631,7 +637,9 @@ async function main(resumeCompanyId = null) {
     const idx = companyEntries.findIndex((c) => c.companyId === resumeCompanyId);
     if (idx > 0) {
       companyEntries = [...companyEntries.slice(idx), ...companyEntries.slice(0, idx)];
-      console.log(`[Sales sync] Resuming from company ${resumeCompanyId}; queue length ${companyEntries.length}.`);
+      console.log(
+        `[Sales sync] Resuming from company ${companyLabel(resumeCompanyId, COMPANY_NAME_MAP)}; queue length ${companyEntries.length}.`
+      );
     }
   }
 

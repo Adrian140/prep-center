@@ -3,6 +3,7 @@ import { createDecipheriv } from 'crypto';
 import { gunzipSync } from 'zlib';
 import { createSpClient } from './spapiClient.js';
 import { supabase } from './supabaseClient.js';
+import { getCompanyNameMap, companyLabel } from './companyHelpers.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const REPORT_TYPE = 'GET_FBA_MYI_ALL_INVENTORY_DATA';
@@ -20,6 +21,8 @@ const INVENTORY_SYNC_LOOP = process.env.SPAPI_INVENTORY_SYNC_LOOP === 'true';
 const INVENTORY_SYNC_INTERVAL_MS = Number(
   process.env.SPAPI_INVENTORY_SYNC_INTERVAL_MS || 60 * 1000
 );
+
+let COMPANY_NAME_MAP = new Map();
 
 export const sanitizeText = (value) => {
   if (!value) return value;
@@ -99,6 +102,7 @@ async function fetchActiveIntegrations() {
   if (error) throw error;
 
   const integrations = data || [];
+  COMPANY_NAME_MAP = await getCompanyNameMap(integrations);
   const sellerIds = integrations
     .map((row) => row.selling_partner_id)
     .filter((id) => typeof id === 'string' && id.length > 0);
@@ -151,7 +155,8 @@ async function fetchActiveIntegrations() {
         ? {
             ...row,
             marketplace_ids: marketplaceList.length ? marketplaceList : null,
-            refresh_token: refresh
+            refresh_token: refresh,
+            company_name: companyLabel(row.company_id, COMPANY_NAME_MAP)
           }
         : null;
     })
@@ -346,7 +351,7 @@ async function insertStockRows(rows) {
 
 async function cleanupInvalidRows(companyId) {
   // Nu mai ștergem automat rânduri; păstrăm stocurile manuale intacte.
-  console.log(`[inventory] Skip cleanup for company ${companyId} (no deletes).`);
+  console.log(`[inventory] Skip cleanup for company ${companyLabel(companyId, COMPANY_NAME_MAP)} (no deletes).`);
 }
 
 async function fetchAllStockItems(companyId, { filter } = {}) {
@@ -566,7 +571,7 @@ async function syncIntegration(integration, seenSkus) {
   });
 
   console.log(
-    `Syncing integration ${integration.id} (company ${integration.company_id}, marketplace ${marketplaceId})`
+    `Syncing integration ${integration.id} (company ${integration.company_name || companyLabel(integration.company_id, COMPANY_NAME_MAP)}, marketplace ${marketplaceId})`
   );
 
   try {
@@ -665,16 +670,19 @@ async function main() {
 
   for (const [companyId, seenKeys] of companySeenKeys.entries()) {
     if (!ZERO_MISSING_STOCK) {
-      console.log(`Company ${companyId}: zeroing missing Amazon rows is disabled (ZERO_MISSING_STOCK!=true).`);
+      const label = companyLabel(companyId, COMPANY_NAME_MAP);
+      console.log(`Company ${label}: zeroing missing Amazon rows is disabled (ZERO_MISSING_STOCK!=true).`);
       continue;
     }
     if (!seenKeys.size) {
-      console.log(`Company ${companyId} had no Amazon inventory rows this run; skipping zeroing.`);
+      const label = companyLabel(companyId, COMPANY_NAME_MAP);
+      console.log(`Company ${label} had no Amazon inventory rows this run; skipping zeroing.`);
       continue;
     }
     const zeroed = await zeroAmazonStockForCompany(companyId, seenKeys);
     if (zeroed > 0) {
-      console.log(`Company ${companyId} zeroed ${zeroed} Amazon rows missing from all integrations.`);
+      const label = companyLabel(companyId, COMPANY_NAME_MAP);
+      console.log(`Company ${label} zeroed ${zeroed} Amazon rows missing from all integrations.`);
     }
   }
 
