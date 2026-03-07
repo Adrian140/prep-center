@@ -480,8 +480,8 @@
         "unitsExceedPrepStock": "Units to Send / Receive cannot be higher than PrepCenter stock: {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Listing missing on {dest}: {asins}",
-        "missingMarketplaceListingInline": "Listing missing on {dest}.",
+        "missingMarketplaceListing": "Listing missing on {dest}: {asins}. We detected these SKUs without an offer on {dest}. Please check Seller Central; if the listing exists with the same SKU you can continue. If the offer is under a different SKU, please contact support.",
+        "missingMarketplaceListingInline": "Listing missing on {dest}. If it exists with this SKU you can continue; if it’s under another SKU, contact support.",
         "attention": "Attention:",
         "openSellerCentral": "Open Seller Central",
         "proceedAnyway": "Proceed anyway"
@@ -1654,8 +1654,8 @@
         "unitsExceedPrepStock": "Unitățile de trimis / recepționat nu pot depăși stocul PrepCenter: {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Listing inexistent pe {dest}: {asins}",
-        "missingMarketplaceListingInline": "Listing inexistent pe {dest}.",
+        "missingMarketplaceListing": "Listing lipsă pe {dest}: {asins}. Sistemul a detectat aceste SKU-uri fără ofertă pe {dest}. Vă rugăm verificați în Seller Central; dacă listingul există cu același SKU, puteți continua. Dacă oferta este sub alt SKU, contactați suportul.",
+        "missingMarketplaceListingInline": "Listing inexistent pe {dest}. Dacă există cu acest SKU puteți continua; dacă e pe alt SKU, contactați suportul.",
         "attention": "Atenție:",
         "openSellerCentral": "Deschide Seller Central",
         "proceedAnyway": "Continuă oricum"
@@ -2783,8 +2783,8 @@
         "unitsExceedPrepStock": "Les unités à envoyer / recevoir ne peuvent pas dépasser le stock PrepCenter : {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Fiche absente sur {dest} : {asins}",
-        "missingMarketplaceListingInline": "Fiche absente sur {dest}.",
+        "missingMarketplaceListing": "Fiche absente sur {dest} : {asins}. Nous avons détecté ces SKU sans offre sur {dest}. Merci de vérifier dans Seller Central ; si la fiche existe avec le même SKU, vous pouvez continuer. Si l’offre est sous un autre SKU, contactez le support.",
+        "missingMarketplaceListingInline": "Fiche absente sur {dest}. Si elle existe avec ce SKU, vous pouvez continuer ; si elle est sous un autre SKU, contactez le support.",
         "attention": "Attention :",
         "openSellerCentral": "Ouvrir Seller Central",
         "proceedAnyway": "Continuer quand même"
@@ -3782,8 +3782,8 @@
         "unitsExceedPrepStock": "Einheiten zum Senden / Empfangen dürfen den PrepCenter-Bestand nicht überschreiten: {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Listing fehlt auf {dest}: {asins}",
-        "missingMarketplaceListingInline": "Listing fehlt auf {dest}.",
+        "missingMarketplaceListing": "Listing fehlt auf {dest}: {asins}. Wir haben diese SKUs ohne Angebot auf {dest} erkannt. Bitte in Seller Central prüfen; wenn das Listing mit derselben SKU existiert, kannst du fortfahren. Liegt das Angebot unter einer anderen SKU, kontaktiere den Support.",
+        "missingMarketplaceListingInline": "Listing fehlt auf {dest}. Wenn es mit dieser SKU existiert, kannst du fortfahren; liegt es unter einer anderen SKU, kontaktiere den Support.",
         "attention": "Achtung:",
         "openSellerCentral": "Seller Central öffnen",
         "proceedAnyway": "Trotzdem fortfahren"
@@ -4781,8 +4781,8 @@
         "unitsExceedPrepStock": "Le unità da inviare / ricevere non possono superare lo stock PrepCenter: {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Listing mancante su {dest}: {asins}",
-        "missingMarketplaceListingInline": "Listing mancante su {dest}.",
+        "missingMarketplaceListing": "Listing mancante su {dest}: {asins}. Abbiamo rilevato questi SKU senza offerta su {dest}. Controlla in Seller Central; se il listing esiste con lo stesso SKU puoi continuare. Se l'offerta è sotto un altro SKU, contatta il supporto.",
+        "missingMarketplaceListingInline": "Listing mancante su {dest}. Se esiste con questo SKU puoi continuare; se è sotto un altro SKU, contatta il supporto.",
         "attention": "Attenzione:",
         "openSellerCentral": "Apri Seller Central",
         "proceedAnyway": "Procedi comunque"
@@ -5780,8 +5780,8 @@
         "unitsExceedPrepStock": "Las unidades a enviar / recibir no pueden superar el stock de PrepCenter: {details}"
       },
       "warnings": {
-        "missingMarketplaceListing": "Listado inexistente en {dest}: {asins}",
-        "missingMarketplaceListingInline": "Listado inexistente en {dest}.",
+        "missingMarketplaceListing": "Listado inexistente en {dest}: {asins}. Detectamos estos SKU sin oferta en {dest}. Por favor revisa en Seller Central; si el listing existe con el mismo SKU puedes continuar. Si la oferta está bajo otro SKU, contacta con soporte.",
+        "missingMarketplaceListingInline": "Listado inexistente en {dest}. Si existe con este SKU puedes continuar; si está bajo otro SKU, contacta con soporte.",
         "attention": "Atención:",
         "openSellerCentral": "Abrir Seller Central",
         "proceedAnyway": "Continuar de todos modos"
