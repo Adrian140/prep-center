@@ -42,7 +42,13 @@ function delay(ms) {
 }
 
 function normalizeIdentifier(value) {
-  return value && String(value).trim().length ? String(value).trim().toLowerCase() : '';
+  if (!value && value !== 0) return '';
+  return String(value)
+    .normalize('NFKC')
+    .replace(/[\u00A0\u200B-\u200D\uFEFF]/g, '') // NBSP & zero-width
+    .replace(/[‐‑‒–—―]/g, '-') // unify dash variants to ASCII hyphen
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeHeaderKey(rawHeader) {
