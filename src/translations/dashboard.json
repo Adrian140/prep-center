@@ -479,6 +479,13 @@
         "localOnlyNoAmazonSku": "Product created only locally in our platform. Create it in Amazon to generate an SKU.",
         "unitsExceedPrepStock": "Units to Send / Receive cannot be higher than PrepCenter stock: {details}"
       },
+      "warnings": {
+        "missingMarketplaceListing": "Listing missing on {dest}: {asins}",
+        "missingMarketplaceListingInline": "Listing missing on {dest}.",
+        "attention": "Attention:",
+        "openSellerCentral": "Open Seller Central",
+        "proceedAnyway": "Proceed anyway"
+      },
       "destinationEditor": {
         "title": "Edit destination split",
         "edit": "Edit",
@@ -1646,6 +1653,13 @@
         "localOnlyNoAmazonSku": "Produs creat doar local în platforma noastră. Creează-l în Amazon ca să generezi SKU.",
         "unitsExceedPrepStock": "Unitățile de trimis / recepționat nu pot depăși stocul PrepCenter: {details}"
       },
+      "warnings": {
+        "missingMarketplaceListing": "Listing inexistent pe {dest}: {asins}",
+        "missingMarketplaceListingInline": "Listing inexistent pe {dest}.",
+        "attention": "Atenție:",
+        "openSellerCentral": "Deschide Seller Central",
+        "proceedAnyway": "Continuă oricum"
+      },
       "destinationEditor": {
         "title": "Editează distribuția pe destinații",
         "edit": "Modifică",
@@ -2768,6 +2782,13 @@
         "localOnlyNoAmazonSku": "Produit créé uniquement localement sur notre plateforme. Créez-le dans Amazon pour générer un SKU.",
         "unitsExceedPrepStock": "Les unités à envoyer / recevoir ne peuvent pas dépasser le stock PrepCenter : {details}"
       },
+      "warnings": {
+        "missingMarketplaceListing": "Fiche absente sur {dest} : {asins}",
+        "missingMarketplaceListingInline": "Fiche absente sur {dest}.",
+        "attention": "Attention :",
+        "openSellerCentral": "Ouvrir Seller Central",
+        "proceedAnyway": "Continuer quand même"
+      },
       "destinationEditor": {
         "title": "Modifier la répartition par destination",
         "edit": "Modifier",
@@ -3759,6 +3780,13 @@
         "missingSkuForPrep": "Einige ausgewählte Produkte können nicht an Prep gesendet werden, weil die SKU fehlt (ASIN: {asins}). Bitte fügen Sie für jeden Zielmarkt eine SKU hinzu. Wenn dieser Bestand zu einer anderen SKU gehört, kontaktieren Sie den Administrator.",
         "localOnlyNoAmazonSku": "Produkt wurde nur lokal in unserer Plattform erstellt. Erstellen Sie es in Amazon, um eine SKU zu erhalten.",
         "unitsExceedPrepStock": "Einheiten zum Senden / Empfangen dürfen den PrepCenter-Bestand nicht überschreiten: {details}"
+      },
+      "warnings": {
+        "missingMarketplaceListing": "Listing fehlt auf {dest}: {asins}",
+        "missingMarketplaceListingInline": "Listing fehlt auf {dest}.",
+        "attention": "Achtung:",
+        "openSellerCentral": "Seller Central öffnen",
+        "proceedAnyway": "Trotzdem fortfahren"
       },
       "destinationEditor": {
         "title": "Zielaufteilung bearbeiten",
@@ -4752,6 +4780,13 @@
         "localOnlyNoAmazonSku": "Prodotto creato solo localmente nella nostra piattaforma. Crealo su Amazon per generare uno SKU.",
         "unitsExceedPrepStock": "Le unità da inviare / ricevere non possono superare lo stock PrepCenter: {details}"
       },
+      "warnings": {
+        "missingMarketplaceListing": "Listing mancante su {dest}: {asins}",
+        "missingMarketplaceListingInline": "Listing mancante su {dest}.",
+        "attention": "Attenzione:",
+        "openSellerCentral": "Apri Seller Central",
+        "proceedAnyway": "Procedi comunque"
+      },
       "destinationEditor": {
         "title": "Modifica ripartizione destinazioni",
         "edit": "Modifica",
@@ -5743,6 +5778,13 @@
         "missingSkuForPrep": "Algunos productos seleccionados no se pueden enviar a Prep porque falta el SKU (ASIN: {asins}). Agrega un SKU para cada mercado de destino. Si este stock pertenece a otro SKU, contacta al administrador.",
         "localOnlyNoAmazonSku": "Producto creado solo localmente en nuestra plataforma. Créalo en Amazon para generar un SKU.",
         "unitsExceedPrepStock": "Las unidades a enviar / recibir no pueden superar el stock de PrepCenter: {details}"
+      },
+      "warnings": {
+        "missingMarketplaceListing": "Listado inexistente en {dest}: {asins}",
+        "missingMarketplaceListingInline": "Listado inexistente en {dest}.",
+        "attention": "Atención:",
+        "openSellerCentral": "Abrir Seller Central",
+        "proceedAnyway": "Continuar de todos modos"
       },
       "destinationEditor": {
         "title": "Editar reparto por destino",

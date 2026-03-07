@@ -2561,10 +2561,13 @@ const openPrep = async (force = false) => {
     return !(presence.includes(destination) || hasIeUkAlias);
   });
   if (missingListings.length > 0 && !force) {
-    const warnText = `Listing lipsă pe ${COUNTRY_LABEL_LOOKUP[destination] || destination}: ${missingListings
-      .map((r) => String(r.asin || r.sku || r.ean || r.id || '').trim())
-      .filter(Boolean)
-      .join(', ')}`;
+    const warnText = tp('ClientStock.warnings.missingMarketplaceListing', {
+      dest: COUNTRY_LABEL_LOOKUP[destination] || destination,
+      asins: missingListings
+        .map((r) => String(r.asin || r.sku || r.ean || r.id || '').trim())
+        .filter(Boolean)
+        .join(', ')
+    });
     setSelectionActionWarning(warnText);
     const warnMap = {};
     missingListings.forEach((r) => {
@@ -3255,8 +3258,10 @@ const saveReqChanges = async () => {
       )}
       {listingWarn && (
         <div className="mt-1 rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">
-          <span className="font-semibold">Atenție:</span>{' '}
-          Listing lipsă pe {COUNTRY_LABEL_LOOKUP[warningDest] || warningDest || 'piața aleasă'}.
+          <span className="font-semibold">{t('ClientStock.warnings.attention')}</span>{' '}
+          {tp('ClientStock.warnings.missingMarketplaceListingInline', {
+            dest: COUNTRY_LABEL_LOOKUP[warningDest] || warningDest || '—'
+          })}
           {r.asin && (
             <>
               {' '}
@@ -3266,7 +3271,7 @@ const saveReqChanges = async () => {
                 target="_blank"
                 rel="noreferrer"
               >
-                Deschide Seller Central
+                {t('ClientStock.warnings.openSellerCentral')}
               </a>
             </>
           )}

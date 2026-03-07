@@ -436,7 +436,7 @@ const ClientStockSelectionBar = ({
                 className="text-xs font-semibold px-3 py-1 rounded border border-amber-400 text-amber-800 hover:bg-amber-100"
                 onClick={() => onProceedAnyway()}
               >
-                Continuă oricum
+                {t('ClientStock.warnings.proceedAnyway')}
               </button>
             </div>
           )}
