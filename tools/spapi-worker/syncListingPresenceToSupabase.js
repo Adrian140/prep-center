@@ -211,6 +211,17 @@ async function fetchActiveIntegrations() {
   }
 
   const dedup = new Map();
+  const companyIds = new Set(integrations.map((row) => row.company_id).filter(Boolean));
+  const companyNameMap = new Map();
+  if (companyIds.size) {
+    const { data: companies, error: companyErr } = await supabase
+      .from('companies')
+      .select('id, name')
+      .in('id', Array.from(companyIds));
+    if (!companyErr && Array.isArray(companies)) {
+      companies.forEach((c) => companyNameMap.set(c.id, c.name || null));
+    }
+  }
   for (const row of integrations) {
     const sellerId = row.selling_partner_id || `integration-${row.id}`;
     const refreshToken = tokenMap.get(row.selling_partner_id) || row.refresh_token || process.env.SPAPI_REFRESH_TOKEN || null;
@@ -220,7 +231,8 @@ async function fetchActiveIntegrations() {
       dedup.set(key, {
         ...row,
         seller_id: sellerId,
-        refresh_token: refreshToken
+        refresh_token: refreshToken,
+        company_name: companyNameMap.get(row.company_id) || null
       });
     }
   }
@@ -384,14 +396,15 @@ async function syncIntegration(integration, startedAt) {
     if (isAccessDenied(err)) {
       console.warn(
         `[listing-presence] skipping seller ${integration.seller_id || integration.selling_partner_id
-        } (company ${integration.company_id}) — SP-API access denied`
+        } (company ${integration.company_name || integration.company_id}) — SP-API access denied`
       );
       return [];
     }
     throw err;
   }
 
-  console.log(`[listing-presence] syncing company ${integration.company_id}, seller ${integration.seller_id}`);
+  const companyLabel = integration.company_name || integration.company_id;
+  console.log(`[listing-presence] syncing company ${companyLabel}, seller ${integration.seller_id}`);
 
   const marketResults = [];
   for (const market of TARGET_MARKETS) {
@@ -406,7 +419,7 @@ async function syncIntegration(integration, startedAt) {
       });
       marketResults.push(result);
       console.log(
-        `[listing-presence] company ${integration.company_id} ${market.code}: ${result.matched || 0}/${result.total || 0}`
+        `[listing-presence] company ${companyLabel} ${market.code}: ${result.matched || 0}/${result.total || 0}`
       );
     } catch (error) {
       console.error(
