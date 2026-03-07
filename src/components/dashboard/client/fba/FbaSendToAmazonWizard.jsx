@@ -2125,7 +2125,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!step2Loaded || shippingLoading) return null;
     const summaryWarnings = Array.isArray(shippingSummary?.warnings) ? shippingSummary.warnings.filter(Boolean) : [];
     if (summaryWarnings.length && !shippingSummary?.alreadyConfirmed) {
-      return summaryWarnings.map((w) => String(w)).join(' | ');
+      const dedup = [];
+      const seen = new Set();
+      summaryWarnings.forEach((raw) => {
+        const msg = String(raw || '').trim();
+        if (!msg) return;
+        const key = msg.toLowerCase().includes('heavy parcel') ? 'heavy-parcel' : msg;
+        if (seen.has(key)) return;
+        seen.add(key);
+        dedup.push(msg);
+      });
+      return dedup.join(' | ');
     }
     if (currentStep === '1b') {
       const missingPack = (packGroups || []).some((g) => {
