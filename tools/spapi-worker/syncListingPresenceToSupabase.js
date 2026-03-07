@@ -275,6 +275,19 @@ async function syncIntegrationMarket(params) {
   const stockItems = await fetchCompanyStockItems(companyId);
   if (!stockItems.length) return { marketId, total: 0, matched: 0 };
 
+  // Pentru a evita false-negative atunci când Amazon returnează un raport parțial
+  // (ex.: Pan-EU replicat dar rândurile lipsesc temporar), păstrăm valorile TRUE
+  // existente și nu le suprascriem cu false dacă raportul curent nu are match.
+  const existingPresence = await supabase
+    .from('amazon_listing_presence')
+    .select('stock_item_id, exists_on_marketplace')
+    .eq('company_id', companyId)
+    .eq('marketplace_id', marketId);
+  if (existingPresence.error) throw existingPresence.error;
+  const existingMap = new Map(
+    (existingPresence.data || []).map((row) => [row.stock_item_id, Boolean(row.exists_on_marketplace)])
+  );
+
   const reportId = await createListingReport(spClient, marketId);
   const reportDocumentId = await waitForReport(spClient, reportId);
   if (!reportDocumentId) {
@@ -293,15 +306,23 @@ async function syncIntegrationMarket(params) {
     const hitBySku = skuKey ? bySku.get(skuKey) : null;
     const hitByAsin = !hitBySku && asinKey ? byAsin.get(asinKey) : null;
     const hit = hitBySku || hitByAsin || null;
+    const prevTrue = existingMap.get(item.id) === true;
+    const exists = Boolean(hit) || prevTrue;
     return {
       company_id: item.company_id,
       stock_item_id: item.id,
       seller_id: sellerId,
       marketplace_id: marketId,
-      exists_on_marketplace: Boolean(hit),
+      exists_on_marketplace: exists,
       resolved_sku: hit?.sku || null,
-      source: hitBySku ? 'sku_report_match' : hitByAsin ? 'asin_report_match' : 'report_not_found',
-      raw_status: hit?.status || (hit ? 'LISTED' : 'NOT_FOUND'),
+      source: hitBySku
+        ? 'sku_report_match'
+        : hitByAsin
+        ? 'asin_report_match'
+        : prevTrue
+        ? 'previous_true_preserved'
+        : 'report_not_found',
+      raw_status: hit?.status || (hit ? 'LISTED' : prevTrue ? 'LISTED_PREVIOUS' : 'NOT_FOUND'),
       checked_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
