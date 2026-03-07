@@ -428,7 +428,12 @@ const ClientStockSelectionBar = ({
       ) : null}
       {actionWarning ? (
         <div className="w-full text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2 flex flex-col gap-2">
-          <div>{actionWarning}</div>
+          <div>
+            {tp('ClientStock.warnings.missingMarketplaceListing', {
+              dest: actionWarning.dest,
+              asins: actionWarning.asins
+            })}
+          </div>
           {typeof onProceedAnyway === 'function' && (
             <div>
               <button

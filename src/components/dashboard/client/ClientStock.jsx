@@ -1025,7 +1025,7 @@ const [listingPresenceByItemId, setListingPresenceByItemId] = useState({});
   const [returnNotes, setReturnNotes] = useState('');
   const [returnError, setReturnError] = useState('');
   const [selectionActionError, setSelectionActionError] = useState('');
-  const [selectionActionWarning, setSelectionActionWarning] = useState('');
+  const [selectionActionWarning, setSelectionActionWarning] = useState(null);
   const [listingWarningIds, setListingWarningIds] = useState(new Set());
   const [listingWarningDetails, setListingWarningDetails] = useState({});
   const [savingReturn, setSavingReturn] = useState(false);
@@ -2561,14 +2561,12 @@ const openPrep = async (force = false) => {
     return !(presence.includes(destination) || hasIeUkAlias);
   });
   if (missingListings.length > 0 && !force) {
-    const warnText = tp('ClientStock.warnings.missingMarketplaceListing', {
-      dest: COUNTRY_LABEL_LOOKUP[destination] || destination,
-      asins: missingListings
-        .map((r) => String(r.asin || r.sku || r.ean || r.id || '').trim())
-        .filter(Boolean)
-        .join(', ')
-    });
-    setSelectionActionWarning(warnText);
+    const destLabel = COUNTRY_LABEL_LOOKUP[destination] || destination;
+    const asinsList = missingListings
+      .map((r) => String(r.asin || r.sku || r.ean || r.id || '').trim())
+      .filter(Boolean)
+      .join(', ');
+    setSelectionActionWarning({ dest: destLabel, asins: asinsList });
     const warnMap = {};
     missingListings.forEach((r) => {
       warnMap[r.id] = { destination };
