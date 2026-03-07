@@ -1872,8 +1872,59 @@ serve(async (req) => {
         const gid = String(g.packingGroupId || g.id || "");
         const planGroup = (gid && step1Groups[gid]) || (onlyPlanGroupKey ? step1Groups[onlyPlanGroupKey] : null);
         if (!planGroup) return;
-        const planBoxes = Array.isArray(planGroup.boxes) ? planGroup.boxes : [];
+        let planBoxes = Array.isArray(planGroup.boxes) ? planGroup.boxes : [];
         const planBoxItems = Array.isArray(planGroup.boxItems) ? planGroup.boxItems : [];
+
+        // Fallback: dacă nu avem boxes salvate, încearcă să reconstruiești din dimension_sets + dimension_assignments
+        if (!planBoxes.length) {
+          const dimSets = Array.isArray(planGroup.dimension_sets) ? planGroup.dimension_sets : [];
+          const dimAssignments =
+            planGroup?.dimension_assignments && typeof planGroup.dimension_assignments === "object"
+              ? planGroup.dimension_assignments
+              : {};
+          if (dimSets.length) {
+            const setById = new Map<string, any>();
+            dimSets.forEach((s: any, idx: number) => {
+              const sid = String(s?.id || `dimset-${idx + 1}`);
+              setById.set(sid, s);
+            });
+
+            const boxIds = Object.keys(dimAssignments);
+            const inferredBoxes = (boxIds.length ? boxIds : Array.from(setById.keys())).map((boxId, idx) => {
+              const sid = dimAssignments[boxId] || Array.from(setById.keys())[idx] || null;
+              const set = sid ? setById.get(String(sid)) : null;
+              return {
+                id: boxId,
+                length_cm: Number(set?.length_cm ?? set?.length ?? 0) || 0,
+                width_cm: Number(set?.width_cm ?? set?.width ?? 0) || 0,
+                height_cm: Number(set?.height_cm ?? set?.height ?? 0) || 0,
+                weight_kg:
+                  Number(set?.weight_kg ?? set?.weight ?? planGroup?.box_weight_kg ?? planGroup?.boxWeight ?? 0) || 0
+              };
+            });
+
+            planBoxes = inferredBoxes.filter(
+              (b) => b.length_cm > 0 && b.width_cm > 0 && b.height_cm > 0
+            );
+            try {
+              console.log("step1b boxplan fallback", {
+                traceId,
+                packingGroupId: gid || null,
+                dimSets: dimSets.length,
+                assignments: Object.keys(dimAssignments || {}).length,
+                inferredBoxes: planBoxes.map((b) => ({
+                  l: b.length_cm,
+                  w: b.width_cm,
+                  h: b.height_cm,
+                  kg: b.weight_kg
+                }))
+              });
+            } catch (_e) {
+              /* ignore logging errors */
+            }
+          }
+        }
+
         if (!planBoxes.length) return;
 
         const maxBoxes = 10;

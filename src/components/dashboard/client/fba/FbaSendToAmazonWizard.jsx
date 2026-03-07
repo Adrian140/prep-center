@@ -1032,6 +1032,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const localSku = (idKey && localById.get(idKey)) || (skuKey && localBySku.get(skuKey)) || null;
         if (!localSku) return serverSku;
 
+        // Păstrează cantitatea introdusă de user dacă există; nu o suprascrie cu refresh-ul serverului
+        const serverUnits =
+          Number(serverSku?.units ?? serverSku?.units_sent ?? serverSku?.units_requested ?? 0) || 0;
+        const localUnits =
+          Number(localSku?.units ?? localSku?.units_sent ?? localSku?.units_requested ?? 0) || 0;
+        const mergedUnits = localUnits > 0 ? localUnits : serverUnits;
+
         const serverPacking = String(serverSku?.packing || '').trim().toLowerCase();
         const localPacking = String(localSku?.packing || '').trim().toLowerCase();
         const serverHasTemplate = Boolean(serverSku?.packingTemplateId || serverSku?.packingTemplateName);
@@ -1048,6 +1055,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
         const merged = {
           ...serverSku,
+          units: mergedUnits,
           unitsPerBox: keepPositiveNumber(serverSku?.unitsPerBox, localSku?.unitsPerBox),
           boxesCount: keepPositiveNumber(serverSku?.boxesCount, localSku?.boxesCount),
           boxLengthCm: keepPositiveNumber(serverSku?.boxLengthCm, localSku?.boxLengthCm),
