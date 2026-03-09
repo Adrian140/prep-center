@@ -61,6 +61,7 @@ export default function ClientChatWidget() {
   const [b2bConversations, setB2bConversations] = useState([]);
   const [b2bProfileNamesById, setB2bProfileNamesById] = useState({});
   const [b2bCompanyNamesById, setB2bCompanyNamesById] = useState({});
+  const [blockedMarkets, setBlockedMarkets] = useState([]);
   const [b2bUnreadByConversationId, setB2bUnreadByConversationId] = useState({});
   const [b2bReadByConversationId, setB2bReadByConversationId] = useState({});
   const [b2bLoading, setB2bLoading] = useState(false);
@@ -146,9 +147,9 @@ export default function ClientChatWidget() {
 
   const markSupportUnread = () => {
     if (!selectedMarket) return;
-    // Incrementăm badge-ul roșu; nu auto-selectăm conversația curentă data viitoare
+    // Blocăm auto-selectul și păstrăm badge-ul roșu
+    setBlockedMarkets((prev) => Array.from(new Set([...prev, selectedMarket])));
     setOpen(false);
-    setSelectedMarket(''); // blocăm auto-selectul până userul alege explicit
     setUnreadByMarket((prev) => ({
       ...prev,
       [selectedMarket]: (prev?.[selectedMarket] || 0) + 1
@@ -159,7 +160,7 @@ export default function ClientChatWidget() {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
   };
 
-  const loadSupportConversation = async (market, { silent = false } = {}) => {
+    const loadSupportConversation = async (market, { silent = false } = {}) => {
     if (!user?.id || !companyId || !market) return;
     if (!silent) setMarketStatus(market, { loading: true, error: '', forbidden: false });
     try {
@@ -568,7 +569,9 @@ export default function ClientChatWidget() {
 
   if (!user || !companyId || isAdmin) return null;
 
-  const selectedSupportConversation = conversationsByMarket[selectedMarket] || null;
+  // Dacă marketul este blocat (mark unread), nu selectăm conversația până userul face click pe un market
+  const selectedSupportConversation =
+    blockedMarkets.includes(selectedMarket) ? null : conversationsByMarket[selectedMarket] || null;
   const selectedSupportStatus = statusByMarket[selectedMarket] || {};
   const staffLabel = staffLabelByCountry(selectedMarket);
   const supportUnreadTotal = Object.values(unreadByMarket).reduce((sum, n) => sum + Number(n || 0), 0);
@@ -651,7 +654,10 @@ export default function ClientChatWidget() {
                       return (
                         <button
                           key={market}
-                          onClick={() => setSelectedMarket(market)}
+                          onClick={() => {
+                            setBlockedMarkets((prev) => prev.filter((m) => m !== market));
+                            setSelectedMarket(market);
+                          }}
                           disabled={forbidden}
                           className={`relative rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                             active
