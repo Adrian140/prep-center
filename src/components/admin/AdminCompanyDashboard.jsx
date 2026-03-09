@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  Line,
   CartesianGrid,
   XAxis,
   YAxis,
@@ -153,7 +154,7 @@ export default function AdminCompanyDashboard() {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
   const [snapshot, setSnapshot] = useState(null);
-  const [chartRange, setChartRange] = useState(1);
+  const [chartRange, setChartRange] = useState(30);
   const [chartSnapshot, setChartSnapshot] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
@@ -415,6 +416,7 @@ export default function AdminCompanyDashboard() {
     start.setDate(end.getDate() - (days - 1));
     setDateFrom(start.toISOString().slice(0, 10));
     setDateTo(end.toISOString().slice(0, 10));
+    setChartRange(days);
   };
 
 
@@ -664,6 +666,7 @@ export default function AdminCompanyDashboard() {
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
                     <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
+                    <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={2} dot={{ r: 2 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -694,6 +697,7 @@ export default function AdminCompanyDashboard() {
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
                     <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
+                    <Line type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
