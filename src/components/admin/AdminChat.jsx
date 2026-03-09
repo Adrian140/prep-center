@@ -127,15 +127,6 @@ export default function AdminChat() {
     }));
   };
 
-  const markConversationUnread = (conversationId) => {
-    if (!conversationId) return;
-    setActiveId(null);
-    setUnreadByConversationId((prev) => ({
-      ...prev,
-      [conversationId]: (prev?.[conversationId] || 0) + 1
-    }));
-  };
-
   useEffect(() => {
     if (!user?.id) return;
     let mounted = true;
