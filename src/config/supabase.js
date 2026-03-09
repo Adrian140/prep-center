@@ -2212,6 +2212,7 @@ createPrepItem: async (requestId, item) => {
     receivingItemsQuery = receivingItemsQuery
       .gte('moved_at', startIso)
       .lte('moved_at', endIso)
+      .order('moved_at', { ascending: false })
       .limit(20000);
     const receivingItemsPromise = receivingItemsQuery;
 
