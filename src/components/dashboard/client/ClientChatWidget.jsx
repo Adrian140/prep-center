@@ -98,8 +98,9 @@ export default function ClientChatWidget() {
   useEffect(() => {
     const preferred = String(currentMarket || 'FR').toUpperCase();
     const next = SUPPORTED_CHAT_MARKETS.includes(preferred) ? preferred : 'FR';
+    if (blockedMarkets.includes(next)) return;
     if (next && next !== selectedMarket) setSelectedMarket(next);
-  }, [currentMarket, selectedMarket]);
+  }, [currentMarket, selectedMarket, blockedMarkets]);
 
   useEffect(() => {
     if (!b2bReadStorageKey) return;
@@ -166,6 +167,7 @@ export default function ClientChatWidget() {
 
     const loadSupportConversation = async (market, { silent = false } = {}) => {
     if (!user?.id || !companyId || !market) return;
+    if (blockedMarkets.includes(market)) return;
     if (!silent) setMarketStatus(market, { loading: true, error: '', forbidden: false });
     try {
       const res = await supabaseHelpers.getChatConversation({
