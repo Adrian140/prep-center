@@ -4159,9 +4159,27 @@ getAllReceivingShipments: async (options = {}) => {
 
   markChatUnread: async ({ conversationId }) => {
     if (!conversationId) return { data: 0, error: null };
-    return await supabase.rpc('chat_mark_unread', {
+    const rpc = await supabase.rpc('chat_mark_unread', {
       p_conversation_id: conversationId
     });
+    // Fallback if RPC missing/not deployed: delete own read rows for this conversation
+    if (rpc?.error && rpc.error?.code === '404') {
+      const idsRes = await supabase
+        .from('chat_messages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .limit(5000);
+      if (idsRes.error || !Array.isArray(idsRes.data) || !idsRes.data.length) {
+        return rpc;
+      }
+      const messageIds = idsRes.data.map((r) => r.id);
+      const delRes = await supabase
+        .from('chat_message_reads')
+        .delete()
+        .in('message_id', messageIds);
+      return { data: delRes?.count ?? 0, error: delRes?.error || null };
+    }
+    return rpc;
   },
 
   uploadChatAttachment: async ({ conversationId, messageId, file }) => {
