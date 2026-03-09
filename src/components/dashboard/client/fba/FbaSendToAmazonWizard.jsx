@@ -4652,6 +4652,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setLabelsError('Missing shipmentConfirmationId for labels. Try again after confirming shipping.');
         return;
       }
+      // Persistăm ID-ul confirmat ca să nu se piardă până la pasul 4.
+      const normalizedConfirmationId = String(confirmationId).trim().toUpperCase();
+      setManualFbaShipmentId((prev) => prev || normalizedConfirmationId);
+      if (!plan?.fba_shipment_id || String(plan.fba_shipment_id).trim().toUpperCase() !== normalizedConfirmationId) {
+        await supabase
+          .from('prep_requests')
+          .update({ fba_shipment_id: normalizedConfirmationId })
+          .eq('id', requestId);
+        setPlan((prev) => ({ ...prev, fba_shipment_id: normalizedConfirmationId }));
+      }
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const packageCount = Number(shipment?.boxes || 0) || 1;
       const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
