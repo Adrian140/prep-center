@@ -146,7 +146,9 @@ export default function ClientChatWidget() {
 
   const markSupportUnread = () => {
     if (!selectedMarket) return;
-    // Incrementăm badge-ul roșu și nu selectăm alt client/conversație
+    // Incrementăm badge-ul roșu și deselectăm conversația/marketul curent pentru a nu se marca automat ca citit
+    setOpen(false);
+    setSelectedMarket(null);
     setUnreadByMarket((prev) => ({
       ...prev,
       [selectedMarket]: (prev?.[selectedMarket] || 0) + 1
