@@ -147,8 +147,12 @@ export default function ClientChatWidget() {
 
   const markSupportUnread = () => {
     if (!selectedMarket) return;
-    // Blocăm auto-selectul și păstrăm badge-ul roșu
+    // Blocăm marketul, resetăm selecția și închidem complet panelul
     setBlockedMarkets((prev) => Array.from(new Set([...prev, selectedMarket])));
+    setSelectedMarket(null);
+    setActiveB2bConversationId(null);
+    setConversationsByMarket({});
+    setB2bConversations([]);
     setOpen(false);
     setUnreadByMarket((prev) => ({
       ...prev,
