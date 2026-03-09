@@ -429,6 +429,10 @@ export default function AdminCompanyDashboard() {
 
   const todayOrders = snapshot?.shipped?.unitsToday ?? 0;
   const todayReceiving = snapshot?.receiving?.unitsToday ?? 0;
+  const shippedShipmentsToday =
+    snapshot?.shipped?.shipmentsToday ??
+    snapshot?.shipped?.shipmentsTotal ??
+    0;
   const todayReceivingShipments =
     snapshot?.receiving?.shipmentsToday ??
     snapshot?.receiving?.countToday ??
@@ -655,7 +659,13 @@ export default function AdminCompanyDashboard() {
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>{t('adminDashboard.unitsReceivedRange')}</span>
+                <div>
+                  <div className="font-semibold text-text-primary">{t('adminDashboard.unitsReceivedRange')}</div>
+                  <div className="text-xs text-text-secondary">
+                    {t('adminDashboard.arrivingToday')}: {inboundTodayShipments} {t('adminDashboard.shipmentsLabel').toLowerCase()}, {inboundTodayUnits}{' '}
+                    {t('adminDashboard.unitsLabel').toLowerCase()}
+                  </div>
+                </div>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{inboundTotalRange}</span>
               </div>
               <div className="w-full h-28">
@@ -678,7 +688,7 @@ export default function AdminCompanyDashboard() {
             <MetricCard
               title={isSingleDay ? t('adminDashboard.shippedToday') : tp('adminDashboard.shippedLastDays', { days: rangeDays })}
               lines={[
-                `${snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
+                `${isSingleDay ? shippedShipmentsToday : snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
                 `${isSingleDay ? todayOrders : shippedTotalRange} ${t('adminDashboard.unitsLabel')}`
               ]}
               hideValue
@@ -686,7 +696,13 @@ export default function AdminCompanyDashboard() {
             />
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
-                <span>{t('adminDashboard.unitsShippedRange')}</span>
+                <div>
+                  <div className="font-semibold text-text-primary">{t('adminDashboard.unitsShippedRange')}</div>
+                  <div className="text-xs text-text-secondary">
+                    {t('adminDashboard.shippedToday')}: {shippedShipmentsToday} {t('adminDashboard.shipmentsLabel').toLowerCase()},{' '}
+                    {todayOrders} {t('adminDashboard.unitsLabel').toLowerCase()}
+                  </div>
+                </div>
                 <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{shippedTotalRange}</span>
               </div>
               <div className="w-full h-28">
