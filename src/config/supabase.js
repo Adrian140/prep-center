@@ -2730,7 +2730,13 @@ createPrepItem: async (requestId, item) => {
     };
 
     const ordersSeries = buildSeries(prepRows, (row) => row.confirmed_at);
-    const shipmentsSeries = buildSeries(receivingRows);
+    const shipmentsSeries = {
+      label: 'Receiving shipments',
+      statusCounts: {},
+      statusKeys: [],
+      daily: shipmentsFromLog.daily,
+      recent: []
+    };
     const returnsSeries = buildSeries(returnsRows);
 
     const preparedDailyUnits = buildDailyUnits(
@@ -2855,6 +2861,35 @@ createPrepItem: async (requestId, item) => {
       (row) => getReceivingDate(row),
       (row) => row.quantity_moved ?? row.quantity
     );
+
+    const buildDailyShipmentsFromLog = (rows) => {
+      const map = new Map(); // date -> Set of shipment_ids
+      rows.forEach((row) => {
+        const day = getReceivingDate(row);
+        if (!day) return;
+        const shId =
+          row?.receiving_items?.shipment_id ||
+          row?.shipment_id ||
+          row?.receiving_items?.receiving_shipments?.id ||
+          null;
+        if (!shId) return;
+        if (!map.has(day)) map.set(day, new Set());
+        map.get(day).add(shId);
+      });
+      const daily = [];
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = formatSqlDate(d);
+        daily.push({ date: key, total: map.get(key)?.size || 0 });
+      }
+      const totalRangeSet = new Set();
+      map.forEach((set) => set.forEach((id) => totalRangeSet.add(id)));
+      const todayTotal = map.get(dateFrom)?.size || 0;
+      return { daily, todayTotal, totalRange: totalRangeSet.size };
+    };
+
+    const shipmentsFromLog = buildDailyShipmentsFromLog(receivingItemsInRange);
 
     return {
       data: {
