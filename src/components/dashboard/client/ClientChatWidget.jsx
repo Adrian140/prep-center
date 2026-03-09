@@ -144,6 +144,15 @@ export default function ClientChatWidget() {
     });
   };
 
+  const markSupportUnread = () => {
+    if (!selectedMarket) return;
+    setOpen(false);
+    setUnreadByMarket((prev) => ({
+      ...prev,
+      [selectedMarket]: (prev?.[selectedMarket] || 0) + 1
+    }));
+  };
+
   const setMarketStatus = (market, patch) => {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
   };
@@ -679,6 +688,7 @@ export default function ClientChatWidget() {
                     clientName={clientName}
                     market={selectedMarket}
                     onClose={() => setOpen(false)}
+                    onMarkUnread={markSupportUnread}
                   />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500">

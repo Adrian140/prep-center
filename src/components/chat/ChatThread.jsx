@@ -33,7 +33,8 @@ export default function ChatThread({
   headerSubtitle,
   isAdmin = false,
   market = 'FR',
-  onClose
+  onClose,
+  onMarkUnread
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -63,6 +64,9 @@ export default function ChatThread({
   const markUnread = async () => {
     if (!conversationId) return;
     await supabaseHelpers.markChatUnread({ conversationId });
+    if (typeof onMarkUnread === 'function') {
+      onMarkUnread(conversationId);
+    }
   };
 
   const mergeMessages = (incoming = []) => {
