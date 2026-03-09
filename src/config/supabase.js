@@ -2219,12 +2219,10 @@ createPrepItem: async (requestId, item) => {
       ? supabase.from('profiles').select('current_balance').eq('id', userId).maybeSingle()
       : Promise.resolve({ data: null, error: null });
 
-    const fbaStandalonePromise = withCountry(
-      withCompany(
-        supabase
-          .from('fba_lines')
-          .select('id, total, unit_price, units, service_date, prep_request_id, obs_admin')
-      )
+    const fbaStandalonePromise = withCompany(
+      supabase
+        .from('fba_lines')
+        .select('id, total, unit_price, units, service_date, prep_request_id, obs_admin')
     )
       .is('prep_request_id', null)
       .gte('service_date', dateFrom)
@@ -2236,7 +2234,8 @@ createPrepItem: async (requestId, item) => {
           .from('prep_requests')
           .select('id, fba_shipment_id, completed_at, step4_confirmed_at, confirmed_at')
           .eq('status', 'confirmed')
-      )
+      ),
+      'warehouse_country'
     )
       .gte('completed_at', startIso)
       .lte('completed_at', endIso)
