@@ -4157,6 +4157,13 @@ getAllReceivingShipments: async (options = {}) => {
     });
   },
 
+  markChatUnread: async ({ conversationId }) => {
+    if (!conversationId) return { data: 0, error: null };
+    return await supabase.rpc('chat_mark_unread', {
+      p_conversation_id: conversationId
+    });
+  },
+
   uploadChatAttachment: async ({ conversationId, messageId, file }) => {
     if (!conversationId || !messageId || !file) {
       return { data: null, error: new Error('Missing attachment data') };

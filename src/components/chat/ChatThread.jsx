@@ -60,6 +60,11 @@ export default function ChatThread({
 
   const conversationId = conversation?.id;
 
+  const markUnread = async () => {
+    if (!conversationId) return;
+    await supabaseHelpers.markChatUnread({ conversationId });
+  };
+
   const mergeMessages = (incoming = []) => {
     if (!Array.isArray(incoming) || incoming.length === 0) return;
     setMessages((prev) => {
@@ -355,15 +360,24 @@ export default function ChatThread({
             <div className="text-xs text-slate-500">{subtitle}</div>
           )}
         </div>
-        {onClose && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={onClose}
-            className="rounded-full p-1 text-slate-500 hover:text-slate-700"
-            aria-label="Close chat"
+            onClick={markUnread}
+            className="text-xs text-slate-500 hover:text-slate-700"
+            title="Mark as unread"
           >
-            <X size={16} />
+            Mark unread
           </button>
-        )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-full p-1 text-slate-500 hover:text-slate-700"
+              aria-label="Close chat"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
       </div>
     );
   }, [staffName, staffPerson, onClose, headerTitle, headerSubtitle]);
