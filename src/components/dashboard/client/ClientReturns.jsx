@@ -138,6 +138,15 @@ export default function ClientReturns() {
 
   const canEdit = (row) => editableStatuses.includes(row.status);
 
+  // Supabase rejectă chei cu spații/diacritice; curățăm numele pentru path.
+  const sanitizeFilename = (name = '') =>
+    name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'file';
+
   const uploadFiles = async (row, type, fileList) => {
     if (!fileList || !fileList.length) return;
     if (!profile?.company_id) {
@@ -150,7 +159,8 @@ export default function ClientReturns() {
       const arr = Array.from(fileList);
       const uploaded = [];
       for (const file of arr) {
-        const path = `${profile.company_id}/${Date.now()}-${file.name}`;
+        const safeName = sanitizeFilename(file.name);
+        const path = `${profile.company_id}/${Date.now()}-${safeName}`;
         const { data: upData, error: upErr } = await supabase.storage
           .from(bucket)
           .upload(path, file, { upsert: false, contentType: file.type || undefined });
