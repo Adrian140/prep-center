@@ -478,16 +478,51 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
 
-  // Graficele folosesc întotdeauna fereastra de 90 zile (chartRange), independent de datele cardurilor zilnice
-  const inboundRange = receivingDaily.map((row) => ({ date: row.date, value: row.units || 0 }));
-  const inboundShipmentsRange = receivingShipmentsDaily.reduce((sum, row) => sum + Number(row.total || 0), 0);
-  const inboundShipmentsTodayRaw = receivingShipmentsDaily
+  // Graficele folosesc fereastra de 90 zile (chartRange); combinăm units + shipments în același dataset
+  const inboundMap = new Map();
+  receivingDaily.forEach((row) => {
+    const key = row.date;
+    if (!key) return;
+    const prev = inboundMap.get(key) || { date: key, units: 0, shipments: 0 };
+    prev.units = row.units || 0;
+    inboundMap.set(key, prev);
+  });
+  receivingShipmentsDaily.forEach((row) => {
+    const key = row.date;
+    if (!key) return;
+    const prev = inboundMap.get(key) || { date: key, units: 0, shipments: 0 };
+    prev.shipments = row.total || 0;
+    inboundMap.set(key, prev);
+  });
+  const inboundRange = Array.from(inboundMap.values()).sort((a, b) => (a.date > b.date ? 1 : -1));
+  const inboundShipmentsRange = inboundRange.reduce((sum, row) => sum + Number(row.shipments || 0), 0);
+  const inboundShipmentsTodayRaw = inboundRange
     .filter((row) => row.date === dateFrom)
-    .reduce((sum, row) => sum + Number(row.total || 0), 0);
-  const shippedRange = preparedDaily.map((row) => ({ date: row.date, value: row.units || 0 }));
+    .reduce((sum, row) => sum + Number(row.shipments || 0), 0);
 
-  const inboundTotalRange = inboundRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
-  const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
+  const shippedShipmentsDaily =
+    chartSnapshot?.shipped?.dailyShipments ||
+    snapshot?.shipped?.dailyShipments ||
+    [];
+  const shippedMap = new Map();
+  preparedDaily.forEach((row) => {
+    const key = row.date;
+    if (!key) return;
+    const prev = shippedMap.get(key) || { date: key, units: 0, shipments: 0 };
+    prev.units = row.units || 0;
+    shippedMap.set(key, prev);
+  });
+  shippedShipmentsDaily.forEach((row) => {
+    const key = row.date;
+    if (!key) return;
+    const prev = shippedMap.get(key) || { date: key, units: 0, shipments: 0 };
+    prev.shipments = row.total || 0;
+    shippedMap.set(key, prev);
+  });
+  const shippedRange = Array.from(shippedMap.values()).sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const inboundTotalRange = inboundRange.reduce((sum, row) => sum + Number(row.units || 0), 0);
+  const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.units || 0), 0);
 
   const rangeDays = (() => {
     try {
@@ -665,8 +700,10 @@ export default function AdminCompanyDashboard() {
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
-                    <Line type="monotone" dataKey="value" stroke="#4f46e5" strokeWidth={2} dot={{ r: 2 }} />
+                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
+                    <Line type="monotone" dataKey="units" stroke="#4f46e5" strokeWidth={2} dot={{ r: 2 }} name="Units" />
+                    <Line type="monotone" dataKey="shipments" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} name="Shipments" />
+                    <Legend />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -702,8 +739,10 @@ export default function AdminCompanyDashboard() {
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="value" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
-                    <Line type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} />
+                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
+                    <Line type="monotone" dataKey="units" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} name="Units" />
+                    <Line type="monotone" dataKey="shipments" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} name="Shipments" />
+                    <Legend />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
