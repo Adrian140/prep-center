@@ -2172,7 +2172,7 @@ createPrepItem: async (requestId, item) => {
         supabase
           .from('receiving_shipments')
           .select('id, status, received_at, created_at')
-          .in('status', ['received', 'Received', 'RECEIVED'])
+          .in('status', ['received', 'Received', 'RECEIVED', 'partial', 'processed'])
       ),
       'warehouse_country'
     )
