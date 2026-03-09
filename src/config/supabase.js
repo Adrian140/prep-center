@@ -2452,15 +2452,19 @@ createPrepItem: async (requestId, item) => {
     const fbaFinalizedDateByRequestId = new Map();
     const fbaFinalizedDateByShipmentId = new Map();
     const fbaCountryByRequestId = new Map();
+    const fbaCountryByShipmentId = new Map();
     finalizedPrepRequestsRows.forEach((row) => {
       const effectiveDate = row?.completed_at || row?.step4_confirmed_at || row?.confirmed_at || null;
       if (!effectiveDate) return;
       const day = String(effectiveDate).slice(0, 10);
       fbaFinalizedDateByRequestId.set(row.id, day);
       const shipmentId = extractFbaShipmentId(row?.fba_shipment_id);
-      if (shipmentId) fbaFinalizedDateByShipmentId.set(shipmentId, day);
       const reqCountry = normalizeMarketCode(row?.warehouse_country);
       if (reqCountry) fbaCountryByRequestId.set(row.id, reqCountry);
+      if (shipmentId) {
+        fbaFinalizedDateByShipmentId.set(shipmentId, day);
+        if (reqCountry) fbaCountryByShipmentId.set(shipmentId, reqCountry);
+      }
     });
 
     const fbaPrepRequestIds = Array.from(fbaFinalizedDateByRequestId.keys());
