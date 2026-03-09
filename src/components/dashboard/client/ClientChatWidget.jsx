@@ -146,10 +146,7 @@ export default function ClientChatWidget() {
 
   const markSupportUnread = () => {
     if (!selectedMarket) return;
-    // Închidem panelul, resetăm conversația curentă și incrementăm badge-ul roșu.
-    setOpen(false);
-    setConversationsByMarket((prev) => ({ ...prev, [selectedMarket]: null }));
-    setMarketStatus(selectedMarket, { loading: false, error: '', forbidden: false });
+    // Incrementăm badge-ul roșu și nu selectăm alt client/conversație
     setUnreadByMarket((prev) => ({
       ...prev,
       [selectedMarket]: (prev?.[selectedMarket] || 0) + 1
