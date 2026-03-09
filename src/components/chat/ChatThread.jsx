@@ -63,9 +63,13 @@ export default function ChatThread({
 
   const markUnread = async () => {
     if (!conversationId) return;
-    await supabaseHelpers.markChatUnread({ conversationId });
     if (typeof onMarkUnread === 'function') {
       onMarkUnread(conversationId);
+    }
+    try {
+      await supabaseHelpers.markChatUnread({ conversationId });
+    } catch {
+      // ignore errors; UI already updated
     }
   };
 
