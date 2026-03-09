@@ -636,6 +636,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [labelsError, setLabelsError] = useState('');
   const [step3Confirming, setStep3Confirming] = useState(false);
   const [step3Error, setStep3Error] = useState('');
+  const [manualFbaShipmentId, setManualFbaShipmentId] = useState('');
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -4702,6 +4703,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const resolveFbaShipmentId = () => resolveFbaShipmentIdFromList(shipments);
+  const normalizeManualFbaShipmentId = (value) => {
+    const str = String(value || '').trim().toUpperCase();
+    return isFbaShipmentId(str) ? str : null;
+  };
+
+  useEffect(() => {
+    const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
+    const normalized = normalizeManualFbaShipmentId(existingIdRaw);
+    if (normalized) setManualFbaShipmentId(normalized);
+  }, [plan?.fba_shipment_id, plan?.fba_shipmentId]);
 
   const finalizeStep3 = async () => {
     if (step3Confirming) return;
@@ -4716,9 +4727,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
     const existingFbaId = isFbaShipmentId(existingIdRaw) ? String(existingIdRaw).trim().toUpperCase() : null;
-    const shipmentId = resolveFbaShipmentId() || existingFbaId;
+    const manualId = normalizeManualFbaShipmentId(manualFbaShipmentId);
+    const shipmentId = resolveFbaShipmentId() || manualId || existingFbaId;
     if (!shipmentId) {
-      setStep3Error('Could not find FBA shipment ID from Amazon. Retry after confirming shipping.');
+      setStep3Error('Could not find FBA shipment ID from Amazon. Please enter it manually.');
       return;
     }
     setStep3Confirming(true);
@@ -5462,6 +5474,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           printLoadingId={labelsLoadingId}
           confirming={step3Confirming}
           error={step3Error || labelsError}
+          manualFbaShipmentId={manualFbaShipmentId}
+          onManualFbaShipmentIdChange={setManualFbaShipmentId}
           onBack={() => goToStep('2')}
           onNext={finalizeStep3}
         />

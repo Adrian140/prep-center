@@ -9,6 +9,8 @@ export default function FbaStep3Labels({
   printLoadingId,
   confirming,
   error,
+  manualFbaShipmentId,
+  onManualFbaShipmentIdChange,
   onBack,
   onNext
 }) {
@@ -62,6 +64,21 @@ export default function FbaStep3Labels({
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="px-6 pb-2">
+        <label className="block text-sm font-semibold text-slate-700 mb-1">
+          FBA shipment ID (manual)
+        </label>
+        <input
+          className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
+          placeholder="Ex: FBA123456789"
+          value={manualFbaShipmentId || ''}
+          onChange={(e) => onManualFbaShipmentIdChange?.(e.target.value)}
+        />
+        <div className="text-xs text-slate-500 mt-1">
+          Completează doar dacă Amazon nu a returnat automat ID-ul expedierii.
+        </div>
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
