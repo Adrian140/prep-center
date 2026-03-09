@@ -2451,6 +2451,7 @@ createPrepItem: async (requestId, item) => {
     const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
     const fbaFinalizedDateByRequestId = new Map();
     const fbaFinalizedDateByShipmentId = new Map();
+    const fbaCountryByRequestId = new Map();
     finalizedPrepRequestsRows.forEach((row) => {
       const effectiveDate = row?.completed_at || row?.step4_confirmed_at || row?.confirmed_at || null;
       if (!effectiveDate) return;
@@ -2458,6 +2459,8 @@ createPrepItem: async (requestId, item) => {
       fbaFinalizedDateByRequestId.set(row.id, day);
       const shipmentId = extractFbaShipmentId(row?.fba_shipment_id);
       if (shipmentId) fbaFinalizedDateByShipmentId.set(shipmentId, day);
+      const reqCountry = normalizeMarketCode(row?.warehouse_country);
+      if (reqCountry) fbaCountryByRequestId.set(row.id, reqCountry);
     });
 
     const fbaPrepRequestIds = Array.from(fbaFinalizedDateByRequestId.keys());
@@ -2478,7 +2481,14 @@ createPrepItem: async (requestId, item) => {
           throw chunkRes.error;
         }
         if (!chunkRes?.error) {
-          fbaPrepRequestLines.push(...(Array.isArray(chunkRes.data) ? chunkRes.data : []));
+          const rows = Array.isArray(chunkRes.data) ? chunkRes.data : [];
+          const filtered = marketCode
+            ? rows.filter((r) => {
+                const reqCountry = fbaCountryByRequestId.get(r.prep_request_id);
+                return !reqCountry || reqCountry === marketCode;
+              })
+            : rows;
+          fbaPrepRequestLines.push(...filtered);
         }
       }
     }
@@ -2498,7 +2508,15 @@ createPrepItem: async (requestId, item) => {
           .in('obs_admin', shipmentChunk)
           .limit(20000);
         if (chunkRes?.error) throw chunkRes.error;
-        fbaLegacyLinesByShipment.push(...(Array.isArray(chunkRes.data) ? chunkRes.data : []));
+        const rows = Array.isArray(chunkRes.data) ? chunkRes.data : [];
+        const filtered = marketCode
+          ? rows.filter((r) => {
+              const shipmentId = extractFbaShipmentId(r.obs_admin);
+              const reqCountry = shipmentId ? fbaCountryByShipmentId.get(shipmentId) : null;
+              return !reqCountry || reqCountry === marketCode;
+            })
+          : rows;
+        fbaLegacyLinesByShipment.push(...filtered);
       }
     }
 
@@ -2507,9 +2525,14 @@ createPrepItem: async (requestId, item) => {
       const d = String(value).slice(0, 10);
       return d >= dateFrom && d <= dateTo;
     };
+    // Filtrăm standalone/legacy pe țară dacă e setat marketCode
+    const standaloneFiltered = marketCode
+      ? []
+      : fbaStandaloneLines;
+
     const dedupedFbaLines = Array.from(
       new Map(
-        [...fbaStandaloneLines, ...fbaPrepRequestLines, ...fbaLegacyLinesByShipment].map((row) => [row?.id || JSON.stringify(row), row])
+        [...standaloneFiltered, ...fbaPrepRequestLines, ...fbaLegacyLinesByShipment].map((row) => [row?.id || JSON.stringify(row), row])
       ).values()
     );
     const fbaLinesForFinance = dedupedFbaLines.map((row) => {
