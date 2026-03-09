@@ -27,6 +27,7 @@ export default function AdminChat() {
   const [metaByConversationId, setMetaByConversationId] = useState({});
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
   const [loading, setLoading] = useState(false);
+  const [allowAutoSelect, setAllowAutoSelect] = useState(true);
 
   const market = String(currentMarket || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
@@ -40,12 +41,14 @@ export default function AdminChat() {
     const rows = res.data || [];
     setConversations(rows);
     await hydrateConversationMeta(rows);
-    if (!keepActive && rows.length) {
-      setActiveId(rows[0].id);
-    } else if (!activeId && rows.length) {
-      setActiveId(rows[0].id);
-    } else if (activeId && rows.length && !rows.some((r) => r.id === activeId)) {
-      setActiveId(rows[0].id);
+    if (allowAutoSelect && rows.length) {
+      if (!keepActive) {
+        setActiveId(rows[0].id);
+      } else if (!activeId) {
+        setActiveId(rows[0].id);
+      } else if (activeId && !rows.some((r) => r.id === activeId)) {
+        setActiveId(rows[0].id);
+      }
     }
     setLoading(false);
     return rows;
@@ -120,6 +123,7 @@ export default function AdminChat() {
 
   const markConversationUnread = (conversationId) => {
     if (!conversationId) return;
+    setAllowAutoSelect(false);
     setActiveId(null);
     setUnreadByConversationId((prev) => ({
       ...prev,
