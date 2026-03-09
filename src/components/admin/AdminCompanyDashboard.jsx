@@ -700,8 +700,7 @@ export default function AdminCompanyDashboard() {
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
-                    <Line type="monotone" dataKey="units" stroke="#4f46e5" strokeWidth={2} dot={{ r: 2 }} name="Units" />
+                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} name="Units" />
                     <Line type="monotone" dataKey="shipments" stroke="#f97316" strokeWidth={2} dot={{ r: 2 }} name="Shipments" />
                     <Legend />
                   </AreaChart>
@@ -739,8 +738,7 @@ export default function AdminCompanyDashboard() {
                     <XAxis dataKey="date" tickFormatter={(v) => formatDisplayDate(v)} tick={{ fontSize: 10 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} />
-                    <Line type="monotone" dataKey="units" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 2 }} name="Units" />
+                    <Area type="monotone" dataKey="units" stroke="#6366f1" fill="#6366f1" fillOpacity={0.12} name="Units" />
                     <Line type="monotone" dataKey="shipments" stroke="#10b981" strokeWidth={2} dot={{ r: 2 }} name="Shipments" />
                     <Legend />
                   </AreaChart>
