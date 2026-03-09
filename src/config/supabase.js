@@ -2176,8 +2176,9 @@ createPrepItem: async (requestId, item) => {
       ),
       'warehouse_country'
     )
-      .gte('received_at', startIso)
-      .lte('received_at', endIso)
+      .or(
+        `and(received_at.gte.${startIso},received_at.lte.${endIso}),and(created_at.gte.${startIso},created_at.lte.${endIso})`
+      )
       .limit(5000);
 
     let prepItemsQuery = supabase
