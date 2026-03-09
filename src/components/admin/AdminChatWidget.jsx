@@ -95,6 +95,15 @@ export default function AdminChatWidget() {
     setUnreadByConversationId(Object.fromEntries(unreadEntries));
   };
 
+  const markConversationUnread = (conversationId) => {
+    if (!conversationId) return;
+    setActiveId(null);
+    setUnreadByConversationId((prev) => ({
+      ...prev,
+      [conversationId]: (prev?.[conversationId] || 0) + 1
+    }));
+  };
+
   useEffect(() => {
     if (!user?.id || !isAdmin) return;
     let mounted = true;
@@ -204,16 +213,17 @@ export default function AdminChatWidget() {
                   conversation={activeConversation}
                   currentUserId={user.id}
                   senderRole="admin"
-                  staffLabel={staffLabel}
-                  clientName={activeMeta?.clientName || activeConversation.client_display_name}
-                  headerTitle={activeMeta?.companyName || 'Company'}
-                  headerSubtitle={activeMeta?.clientName || activeConversation.client_display_name}
-                  isAdmin
-                  onClose={() => setOpen(false)}
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-slate-500">
-                  Select a conversation
+              staffLabel={staffLabel}
+              clientName={activeMeta?.clientName || activeConversation.client_display_name}
+              headerTitle={activeMeta?.companyName || 'Company'}
+              headerSubtitle={activeMeta?.clientName || activeConversation.client_display_name}
+              isAdmin
+              onMarkUnread={() => markConversationUnread(activeConversation.id)}
+              onClose={() => setOpen(false)}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-slate-500">
+              Select a conversation
                 </div>
               )}
             </div>

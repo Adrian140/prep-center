@@ -118,6 +118,24 @@ export default function AdminChat() {
     setUnreadByConversationId(Object.fromEntries(unreadEntries));
   };
 
+  const markConversationUnread = (conversationId) => {
+    if (!conversationId) return;
+    setActiveId(null);
+    setUnreadByConversationId((prev) => ({
+      ...prev,
+      [conversationId]: (prev?.[conversationId] || 0) + 1
+    }));
+  };
+
+  const markConversationUnread = (conversationId) => {
+    if (!conversationId) return;
+    setActiveId(null);
+    setUnreadByConversationId((prev) => ({
+      ...prev,
+      [conversationId]: (prev?.[conversationId] || 0) + 1
+    }));
+  };
+
   useEffect(() => {
     if (!user?.id) return;
     let mounted = true;
@@ -368,6 +386,7 @@ export default function AdminChat() {
             headerTitle={activeMeta?.companyName || 'Company'}
             headerSubtitle={activeMeta?.clientName || activeConversation.client_display_name}
             isAdmin
+            onMarkUnread={() => markConversationUnread(activeConversation.id)}
           />
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
