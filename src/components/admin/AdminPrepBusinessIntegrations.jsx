@@ -316,7 +316,7 @@ export default function AdminPrepBusinessIntegrations() {
       email_prep_business: current.email_prep_business || current.email_arbitrage_one || profile.email || null,
       merchant_id: current.merchant_id || null,
       profit_path_token_id: current.profit_path_token_id || null,
-      status: current.status && !['inactive', 'unassociated'].includes(current.status) ? current.status : 'pending',
+      status: patch.status || (current.status && !['inactive', 'unassociated'].includes(current.status) ? current.status : 'pending'),
       last_error: current.last_error || null,
       created_at: current.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -357,7 +357,8 @@ export default function AdminPrepBusinessIntegrations() {
       const merchantValue = String(merchantDrafts[userId] || '').trim();
       await upsertPrep(profile, {
         profit_path_token_id: tokenValue || null,
-        merchant_id: merchantValue || tokenValue || null
+        merchant_id: merchantValue || tokenValue || null,
+        status: 'active'
       });
       await load();
     } catch (err) {
