@@ -147,12 +147,15 @@ export default function AdminOther({
   const saveEdit = async () => {
     if (!edit) return;
     const isReturnLine = edit.__billingSection === 'returns';
+    const unitPrice = Number(edit.unit_price || 0);
+    const units = Number(edit.units || 0);
+    const total = Number.isFinite(unitPrice * units) ? unitPrice * units : null;
     const payload = {
       service: edit.service?.trim() || '',
       service_date: edit.service_date || todayStr(),
-      unit_price: Number(edit.unit_price || 0),
-      units: Number(edit.units || 0),
-      total: Number(edit.total ?? (Number(edit.unit_price || 0) * Number(edit.units || 0))),
+      unit_price: unitPrice,
+      units,
+      total,
       obs_admin: edit.obs_admin || null
     };
     const { error } = isReturnLine
