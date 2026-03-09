@@ -483,7 +483,7 @@ export default function AdminCompanyDashboard() {
   const inboundShipmentsRange = receivingShipmentsDaily
     .filter((row) => inRange(row.date))
     .reduce((sum, row) => sum + Number(row.total || 0), 0);
-  const inboundShipmentsToday = receivingShipmentsDaily
+  const inboundShipmentsTodayRaw = receivingShipmentsDaily
     .filter((row) => row.date === dateFrom)
     .reduce((sum, row) => sum + Number(row.total || 0), 0);
   const shippedRange = preparedDaily
@@ -505,7 +505,10 @@ export default function AdminCompanyDashboard() {
   })();
   const isSingleDay = dateFrom === dateTo;
   const inboundTodayUnits = todayReceiving;
-  const inboundTodayShipments = inboundShipmentsToday || todayReceivingShipments;
+  const inboundTodayShipments =
+    inboundShipmentsTodayRaw ||
+    todayReceivingShipments ||
+    (inboundTodayUnits > 0 ? 1 : 0);
   const inboundPercentUnits = inboundTotalRange
     ? (isSingleDay ? 100 : (inboundTodayUnits / inboundTotalRange) * 100)
     : 0;
