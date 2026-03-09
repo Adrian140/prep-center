@@ -2855,6 +2855,23 @@ createPrepItem: async (requestId, item) => {
     const shippedIds = Array.from(shippedDayById.keys());
     shippedShipmentsTotal = shippedIds.length;
 
+    // Build daily shipment counts for shipped chart
+    const shippedShipmentsDaily = (() => {
+      const map = new Map();
+      shippedDayById.forEach((day) => {
+        if (!day) return;
+        map.set(day, (map.get(day) || 0) + 1);
+      });
+      const daily = [];
+      const start = new Date(dateFrom);
+      const end = new Date(dateTo);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const key = formatSqlDate(d);
+        daily.push({ date: key, total: map.get(key) || 0 });
+      }
+      return daily;
+    })();
+
     if (shippedIds.length) {
       const itemsRes = await supabase
         .from('prep_request_items')
@@ -2930,8 +2947,10 @@ createPrepItem: async (requestId, item) => {
         shipped: {
           unitsToday: shippedUnitsToday,
           unitsTotal: shippedUnitsTotal,
+          shipmentsToday: shippedShipmentsDaily.find((d) => d.date === endKey)?.total || 0,
           shipmentsTotal: shippedShipmentsTotal,
-          dailyUnits: shippedDailyUnits
+          dailyUnits: shippedDailyUnits,
+          dailyShipments: shippedShipmentsDaily
         },
         receiving: {
           unitsToday: receivingUnitsToday,

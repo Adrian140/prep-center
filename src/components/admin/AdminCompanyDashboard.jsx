@@ -154,7 +154,7 @@ export default function AdminCompanyDashboard() {
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState('');
   const [snapshot, setSnapshot] = useState(null);
-  const [chartRange, setChartRange] = useState(30);
+  const [chartRange, setChartRange] = useState(90);
   const [chartSnapshot, setChartSnapshot] = useState(null);
   const [loadingChart, setLoadingChart] = useState(false);
   const [chartError, setChartError] = useState('');
@@ -416,7 +416,7 @@ export default function AdminCompanyDashboard() {
     start.setDate(end.getDate() - (days - 1));
     setDateFrom(start.toISOString().slice(0, 10));
     setDateTo(end.toISOString().slice(0, 10));
-    setChartRange(days);
+    // lăsăm graficele pe intervalul lor separat (90d implicit)
   };
 
 
