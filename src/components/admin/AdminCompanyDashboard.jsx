@@ -642,7 +642,7 @@ export default function AdminCompanyDashboard() {
           </div>
 
           <SectionTitle title={t('adminDashboard.sectionInbound')} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
             <DualStatCard
               title={isSingleDay ? t('adminDashboard.arrivingToday') : tp('adminDashboard.arrivingLastDays', { days: rangeDays })}
               leftLabel={t('adminDashboard.shipmentsLabel')}
@@ -651,15 +651,6 @@ export default function AdminCompanyDashboard() {
               rightValue={isSingleDay ? inboundTodayUnits : inboundTotalRange}
               stacked
             />
-            <div className="bg-white border rounded-xl p-3 shadow-sm">
-              <div className="text-sm text-text-secondary mb-3">
-                {isSingleDay ? t('adminDashboard.receivedToday') : tp('adminDashboard.receivedLastDays', { days: rangeDays })}
-              </div>
-              <div className="flex items-center gap-6">
-                <ProgressRing percent={inboundPercentUnits} label={t('adminDashboard.unitsLabel')} />
-                <ProgressRing percent={inboundPercentShipments} label={t('adminDashboard.shipmentsLabel')} />
-              </div>
-            </div>
             <div className="bg-white border rounded-xl p-3 shadow-sm">
               <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
                 <span>{t('adminDashboard.unitsReceivedRange')}</span>
@@ -680,21 +671,12 @@ export default function AdminCompanyDashboard() {
           </div>
 
           <SectionTitle title={t('adminDashboard.sectionAmazon')} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
             <MetricCard
               title={isSingleDay ? t('adminDashboard.shippedToday') : tp('adminDashboard.shippedLastDays', { days: rangeDays })}
               lines={[
                 `${snapshot?.shipped?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
                 `${isSingleDay ? todayOrders : shippedTotalRange} ${t('adminDashboard.unitsLabel')}`
-              ]}
-              hideValue
-              compact
-            />
-            <MetricCard
-              title={t('adminDashboard.inProgressLabel')}
-              lines={[
-                `${snapshot?.ordersPending?.shipmentsTotal ?? 0} ${t('adminDashboard.shipmentsLabel')}`,
-                `${snapshot?.ordersPending?.unitsTotal ?? 0} ${t('adminDashboard.unitsLabel')}`
               ]}
               hideValue
               compact
