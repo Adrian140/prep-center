@@ -478,23 +478,13 @@ export default function AdminCompanyDashboard() {
     return Array.from(map.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [preparedDaily, receivingDaily, balanceDaily]);
 
-  const inRange = (date) => {
-    if (!dateFrom || !dateTo) return true;
-    return date >= dateFrom && date <= dateTo;
-  };
-
-  const inboundRange = receivingDaily
-    .filter((row) => inRange(row.date))
-    .map((row) => ({ date: row.date, value: row.units || 0 }));
-  const inboundShipmentsRange = receivingShipmentsDaily
-    .filter((row) => inRange(row.date))
-    .reduce((sum, row) => sum + Number(row.total || 0), 0);
+  // Graficele folosesc întotdeauna fereastra de 90 zile (chartRange), independent de datele cardurilor zilnice
+  const inboundRange = receivingDaily.map((row) => ({ date: row.date, value: row.units || 0 }));
+  const inboundShipmentsRange = receivingShipmentsDaily.reduce((sum, row) => sum + Number(row.total || 0), 0);
   const inboundShipmentsTodayRaw = receivingShipmentsDaily
     .filter((row) => row.date === dateFrom)
     .reduce((sum, row) => sum + Number(row.total || 0), 0);
-  const shippedRange = preparedDaily
-    .filter((row) => inRange(row.date))
-    .map((row) => ({ date: row.date, value: row.units || 0 }));
+  const shippedRange = preparedDaily.map((row) => ({ date: row.date, value: row.units || 0 }));
 
   const inboundTotalRange = inboundRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
   const shippedTotalRange = shippedRange.reduce((sum, row) => sum + Number(row.value || 0), 0);
