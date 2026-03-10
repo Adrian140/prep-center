@@ -178,6 +178,7 @@ export default function AdminCompanyDashboard() {
   const [breakdownRows, setBreakdownRows] = useState([]);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
+  const [breakdownType, setBreakdownType] = useState('uninvoiced'); // 'uninvoiced' | 'unpaid'
 
   useEffect(() => {
     let cancelled = false;
@@ -577,6 +578,7 @@ export default function AdminCompanyDashboard() {
 
   const loadUninvoicedBreakdown = async () => {
     if (!dateFrom || !dateTo) return;
+    setBreakdownType('uninvoiced');
     setShowBreakdown(true);
     setBreakdownLoading(true);
     setBreakdownError('');
@@ -672,6 +674,60 @@ export default function AdminCompanyDashboard() {
         return Math.abs(b.total) - Math.abs(a.total);
       });
 
+      setBreakdownRows(list);
+    } catch (e) {
+      setBreakdownError(e?.message || 'Could not load breakdown');
+      setBreakdownRows([]);
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
+
+  const loadUnpaidInvoicesBreakdown = async () => {
+    if (!dateFrom || !dateTo) return;
+    setBreakdownType('unpaid');
+    setShowBreakdown(true);
+    setBreakdownLoading(true);
+    setBreakdownError('');
+    try {
+      const isAll = selectedCompany?.id === 'ALL';
+      const companyId = isAll ? null : selectedCompany?.id;
+      let query = supabase
+        .from('invoices')
+        .select('company_id, amount, status, issue_date')
+        .eq('country', currentMarket)
+        .gte('issue_date', dateFrom)
+        .lte('issue_date', dateTo)
+        .limit(20000);
+      if (companyId) query = query.eq('company_id', companyId);
+
+      const res = await query;
+      if (res?.error) throw res.error;
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const numberOrZero = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const rowsByCompany = new Map();
+      rows.forEach((row) => {
+        const status = (row.status || '').toLowerCase();
+        if (status === 'paid') return;
+        const id = row.company_id;
+        if (!id) return;
+        const entry = rowsByCompany.get(id) || {
+          companyId: id,
+          name: companyNameById.get(id) || '—',
+          invoicesCount: 0,
+          amount: 0
+        };
+        entry.invoicesCount += 1;
+        entry.amount += numberOrZero(row.amount);
+        rowsByCompany.set(id, entry);
+      });
+
+      const list = Array.from(rowsByCompany.values()).filter((r) => Math.abs(r.amount) > 0.0001);
+      list.sort((a, b) => b.amount - a.amount);
       setBreakdownRows(list);
     } catch (e) {
       setBreakdownError(e?.message || 'Could not load breakdown');
@@ -789,6 +845,8 @@ export default function AdminCompanyDashboard() {
             <MetricCard
               title="Unpaid, Invoiced Charges"
               value={`€${Number(moneyMonthRunning || 0).toFixed(2)}`}
+              actionLabel="More info"
+              onAction={loadUnpaidInvoicesBreakdown}
             />
             <MetricCard
               title="Stoc"
@@ -946,7 +1004,9 @@ export default function AdminCompanyDashboard() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div>
-                <div className="text-sm text-text-secondary">Uninvoiced Charges · {dateFrom} → {dateTo}</div>
+                <div className="text-sm text-text-secondary">
+                  {breakdownType === 'uninvoiced' ? 'Uninvoiced Charges' : 'Unpaid, Invoiced Charges'} · {dateFrom} → {dateTo}
+                </div>
                 <div className="text-lg font-semibold text-text-primary">Breakdown by company ({currentMarket})</div>
               </div>
               <div className="flex items-center gap-2">
@@ -965,45 +1025,75 @@ export default function AdminCompanyDashboard() {
             )}
 
             <div className="overflow-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-gray-50 text-text-secondary">
-                  <tr>
-                    <th className="text-left px-4 py-2">Company</th>
-                    <th className="text-right px-4 py-2">Units FBA</th>
-                    <th className="text-right px-4 py-2">Units FBM</th>
-                    <th className="text-right px-4 py-2">Units Other</th>
-                    <th className="text-right px-4 py-2">€ FBA</th>
-                    <th className="text-right px-4 py-2">€ FBM</th>
-                    <th className="text-right px-4 py-2">€ Other</th>
-                    <th className="text-right px-4 py-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {breakdownLoading && (
-                    <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>Loading…</td></tr>
-                  )}
-                  {!breakdownLoading && breakdownRows.length === 0 && (
-                    <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>No charges in this interval.</td></tr>
-                  )}
-                  {!breakdownLoading && breakdownRows.map((row) => (
-                    <tr key={row.companyId} className="border-b last:border-b-0">
-                      <td className="px-4 py-2">
-                        <div className="font-semibold text-text-primary">{row.name}</div>
-                        <div className="text-xs text-text-secondary">{row.companyId}</div>
-                      </td>
-                      <td className="px-4 py-2 text-right">{Number(row.unitsFba || 0)}</td>
-                      <td className="px-4 py-2 text-right">{Number(row.unitsFbm || 0)}</td>
-                      <td className="px-4 py-2 text-right">{Number(row.unitsOther || 0)}</td>
-                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtFba)}</td>
-                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtFbm)}</td>
-                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtOther)}</td>
-                      <td className={`px-4 py-2 text-right font-semibold ${row.total > 0 ? 'text-red-700' : row.total < 0 ? 'text-green-700' : 'text-text-primary'}`}>
-                        {fmtMoney(row.total)}
-                      </td>
+              {breakdownType === 'uninvoiced' ? (
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-text-secondary">
+                    <tr>
+                      <th className="text-left px-4 py-2">Company</th>
+                      <th className="text-right px-4 py-2">Units FBA</th>
+                      <th className="text-right px-4 py-2">Units FBM</th>
+                      <th className="text-right px-4 py-2">Units Other</th>
+                      <th className="text-right px-4 py-2">€ FBA</th>
+                      <th className="text-right px-4 py-2">€ FBM</th>
+                      <th className="text-right px-4 py-2">€ Other</th>
+                      <th className="text-right px-4 py-2">Total</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {breakdownLoading && (
+                      <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>Loading…</td></tr>
+                    )}
+                    {!breakdownLoading && breakdownRows.length === 0 && (
+                      <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>No charges in this interval.</td></tr>
+                    )}
+                    {!breakdownLoading && breakdownRows.map((row) => (
+                      <tr key={row.companyId} className="border-b last:border-b-0">
+                        <td className="px-4 py-2">
+                          <div className="font-semibold text-text-primary">{row.name}</div>
+                          <div className="text-xs text-text-secondary">{row.companyId}</div>
+                        </td>
+                        <td className="px-4 py-2 text-right">{Number(row.unitsFba || 0)}</td>
+                        <td className="px-4 py-2 text-right">{Number(row.unitsFbm || 0)}</td>
+                        <td className="px-4 py-2 text-right">{Number(row.unitsOther || 0)}</td>
+                        <td className="px-4 py-2 text-right">{fmtMoney(row.amtFba)}</td>
+                        <td className="px-4 py-2 text-right">{fmtMoney(row.amtFbm)}</td>
+                        <td className="px-4 py-2 text-right">{fmtMoney(row.amtOther)}</td>
+                        <td className={`px-4 py-2 text-right font-semibold ${row.total > 0 ? 'text-red-700' : row.total < 0 ? 'text-green-700' : 'text-text-primary'}`}>
+                          {fmtMoney(row.total)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <table className="min-w-full text-sm">
+                  <thead className="bg-gray-50 text-text-secondary">
+                    <tr>
+                      <th className="text-left px-4 py-2">Company</th>
+                      <th className="text-right px-4 py-2"># Invoices</th>
+                      <th className="text-right px-4 py-2">Unpaid Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {breakdownLoading && (
+                      <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={3}>Loading…</td></tr>
+                    )}
+                    {!breakdownLoading && breakdownRows.length === 0 && (
+                      <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={3}>No unpaid invoices in this interval.</td></tr>
+                    )}
+                    {!breakdownLoading && breakdownRows.map((row) => (
+                      <tr key={row.companyId} className="border-b last:border-b-0">
+                        <td className="px-4 py-2">
+                          <div className="font-semibold text-text-primary">{row.name}</div>
+                          <div className="text-xs text-text-secondary">{row.companyId}</div>
+                        </td>
+                        <td className="px-4 py-2 text-right">{row.invoicesCount || 0}</td>
+                        <td className="px-4 py-2 text-right font-semibold text-red-700">{fmtMoney(row.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
