@@ -945,6 +945,7 @@
         "payoutPercent": "{percent}% →",
         "thresholdReached": "Bonus unlocked: {payout}",
         "thresholdProgress": "{billed} / {threshold} to unlock",
+        "seeAll": "See all",
         "hint": "The list updates automatically when we assign or remove clients."
       },
       "request": {
@@ -1965,8 +1966,10 @@
         "title": "Credit de afiliere",
         "available": "Credit disponibil",
         "used": "Folosit",
+        "remaining": "Credit rămas",
         "amountPh": "ex: 50",
         "apply": "Aplică credit",
+        "applyAll": "Aplică tot",
         "applying": "Se aplică…",
         "note": "Creditul de afiliere aplicat se deduce din valoarea următoarelor servicii facturate (prestări de servicii). Dacă creditul depășește suma datorată, se emite o factură separată pentru diferență.",
         "success": "{amount} aplicat în sold.",
@@ -1982,6 +1985,7 @@
         "payoutPercent": "{percent}% →",
         "thresholdReached": "Bonus deblocat: {payout}",
         "thresholdProgress": "{billed} / {threshold} până la bonus",
+        "seeAll": "Vezi toți",
         "hint": "Lista se actualizează automat când asignăm sau eliminăm clienți."
       },
       "request": {

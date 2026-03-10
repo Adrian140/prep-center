@@ -68,6 +68,7 @@ export default function ClientAffiliates() {
   const [creditAmounts, setCreditAmounts] = useState({});
   const [creditLoadingByMarket, setCreditLoadingByMarket] = useState({});
   const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
+  const [showAllMembersByMarket, setShowAllMembersByMarket] = useState({});
   const currentMonth = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -386,6 +387,10 @@ export default function ClientAffiliates() {
             const creditLoading = Boolean(creditLoadingByMarket?.[market]);
             const creditFlash = creditFlashByMarket?.[market] || null;
             const marketMeta = MARKETS[market] || { name: market, flag: '' };
+            const positiveMembers = members.filter((member) => Number(member.payout || 0) > 0);
+            const zeroMembers = members.filter((member) => Number(member.payout || 0) <= 0);
+            const showAllMembers = Boolean(showAllMembersByMarket?.[market]);
+            const visibleMembers = showAllMembers ? members : positiveMembers;
             return (
               <div key={market} className="space-y-4">
                 <div className="flex items-center gap-2">
@@ -584,13 +589,13 @@ export default function ClientAffiliates() {
                     <Users className="w-4 h-4 text-text-secondary" />
                     <h3 className="font-semibold">{t('ClientAffiliates.members.title')}</h3>
                   </div>
-                  {members.length === 0 ? (
+                  {visibleMembers.length === 0 ? (
                     <p className="text-sm text-text-secondary">
                       {t('ClientAffiliates.members.empty')}
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {members.map((member) => (
+                      {visibleMembers.map((member) => (
                         <div
                           key={member.id}
                           className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border rounded-lg p-3"
@@ -637,6 +642,17 @@ export default function ClientAffiliates() {
                         </div>
                       ))}
                     </div>
+                  )}
+                  {zeroMembers.length > 0 && !showAllMembers && (
+                    <button
+                      type="button"
+                      className="mt-3 text-sm text-primary underline"
+                      onClick={() =>
+                        setShowAllMembersByMarket((prev) => ({ ...prev, [market]: true }))
+                      }
+                    >
+                      {t('ClientAffiliates.members.seeAll') || 'See all'}
+                    </button>
                   )}
                   <p className="text-xs text-text-secondary mt-3">
                     {t('ClientAffiliates.members.hint')}
