@@ -551,13 +551,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
   };
 
   const resetActiveMonth = () => {
-    setActiveMonth(
-      isFbaView
-        ? baseMonths.fba
-        : isFbmView
-          ? baseMonths.fbm
-          : baseMonths.other
-    );
+    setActiveMonth(todayMonth);
   };
 
   return (
