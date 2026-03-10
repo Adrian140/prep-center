@@ -32,6 +32,8 @@ const randomCode = () => {
   return `AF-${chunk()}${chunk()}-${Math.floor(Math.random() * 90 + 10)}`;
 };
 
+const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
+
 const normalizeTiers = (tiers) => {
   if (!Array.isArray(tiers)) return [];
   return tiers
@@ -128,8 +130,8 @@ export default function ClientAffiliates() {
       }
       return {
         ...member,
-        billing_total: billed,
-        payout,
+        billing_total: round2(billed),
+        payout: round2(payout),
         percent,
         thresholdMeta
       };
@@ -382,9 +384,14 @@ export default function ClientAffiliates() {
             const snapshot = ownerSnapshots?.[market];
             if (!snapshot?.code) return null;
             const members = buildMembers(snapshot);
-            const totals = buildTotals(members);
+            const totalsRaw = buildTotals(members);
+            const totals = {
+              ...totalsRaw,
+              billed: round2(totalsRaw.billed),
+              payout: round2(totalsRaw.payout)
+            };
             const creditUsed = Number(creditUsageByMarket?.[market] || 0);
-            const availableCredit = Math.max((totals.payout || 0) - creditUsed, 0);
+            const availableCredit = Math.max(round2((totals.payout || 0) - creditUsed), 0);
             const creditAmount = creditAmounts?.[market] || '';
             const creditLoading = Boolean(creditLoadingByMarket?.[market]);
             const creditFlash = creditFlashByMarket?.[market] || null;
