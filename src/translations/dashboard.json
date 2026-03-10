@@ -284,7 +284,7 @@
         "units": "Unit",
         "ordersUnits": "Orders/Units",
         "total": "Total",
-        "adminNotes": "Admin notes"
+        "adminNotes": "Notes"
       },
       "noRecords": "No records.",
       "totals": "Totals",
