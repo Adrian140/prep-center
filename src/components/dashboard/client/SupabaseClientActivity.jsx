@@ -528,6 +528,15 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
       ? t('ClientFBMReport.noDataMonth')
       : t('ClientOtherReport.noDataMonth');
 
+  const formatAdminNote = (note) => {
+    if (!note) return '—';
+    const raw = String(note).trim();
+    if (raw.toLowerCase().startsWith('affiliate_credit:')) {
+      return t('ClientOtherReport.notes.affiliateCredit') || 'Affiliate credit applied';
+    }
+    return raw;
+  };
+
   const resetActiveMonth = () => {
     setActiveMonth(
       isFbaView
@@ -706,7 +715,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
                       <td className="px-3 py-2 text-right">
                         {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
                       </td>
-                      <td className="px-3 py-2">{r.obs_admin || '—'}</td>
+                      <td className="px-3 py-2">{formatAdminNote(r.obs_admin)}</td>
                     </tr>
                   );
                 })
@@ -797,13 +806,13 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
                             <td className="px-3 py-2 text-right">
                               {Number.isFinite(qty) ? qty : '—'}
                             </td>
-                            <td className="px-3 py-2 text-right">
-                              {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
-                            </td>
-                            <td className="px-3 py-2">{r._note || '—'}</td>
-                          </tr>
-                        );
-                      })}
+                        <td className="px-3 py-2 text-right">
+                          {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
+                        </td>
+                        <td className="px-3 py-2">{formatAdminNote(r._note)}</td>
+                      </tr>
+                    );
+                  })}
                     </React.Fragment>
                   )});
                 })()
@@ -905,7 +914,9 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
                         <td className="px-3 py-2 text-right">
                           {Number.isFinite(lineTotal) ? fmt2(lineTotal) : '—'}
                         </td>
-                        <td className="px-3 py-2">{r._isReturn ? (r._note || '—') : (r.obs_admin || '—')}</td>
+                        <td className="px-3 py-2">
+                          {r._isReturn ? (r._note || '—') : formatAdminNote(r.obs_admin)}
+                        </td>
                       </tr>
                     );
                   });

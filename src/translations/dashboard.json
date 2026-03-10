@@ -1083,6 +1083,9 @@
       "monthLabel": "Month:",
       "currentMonth": "Current month",
       "noDataMonth": "No entries for this month.",
+      "notes": {
+        "affiliateCredit": "Affiliate credit applied"
+      },
       "serviceNames": {
         "photoSubscription": "Photo storage subscription",
         "manualPhoto": "Manual photo capture",
@@ -2123,6 +2126,9 @@
       "monthLabel": "Luna:",
       "currentMonth": "Luna curentă",
       "noDataMonth": "Nu există înregistrări în această lună.",
+      "notes": {
+        "affiliateCredit": "Credit de afiliere aplicat"
+      },
       "serviceNames": {
         "photoSubscription": "Abonament stocare fotografii",
         "manualPhoto": "Fotografiere manuală",
@@ -3174,6 +3180,9 @@
       "monthLabel": "Mois :",
       "currentMonth": "Mois en cours",
       "noDataMonth": "Aucune entrée pour ce mois.",
+      "notes": {
+        "affiliateCredit": "Crédit d’affiliation appliqué"
+      },
       "serviceNames": {
         "photoSubscription": "Abonnement stockage photos",
         "manualPhoto": "Prise de photos manuelle",
