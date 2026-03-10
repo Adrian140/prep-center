@@ -179,6 +179,7 @@ export default function AdminCompanyDashboard() {
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
   const [breakdownType, setBreakdownType] = useState('uninvoiced'); // 'uninvoiced' | 'unpaid'
+  const [breakdownRangeLabel, setBreakdownRangeLabel] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -582,6 +583,7 @@ export default function AdminCompanyDashboard() {
     setShowBreakdown(true);
     setBreakdownLoading(true);
     setBreakdownError('');
+    setBreakdownRangeLabel(`${dateFrom} → ${dateTo}`);
     try {
       const isAll = selectedCompany?.id === 'ALL';
       const companyId = isAll ? null : selectedCompany?.id;
@@ -690,14 +692,19 @@ export default function AdminCompanyDashboard() {
     setBreakdownLoading(true);
     setBreakdownError('');
     try {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      setBreakdownRangeLabel(`${monthStart} → ${monthEnd}`);
+
       const isAll = selectedCompany?.id === 'ALL';
       const companyId = isAll ? null : selectedCompany?.id;
       const buildQuery = (withCountry) => {
         let q = supabase
           .from('invoices')
           .select('company_id, amount, status, issue_date, country')
-          .gte('issue_date', dateFrom)
-          .lte('issue_date', dateTo)
+          .gte('issue_date', monthStart)
+          .lte('issue_date', monthEnd)
           .limit(20000);
         if (withCountry && currentMarket) q = q.eq('country', currentMarket);
         if (companyId) q = q.eq('company_id', companyId);
@@ -1015,7 +1022,7 @@ export default function AdminCompanyDashboard() {
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div>
                 <div className="text-sm text-text-secondary">
-                  {breakdownType === 'uninvoiced' ? 'Uninvoiced Charges' : 'Unpaid, Invoiced Charges'} · {dateFrom} → {dateTo}
+                  {breakdownType === 'uninvoiced' ? 'Uninvoiced Charges' : 'Unpaid, Invoiced Charges'} · {breakdownRangeLabel || `${dateFrom} → ${dateTo}`}
                 </div>
                 <div className="text-lg font-semibold text-text-primary">Breakdown by company ({currentMarket})</div>
               </div>
