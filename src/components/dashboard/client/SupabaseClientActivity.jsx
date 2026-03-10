@@ -291,11 +291,10 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
     setBaseMonths(nextBase);
 
     if (!monthsInitialized) {
-      const latestAvailable =
-        nextBase.fba || nextBase.fbm || nextBase.other || todayMonth;
-      setFbaMonth(latestAvailable);
-      setFbmMonth(latestAvailable);
-      setOtherMonth(latestAvailable);
+      // Always default to current month on load; user can change after.
+      setFbaMonth(todayMonth);
+      setFbmMonth(todayMonth);
+      setOtherMonth(todayMonth);
       setMonthsInitialized(true);
     }
 
