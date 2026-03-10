@@ -791,10 +791,6 @@ export default function AdminCompanyDashboard() {
               value={`€${Number(moneyMonthRunning || 0).toFixed(2)}`}
             />
             <MetricCard
-              title="Balance"
-              value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
-            />
-            <MetricCard
               title="Stoc"
               value={inventoryUnitsAll}
               subtitle="Cantitate în stoc"
