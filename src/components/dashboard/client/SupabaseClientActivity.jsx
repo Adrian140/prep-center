@@ -186,6 +186,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
   const [fbaMonth, setFbaMonth] = useState('');
   const [fbmMonth, setFbmMonth] = useState('');
   const [otherMonth, setOtherMonth] = useState('');
+  const todayMonth = useMemo(() => currentMonthStr(), []);
   const [baseMonths, setBaseMonths] = useState({
     fba: currentMonthStr(),
     fbm: currentMonthStr(),
@@ -290,9 +291,11 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
     setBaseMonths(nextBase);
 
     if (!monthsInitialized) {
-      setFbaMonth(nextBase.fba);
-      setFbmMonth(nextBase.fbm);
-      setOtherMonth(nextBase.other);
+      const latestAvailable =
+        nextBase.fba || nextBase.fbm || nextBase.other || todayMonth;
+      setFbaMonth(latestAvailable);
+      setFbmMonth(latestAvailable);
+      setOtherMonth(latestAvailable);
       setMonthsInitialized(true);
     }
 
@@ -310,6 +313,16 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
   const effectiveFbaMonth = fbaMonth || baseMonths.fba;
   const effectiveFbmMonth = fbmMonth || baseMonths.fbm;
   const effectiveOtherMonth = otherMonth || baseMonths.other;
+
+  const changeMonth = (setter, delta) => {
+    setter((prev) => {
+      const base = prev || todayMonth;
+      const d = new Date(`${base}-01T00:00:00`);
+      if (Number.isNaN(d.getTime())) return todayMonth;
+      d.setMonth(d.getMonth() + delta);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+  };
 
   const fbaMonthRows = useMemo(
     () => filterRowsByMonth(fba, effectiveFbaMonth),
@@ -637,19 +650,33 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
           </div>
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <label>{monthLabel}</label>
-            <input
-              type="month"
-              value={
-                activeMonth ||
-                (isFbaView
-                  ? baseMonths.fba
-                  : isFbmView
-                    ? baseMonths.fbm
-                    : baseMonths.other)
-              }
-              onChange={(e) => setActiveMonth(e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-            />
+            <div className="flex items-center gap-1">
+              <button
+                className="px-2 py-1 text-sm border rounded hover:bg-gray-50"
+                onClick={() => changeMonth(setActiveMonth, -1)}
+              >
+                ‹
+              </button>
+              <input
+                type="month"
+                value={
+                  activeMonth ||
+                  (isFbaView
+                    ? baseMonths.fba
+                    : isFbmView
+                      ? baseMonths.fbm
+                      : baseMonths.other)
+                }
+                onChange={(e) => setActiveMonth(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              />
+              <button
+                className="px-2 py-1 text-sm border rounded hover:bg-gray-50"
+                onClick={() => changeMonth(setActiveMonth, 1)}
+              >
+                ›
+              </button>
+            </div>
             <button
               className="text-sm border rounded px-2 py-1"
               onClick={resetActiveMonth}
