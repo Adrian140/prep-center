@@ -499,15 +499,13 @@ export default function ClientAffiliates() {
                             ›
                           </button>
                         </div>
-                        {billingMonth && (
-                          <button
-                            type="button"
-                            className="text-xs text-text-secondary underline"
-                            onClick={() => setBillingMonth(currentMonth)}
-                          >
-                            {t('common.reset') || 'Current month'}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="text-xs text-text-secondary underline"
+                          onClick={() => setBillingMonth(currentMonth)}
+                        >
+                          {t('ClientAffiliates.actions.resetMonth') || 'Current month'}
+                        </button>
                       </div>
                     </div>
                     <div className="space-y-1 text-sm text-text-secondary">
