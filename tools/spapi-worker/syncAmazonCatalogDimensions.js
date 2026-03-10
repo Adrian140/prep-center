@@ -561,7 +561,6 @@ async function fetchRowsMissingCatalogFields(companyId, limit) {
     .from('stock_items')
     .select('id, asin, length_cm, width_cm, height_cm, weight_kg, ean')
     .eq('company_id', companyId)
-    .not('asin', 'is', null)
     .or(
       'length_cm.is.null,width_cm.is.null,height_cm.is.null,weight_kg.is.null,length_cm.eq.0,width_cm.eq.0,height_cm.eq.0,weight_kg.eq.0,ean.is.null,ean.eq.""'
     )
@@ -570,6 +569,30 @@ async function fetchRowsMissingCatalogFields(companyId, limit) {
     .limit(safeLimit);
   if (error) throw error;
   return data || [];
+}
+
+async function fetchMissingAsinStats(companyId) {
+  const { data, error } = await supabase
+    .from('stock_items')
+    .select('asin')
+    .eq('company_id', companyId)
+    .or(
+      'length_cm.is.null,width_cm.is.null,height_cm.is.null,weight_kg.is.null,length_cm.eq.0,width_cm.eq.0,height_cm.eq.0,weight_kg.eq.0,ean.is.null,ean.eq.""'
+    );
+  if (error) throw error;
+  const rows = Array.isArray(data) ? data : [];
+  const total = rows.length;
+  const withAsin = rows.filter((r) => typeof r.asin === 'string' && r.asin.trim() !== '').length;
+  const validAsin = rows.filter((r) => isValidAsin(r.asin)).length;
+  const sampleNoAsin = rows
+    .filter((r) => !r.asin)
+    .slice(0, 5)
+    .map((r) => r.asin || null);
+  const sampleInvalidAsin = rows
+    .filter((r) => r.asin && !isValidAsin(r.asin))
+    .slice(0, 5)
+    .map((r) => r.asin);
+  return { total, withAsin, validAsin, sampleNoAsin, sampleInvalidAsin };
 }
 
 function normalizeCatalogSnapshot(candidate) {
@@ -675,9 +698,12 @@ async function syncIntegrationDimensions(integration, runState, startAsinIndex =
     ? Math.min(Math.max(remaining * 20, 200), 10000)
     : 10000;
   const rows = await fetchRowsMissingCatalogFields(integration.company_id, rowBudget);
+  const missingStats = await fetchMissingAsinStats(integration.company_id);
   if (!rows.length) {
     console.log(
-      `[Catalog dimension sync] Integration ${integration.id} has no stock_items with missing dimensions/EAN.`
+      `[Catalog dimension sync] Integration ${integration.id} has no stock_items with missing dimensions/EAN. Stats missing total=${missingStats.total} withAsin=${missingStats.withAsin} validAsin=${missingStats.validAsin} sampleNoAsin=${JSON.stringify(
+        missingStats.sampleNoAsin
+      )} sampleInvalidAsin=${JSON.stringify(missingStats.sampleInvalidAsin)}`
     );
     return { completed: true, nextAsinIndex: 0, totalValidAsins: 0, stoppedByBudget: false };
   }
@@ -693,7 +719,9 @@ async function syncIntegrationDimensions(integration, runState, startAsinIndex =
   const skippedInvalidAsins = uniqueAsins.length - validAsins.length;
   if (!validAsins.length) {
     console.log(
-      `[Catalog dimension sync] Integration ${integration.id} has no valid ASINs among missing rows.`
+      `[Catalog dimension sync] Integration ${integration.id} has no valid ASINs among missing rows. Stats missing total=${missingStats.total} withAsin=${missingStats.withAsin} validAsin=${missingStats.validAsin} sampleNoAsin=${JSON.stringify(
+        missingStats.sampleNoAsin
+      )} sampleInvalidAsin=${JSON.stringify(missingStats.sampleInvalidAsin)}`
     );
     return { completed: true, nextAsinIndex: 0, totalValidAsins: 0, stoppedByBudget: false };
   }
