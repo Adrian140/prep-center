@@ -339,17 +339,17 @@ export default function AdminProfiles({ onSelect }) {
     return getCurrentSold(row);
   };
 
-  // For live balance: prioritize positives (red) first, then zero, then negatives (green).
-  const liveBucket = (v) => {
+  // Bucket ordering: positives first, then negatives, zeros last, nulls last.
+  const balanceBucket = (v) => {
     if (v === null) return 3;
     if (v > 0) return 0;
-    if (v === 0) return 1;
-    return 2;
+    if (v < 0) return 1;
+    return 2; // zero
   };
 
-  const compareLive = (aVal, bVal) => {
-    const bucketA = liveBucket(aVal);
-    const bucketB = liveBucket(bVal);
+  const bucketedCompare = (aVal, bVal) => {
+    const bucketA = balanceBucket(aVal);
+    const bucketB = balanceBucket(bVal);
     if (bucketA !== bucketB) return bucketA - bucketB;
     if (aVal === null && bVal === null) return 0;
     if (aVal === null) return 1;
@@ -358,13 +358,8 @@ export default function AdminProfiles({ onSelect }) {
     return sortDir === "asc" ? aVal - bVal : bVal - aVal;
   };
 
-  const compareNullable = (aVal, bVal) => {
-    if (aVal === null && bVal === null) return 0;
-    if (aVal === null) return 1;
-    if (bVal === null) return -1;
-    if (aVal === bVal) return 0;
-    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
-  };
+  const compareLive = bucketedCompare;
+  const compareNullable = bucketedCompare;
 
   list.sort((a, b) => {
     const primaryA = getSortValue(a);

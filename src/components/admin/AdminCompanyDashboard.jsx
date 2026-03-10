@@ -53,10 +53,18 @@ const SectionTitle = ({ title }) => (
   </div>
 );
 
-const MetricCard = ({ title, value, subtitle, lines, badge, compact = false, hideValue = false }) => (
+const MetricCard = ({ title, value, subtitle, lines, badge, compact = false, hideValue = false, actionLabel, onAction }) => (
   <div className={`bg-white border rounded-xl shadow-sm h-full ${compact ? 'p-3' : 'p-4'}`}>
     <div className="flex items-center justify-between text-sm text-text-secondary mb-2">
       <span>{title}</span>
+      {actionLabel && typeof onAction === 'function' && (
+        <button
+          onClick={onAction}
+          className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+        >
+          {actionLabel}
+        </button>
+      )}
       {badge != null && <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs">{badge}</span>}
     </div>
     {!hideValue && (
@@ -166,6 +174,10 @@ export default function AdminCompanyDashboard() {
   const [globalStockUnits, setGlobalStockUnits] = useState(null);
   const [storageApplyId, setStorageApplyId] = useState(null);
   const [storeByCompany, setStoreByCompany] = useState({});
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const [breakdownRows, setBreakdownRows] = useState([]);
+  const [breakdownLoading, setBreakdownLoading] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -553,6 +565,121 @@ export default function AdminCompanyDashboard() {
     Number(snapshot?.finance?.prepAmounts?.other || 0);
   const moneyMonthRunning = monthFinance?.total ?? 0;
   const chartDays = chartRange;
+  const fmtMoney = (val) => `€${Number(val || 0).toFixed(2)}`;
+
+  const companyNameById = useMemo(() => {
+    const map = new Map();
+    companies.forEach((c) => {
+      if (c?.id && c?.name) map.set(c.id, c.name);
+    });
+    return map;
+  }, [companies]);
+
+  const loadUninvoicedBreakdown = async () => {
+    if (!dateFrom || !dateTo) return;
+    setShowBreakdown(true);
+    setBreakdownLoading(true);
+    setBreakdownError('');
+    try {
+      const isAll = selectedCompany?.id === 'ALL';
+      const companyId = isAll ? null : selectedCompany?.id;
+      const withFilters = (query) => {
+        let q = query
+          .eq('country', currentMarket)
+          .gte('service_date', dateFrom)
+          .lte('service_date', dateTo)
+          .limit(20000);
+        if (companyId) q = q.eq('company_id', companyId);
+        return q;
+      };
+
+      const [fbaRes, fbmRes, otherRes] = await Promise.all([
+        withFilters(supabase.from('fba_lines').select('company_id, total, unit_price, units')),
+        withFilters(supabase.from('fbm_lines').select('company_id, total, unit_price, orders_units')),
+        withFilters(supabase.from('other_lines').select('company_id, total, unit_price, units'))
+      ]);
+
+      const numberOrZero = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const rowsByCompany = new Map();
+      const ensure = (id) => {
+        if (!rowsByCompany.has(id)) {
+          rowsByCompany.set(id, {
+            companyId: id,
+            name: companyNameById.get(id) || '—',
+            unitsFba: 0,
+            unitsFbm: 0,
+            unitsOther: 0,
+            amtFba: 0,
+            amtFbm: 0,
+            amtOther: 0
+          });
+        }
+        return rowsByCompany.get(id);
+      };
+
+      const acc = (res, type) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        data.forEach((row) => {
+          if (!row?.company_id) return;
+          const target = ensure(row.company_id);
+          const units = type === 'fbm' ? numberOrZero(row.orders_units) : numberOrZero(row.units);
+          const amount = row.total != null
+            ? numberOrZero(row.total)
+            : numberOrZero(row.unit_price) * units;
+          if (type === 'fba') {
+            target.unitsFba += units;
+            target.amtFba += amount;
+          } else if (type === 'fbm') {
+            target.unitsFbm += units;
+            target.amtFbm += amount;
+          } else {
+            target.unitsOther += units;
+            target.amtOther += amount;
+          }
+        });
+      };
+
+      if (fbaRes?.error || fbmRes?.error || otherRes?.error) {
+        const err = fbaRes?.error || fbmRes?.error || otherRes?.error;
+        throw new Error(err?.message || 'Failed to load breakdown');
+      }
+
+      acc(fbaRes, 'fba');
+      acc(fbmRes, 'fbm');
+      acc(otherRes, 'other');
+
+      const toBucket = (total) => {
+        if (total > 0) return 0; // positive first
+        if (total < 0) return 1; // then negative
+        return 2; // zeros last
+      };
+
+      const list = Array.from(rowsByCompany.values())
+        .map((r) => ({
+          ...r,
+          total: r.amtFba + r.amtFbm + r.amtOther
+        }))
+        .filter((r) => Math.abs(r.total) > 0.0001);
+
+      list.sort((a, b) => {
+        const bucketA = toBucket(a.total);
+        const bucketB = toBucket(b.total);
+        if (bucketA !== bucketB) return bucketA - bucketB;
+        return Math.abs(b.total) - Math.abs(a.total);
+      });
+
+      setBreakdownRows(list);
+    } catch (e) {
+      setBreakdownError(e?.message || 'Could not load breakdown');
+      setBreakdownRows([]);
+    } finally {
+      setBreakdownLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -656,6 +783,8 @@ export default function AdminCompanyDashboard() {
             <MetricCard
               title="Uninvoiced Charges"
               value={`€${Number(moneySelectedInterval || 0).toFixed(2)}`}
+              actionLabel="More info"
+              onAction={loadUninvoicedBreakdown}
             />
             <MetricCard
               title="Unpaid, Invoiced Charges"
@@ -814,6 +943,74 @@ export default function AdminCompanyDashboard() {
           </div>
 
         </>
+      )}
+
+      {showBreakdown && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div>
+                <div className="text-sm text-text-secondary">Uninvoiced Charges · {dateFrom} → {dateTo}</div>
+                <div className="text-lg font-semibold text-text-primary">Breakdown by company ({currentMarket})</div>
+              </div>
+              <div className="flex items-center gap-2">
+                {breakdownLoading && <span className="text-xs text-text-secondary">Loading…</span>}
+                <button
+                  onClick={() => setShowBreakdown(false)}
+                  className="px-3 py-1.5 rounded-md bg-gray-100 text-sm hover:bg-gray-200"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {breakdownError && (
+              <div className="px-4 py-2 text-sm text-red-700 bg-red-50 border-b">{breakdownError}</div>
+            )}
+
+            <div className="overflow-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 text-text-secondary">
+                  <tr>
+                    <th className="text-left px-4 py-2">Company</th>
+                    <th className="text-right px-4 py-2">Units FBA</th>
+                    <th className="text-right px-4 py-2">Units FBM</th>
+                    <th className="text-right px-4 py-2">Units Other</th>
+                    <th className="text-right px-4 py-2">€ FBA</th>
+                    <th className="text-right px-4 py-2">€ FBM</th>
+                    <th className="text-right px-4 py-2">€ Other</th>
+                    <th className="text-right px-4 py-2">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {breakdownLoading && (
+                    <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>Loading…</td></tr>
+                  )}
+                  {!breakdownLoading && breakdownRows.length === 0 && (
+                    <tr><td className="px-4 py-3 text-center text-text-secondary" colSpan={8}>No charges in this interval.</td></tr>
+                  )}
+                  {!breakdownLoading && breakdownRows.map((row) => (
+                    <tr key={row.companyId} className="border-b last:border-b-0">
+                      <td className="px-4 py-2">
+                        <div className="font-semibold text-text-primary">{row.name}</div>
+                        <div className="text-xs text-text-secondary">{row.companyId}</div>
+                      </td>
+                      <td className="px-4 py-2 text-right">{Number(row.unitsFba || 0)}</td>
+                      <td className="px-4 py-2 text-right">{Number(row.unitsFbm || 0)}</td>
+                      <td className="px-4 py-2 text-right">{Number(row.unitsOther || 0)}</td>
+                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtFba)}</td>
+                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtFbm)}</td>
+                      <td className="px-4 py-2 text-right">{fmtMoney(row.amtOther)}</td>
+                      <td className={`px-4 py-2 text-right font-semibold ${row.total > 0 ? 'text-red-700' : row.total < 0 ? 'text-green-700' : 'text-text-primary'}`}>
+                        {fmtMoney(row.total)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
