@@ -723,8 +723,6 @@ export default function AdminCompanyDashboard() {
 
       const rowsByCompany = new Map();
       rows.forEach((row) => {
-        const status = (row.status || '').toLowerCase();
-        if (status === 'paid') return;
         const id = row.company_id;
         if (!id) return;
         const entry = rowsByCompany.get(id) || {
