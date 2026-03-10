@@ -469,12 +469,36 @@ export default function ClientAffiliates() {
                         {t('ClientAffiliates.stats.title')}
                       </p>
                       <div className="flex items-center gap-2">
-                        <input
-                          type="month"
-                          value={billingMonth}
-                          onChange={(e) => setBillingMonth(e.target.value)}
-                          className="border rounded px-2 py-1 text-xs"
-                        />
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs border rounded hover:bg-slate-100"
+                            onClick={() => {
+                              const prev = new Date(billingMonth || currentMonth);
+                              prev.setMonth(prev.getMonth() - 1);
+                              setBillingMonth(`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`);
+                            }}
+                          >
+                            ‹
+                          </button>
+                          <input
+                            type="month"
+                            value={billingMonth}
+                            onChange={(e) => setBillingMonth(e.target.value)}
+                            className="border rounded px-2 py-1 text-xs"
+                          />
+                          <button
+                            type="button"
+                            className="px-2 py-1 text-xs border rounded hover:bg-slate-100"
+                            onClick={() => {
+                              const next = new Date(billingMonth || currentMonth);
+                              next.setMonth(next.getMonth() + 1);
+                              setBillingMonth(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}`);
+                            }}
+                          >
+                            ›
+                          </button>
+                        </div>
                         {billingMonth && (
                           <button
                             type="button"
