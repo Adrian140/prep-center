@@ -26,7 +26,7 @@
     "fba_mode_full": "Send all units to Amazon",
     "fba_mode_partial": "Partial shipment",
     "sidebar": {
-      "activity": "Activity",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Products",
@@ -1161,7 +1161,7 @@
       "save": "Salvează"
     },
     "sidebar": {
-      "activity": "Activitate",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Produse",
@@ -2250,7 +2250,7 @@
       "accessDeniedDesc": "Vous n'avez pas l’autorisation d'accéder à cette section."
     },
     "sidebar": {
-      "activity": "Activité",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Produits",
@@ -3307,7 +3307,7 @@
       "accessDeniedDesc": "Sie besitzen keine Berechtigung für diesen Bereich."
     },
     "sidebar": {
-      "activity": "Aktivität",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Produkte",
@@ -4306,7 +4306,7 @@
       "accessDeniedDesc": "Non hai i permessi per visualizzare questa sezione."
     },
     "sidebar": {
-      "activity": "Attività",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Prodotti",
@@ -5305,7 +5305,7 @@
       "accessDeniedDesc": "No tienes permisos para ver esta sección."
     },
     "sidebar": {
-      "activity": "Actividad",
+      "activity": "Dashboard",
       "fba": "FBA",
       "fbm": "FBM",
       "stock": "Productos",
