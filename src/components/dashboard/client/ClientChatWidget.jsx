@@ -71,6 +71,7 @@ export default function ClientChatWidget() {
   const [b2bInput, setB2bInput] = useState('');
   const [b2bFiles, setB2bFiles] = useState([]);
   const [b2bFileError, setB2bFileError] = useState('');
+  const [b2bDragging, setB2bDragging] = useState(false);
   const [b2bAttachmentUrls, setB2bAttachmentUrls] = useState({});
   const [b2bAttachmentErrors, setB2bAttachmentErrors] = useState({});
   const [b2bAttachmentLoading, setB2bAttachmentLoading] = useState({});
@@ -555,22 +556,61 @@ export default function ClientChatWidget() {
     });
   }, [b2bMessages.length, open, mode, activeB2bConversationId]);
 
+  const getActiveB2bMarket = () => {
+    const conv = b2bConversations.find((row) => row.id === activeB2bConversationId) || null;
+    return conv?.country || selectedMarket;
+  };
+
+  const validateB2bFiles = useCallback(
+    (fileList) => {
+      const selected = Array.from(fileList || []);
+      if (!selected.length) return { valid: [], error: '' };
+      const market = getActiveB2bMarket();
+      const valid = selected.filter(
+        (file) =>
+          ALLOWED_CHAT_ATTACHMENT_TYPES.includes(file.type) &&
+          Number(file.size || 0) > 0 &&
+          Number(file.size || 0) <= MAX_CHAT_ATTACHMENT_SIZE
+      );
+      const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_CHAT_ATTACHMENT_SIZE);
+      const wrongType = selected.filter((file) => !ALLOWED_CHAT_ATTACHMENT_TYPES.includes(file.type));
+      let error = '';
+      if (tooLarge.length) {
+        error = getAttachmentSizeError(market);
+      } else if (wrongType.length) {
+        error = 'Format neacceptat. Folosește JPG, PNG sau PDF.';
+      }
+      return { valid, error };
+    },
+    [activeB2bConversationId, b2bConversations, selectedMarket]
+  );
+
   const handleB2bFiles = (event) => {
-    const selected = Array.from(event.target.files || []);
-    const valid = selected.filter(
-      (file) =>
-        ALLOWED_CHAT_ATTACHMENT_TYPES.includes(file.type) &&
-        Number(file.size || 0) > 0 &&
-        Number(file.size || 0) <= MAX_CHAT_ATTACHMENT_SIZE
-    );
-    const tooLarge = selected.filter((file) => Number(file.size || 0) > MAX_CHAT_ATTACHMENT_SIZE);
-    if (tooLarge.length) {
-      const market = activeB2bConversation?.country || selectedMarket;
-      setB2bFileError(getAttachmentSizeError(market));
-    } else {
-      setB2bFileError('');
-    }
+    const { valid, error } = validateB2bFiles(event.target.files);
     setB2bFiles(valid);
+    setB2bFileError(error);
+  };
+
+  const handleB2bDrop = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setB2bDragging(false);
+    const { valid, error } = validateB2bFiles(event.dataTransfer?.files);
+    setB2bFiles(valid);
+    setB2bFileError(error);
+    if (b2bFileInputRef.current) b2bFileInputRef.current.value = '';
+  };
+
+  const handleB2bDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!b2bDragging) setB2bDragging(true);
+  };
+
+  const handleB2bDragLeave = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setB2bDragging(false);
   };
 
   if (!user || !companyId || isAdmin) return null;
@@ -862,9 +902,22 @@ export default function ClientChatWidget() {
                       );
                     })}
                   </div>
-                  <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-200 bg-white p-2">
+                  <div
+                    className={`sticky bottom-0 z-10 shrink-0 border-t border-slate-200 bg-white p-2 transition-colors ${
+                      b2bDragging ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onDrop={handleB2bDrop}
+                    onDragOver={handleB2bDragOver}
+                    onDragEnter={handleB2bDragOver}
+                    onDragLeave={handleB2bDragLeave}
+                  >
                     {b2bFiles.length > 0 && (
                       <div className="mb-1 text-[11px] text-slate-500">{b2bFiles.length} attachment(s) ready</div>
+                    )}
+                    {b2bDragging && (
+                      <div className="mb-2 rounded-md border border-dashed border-primary bg-white/80 p-2 text-center text-[11px] font-semibold text-primary">
+                        Lasă fișierele aici pentru a le atașa
+                      </div>
                     )}
                     <div className="flex items-end gap-2">
                       <label className="cursor-pointer rounded-md border border-slate-200 p-2 text-slate-600 hover:bg-slate-50">
@@ -897,7 +950,7 @@ export default function ClientChatWidget() {
                       </button>
                     </div>
                     <div className="mt-1 text-[11px] text-slate-400">
-                      Files: JPG, PNG, PDF up to {CHAT_ATTACHMENT_SIZE_MB}MB
+                      Poți încărca sau trage fișiere JPG, PNG, PDF (max {CHAT_ATTACHMENT_SIZE_MB}MB)
                     </div>
                     {!!b2bFileError && <div className="mt-1 text-[11px] text-rose-600">{b2bFileError}</div>}
                     {!!b2bError && <div className="mt-1 text-[11px] text-rose-600">{b2bError}</div>}
