@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Globe } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export default function LanguageSelector() {
   const { currentLanguage, changeLanguage, languages } = useLanguage();
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
 
   const items = Object.entries(languages).map(([code, meta]) => ({
     code,
@@ -18,8 +19,18 @@ export default function LanguageSelector() {
     changeLanguage(code);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="relative">
+    <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex items-center gap-1 px-2 py-1 rounded-lg border bg-white hover:bg-gray-50 shadow-sm"

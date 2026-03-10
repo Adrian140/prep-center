@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { useMarket } from '@/contexts/MarketContext';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
@@ -21,6 +21,7 @@ export default function MarketSelector() {
   const isAdmin = Boolean(
     profile?.account_type === 'admin' || user?.user_metadata?.account_type === 'admin'
   );
+  const wrapperRef = useRef(null);
 
   const items = useMemo(
     () =>
@@ -40,6 +41,16 @@ export default function MarketSelector() {
     const onMarket = () => setOpen(false);
     window.addEventListener('market:changed', onMarket);
     return () => window.removeEventListener('market:changed', onMarket);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   if (!isAuthenticated) {
@@ -129,7 +140,7 @@ export default function MarketSelector() {
 
   return (
     <>
-      <div className="relative">
+      <div className="relative" ref={wrapperRef}>
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-white hover:bg-gray-50 shadow-sm min-w-[140px] justify-between"
