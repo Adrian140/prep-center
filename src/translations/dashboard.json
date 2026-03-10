@@ -387,7 +387,7 @@
         "trackingNone": "No tracking IDs yet",
         "notes": "Notes",
         "countryTag": "Country",
-        "destinationLabel": "Amazon destination country",
+        "destinationLabel": "Destination country",
         "destinationHint": "Use this country for prep requests and receptions."
       },
       "actions": {
@@ -1483,7 +1483,7 @@
         "trackingNone": "Fără coduri tracking",
         "notes": "Notițe",
         "countryTag": "Țară",
-        "destinationLabel": "Țara de destinație Amazon",
+        "destinationLabel": "Țara de destinație",
         "destinationHint": "Vom folosi această țară pentru recepții și cereri de prep."
       },
       "actions": {
@@ -2622,7 +2622,7 @@
         "trackingNone": "Aucun numéro de suivi",
         "notes": "Notes",
         "countryTag": "Pays",
-        "destinationLabel": "Pays de destination Amazon",
+        "destinationLabel": "Pays de destination",
         "destinationHint": "Nous utiliserons ce pays pour les demandes et réceptions."
       },
       "actions": {
@@ -3624,7 +3624,7 @@
         "trackingNone": "Keine Tracking-IDs",
         "notes": "Notizen",
         "countryTag": "Land",
-        "destinationLabel": "Amazon-Zielland",
+        "destinationLabel": "Zielland",
         "destinationHint": "Wir verwenden dieses Land für Anlieferungen und Prep-Anfragen."
       },
       "actions": {
@@ -4623,7 +4623,7 @@
         "trackingNone": "Nessun codice tracking",
         "notes": "Note",
         "countryTag": "Paese",
-        "destinationLabel": "Paese di destinazione Amazon",
+        "destinationLabel": "Paese di destinazione",
         "destinationHint": "Useremo questo paese per le richieste e le ricezioni."
       },
       "actions": {
@@ -5622,7 +5622,7 @@
         "trackingNone": "Sin identificadores de seguimiento",
         "notes": "Notas",
         "countryTag": "País",
-        "destinationLabel": "País de destino en Amazon",
+        "destinationLabel": "País de destino",
         "destinationHint": "Usaremos este país para las solicitudes y recepciones."
       },
       "actions": {

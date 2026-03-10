@@ -88,6 +88,9 @@ const ClientStockSelectionBar = ({
 
   const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
+      <label className="text-[12px] font-medium text-gray-600">
+        {t('ClientStock.receptionForm.destinationLabel') || 'Destination country'}
+      </label>
       <select
         value={receptionForm.destinationCountry || 'FR'}
         onChange={(e) => onReceptionFormChange('destinationCountry', e.target.value)}
