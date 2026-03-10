@@ -260,13 +260,15 @@ export default function ClientAffiliates() {
       }));
       return;
     }
-    if (value > availableCredit) {
+    // toleranță de 1 cent pentru erorile de rotunjire
+    const roundedAvailable = Math.floor(availableCredit * 100 + 0.0001) / 100;
+    if (value > roundedAvailable + 0.009) {
       setCreditFlashByMarket((prev) => ({
         ...prev,
         [market]: {
           type: 'error',
           message: tp('ClientAffiliates.credit.errorMax', {
-            amount: euroFormatter.format(availableCredit)
+            amount: euroFormatter.format(roundedAvailable)
           })
         }
       }));
@@ -283,7 +285,7 @@ export default function ClientAffiliates() {
         throw error;
       }
       const payload = Array.isArray(data) ? data[0] : data;
-      const applied = payload?.applied ?? value;
+      const applied = payload?.applied ?? Math.min(value, roundedAvailable);
       setCreditAmounts((prev) => ({ ...prev, [market]: '' }));
       setCreditFlashByMarket((prev) => ({
         ...prev,
