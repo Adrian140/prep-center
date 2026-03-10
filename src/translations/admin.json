@@ -368,6 +368,8 @@
       "offerFixed": "One-time bonus {amount} after {threshold}",
       "offerNone": "No payout settings",
       "memberBilling": "{billed} billed · share {commission}",
+      "filterActive": "Show only codes with clients",
+      "filterAll": "Show all codes",
       "performanceTitle": "Performance",
       "performanceClients": "Affiliated clients",
       "performanceBilled": "Billed total",

@@ -107,6 +107,7 @@ export default function AdminAffiliates() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }, []);
   const [billingMonth, setBillingMonth] = useState(currentMonth);
+  const [showZeroCodes, setShowZeroCodes] = useState(false);
 
   const currencyFormatter = useMemo(
     () =>
@@ -154,6 +155,11 @@ export default function AdminAffiliates() {
       return bDate - aDate;
     });
   }, [codes, memberCounts]);
+
+  const visibleCodes = useMemo(() => {
+    if (showZeroCodes) return sortedCodes;
+    return sortedCodes.filter((code) => (memberCounts?.[code.id] || 0) > 0);
+  }, [sortedCodes, showZeroCodes, memberCounts]);
 
   const describePayout = (code) => {
     if (!code) return t('affiliates.offerNone');
@@ -792,7 +798,20 @@ export default function AdminAffiliates() {
               </div>
             )}
 
-            {sortedCodes.map((code) => {
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <p className="text-sm text-text-secondary">
+                {showZeroCodes ? t('affiliates.filterAll') : t('affiliates.filterActive')}
+              </p>
+              <button
+                type="button"
+                className="text-sm text-primary underline"
+                onClick={() => setShowZeroCodes((v) => !v)}
+              >
+                {showZeroCodes ? t('affiliates.filterActive') : t('affiliates.filterAll')}
+              </button>
+            </div>
+
+            {visibleCodes.map((code) => {
               const ownerName = formatClientName(code.owner || {});
               const displayLabel = code.label?.trim() || ownerName || '—';
               return (
