@@ -692,16 +692,28 @@ export default function AdminCompanyDashboard() {
     try {
       const isAll = selectedCompany?.id === 'ALL';
       const companyId = isAll ? null : selectedCompany?.id;
-      let query = supabase
-        .from('invoices')
-        .select('company_id, amount, status, issue_date')
-        .eq('country', currentMarket)
-        .gte('issue_date', dateFrom)
-        .lte('issue_date', dateTo)
-        .limit(20000);
-      if (companyId) query = query.eq('company_id', companyId);
+      const buildQuery = (withCountry) => {
+        let q = supabase
+          .from('invoices')
+          .select('company_id, amount, status, issue_date, country')
+          .gte('issue_date', dateFrom)
+          .lte('issue_date', dateTo)
+          .limit(20000);
+        if (withCountry && currentMarket) q = q.eq('country', currentMarket);
+        if (companyId) q = q.eq('company_id', companyId);
+        return q;
+      };
 
-      const res = await query;
+      let res = await buildQuery(true);
+      if (res?.error && res.error?.message?.toLowerCase().includes('column') && res.error?.message?.includes('country')) {
+        // fallback if invoices table lacks country
+        res = await buildQuery(false);
+      }
+      if (!res?.error && Array.isArray(res.data) && res.data.length === 0 && currentMarket) {
+        // fallback to no-country filter if nothing found for this market (defensive)
+        const retry = await buildQuery(false);
+        if (!retry?.error) res = retry;
+      }
       if (res?.error) throw res.error;
       const rows = Array.isArray(res.data) ? res.data : [];
       const numberOrZero = (v) => {
