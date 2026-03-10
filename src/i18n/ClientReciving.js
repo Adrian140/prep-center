@@ -28,6 +28,10 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced_label: "Marchandises à recevoir :",
     store_name: "Magasin ou référence commande",
     store_name_ph: "Magasin ou référence commande",
+    receptionForm: {
+      created_for: "Créée pour",
+      destination: "Destination",
+    },
 
     // Buttons (generic)
     
@@ -191,6 +195,10 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced_label: "Goods expected:",
     store_name: "Store or order reference",
     store_name_ph: "Store or order reference",
+    receptionForm: {
+      created_for: "Created in",
+      destination: "Destination",
+    },
     template_filename: "receiving_template.csv",
 
     new_receipt: "New receiving",
@@ -337,6 +345,10 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced_label: "Wareneingang erwartet:",
     store_name: "Shop oder Bestellreferenz",
     store_name_ph: "Shop oder Bestellreferenz",
+    receptionForm: {
+      created_for: "Erstellt in",
+      destination: "Ziel",
+    },
     template_filename: "vorlage_wareneingang.csv", 
 
     new_receipt: "Neuer Wareneingang",
@@ -484,6 +496,10 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced_label: "Merce da ricevere:",
     store_name: "Negozio o riferimento ordine",
     store_name_ph: "Negozio o riferimento ordine",
+    receptionForm: {
+      created_for: "Creata in",
+      destination: "Destinazione",
+    },
 
     new_receipt: "Nuova ricezione",
     view_details: "Vedi dettagli",
@@ -631,6 +647,10 @@ export const CLIENT_RECIVING_DICT = {
     fba_units_announced_label: "Mercancía a recibir:",
     store_name: "Tienda o referencia de pedido",
     store_name_ph: "Tienda o referencia de pedido",
+    receptionForm: {
+      created_for: "Creada en",
+      destination: "Destino",
+    },
 
     new_receipt: "Nueva recepción",
     view_details: "Ver detalles",
@@ -778,6 +798,10 @@ export const CLIENT_RECIVING_DICT = {
   fba_units_announced_label: "Marfă de primit:",
   store_name: "Magazin / referință comandă",
   store_name_ph: "Magazin / referință comandă",
+  receptionForm: {
+    created_for: "Creată în",
+    destination: "Destinație",
+  },
 
     new_receipt: "Recepție nouă",
     view_details: "Vezi detalii",
