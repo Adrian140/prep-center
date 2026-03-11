@@ -13,6 +13,7 @@ export default function FbaStep1bPacking({
   error,
   submitting = false,
   autoPackingMode = false,
+  palletMode = false,
   onUpdateGroup,
   onNext,
   onBack,
@@ -168,7 +169,8 @@ export default function FbaStep1bPacking({
   const clampBoxes = (value) => {
     const n = Math.floor(resolveGroupNumber(value));
     if (n <= 0) return 1;
-    return Math.min(10, n);
+    const maxBoxes = palletMode ? 500 : 10;
+    return Math.min(maxBoxes, n);
   };
 
   const resolveBoxState = (group) => {
@@ -313,6 +315,11 @@ export default function FbaStep1bPacking({
     if (missingPackingId) {
       return 'Amazon nu a returnat packingGroupId pentru unul din grupuri. Reia Step 1b ca să obții packing groups reale.';
     }
+    if (palletMode) {
+      const missingBoxes = visibleGroups.some((group) => !(clampBoxes(group?.boxes) > 0));
+      if (missingBoxes) return 'Setează numărul de cutii pentru fiecare packing group.';
+      return '';
+    }
     const oversizeDim = visibleGroups.some((group) => {
       const { dims, boxes, perBoxDetails, perBoxItems } = resolveBoxState(group);
       const boxCount = clampBoxes(boxes);
@@ -356,7 +363,7 @@ export default function FbaStep1bPacking({
       const { dims, weight, boxes, perBoxDetails, perBoxItems, contentInformationSource } = resolveBoxState(group);
       const boxCount = clampBoxes(boxes);
 
-      if (boxCount > 10) {
+      if (!palletMode && boxCount > 10) {
         return true;
       }
 
@@ -448,6 +455,71 @@ export default function FbaStep1bPacking({
       setContinueError(err?.message || 'Nu am putut salva packing information.');
     }
   };
+
+  if (palletMode) {
+    const renderPalletGroup = (group) => {
+      const totalUnits = resolveTotalUnits(group);
+      const boxes = clampBoxes(group?.boxes);
+      const unitsPerBox = boxes > 0 ? Math.round((totalUnits / boxes) * 100) / 100 : null;
+      return (
+        <div key={group?.packingGroupId || group?.id} className="border border-slate-200 rounded-lg p-3 flex flex-col gap-1">
+          <div className="font-semibold text-slate-900 text-sm">Packing group {group?.packingGroupId || group?.id}</div>
+          <div className="text-xs text-slate-600">Boxes: {boxes || '—'} · Units: {totalUnits || '—'} {unitsPerBox ? `· Units/box: ${unitsPerBox}` : ''}</div>
+          <div className="text-xs text-slate-500">SKU items: {(group?.items || []).length}</div>
+        </div>
+      );
+    };
+
+    const waiting = loading || (!packGroupsLoaded && !error);
+
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200" onClick={clearSelectionIfRange}>
+        <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-emerald-600" />
+          <div>
+            <div className="font-semibold text-slate-900">Step 1b - Packing (pallet flow)</div>
+            <div className="text-sm text-slate-600">Amazon case-packed cu paleți: nu cerem Box Contents; continuă direct spre shipping.</div>
+          </div>
+        </div>
+
+        {error && !waiting ? (
+          <div className="px-6 pt-4 text-sm text-rose-600">{error}</div>
+        ) : null}
+
+        {continueError ? (
+          <div className="px-6 pt-3 text-sm text-rose-600">{continueError}</div>
+        ) : null}
+
+        <div className="px-6 py-4 space-y-3">
+          {waiting ? (
+            <div className="text-sm text-slate-600">Așteptăm packing groups de la Amazon…</div>
+          ) : visibleGroups.length === 0 ? (
+            <div className="text-sm text-amber-700">Nu există packing groups. Reîncarcă Step 1 sau încearcă din nou.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {visibleGroups.map(renderPalletGroup)}
+            </div>
+          )}
+          <div className="text-xs text-slate-500">Greutățile și dimensiunile cutiilor nu sunt cerute aici; vor fi gestionate la nivel de palet în Step 2.</div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
+            Înapoi la Step 1
+          </button>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={handleContinue}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
+              disabled={submitting || waiting}
+            >
+              {submitting ? 'Se salvează…' : 'Continuă la shipping'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const renderItemAvatar = (item) => {
     if (item?.image) {

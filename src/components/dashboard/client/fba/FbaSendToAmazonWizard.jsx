@@ -147,6 +147,24 @@ const getTomorrowIsoDate = () => {
   return d.toISOString().slice(0, 10);
 };
 
+// Packing helpers (duplicated locally to avoid cross-file imports)
+const normalizePackingType = (value) => {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'case') return 'case';
+  if (raw === 'single_sku_pallet' || raw === 'single-sku-pallet') return 'single_sku_pallet';
+  return 'individual';
+};
+
+const isPalletFriendlyPacking = (value) => {
+  const norm = normalizePackingType(value);
+  return norm === 'case' || norm === 'single_sku_pallet';
+};
+
+const isLtlLikeMode = (mode) => {
+  const up = String(mode || '').toUpperCase();
+  return up === 'LTL' || up === 'FTL' || up === 'FREIGHT_LTL' || up === 'FREIGHT_FTL';
+};
+
 const CARRIER_CODE_LABELS = {
   UPS: 'UPS',
   UPSN: 'UPS',
@@ -697,6 +715,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const up = String(method || '').toUpperCase();
     return up === 'LTL' || up === 'FTL' || up === 'FREIGHT_LTL' || up === 'FREIGHT_FTL';
   }, []);
+
+  const palletOnlyMode = useMemo(() => {
+    if (isLtlFtl(shipmentMode?.method)) return true;
+    const skus = Array.isArray(plan?.skus) ? plan.skus : [];
+    if (!skus.length) return false;
+    const palletPacking = skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
+    const hasUnitsPerBox = skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0);
+    return palletPacking && hasUnitsPerBox;
+  }, [isLtlFtl, plan?.skus, shipmentMode?.method]);
 
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
@@ -2687,11 +2714,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const autoPackingEnabled = useMemo(() => {
     if (historyMode) return false;
+    if (palletOnlyMode) return true;
     const groupsPlan = step1BoxPlanForMarket?.groups || {};
     return Boolean(groupsPlan && Object.keys(groupsPlan).length);
-  }, [historyMode, step1BoxPlanForMarket]);
+  }, [historyMode, step1BoxPlanForMarket, palletOnlyMode]);
   const autoPackingReady = useMemo(() => {
     if (!autoPackingEnabled || !Array.isArray(packGroupsForAuto) || !packGroupsForAuto.length) return false;
+    if (palletOnlyMode) {
+      return packGroupsForAuto.every((g) => {
+        const id = String(g?.packingGroupId || g?.id || '').trim();
+        const boxes = Number(g?.boxes || 0);
+        return Boolean(id) && boxes > 0;
+      });
+    }
     const groupsPlan = step1BoxPlanForMarket?.groups || {};
     const hasGroupItems = (g) => {
       const normalized = normalizeGroupItemsForUnits(g?.items || []);
@@ -2721,7 +2756,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const w = getPositiveNumber(g?.boxWeight);
       return Boolean(dims && w);
     });
-  }, [autoPackingEnabled, packGroupsForAuto, normalizeGroupItemsForUnits, step1BoxPlanForMarket]);
+  }, [autoPackingEnabled, packGroupsForAuto, normalizeGroupItemsForUnits, step1BoxPlanForMarket, palletOnlyMode]);
 
   // Active auto-packing only when we have valid groups with dimensions/weight; otherwise allow manual UI.
   const autoPackingActive = useMemo(() => autoPackingEnabled && autoPackingReady, [autoPackingEnabled, autoPackingReady]);
@@ -3143,6 +3178,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const requestId = resolveRequestId();
     const placementOptId =
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
+    const allowPalletRelax = palletOnlyMode || isLtlFtl(shipmentMode?.method);
 
     if (!inboundPlanId || !requestId) {
       setPackingSubmitError('Missing inboundPlanId or requestId; finish Step 1 before confirming.');
@@ -3182,41 +3218,50 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
 
     if (!packingGroupsPayload.length && !packageGroupingsFallback.length) {
-      setPackingSubmitError('Completează dimensiunile/greutatea cutiilor înainte de a continua.');
+      setPackingSubmitError(
+        allowPalletRelax
+          ? 'Completează packing groups înainte de a continua.'
+          : 'Completează dimensiunile/greutatea cutiilor înainte de a continua.'
+      );
       return;
     }
-    const invalid = packingGroupsPayload.find((g) => {
-      const isMultiple = String(g.packMode || '').toLowerCase() === 'multiple';
-      const hasBaseDims =
-        Number(g.dimensions?.length) > 0 &&
-        Number(g.dimensions?.width) > 0 &&
-        Number(g.dimensions?.height) > 0;
-      const hasBaseWeight = Number(g.weight?.value) > 0;
+    if (!allowPalletRelax) {
+      const invalid = packingGroupsPayload.find((g) => {
+        const isMultiple = String(g.packMode || '').toLowerCase() === 'multiple';
+        const hasBaseDims =
+          Number(g.dimensions?.length) > 0 &&
+          Number(g.dimensions?.width) > 0 &&
+          Number(g.dimensions?.height) > 0;
+        const hasBaseWeight = Number(g.weight?.value) > 0;
 
-      if (isMultiple) {
-        const perBox = Array.isArray(g.perBoxDetails) ? g.perBoxDetails : [];
+        if (isMultiple) {
+          const perBox = Array.isArray(g.perBoxDetails) ? g.perBoxDetails : [];
 
-        // Dacă nu avem detalii pe fiecare cutie, dar avem dimensiuni/greutate
-        // de bază, permitem continuarea și lăsăm back-end-ul să aplice aceleași
-        // valori pentru toate cutiile.
-        if (!perBox.length) {
-          return !(hasBaseDims && hasBaseWeight);
+          if (!perBox.length) {
+            return !(hasBaseDims && hasBaseWeight);
+          }
+
+          return perBox.some((b) => {
+            const l = Number(b?.length || 0);
+            const w = Number(b?.width || 0);
+            const h = Number(b?.height || 0);
+            const wt = Number(b?.weight || 0);
+            return !(l > 0 && w > 0 && h > 0 && wt > 0);
+          });
         }
 
-        return perBox.some((b) => {
-          const l = Number(b?.length || 0);
-          const w = Number(b?.width || 0);
-          const h = Number(b?.height || 0);
-          const wt = Number(b?.weight || 0);
-          return !(l > 0 && w > 0 && h > 0 && wt > 0);
-        });
+        return !(hasBaseDims && hasBaseWeight);
+      });
+      if (invalid) {
+        setPackingSubmitError('Dimensiuni/greutate incomplete pentru cutie.');
+        return;
       }
-
-      return !(hasBaseDims && hasBaseWeight);
-    });
-    if (invalid) {
-      setPackingSubmitError('Dimensiuni/greutate incomplete pentru cutie.');
-      return;
+    } else {
+      const missingBoxes = packingGroupsPayload.some((g) => !(Number(g.boxes || 0) > 0));
+      if (missingBoxes) {
+        setPackingSubmitError('Setează numărul de cutii pentru fiecare packing group.');
+        return;
+      }
     }
 
     setPackingSubmitLoading(true);
@@ -4466,10 +4511,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         height: dims.height || null,
         weight: g.boxWeight || null
       }));
-      const totalWeight = boxesDetail.reduce(
+      const baseWeight = boxesDetail.reduce(
         (sum, b) => sum + (getPositiveNumber(b.weight) || 0),
         0
       );
+      const palletWeight = getPositiveNumber(palletDetails?.weight);
+      const palletQty = getPositiveNumber(palletDetails?.quantity);
+      const totalWeight = baseWeight || (palletWeight && palletQty ? palletWeight * palletQty : 0);
 
       return {
         id: g?.shipmentId || g?.shipment_id || base?.shipmentId || base?.id || `s-${idx + 1}`,
@@ -5435,6 +5483,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}
           autoPackingMode={autoPackingActive}
+          palletMode={palletOnlyMode}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}
           onBack={() => goToStep('1')}
@@ -5479,7 +5528,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           error={shippingError}
           confirming={shippingConfirming}
           onNext={confirmShippingOptions}
-          onBack={() => goToStep('1b')}
+          onBack={() => goToStep(palletOnlyMode ? '1' : '1b')}
         />
       );
     }
