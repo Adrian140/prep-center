@@ -359,7 +359,13 @@ export default function AdminProfiles({ onSelect }) {
   };
 
   const compareLive = bucketedCompare;
-  const compareNullable = bucketedCompare;
+  const compareNullable = (aVal, bVal) => {
+    if (aVal === null && bVal === null) return 0;
+    if (aVal === null) return 1;
+    if (bVal === null) return -1;
+    if (aVal === bVal) return 0;
+    return sortDir === "asc" ? aVal - bVal : bVal - aVal;
+  };
 
   list.sort((a, b) => {
     const primaryA = getSortValue(a);
