@@ -57,15 +57,16 @@ jobs:
           SPAPI_SALES_TIME_BUDGET_MS: 19800000
         run: npm run sync-sales
 
-      - name: Relaunch immediately (tolerant)
+      - name: Relaunch immediately (tolerant, infinite loop)
         if: ${{ always() }}
         continue-on-error: true
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.REPO_ACCESS_TOKEN }}
           script: |
-            const maxRetries = 3;
-            const backoffMs = 5000;
+            const backoffMs = 10000; // 10s
+            const timeoutMs = 10 * 60 * 1000; // safety cap: 10 minutes of retrying dispatch
+            const start = Date.now();
 
             const { data } = await github.rest.actions.listWorkflowRuns({
               owner: context.repo.owner,
@@ -82,8 +83,9 @@ jobs:
               return;
             }
 
-            let lastErr = null;
-            for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
+            let attempt = 0;
+            while (Date.now() - start < timeoutMs) {
+              attempt += 1;
               try {
                 await github.rest.actions.createWorkflowDispatch({
                   owner: context.repo.owner,
@@ -94,11 +96,8 @@ jobs:
                 core.info(`Run nou trimis prin workflow_dispatch (încercarea ${attempt}).`);
                 return;
               } catch (err) {
-                lastErr = err;
-                core.warning(`Dispatch attempt ${attempt}/${maxRetries} failed: ${err?.message || err}`);
-                if (attempt < maxRetries) {
-                  await new Promise((resolve) => setTimeout(resolve, backoffMs * attempt));
-                }
+                core.warning(`Dispatch attempt ${attempt} failed: ${err?.message || err}`);
+                await new Promise((resolve) => setTimeout(resolve, backoffMs));
               }
             }
-            core.warning(`Nu am reușit să trimit workflow_dispatch după ${maxRetries} încercări. Jobul nu va fi marcat failed datorită continue-on-error. Ultima eroare: ${lastErr?.message || lastErr}`);
+            core.warning('Nu am reușit să trimit workflow_dispatch în fereastra de retry de 10 minute. Deoarece step-ul e continue-on-error, run-ul curent se va închide.');
