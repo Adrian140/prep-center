@@ -241,35 +241,52 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
     return (updated as Record<string, unknown>) || row;
   };
 
+  const ilike = (val: string | null) => (val ? val.replace(/([%_])/g, "\\$1") : val);
+
+  // 1) Exact pair (case-insensitive)
   if (asin && sku) {
     const { data: exactPair } = await supabase
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
-      .eq("asin", asin)
-      .eq("sku", sku)
+      .ilike("asin", ilike(asin) || "")
+      .ilike("sku", ilike(sku) || "")
       .maybeSingle();
     if (exactPair) return await maybeUpdateName(exactPair as Record<string, unknown>);
   }
 
+  // 2) Match by SKU only (case-insensitive). If we find one and incoming asin is set while stored asin is null, attach asin.
   if (sku) {
     const { data: bySku } = await supabase
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
-      .eq("sku", sku)
+      .ilike("sku", ilike(sku) || "")
       .maybeSingle();
-    if (bySku) return await maybeUpdateName(bySku as Record<string, unknown>);
+    if (bySku) {
+      if (asin && !(bySku as any).asin) {
+        await supabase.from("stock_items").update({ asin }).eq("id", String((bySku as any).id));
+        (bySku as any).asin = asin;
+      }
+      return await maybeUpdateName(bySku as Record<string, unknown>);
+    }
   }
 
+  // 3) Match by ASIN only (case-insensitive). If we find one and incoming sku is set while stored sku is null, attach sku.
   if (asin) {
     const { data: byAsin } = await supabase
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
-      .eq("asin", asin)
+      .ilike("asin", ilike(asin) || "")
       .maybeSingle();
-    if (byAsin) return await maybeUpdateName(byAsin as Record<string, unknown>);
+    if (byAsin) {
+      if (sku && !(byAsin as any).sku) {
+        await supabase.from("stock_items").update({ sku }).eq("id", String((byAsin as any).id));
+        (byAsin as any).sku = sku;
+      }
+      return await maybeUpdateName(byAsin as Record<string, unknown>);
+    }
   }
 
   if (ean) {
@@ -277,7 +294,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
-      .eq("ean", ean)
+      .ilike("ean", ilike(ean) || "")
       .maybeSingle();
     if (byEan) return await maybeUpdateName(byEan as Record<string, unknown>);
   }

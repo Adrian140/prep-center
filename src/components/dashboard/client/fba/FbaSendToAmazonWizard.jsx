@@ -3187,9 +3187,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     const invalid = packingGroupsPayload.find((g) => {
       const isMultiple = String(g.packMode || '').toLowerCase() === 'multiple';
+      const hasBaseDims =
+        Number(g.dimensions?.length) > 0 &&
+        Number(g.dimensions?.width) > 0 &&
+        Number(g.dimensions?.height) > 0;
+      const hasBaseWeight = Number(g.weight?.value) > 0;
+
       if (isMultiple) {
         const perBox = Array.isArray(g.perBoxDetails) ? g.perBoxDetails : [];
-        if (!perBox.length) return true;
+
+        // Dacă nu avem detalii pe fiecare cutie, dar avem dimensiuni/greutate
+        // de bază, permitem continuarea și lăsăm back-end-ul să aplice aceleași
+        // valori pentru toate cutiile.
+        if (!perBox.length) {
+          return !(hasBaseDims && hasBaseWeight);
+        }
+
         return perBox.some((b) => {
           const l = Number(b?.length || 0);
           const w = Number(b?.width || 0);
@@ -3198,12 +3211,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           return !(l > 0 && w > 0 && h > 0 && wt > 0);
         });
       }
-      return !(
-        Number(g.dimensions?.length) > 0 &&
-        Number(g.dimensions?.width) > 0 &&
-        Number(g.dimensions?.height) > 0 &&
-        Number(g.weight?.value) > 0
-      );
+
+      return !(hasBaseDims && hasBaseWeight);
     });
     if (invalid) {
       setPackingSubmitError('Dimensiuni/greutate incomplete pentru cutie.');

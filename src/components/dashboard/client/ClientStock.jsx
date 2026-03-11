@@ -2374,6 +2374,36 @@ const resetReceptionForm = () => {
       setToast({ type: 'success', text: t('ClientStock.table.saved') });
     } catch (e) {
       console.error('[SAVE ERROR]', e);
+      const code = String(e?.code || '').trim();
+      const msg = String(e?.message || '').toLowerCase();
+      const details = String(e?.details || '').toLowerCase();
+      const isDuplicate =
+        code === '23505' ||
+        msg.includes('stock_items_company_sku_asin_key') ||
+        details.includes('stock_items_company_sku_asin_key');
+
+      if (isDuplicate) {
+        const asinVal = (patch.asin ?? row.asin ?? '').trim();
+        const skuVal = (patch.sku ?? row.sku ?? '').trim();
+        let conflictName = null;
+        if (asinVal && skuVal && profile?.company_id) {
+          const { data: conflict } = await supabase
+            .from('stock_items')
+            .select('id,name')
+            .eq('company_id', profile.company_id)
+            .eq('asin', asinVal)
+            .eq('sku', skuVal)
+            .neq('id', row.id)
+            .maybeSingle();
+          conflictName = conflict?.name || null;
+        }
+        const duplicateText = conflictName
+          ? `ASIN+SKU există deja la produsul “${conflictName}”. Editează acel produs sau folosește un SKU diferit.`
+          : 'ASIN+SKU există deja la alt produs din companie. Caută produsul existent sau schimbă SKU.';
+        setToast({ type: 'error', text: duplicateText });
+        return;
+      }
+
       setToast({ type: 'error', text: supportError });
     } finally {
       setSavingId(null);
