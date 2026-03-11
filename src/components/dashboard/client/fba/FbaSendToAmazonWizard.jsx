@@ -718,12 +718,27 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
+
+    // Heuristic 1: all SKUs are case/single_sku_pallet and have unitsPerBox
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
-    if (!skus.length) return false;
-    const palletPacking = skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
-    const hasUnitsPerBox = skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0);
-    return palletPacking && hasUnitsPerBox;
-  }, [isLtlFtl, plan?.skus, shipmentMode?.method]);
+    const palletPacking = skus.length
+      ? skus.every((sku) => isPalletFriendlyPacking(sku?.packing))
+      : false;
+    const hasUnitsPerBox = skus.length
+      ? skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0)
+      : false;
+
+    // Heuristic 2: packing groups already returned with boxes and proportional units (case-pack)
+    const groupsCasePacked = Array.isArray(packGroups) && packGroups.length > 0 && packGroups.every((g) => {
+      const boxes = Number(g?.boxes || 0);
+      const units = Number(g?.units || 0);
+      if (!(boxes > 0 && units > 0)) return false;
+      const ratio = units / boxes;
+      return ratio >= 1; // accept non-integer; Amazon sometimes sends fractional placeholders
+    });
+
+    return (palletPacking && hasUnitsPerBox) || groupsCasePacked;
+  }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
