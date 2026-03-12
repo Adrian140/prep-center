@@ -350,7 +350,7 @@ export default function FbaStep2Shipping({
     return modeKeys[0] || '';
   }, [modeKeys, selectedModeKey]);
   const selectedMode = normalizeOptionMode(selectedOption?.mode || method);
-  const requireEnd = ['LTL', 'FTL', 'FREIGHT_LTL', 'FREIGHT_FTL'].includes(String(selectedMode || '').toUpperCase());
+  const requireEnd = false; // Amazon UI cere doar start (Ship date)
   const needsDeliveryWindow = Array.isArray(selectedOption?.raw?.preconditions)
     ? selectedOption.raw.preconditions.map((p) => String(p).toUpperCase()).includes('CONFIRMED_DELIVERY_WINDOW')
     : false;
@@ -520,46 +520,26 @@ export default function FbaStep2Shipping({
                   </button>
                 </div>
               </div>
-              {requireEnd ? (
-                <div className="flex flex-col gap-2">
-                  <div className="text-xs text-slate-600">
-                    Ready to ship — end {requireEnd ? '*' : '(opțional)'}
-                  </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={globalReadyEnd}
-                      onChange={(e) => {
-                        const nextEnd = e.target.value;
-                        shipmentIds.forEach((id) => {
-                          onReadyWindowChange?.(id, {
-                            start: readyWindowByShipment?.[id]?.start || '',
-                            end: nextEnd
-                          });
-                        });
-                      }}
-                      className="w-full border rounded-md px-3 py-2 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={onGenerateOptions}
-                      disabled={!shipmentIds.length || !globalReadyStart || shippingLoading}
-                      className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
-                        shipmentIds.length && globalReadyStart && !shippingLoading
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {shippingLoading ? tt('loading', 'Loading…') : tt('confirmReadyDate', 'Confirm ready date')}
-                    </button>
-                  </div>
-                  <div className="text-[11px] text-amber-700">
-                    {tt('readyWindowHint', 'Start is required; end becomes required if you choose LTL/FTL.')}
-                  </div>
+              <div className="flex flex-col gap-2">
+                <div className="text-xs text-slate-600">Ship date (Amazon folosește doar start)</div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onGenerateOptions}
+                    disabled={!shipmentIds.length || !globalReadyStart || shippingLoading}
+                    className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
+                      shipmentIds.length && globalReadyStart && !shippingLoading
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    {shippingLoading ? tt('loading', 'Loading…') : tt('confirmReadyDate', 'Confirm ready date')}
+                  </button>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2 text-[11px] text-slate-500" />
-              )}
+                <div className="text-[11px] text-slate-500">
+                  {tt('readyWindowHint', 'Select just the ship date; Amazon calculează fereastra intern.')}
+                </div>
+              </div>
             </div>
             {shipmentIds.length > 1 && (
               <div className="text-[11px] text-slate-500 mt-2">
