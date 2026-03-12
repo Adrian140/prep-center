@@ -725,6 +725,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
     const hasSkus = skus.length > 0;
     const allPalletFriendly = hasSkus && skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
+    const allTemplateCase = hasSkus && skus.every((sku) => {
+      const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0);
+      return unitsPerBox > 0 && Boolean(sku?.packingTemplateName || sku?.packing_template_name);
+    });
     const allCasePackedCounts = hasSkus && skus.every((sku) => {
       const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0);
       const boxesCount = Number(sku?.boxesCount ?? sku?.boxes_count ?? 0);
@@ -740,7 +744,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return ratio >= 1; // accept non-integer; Amazon sometimes sends fractional placeholders
     });
 
-    return allCasePackedCounts || groupsCasePacked || allPalletFriendly;
+    return allCasePackedCounts || groupsCasePacked || allPalletFriendly || allTemplateCase;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
   const handleReadyWindowChange = useCallback((shipmentId, win) => {

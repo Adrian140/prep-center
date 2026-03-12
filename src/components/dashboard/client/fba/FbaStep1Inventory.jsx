@@ -1711,7 +1711,8 @@ export default function FbaStep1Inventory({
               );
               if (template) {
                 const templateUnits = parsePositiveInteger(template.units_per_box);
-                const normalizedTemplateType = normalizePackingType(template.template_type);
+                // If template_type is missing, assume case-packed (pallet-friendly) so UI hides box flow.
+                const normalizedTemplateType = normalizePackingType(template.template_type || 'case');
                 const nextBoxes = templateUnits
                   ? Math.max(1, Math.ceil((Number(sku.units || 0) || 0) / templateUnits))
                   : null;
