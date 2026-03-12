@@ -485,12 +485,6 @@ export default function FbaSendToAmazonWizard({
     },
     [t]
   );
-  const stepsOrder = useMemo(() => {
-    if (historyMode) return ['1', '2', '3', '4'];
-    if (skipPacking) return ['1', '2', '3', '4'];
-    if (palletOnlyMode) return ['1', '2', '3', '4'];
-    return ['1', '1b', '2', '3', '4'];
-  }, [historyMode, skipPacking, palletOnlyMode]);
   const wizardCopy = useMemo(
     () => ({
       missingIds: tt('missingIdsError', 'Missing inboundPlanId or requestId; reload the plan.'),
@@ -511,17 +505,6 @@ export default function FbaSendToAmazonWizard({
     }),
     [tt]
   );
-  const resolveInitialStep = () => {
-    if (!historyMode) return '1';
-    if (initialCurrentStep && stepsOrder.includes(initialCurrentStep)) return initialCurrentStep;
-    if (Array.isArray(initialCompletedSteps) && initialCompletedSteps.length) {
-      const last = initialCompletedSteps[initialCompletedSteps.length - 1];
-      if (stepsOrder.includes(last)) return last;
-    }
-    return '1';
-  };
-  const [currentStep, setCurrentStep] = useState(resolveInitialStep);
-  const [completedSteps, setCompletedSteps] = useState(historyMode ? initialCompletedSteps : []);
   const [plan, setPlan] = useState(initialPlan);
   const [carrierTouched, setCarrierTouched] = useState(false);
   const [shippingConfirmed, setShippingConfirmed] = useState(historyMode ? Boolean(initialShippingConfirmed) : false);
@@ -639,6 +622,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [packingOptions, setPackingOptions] = useState([]);
   const [placementOptionId, setPlacementOptionId] = useState(initialPlan?.placementOptionId || null);
   const [shipmentMode, setShipmentMode] = useState(initialShipmentMode);
+
   const [palletDetails, setPalletDetails] = useState(
     initialShipmentMode?.palletDetails || {
       quantity: 1,
@@ -724,9 +708,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
-    // Heuristic 1: user picked a pallet-friendly packing template on every SKU.
-    // We don't wait for unitsPerBox/boxesCount to be filled; as soon as Packing
-    // details leaves "Individual units", hide the box UI.
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
     const hasSkus = skus.length > 0;
     const allPalletFriendly = hasSkus && skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
@@ -740,17 +721,30 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return isPalletFriendlyPacking(sku?.packing) && unitsPerBox > 0 && boxesCount > 0;
     });
 
-    // Heuristic 2: packing groups already returned with boxes and proportional units (case-pack)
     const groupsCasePacked = Array.isArray(packGroups) && packGroups.length > 0 && packGroups.every((g) => {
       const boxes = Number(g?.boxes || 0);
       const units = Number(g?.units || 0);
       if (!(boxes > 0 && units > 0)) return false;
       const ratio = units / boxes;
-      return ratio >= 1; // accept non-integer; Amazon sometimes sends fractional placeholders
+      return ratio >= 1;
     });
 
     return allCasePackedCounts || groupsCasePacked || allPalletFriendly || allTemplateCase;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
+
+  const stepsOrder = useMemo(() => (palletOnlyMode ? ['1', '2', '3'] : ['1', '1b', '2', '3']), [palletOnlyMode]);
+
+  const resolveInitialStep = useCallback(() => {
+    if (!historyMode) return '1';
+    if (initialCurrentStep && stepsOrder.includes(initialCurrentStep)) return initialCurrentStep;
+    if (Array.isArray(initialCompletedSteps) && initialCompletedSteps.length) {
+      const last = initialCompletedSteps[initialCompletedSteps.length - 1];
+      if (stepsOrder.includes(last)) return last;
+    }
+    return '1';
+  }, [historyMode, initialCurrentStep, initialCompletedSteps, stepsOrder]);
+  const [currentStep, setCurrentStep] = useState(resolveInitialStep);
+  const [completedSteps, setCompletedSteps] = useState(historyMode ? initialCompletedSteps : []);
 
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
     if (!shipmentId) return;
