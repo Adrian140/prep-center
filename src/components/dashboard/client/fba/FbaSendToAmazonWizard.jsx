@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../../config/supabase';
+import { fetchPalletOptions } from '@/api/fbaPalletTransport';
 import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
@@ -4124,6 +4125,46 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setShippingLoading(true);
     setShippingError('');
     try {
+      // Branch: pallet-only LTL uses dedicated edge for options
+      if (palletOnlyMode) {
+        const shipDate = normalizeShipDate(shipmentMode?.deliveryDate) || globalReadyStart;
+        if (!shipDate) {
+          setShippingError('Setează Ship date pentru a cere tarife LTL.');
+          setShippingLoading(false);
+          shippingFetchLockRef.current.inFlight = false;
+          return;
+        }
+        const firstShipmentId = shipments?.[0]?.id || shipments?.[0]?.shipmentId || (packGroups?.[0]?.packingGroupId) || 's-1';
+        const qty = Number(palletDetails.quantity || derivedPalletSummary?.pallets || 1);
+        const weightPerPallet = Number(palletDetails.weight || derivedPalletSummary?.weightPerPallet || 25);
+        const lengthCm = Number(palletDetails.length || derivedPalletSummary?.length || 120);
+        const widthCm = Number(palletDetails.width || derivedPalletSummary?.width || 80);
+        const heightCm = Number(palletDetails.height || derivedPalletSummary?.height || 120);
+        const palletsPayload = [
+          {
+            quantity: qty,
+            dimensions: { length: lengthCm / 2.54, width: widthCm / 2.54, height: heightCm / 2.54, unit: 'IN' },
+            weight: { value: weightPerPallet * 2.20462, unit: 'LB' },
+            stackability: palletDetails.stackability || 'STACKABLE'
+          }
+        ];
+        const { options, summary } = await fetchPalletOptions({
+          inboundPlanId,
+          placementOptionId: placementOptId,
+          shipmentId: firstShipmentId,
+          readyToShipDate: shipDate,
+          pallets: palletsPayload,
+          freightClass: palletDetails.freightClass || derivedPalletSummary?.freightClass || 'FC_XX',
+          declaredValue: Number(palletDetails.declaredValue || 1)
+        });
+        setShippingOptions(aggregateTransportationOptions(options || [], summary || null));
+        setShippingSummary(summary || null);
+        setShippingError('');
+        setShippingLoading(false);
+        shippingFetchLockRef.current.inFlight = false;
+        return;
+      }
+
       // log local pentru debug (nu trimite date sensibile)
       if (!import.meta.env.PROD) {
         console.log('Step2 invoke fba-step2-confirm-shipping', {

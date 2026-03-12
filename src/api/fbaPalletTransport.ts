@@ -1,4 +1,4 @@
-import { supabaseClient } from '@/lib/supabaseClient';
+import { supabase } from '@/config/supabase';
 
 export type PalletEstimatePayload = {
   inboundPlanId: string;
@@ -36,7 +36,7 @@ export type PalletOptionsResponse = {
 };
 
 export async function fetchPalletOptions(payload: PalletEstimatePayload): Promise<PalletOptionsResponse> {
-  const { data, error } = await supabaseClient.functions.invoke('fba-ltl-options', {
+  const { data, error } = await supabase.functions.invoke('fba-ltl-options', {
     body: payload
   });
   if (error) throw error;
