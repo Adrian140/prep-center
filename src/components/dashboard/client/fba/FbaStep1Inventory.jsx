@@ -1694,6 +1694,7 @@ export default function FbaStep1Inventory({
                 <div className="mt-1 text-xs text-red-700 font-medium">{listingProblem}</div>
               ) : null}
             </div>
+            )}
           </div>
         </td>
         <td className="py-3">
@@ -2013,6 +2014,7 @@ export default function FbaStep1Inventory({
             >
               {tr('removeListing')}
             </button>
+            {!palletOnlyMode && (
             <div className="border border-slate-200 rounded-md p-2 bg-slate-50">
               <div className="flex items-center justify-between text-xs text-slate-600">
                 <span>{tr('boxes')}</span>
@@ -2164,6 +2166,7 @@ export default function FbaStep1Inventory({
                 {tr('assigned')}: {assignedTotal} / {Number(sku.units || 0)}
               </div>
             </div>
+            )}
           </div>
         </td>
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -2699,6 +2702,7 @@ export default function FbaStep1Inventory({
                 ))
               )}
             </div>
+            )}
           </div>
         </div>
       )}
