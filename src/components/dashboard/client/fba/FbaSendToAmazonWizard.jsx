@@ -812,7 +812,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const width = Number(prev.width || 0) || DEFAULT_EU_PALLET.width;
       const height = Number(prev.height || 0) || prev.height || '';
       const weight =
-        Number(prev.weight || 0) || (derivedWeightKg > 0 ? Number(derivedWeightKg.toFixed(2)) : prev.weight);
+        Number(prev.weight || 0) ||
+        (derivedWeightKg > 0 ? Number(derivedWeightKg.toFixed(2)) : 25); // fallback 25kg dacă nu avem greutate
       if (length === prev.length && width === prev.width && weight === prev.weight && height === prev.height) return prev;
       return { ...prev, length, width, weight, height };
     });
@@ -4800,14 +4801,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
     const market = String(currentMarket || '').toUpperCase();
     const isEu = market === 'FR' || market === 'DE';
-    const qty = Number(palletDetails.quantity || 0);
+    const qty = Number(palletDetails.quantity || 0) || (derivedPalletSummary?.pallets || 1);
     const length = Number(palletDetails.length || 0) || (isEu ? DEFAULT_EU_PALLET.length : 0);
     const width = Number(palletDetails.width || 0) || (isEu ? DEFAULT_EU_PALLET.width : 0);
     const height = Number(palletDetails.height || 0);
-    const weight = Number(palletDetails.weight || 0);
+    const weight =
+      Number(palletDetails.weight || 0) ||
+      (derivedPalletSummary?.weightPerPallet || derivedWeightKg || 25);
     const declaredValue = Number(palletDetails.declaredValue || 0);
     if (!(qty > 0 && weight > 0)) {
-      return 'Complete pallet quantity și greutate pentru LTL/FTL.';
+      setPalletDetails((prev) => ({
+        ...prev,
+        quantity: qty || 1,
+        weight
+      }));
+      return null;
     }
     // Autofill footprint if user nu a completat-o (EU standard).
     if (isEu && (!palletDetails.length || !palletDetails.width)) {
@@ -4818,7 +4826,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }));
     }
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
-      return 'Complete freight class and declared value for LTL/FTL.';
+      // auto-default declared value la 1 dacă lipsește; freightClass fallback FC_XX
+      setPalletDetails((prev) => ({
+        ...prev,
+        declaredValue: declaredValue || 1,
+        freightClass: prev.freightClass || 'FC_XX'
+      }));
+      return null;
     }
     return null;
   };
