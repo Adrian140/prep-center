@@ -719,14 +719,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
-    // Heuristic 1: all SKUs are case/single_sku_pallet and have unitsPerBox
+    // Heuristic 1: user picked a pallet-friendly packing template on every SKU.
+    // We don't wait for unitsPerBox/boxesCount to be filled; as soon as Packing
+    // details leaves "Individual units", hide the box UI.
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
-    const palletPacking = skus.length
-      ? skus.every((sku) => isPalletFriendlyPacking(sku?.packing))
-      : false;
-    const hasUnitsPerBox = skus.length
-      ? skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0)
-      : false;
+    const hasSkus = skus.length > 0;
+    const allPalletFriendly = hasSkus && skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
+    const allCasePackedCounts = hasSkus && skus.every((sku) => {
+      const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0);
+      const boxesCount = Number(sku?.boxesCount ?? sku?.boxes_count ?? 0);
+      return isPalletFriendlyPacking(sku?.packing) && unitsPerBox > 0 && boxesCount > 0;
+    });
 
     // Heuristic 2: packing groups already returned with boxes and proportional units (case-pack)
     const groupsCasePacked = Array.isArray(packGroups) && packGroups.length > 0 && packGroups.every((g) => {
@@ -737,7 +740,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return ratio >= 1; // accept non-integer; Amazon sometimes sends fractional placeholders
     });
 
-    return (palletPacking && hasUnitsPerBox) || groupsCasePacked;
+    return allCasePackedCounts || groupsCasePacked || allPalletFriendly;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
   const handleReadyWindowChange = useCallback((shipmentId, win) => {
