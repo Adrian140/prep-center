@@ -708,6 +708,23 @@ export default function FbaStep1Inventory({
     const groups = raw?.groups && typeof raw.groups === 'object' ? raw.groups : {};
     return { groups };
   }, [boxPlan]);
+
+  const packGroupMeta = useMemo(() => {
+    if (!hasPackGroups) {
+      return [{ groupId: 'ungrouped', label: tr('allItems') }];
+    }
+    return normalizedPackGroups
+      .map((group, idx) => {
+        const items = Array.isArray(group?.items) ? group.items : [];
+        if (!items.length) return null;
+        return {
+          groupId: group.packingGroupId || group.id || `pack-${idx + 1}`,
+          label: `Pack ${idx + 1}`
+        };
+      })
+      .filter(Boolean);
+  }, [hasPackGroups, normalizedPackGroups]);
+
   const heavyParcelPreview = useMemo(() => {
     // calculează pe baza box-urilor afişate (getGroupPlan), nu pe structura brută,
     // ca să evităm box-uri vechi rămase în plan.
@@ -736,21 +753,6 @@ export default function FbaStep1Inventory({
     const isSingle = keys.length === 1 && keys[0] === 'single-box';
     setSingleBoxMode(isSingle);
   }, [safeBoxPlan.groups]);
-  const packGroupMeta = useMemo(() => {
-    if (!hasPackGroups) {
-      return [{ groupId: 'ungrouped', label: tr('allItems') }];
-    }
-    return normalizedPackGroups
-      .map((group, idx) => {
-        const items = Array.isArray(group?.items) ? group.items : [];
-        if (!items.length) return null;
-        return {
-          groupId: group.packingGroupId || group.id || `pack-${idx + 1}`,
-          label: `Pack ${idx + 1}`
-        };
-      })
-      .filter(Boolean);
-  }, [hasPackGroups, normalizedPackGroups]);
 
   const getGroupPlan = useCallback(
     (groupId, labelFallback) => {
