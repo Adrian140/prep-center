@@ -714,6 +714,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     };
   }, [currentMarket]);
 
+  const DEFAULT_EU_PALLET = useMemo(
+    () => ({
+      length: 120,
+      width: 80
+    }),
+    []
+  );
+
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
@@ -750,6 +758,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return { ...prev, method: nextMethod };
     });
   }, [palletOnlyMode, isLtlFtl]);
+
+  // Autocomplete EU standard pallet footprint (120x80) when lipsesc dimensiunile.
+  useEffect(() => {
+    const market = String(currentMarket || '').toUpperCase();
+    const isEu = market === 'FR' || market === 'DE';
+    if (!palletOnlyMode || !isEu) return;
+    setPalletDetails((prev) => {
+      const length = Number(prev.length || 0) || DEFAULT_EU_PALLET.length;
+      const width = Number(prev.width || 0) || DEFAULT_EU_PALLET.width;
+      if (length === prev.length && width === prev.width) return prev;
+      return { ...prev, length, width };
+    });
+  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET]);
 
   const stepsOrder = useMemo(() => (palletOnlyMode ? ['1', '2', '3'] : ['1', '1b', '2', '3']), [palletOnlyMode]);
 
@@ -4690,14 +4711,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const validatePalletDetails = () => {
     if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
+    const market = String(currentMarket || '').toUpperCase();
+    const isEu = market === 'FR' || market === 'DE';
     const qty = Number(palletDetails.quantity || 0);
-    const length = Number(palletDetails.length || 0);
-    const width = Number(palletDetails.width || 0);
+    const length = Number(palletDetails.length || 0) || (isEu ? DEFAULT_EU_PALLET.length : 0);
+    const width = Number(palletDetails.width || 0) || (isEu ? DEFAULT_EU_PALLET.width : 0);
     const height = Number(palletDetails.height || 0);
     const weight = Number(palletDetails.weight || 0);
     const declaredValue = Number(palletDetails.declaredValue || 0);
-    if (!(qty > 0 && length > 0 && width > 0 && height > 0 && weight > 0)) {
-      return 'Complete pallet quantity, dimensions and weight for LTL/FTL.';
+    if (!(qty > 0 && height > 0 && weight > 0)) {
+      return 'Complete pallet quantity, height și greutate pentru LTL/FTL.';
+    }
+    // Autofill footprint if user nu a completat-o (EU standard).
+    if (isEu && (!palletDetails.length || !palletDetails.width)) {
+      setPalletDetails((prev) => ({
+        ...prev,
+        length,
+        width
+      }));
     }
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
       return 'Complete freight class and declared value for LTL/FTL.';
