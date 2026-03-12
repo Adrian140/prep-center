@@ -4,7 +4,7 @@ import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabase } from '../../config/supabase';
 import {
-  Search, Filter, Package, Truck, CheckCircle,
+  Search, Filter, Package, Truck, CheckCircle, CheckCircle2,
   ArrowLeft, Trash2, ChevronLeft, ChevronRight, Clock, User, Building, X, AlertTriangle
 } from 'lucide-react';
 import DestinationBadge from '@/components/common/DestinationBadge';
@@ -1210,6 +1210,7 @@ function AdminReceiving() {
   const [page, setPage] = useState(listState.page ?? 1);
   const [includeArchive, setIncludeArchive] = useState(listState.includeArchive ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState(new Set());
   const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
   const formatTrackingValue = (value = '') =>
     !value ? '—' : value.length > 15 ? `${value.slice(0, 15)}…` : value;
@@ -1221,6 +1222,49 @@ function AdminReceiving() {
     } catch (err) {
       setMessage('Unable to copy tracking');
     }
+  };
+  const formatDateTime = (value) => {
+    if (!value) return '—';
+    const d = value instanceof Date ? value : new Date(value);
+    return d.toLocaleString('fr-FR', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+  const toggleHistory = (id) => {
+    setExpandedHistoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const receivingEventsForShipment = (shipment) => {
+    const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
+    const getUnits = (it) => {
+      const raw =
+        it?.received_units ??
+        it?.quantity_received ??
+        it?.qty ??
+        it?.quantity ??
+        0;
+      const num = Number(raw);
+      return Number.isFinite(num) && num > 0 ? num : 0;
+    };
+    const events = items
+      .filter((it) => getUnits(it) > 0)
+      .map((it) => ({
+        label: it.product_name || it.sku || it.asin || 'Line',
+        qty: getUnits(it),
+        date: it.received_at ? new Date(it.received_at) : null
+      }))
+      .filter((ev) => ev.date);
+    events.sort((a, b) => b.date - a.date);
+    return events;
   };
 
   useEffect(() => {
@@ -1767,19 +1811,51 @@ useEffect(() => {
                     <p className="text-[11px] uppercase tracking-wide text-text-secondary">Lines</p>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center text-text-secondary">
-                      <Clock className="w-4 h-4 mr-1" />
-                      <span>
-                        {new Date(shipment.created_at).toLocaleString('fr-FR', {
-                          hour12: false,
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric'
-                        })}
-                      </span>
-                    </div>
+                    {(() => {
+                      const events = receivingEventsForShipment(shipment);
+                      const latestReceived = events.length
+                        ? events[0].date
+                        : shipment.received_at
+                        ? new Date(shipment.received_at)
+                        : null;
+                      const isExpanded = expandedHistoryIds.has(shipment.id);
+                      return (
+                        <div className="text-sm text-text-secondary space-y-1">
+                          <div className="flex items-center text-text-secondary">
+                            <Clock className="w-4 h-4 mr-1" />
+                            <span className="text-text-primary font-semibold">
+                              {formatDateTime(shipment.created_at)}
+                            </span>
+                          </div>
+                          {latestReceived && (
+                            <div className="flex items-center text-emerald-700 text-xs">
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              <span>Received {formatDateTime(latestReceived)}</span>
+                            </div>
+                          )}
+                          {events.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => toggleHistory(shipment.id)}
+                              className="text-xs text-primary hover:underline"
+                            >
+                              {isExpanded ? 'Hide history' : 'See history'}
+                            </button>
+                          )}
+                          {isExpanded && (
+                            <div className="ml-5 space-y-1 text-[11px] text-text-secondary max-w-[240px]">
+                              {events.map((ev, idx) => (
+                                <div key={idx} className="flex items-center justify-between gap-2">
+                                  <span className="truncate">{ev.label}</span>
+                                  <span className="font-semibold text-text-primary">{ev.qty}u</span>
+                                  <span className="whitespace-nowrap">{formatDateTime(ev.date)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
            <td className="px-4 py-3 text-right">
             <div className="flex justify-end items-center gap-3">
