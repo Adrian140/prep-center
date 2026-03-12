@@ -1472,6 +1472,7 @@ export default function FbaStep1Inventory({
       return { isValid: true, messages: [] };
     }
     const issues = [];
+    const warnings = [];
     if (!hasUnits) {
       return { isValid: true, messages: issues };
     }
@@ -1522,7 +1523,7 @@ export default function FbaStep1Inventory({
         const items = boxItems[idx] || {};
         const assigned = Object.values(items).reduce((sum, val) => sum + Number(val || 0), 0);
         if (assigned <= 0) emptyBoxes += 1;
-        // EU SPD rule: boxes over 63.5 cm are acceptable only when that box contains exactly 1 unit.
+        // EU SPD rule: boxes peste 63.5 cm devin DOAR avertisment; nu mai blocăm continuarea.
         if (isOversize && assigned !== 1) oversize += 1;
       });
     });
@@ -1533,10 +1534,10 @@ export default function FbaStep1Inventory({
     if (emptyBoxes) issues.push(tr('validationEmptyBoxes'));
     if (overweight) issues.push(tr('validationOverweight', '', { kg: MAX_STANDARD_BOX_KG }));
     if (oversize) {
-      issues.push(tr('validationOversize', '', { cm: MAX_STANDARD_BOX_CM }));
+      warnings.push(tr('validationOversize', '', { cm: MAX_STANDARD_BOX_CM }));
     }
 
-    return { isValid: issues.length === 0, messages: issues };
+    return { isValid: issues.length === 0, messages: [...warnings, ...issues] };
   }, [
     hasUnits,
     skus,
