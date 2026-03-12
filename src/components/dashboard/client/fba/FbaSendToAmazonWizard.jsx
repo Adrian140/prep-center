@@ -747,6 +747,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     // Heuristic 1: toate SKU-urile sunt case/single_sku_pallet și au unitsPerBox
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
     if (!skus.length) return false;
+    // dacă există măcar un SKU marcat ca "individual", nu e pallet-only
+    const hasIndividual = skus.some((sku) => normalizePackingType(sku?.packing) === 'individual');
+    if (hasIndividual) return false;
     const palletPacking = skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
     const hasUnitsPerBox = skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0);
 
