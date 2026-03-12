@@ -744,28 +744,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
+    // Heuristic 1: toate SKU-urile sunt case/single_sku_pallet și au unitsPerBox
     const skus = Array.isArray(plan?.skus) ? plan.skus : [];
-    const hasSkus = skus.length > 0;
-    const allPalletFriendly = hasSkus && skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
-    const allTemplateCase = hasSkus && skus.every((sku) => {
-      const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0);
-      return unitsPerBox > 0 && Boolean(sku?.packingTemplateName || sku?.packing_template_name);
-    });
-    const allCasePackedCounts = hasSkus && skus.every((sku) => {
-      const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0);
-      const boxesCount = Number(sku?.boxesCount ?? sku?.boxes_count ?? 0);
-      return isPalletFriendlyPacking(sku?.packing) && unitsPerBox > 0 && boxesCount > 0;
-    });
+    if (!skus.length) return false;
+    const palletPacking = skus.every((sku) => isPalletFriendlyPacking(sku?.packing));
+    const hasUnitsPerBox = skus.every((sku) => Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) > 0);
 
+    // Heuristic 2: pack groups vin deja cu boxes și units proporționale (case-pack)
     const groupsCasePacked = Array.isArray(packGroups) && packGroups.length > 0 && packGroups.every((g) => {
       const boxes = Number(g?.boxes || 0);
       const units = Number(g?.units || 0);
       if (!(boxes > 0 && units > 0)) return false;
       const ratio = units / boxes;
-      return ratio >= 1;
+      return ratio >= 1; // acceptăm și non-int pentru placeholder Amazon
     });
 
-    return allCasePackedCounts || groupsCasePacked || allPalletFriendly || allTemplateCase;
+    return (palletPacking && hasUnitsPerBox) || groupsCasePacked;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
   const derivedPalletSummary = useMemo(() => {
