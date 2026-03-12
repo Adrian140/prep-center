@@ -722,6 +722,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     []
   );
 
+  const derivedWeightKg = useMemo(() => {
+    const skus = Array.isArray(plan?.skus) ? plan.skus : [];
+    if (!skus.length) return 0;
+    return skus.reduce((sum, sku) => {
+      const units = Number(sku?.units || sku?.quantity || 0) || 0;
+      const g = Number(
+        sku?.weight_g ??
+          sku?.itemWeightGrams ??
+          sku?.item_weight_grams ??
+          (sku?.item_package_weight?.[0]?.unit === 'grams' ? sku?.item_package_weight?.[0]?.value : 0)
+      );
+      const kg =
+        Number(sku?.weightKg ?? sku?.weight_kg ?? sku?.itemWeightKg ?? sku?.item_weight_kg ?? 0) ||
+        (g > 0 ? g / 1000 : 0);
+      return sum + (kg * units || 0);
+    }, 0);
+  }, [plan?.skus]);
+
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
@@ -767,10 +785,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPalletDetails((prev) => {
       const length = Number(prev.length || 0) || DEFAULT_EU_PALLET.length;
       const width = Number(prev.width || 0) || DEFAULT_EU_PALLET.width;
-      if (length === prev.length && width === prev.width) return prev;
-      return { ...prev, length, width };
+      const height = Number(prev.height || 0) || prev.height || '';
+      const weight = Number(prev.weight || 0) || (derivedWeightKg > 0 ? Number((derivedWeightKg).toFixed(2)) : prev.weight);
+      if (length === prev.length && width === prev.width && weight === prev.weight && height === prev.height) return prev;
+      return { ...prev, length, width, weight, height };
     });
-  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET]);
+  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, derivedWeightKg]);
 
   const stepsOrder = useMemo(() => (palletOnlyMode ? ['1', '2', '3'] : ['1', '1b', '2', '3']), [palletOnlyMode]);
 
@@ -4719,8 +4739,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const height = Number(palletDetails.height || 0);
     const weight = Number(palletDetails.weight || 0);
     const declaredValue = Number(palletDetails.declaredValue || 0);
-    if (!(qty > 0 && height > 0 && weight > 0)) {
-      return 'Complete pallet quantity, height și greutate pentru LTL/FTL.';
+    if (!(qty > 0 && weight > 0)) {
+      return 'Complete pallet quantity și greutate pentru LTL/FTL.';
     }
     // Autofill footprint if user nu a completat-o (EU standard).
     if (isEu && (!palletDetails.length || !palletDetails.width)) {
