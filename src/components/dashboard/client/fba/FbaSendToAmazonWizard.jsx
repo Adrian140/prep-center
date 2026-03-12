@@ -5469,6 +5469,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onBoxServicesChange={setBoxServices}
           onPersistServices={persistServicesToDb}
           inboundPlanCopy={wizardCopy}
+          palletOnlyMode={palletOnlyMode}
           onNext={persistStep1AndReloadPlan}
           operationProblems={operationProblems}
           onSubmitListingAttributes={submitListingAttributesForSku}

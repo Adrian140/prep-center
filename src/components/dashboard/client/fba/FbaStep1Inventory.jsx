@@ -112,6 +112,7 @@ export default function FbaStep1Inventory({
   boxPlan = null,
   onBoxPlanChange,
   marketCode = '',
+  palletOnlyMode = false,
   allowNoInboundPlan = false,
   inboundPlanMissing = false,
   onRetryInboundPlan,
@@ -1467,6 +1468,9 @@ export default function FbaStep1Inventory({
   }, [groupedRows, singleBoxMode]);
 
   const boxPlanValidation = useMemo(() => {
+    if (palletOnlyMode) {
+      return { isValid: true, messages: [] };
+    }
     const issues = [];
     if (!hasUnits) {
       return { isValid: true, messages: issues };
@@ -1550,7 +1554,7 @@ export default function FbaStep1Inventory({
     (missingInboundPlan && !allowNoInboundPlan) ||
     !requestId ||
     !hasUnits ||
-    !boxPlanValidation.isValid ||
+    (!palletOnlyMode && !boxPlanValidation.isValid) ||
     (loadingPlan && skus.length === 0);
 
   const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = tr('allItems')) => {
@@ -2819,131 +2823,236 @@ export default function FbaStep1Inventory({
         </table>
       </div>
 
-      <div className="px-6 py-4 border-t border-slate-200 space-y-4">
-        <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold text-slate-800">{tr('boxes')}</div>
-            <button
-              type="button"
-              className="text-xs text-blue-600 underline"
-              onClick={() => {
-                handleAddBoxService();
-                schedulePersist();
-              }}
-            >
-              {tr('addBox', '+ Add box')}
-            </button>
-          </div>
-          {boxServices.length === 0 && heavyParcelPreview.labels === 0 && (
-            <div className="text-xs text-slate-500">{tr('noBoxServicesSelected')}</div>
-          )}
-          {boxServices.map((svc, idx) => {
-            const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
-            return (
-              <div
-                key={svc?._local_id || `box-svc-${idx}`}
-                className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-md p-2"
+      {!palletOnlyMode && (
+        <div className="px-6 py-4 border-t border-slate-200 space-y-4">
+          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-slate-800">{tr('boxes')}</div>
+              <button
+                type="button"
+                className="text-xs text-blue-600 underline"
+                onClick={() => {
+                  handleAddBoxService();
+                  schedulePersist();
+                }}
               >
-                <select
-                  className="border rounded-md px-2 py-1 text-xs min-w-[220px]"
-                  value={svc.service_name || ''}
-                  onChange={(e) => {
-                    const selected = boxOptions.find((opt) => opt.service_name === e.target.value);
-                    if (!selected) return;
-                    const next = boxServices.map((row, i) =>
-                      i === idx
-                        ? withLocalId({
-                            ...row,
-                            service_id: selected.id,
-                            service_name: selected.service_name,
-                            unit_price: Number(selected.price || 0)
-                          })
-                        : row
-                    );
-                    setBoxes(next);
-                    schedulePersist();
-                  }}
+                {tr('addBox', '+ Add box')}
+              </button>
+            </div>
+            {boxServices.length === 0 && heavyParcelPreview.labels === 0 && (
+              <div className="text-xs text-slate-500">{tr('noBoxServicesSelected')}</div>
+            )}
+            {boxServices.map((svc, idx) => {
+              const total = Number(svc.unit_price || 0) * Number(svc.units || 0);
+              return (
+                <div
+                  key={svc?._local_id || `box-svc-${idx}`}
+                  className="flex flex-wrap items-center gap-3 border border-slate-200 rounded-md p-2"
                 >
-                  {boxOptionsByCategory.map(([category, options]) => (
-                    <optgroup key={category} label={category}>
-                      {options.map((opt) => (
-                        <option key={opt.id || opt.service_name} value={opt.service_name}>
-                          {opt.service_name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <div className="text-xs text-slate-600">
-                  {tr('unit')} <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-slate-600">
-                  <span>{tr('qty')}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step={1}
-                    className="w-16 border rounded-md px-2 py-1 text-xs text-right"
-                    value={svc.units ?? 0}
+                  <select
+                    className="border rounded-md px-2 py-1 text-xs min-w-[220px]"
+                    value={svc.service_name || ''}
                     onChange={(e) => {
+                      const selected = boxOptions.find((opt) => opt.service_name === e.target.value);
+                      if (!selected) return;
                       const next = boxServices.map((row, i) =>
-                        i === idx ? withLocalId({ ...row, units: Number(e.target.value || 0) }) : row
+                        i === idx
+                          ? withLocalId({
+                              ...row,
+                              service_id: selected.id,
+                              service_name: selected.service_name,
+                              unit_price: Number(selected.price || 0)
+                            })
+                          : row
                       );
                       setBoxes(next);
                       schedulePersist();
                     }}
-                  />
+                  >
+                    {boxOptionsByCategory.map(([category, options]) => (
+                      <optgroup key={category} label={category}>
+                        {options.map((opt) => (
+                          <option key={opt.id || opt.service_name} value={opt.service_name}>
+                            {opt.service_name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <div className="text-xs text-slate-600">
+                    {tr('unit')} <span className="font-semibold">{Number(svc.unit_price || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-slate-600">
+                    <span>{tr('qty')}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      className="w-16 border rounded-md px-2 py-1 text-xs text-right"
+                      value={svc.units ?? 0}
+                      onChange={(e) => {
+                        const next = boxServices.map((row, i) =>
+                          i === idx ? withLocalId({ ...row, units: Number(e.target.value || 0) }) : row
+                        );
+                        setBoxes(next);
+                        schedulePersist();
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-slate-600">
+                    {tr('total')} <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs text-red-600"
+                    onClick={() => {
+                      const next = boxServices.filter((_, i) => i !== idx);
+                      setBoxes(next);
+                    }}
+                  >
+                    {tr('remove')}
+                  </button>
+                </div>
+              );
+            })}
+            {heavyParcelPreview.labels > 0 &&
+              !boxServices.some((svc) =>
+                HEAVY_PARCEL_SERVICE_ALIASES.has(String(svc?.service_name || '').trim())
+              ) && (
+              <div className="flex flex-wrap items-center gap-3 border border-amber-200 bg-amber-50/40 rounded-md p-2">
+                <div className="text-xs min-w-[220px] font-medium text-slate-800">{HEAVY_PARCEL_SERVICE_NAME}</div>
+                <div className="text-xs text-slate-600">
+                  {tr('unit')} <span className="font-semibold">{heavyParcelPreview.unitPrice.toFixed(2)}</span>
                 </div>
                 <div className="text-xs text-slate-600">
-                  {tr('total')} <span className="font-semibold">{Number.isFinite(total) ? total.toFixed(2) : '0.00'}</span>
+                  {tr('qty')} <span className="font-semibold">{heavyParcelPreview.labels}</span>
                 </div>
-                <button
-                  type="button"
-                  className="text-xs text-red-600"
-                  onClick={() => {
-                    const next = boxServices.filter((_, i) => i !== idx);
-                    setBoxes(next);
-                  }}
-                >
-                  {tr('remove')}
-                </button>
+                <div className="text-xs text-slate-600">
+                  {tr('total')} <span className="font-semibold">{heavyParcelPreview.total.toFixed(2)}</span>
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  auto: {heavyParcelPreview.heavyBoxes} {heavyParcelPreview.heavyBoxes === 1 ? 'box' : 'boxes'} &gt; {HEAVY_PARCEL_THRESHOLD_KG} kg
+                </div>
               </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="font-semibold text-slate-900">{tr('boxDetailsStep1')}</div>
+            {hasUnits && (
+              <button
+                type="button"
+                onClick={applySingleBox}
+                className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
+              >
+                {tr('putAllInOneBoxRo')}
+              </button>
+            )}
+          </div>
+          {planGroupsForDisplay.map((group) => {
+            const groupPlan = getGroupPlan(group.groupId, group.label);
+            const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
+            const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
+            const { sets: dimensionSets, assignments: dimensionAssignments } = normalizeDimensionMeta(
+              group.groupId,
+              groupPlan
             );
-          })}
-          {heavyParcelPreview.labels > 0 &&
-            !boxServices.some((svc) =>
-              HEAVY_PARCEL_SERVICE_ALIASES.has(String(svc?.service_name || '').trim())
-            ) && (
-            <div className="flex flex-wrap items-center gap-3 border border-amber-200 bg-amber-50/40 rounded-md p-2">
-              <div className="text-xs min-w-[220px] font-medium text-slate-800">{HEAVY_PARCEL_SERVICE_NAME}</div>
-              <div className="text-xs text-slate-600">
-                {tr('unit')} <span className="font-semibold">{heavyParcelPreview.unitPrice.toFixed(2)}</span>
-              </div>
-              <div className="text-xs text-slate-600">
-                {tr('qty')} <span className="font-semibold">{heavyParcelPreview.labels}</span>
-              </div>
-              <div className="text-xs text-slate-600">
-                {tr('total')} <span className="font-semibold">{heavyParcelPreview.total.toFixed(2)}</span>
-              </div>
-              <div className="text-[11px] text-slate-500">
-                auto: {heavyParcelPreview.heavyBoxes} {heavyParcelPreview.heavyBoxes === 1 ? 'box' : 'boxes'} &gt; {HEAVY_PARCEL_THRESHOLD_KG} kg
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="font-semibold text-slate-900">{tr('boxDetailsStep1')}</div>
-          {hasUnits && (
-            <button
-              type="button"
-              onClick={applySingleBox}
-              className="text-xs bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 px-3 py-2 rounded-md"
-            >
-              {tr('putAllInOneBoxRo')}
-            </button>
-          )}
-        </div>
-        {planGroupsForDisplay.map((group) => {
+            const groupSkus = skus.filter((sku) => {
+              const info = skuGroupMap.get(sku.id);
+              return (info?.groupId || 'ungrouped') === group.groupId;
+            });
+            const totalUnits = groupSkus.reduce((sum, sku) => sum + Number(sku.units || 0), 0);
+            const boxedUnits = boxItems.reduce((sum, box) => {
+              return (
+                sum +
+                Object.values(box || {}).reduce((acc, val) => acc + Number(val || 0), 0)
+              );
+            }, 0);
+            const showScrollbars = boxes.length > 10;
+            const labelColWidth = 260;
+            const boxColWidth = 100;
+            const tableWidth = labelColWidth + boxes.length * boxColWidth;
+            return (
+              <div key={group.groupId} className="border border-slate-200 rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-slate-800">{group.label}</div>
+                </div>
+                {boxes.length === 0 && <div className="text-sm text-slate-500">{tr('noBoxesYet')}</div>}
+                {boxes.length > 0 && (
+                  <div className="border border-slate-200 rounded-md bg-white" data-box-details>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 px-3 py-2 text-xs text-slate-600 border-b border-slate-200">
+                      <div>
+                        <span className="font-semibold text-slate-800">{tr('totalSkus')}:</span> {groupSkus.length}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-slate-800">{tr('unitsBoxed')}:</span> {boxedUnits} {tr('ofWord')} {totalUnits}
+                      </div>
+                      <div className="text-slate-500">
+                        {tr('enterBoxContentsHint')}
+                      </div>
+                    </div>
+
+                    {showScrollbars && (
+                      <div
+                        ref={setBoxScrollRef(group.groupId, 'top')}
+                        onScroll={syncBoxScroll(group.groupId, 'top')}
+                        className="overflow-x-auto border-b border-slate-200"
+                      >
+                        <div style={{ width: `${tableWidth}px`, height: 12 }} />
+                      </div>
+                    )}
+
+                    <div className="overflow-x-auto" ref={setBoxScrollRef(group.groupId, 'body')} onScroll={syncBoxScroll(group.groupId, 'body')}>
+                      <table className="min-w-full text-sm text-slate-700" style={{ width: `${tableWidth}px` }}>
+                        <colgroup>
+                          <col style={{ width: `${labelColWidth}px` }} />
+                          {boxes.map((_, idx) => (
+                            <col key={`${group.groupId}-col-${idx}`} style={{ width: `${boxColWidth}px` }} />
+                          ))}
+                        </colgroup>
+                        <thead>
+                          <tr className="text-xs text-slate-500 uppercase">
+                            <th className="px-3 py-2 text-left">{tr('allItems')}</th>
+                            {boxes.map((box, idx) => (
+                              <th key={`${group.groupId}-box-${idx}`} className="px-3 py-2 text-center">
+                                {tr('box')} {idx + 1}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {groupSkus.map((sku, idx) => {
+                            const key = `${group.groupId}-${sku.id}-${idx}`;
+                            const info = skuGroupMap.get(sku.id) || {};
+                            const current = boxItems.map((box) => Number(box?.[sku.msku || sku.sku] || 0));
+                            const total = Number(sku.units || 0) || 0;
+                            return (
+                              <tr key={key} className="align-middle">
+                                <td className="px-3 py-2 text-left text-slate-800">
+                                  <div className="font-semibold">{sku.title || sku.sku || sku.asin}</div>
+                                  <div className="text-xs text-slate-500">{info.groupLabel}</div>
+                                  <div className="text-[11px] text-slate-500">
+                                    {tr('unitsWord')}: {total}
+                                  </div>
+                                </td>
+                                {boxes.map((box, boxIdx) => (
+                                  <td key={`${key}-box-${boxIdx}`} className="px-3 py-2 text-center">
+                                    <input
+                                      type="number"
+                                      className="w-16 border rounded-md px-2 py-1 text-xs text-center"
+                                      value={current[boxIdx] ?? ''}
+                                      min={0}
+                                      onChange={(e) => {
+                                        updateBoxItem(group.groupId, boxIdx, sku.msku || sku.sku, e.target.value);
+                                      }}
+                                    />
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
           const groupPlan = getGroupPlan(group.groupId, group.label);
           const boxes = Array.isArray(groupPlan.boxes) ? groupPlan.boxes : [];
           const boxItems = Array.isArray(groupPlan.boxItems) ? groupPlan.boxItems : [];
