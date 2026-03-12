@@ -725,35 +725,6 @@ export default function FbaStep1Inventory({
       .filter(Boolean);
   }, [hasPackGroups, normalizedPackGroups]);
 
-  const heavyParcelPreview = useMemo(() => {
-    // calculează pe baza box-urilor afişate (getGroupPlan), nu pe structura brută,
-    // ca să evităm box-uri vechi rămase în plan.
-    const groupIds = packGroupMeta.map((g) => g.groupId);
-    let heavyBoxes = 0;
-    groupIds.forEach((groupId) => {
-      const plan = getGroupPlan(groupId, '');
-      const boxes = Array.isArray(plan?.boxes) ? plan.boxes : [];
-      boxes.forEach((box) => {
-        const weight = Number(box?.weight_kg ?? box?.weight ?? 0);
-        if (Number.isFinite(weight) && weight > HEAVY_PARCEL_THRESHOLD_KG) {
-          heavyBoxes += 1;
-        }
-      });
-    });
-    const labels = heavyBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
-    return {
-      heavyBoxes,
-      labels,
-      unitPrice: HEAVY_PARCEL_LABEL_UNIT_PRICE,
-      total: labels * HEAVY_PARCEL_LABEL_UNIT_PRICE
-    };
-  }, [packGroupMeta, getGroupPlan, HEAVY_PARCEL_THRESHOLD_KG, HEAVY_PARCEL_LABELS_PER_BOX, HEAVY_PARCEL_LABEL_UNIT_PRICE]);
-  useEffect(() => {
-    const keys = Object.keys(safeBoxPlan.groups || {});
-    const isSingle = keys.length === 1 && keys[0] === 'single-box';
-    setSingleBoxMode(isSingle);
-  }, [safeBoxPlan.groups]);
-
   const getGroupPlan = useCallback(
     (groupId, labelFallback) => {
       if (singleBoxMode) {
@@ -792,8 +763,37 @@ export default function FbaStep1Inventory({
         dimension_assignments: {}
       };
     },
-    [safeBoxPlan.groups]
+    [safeBoxPlan.groups, singleBoxMode, tr]
   );
+
+  const heavyParcelPreview = useMemo(() => {
+    // calculează pe baza box-urilor afişate (getGroupPlan), nu pe structura brută,
+    // ca să evităm box-uri vechi rămase în plan.
+    const groupIds = packGroupMeta.map((g) => g.groupId);
+    let heavyBoxes = 0;
+    groupIds.forEach((groupId) => {
+      const plan = getGroupPlan(groupId, '');
+      const boxes = Array.isArray(plan?.boxes) ? plan.boxes : [];
+      boxes.forEach((box) => {
+        const weight = Number(box?.weight_kg ?? box?.weight ?? 0);
+        if (Number.isFinite(weight) && weight > HEAVY_PARCEL_THRESHOLD_KG) {
+          heavyBoxes += 1;
+        }
+      });
+    });
+    const labels = heavyBoxes * HEAVY_PARCEL_LABELS_PER_BOX;
+    return {
+      heavyBoxes,
+      labels,
+      unitPrice: HEAVY_PARCEL_LABEL_UNIT_PRICE,
+      total: labels * HEAVY_PARCEL_LABEL_UNIT_PRICE
+    };
+  }, [packGroupMeta, getGroupPlan, HEAVY_PARCEL_THRESHOLD_KG, HEAVY_PARCEL_LABELS_PER_BOX, HEAVY_PARCEL_LABEL_UNIT_PRICE]);
+  useEffect(() => {
+    const keys = Object.keys(safeBoxPlan.groups || {});
+    const isSingle = keys.length === 1 && keys[0] === 'single-box';
+    setSingleBoxMode(isSingle);
+  }, [safeBoxPlan.groups]);
 
   const updateBoxPlan = useCallback(
     (nextGroups) => {
