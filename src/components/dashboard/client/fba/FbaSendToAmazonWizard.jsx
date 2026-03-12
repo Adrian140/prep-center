@@ -705,6 +705,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return up === 'LTL' || up === 'FTL' || up === 'FREIGHT_LTL' || up === 'FREIGHT_FTL';
   }, []);
 
+  const palletLimits = useMemo(() => {
+    const market = String(currentMarket || '').toUpperCase();
+    const isEu = market === 'FR' || market === 'DE';
+    return {
+      maxWeightKg: isEu ? 500 : 680,
+      maxHeightCm: isEu ? 180 : 182
+    };
+  }, [currentMarket]);
+
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
@@ -2172,9 +2181,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const warning = useMemo(() => {
     if (!step2Loaded || shippingLoading) return null;
+    const warnings = [];
+
     const summaryWarnings = Array.isArray(shippingSummary?.warnings) ? shippingSummary.warnings.filter(Boolean) : [];
     if (summaryWarnings.length && !shippingSummary?.alreadyConfirmed) {
-      const dedup = [];
       const seen = new Set();
       summaryWarnings.forEach((raw) => {
         const msg = String(raw || '').trim();
@@ -2182,10 +2192,23 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const key = msg.toLowerCase().includes('heavy parcel') ? 'heavy-parcel' : msg;
         if (seen.has(key)) return;
         seen.add(key);
-        dedup.push(msg);
+        warnings.push(msg);
       });
-      return dedup.join(' | ');
     }
+
+    if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
+      const weight = Number(palletDetails?.weight || 0);
+      const height = Number(palletDetails?.height || 0);
+      const overWeight = palletLimits.maxWeightKg && weight > palletLimits.maxWeightKg;
+      const overHeight = palletLimits.maxHeightCm && height > palletLimits.maxHeightCm;
+      if (overWeight || overHeight) {
+        const parts = [];
+        if (overWeight) parts.push(`Greutate/palet > ${palletLimits.maxWeightKg} kg (limită Amazon).`);
+        if (overHeight) parts.push(`Înălțime/palet > ${palletLimits.maxHeightCm} cm (include palet).`);
+        warnings.push(parts.join(' '));
+      }
+    }
+
     if (currentStep === '1b') {
       const missingPack = (packGroups || []).some((g) => {
         const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
@@ -2203,16 +2226,29 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         return !(dims && w);
       });
       if (missingPack) {
-        return 'Complete box dimensions and weight for all boxes before Step 2.';
+        warnings.push('Complete box dimensions and weight for all boxes before Step 2.');
       }
     }
+
     const returnedModes = shippingSummary?.returnedModes || [];
     const wantsSpd = String(shipmentMode?.method || '').toUpperCase() === 'SPD';
     if (wantsSpd && returnedModes.length && !returnedModes.includes('GROUND_SMALL_PARCEL')) {
-      return 'Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiunile/greutatea (setPackingInformation). Paletii sunt doar pentru LTL/FTL.';
+      warnings.push('Amazon nu a returnat opțiuni SPD pentru aceste colete. Verifică dimensiunile/greutatea (setPackingInformation). Paletii sunt doar pentru LTL/FTL.');
     }
-    return null;
-  }, [shippingSummary, shippingLoading, step2Loaded, shipmentMode?.method]);
+
+    return warnings.length ? warnings.join(' | ') : null;
+  }, [
+    shippingSummary,
+    shippingLoading,
+    step2Loaded,
+    shipmentMode?.method,
+    palletDetails?.weight,
+    palletDetails?.height,
+    palletLimits.maxHeightCm,
+    palletLimits.maxWeightKg,
+    currentStep,
+    packGroups
+  ]);
 
   const isPartneredShipment = useMemo(
     () =>
@@ -4642,9 +4678,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setCarrierTouched(true);
   };
 
-  const PALLET_MAX_WEIGHT_KG = 680;
-  const PALLET_MAX_HEIGHT_CM = 182;
-
   const validatePalletDetails = () => {
     if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
     const qty = Number(palletDetails.quantity || 0);
@@ -4655,12 +4688,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const declaredValue = Number(palletDetails.declaredValue || 0);
     if (!(qty > 0 && length > 0 && width > 0 && height > 0 && weight > 0)) {
       return 'Complete pallet quantity, dimensions and weight for LTL/FTL.';
-    }
-    if (weight > PALLET_MAX_WEIGHT_KG) {
-      return 'Greutatea pe palet depășește 680 kg (limită Amazon LTL).';
-    }
-    if (height > PALLET_MAX_HEIGHT_CM) {
-      return 'Înălțimea paletului depășește 182 cm (limită Amazon LTL).';
     }
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
       return 'Complete freight class and declared value for LTL/FTL.';
