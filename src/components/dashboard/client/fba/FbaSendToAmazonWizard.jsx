@@ -740,30 +740,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }, 0);
   }, [plan?.skus]);
 
-  const derivedPalletSummary = useMemo(() => {
-    if (!palletOnlyMode) return null;
-    const market = String(currentMarket || '').toUpperCase();
-    const isEu = market === 'FR' || market === 'DE';
-    const footprint = isEu ? `${DEFAULT_EU_PALLET.length}x${DEFAULT_EU_PALLET.width} cm` : '120x100 cm';
-    const totalWeight = derivedWeightKg || 0;
-    const weightLimit = palletLimits.maxWeightKg || 500;
-    const pallets = Math.max(1, totalWeight > 0 ? Math.ceil(totalWeight / weightLimit) : 1);
-    const weightPerPallet = totalWeight > 0 ? Number((totalWeight / pallets).toFixed(2)) : '';
-    const defaultHeight = isEu ? 120 : 120;
-    return {
-      pallets,
-      totalWeightKg: totalWeight ? Number(totalWeight.toFixed(2)) : '',
-      totalVolumeCm3: null,
-      freightClass: 'FC_XX',
-      footprint,
-      stackability: 'STACKABLE',
-      length: isEu ? DEFAULT_EU_PALLET.length : 120,
-      width: isEu ? DEFAULT_EU_PALLET.width : 100,
-      height: defaultHeight,
-      weightPerPallet
-    };
-  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, palletLimits.maxWeightKg, derivedWeightKg]);
-
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
@@ -790,6 +766,30 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
     return allCasePackedCounts || groupsCasePacked || allPalletFriendly || allTemplateCase;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
+
+  const derivedPalletSummary = useMemo(() => {
+    if (!palletOnlyMode) return null;
+    const market = String(currentMarket || '').toUpperCase();
+    const isEu = market === 'FR' || market === 'DE';
+    const footprint = isEu ? `${DEFAULT_EU_PALLET.length}x${DEFAULT_EU_PALLET.width} cm` : '120x100 cm';
+    const totalWeight = derivedWeightKg || 0;
+    const weightLimit = palletLimits.maxWeightKg || 500;
+    const pallets = Math.max(1, totalWeight > 0 ? Math.ceil(totalWeight / weightLimit) : 1);
+    const weightPerPallet = totalWeight > 0 ? Number((totalWeight / pallets).toFixed(2)) : '';
+    const defaultHeight = isEu ? 120 : 120;
+    return {
+      pallets,
+      totalWeightKg: totalWeight ? Number(totalWeight.toFixed(2)) : '',
+      totalVolumeCm3: null,
+      freightClass: 'FC_XX',
+      footprint,
+      stackability: 'STACKABLE',
+      length: isEu ? DEFAULT_EU_PALLET.length : 120,
+      width: isEu ? DEFAULT_EU_PALLET.width : 100,
+      height: defaultHeight,
+      weightPerPallet
+    };
+  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, palletLimits.maxWeightKg, derivedWeightKg]);
 
   // Default transport to LTL when fluxul e doar pe paleți, ca să nu ceară box dims SPD.
   useEffect(() => {
