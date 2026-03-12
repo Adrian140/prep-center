@@ -741,6 +741,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return allCasePackedCounts || groupsCasePacked || allPalletFriendly || allTemplateCase;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
+  // Default transport to LTL when fluxul e doar pe paleți, ca să nu ceară box dims SPD.
+  useEffect(() => {
+    if (!palletOnlyMode) return;
+    setShipmentMode((prev) => {
+      const nextMethod = isLtlFtl(prev?.method) ? prev.method : 'LTL';
+      if (nextMethod === prev?.method) return prev;
+      return { ...prev, method: nextMethod };
+    });
+  }, [palletOnlyMode, isLtlFtl]);
+
   const stepsOrder = useMemo(() => (palletOnlyMode ? ['1', '2', '3'] : ['1', '1b', '2', '3']), [palletOnlyMode]);
 
   const resolveInitialStep = useCallback(() => {
@@ -3972,7 +3982,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingError(palletError);
         return;
       }
-    } else {
+    } else if (!palletOnlyMode) {
       // guard: avem nevoie de greutate + dimensiuni pentru toate grupurile
       const missingPack = (packGroups || []).find((g) => {
         const isMultiple = String(g?.packMode || '').toLowerCase() === 'multiple';
