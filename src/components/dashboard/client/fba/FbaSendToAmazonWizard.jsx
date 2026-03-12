@@ -819,7 +819,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     });
   }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, derivedWeightKg]);
 
-  const stepsOrder = useMemo(() => (palletOnlyMode ? ['1', '2', '3'] : ['1', '1b', '2', '3']), [palletOnlyMode]);
+  // Include Step 4 for both flows; pallet-only still skips Step 1b.
+  const stepsOrder = useMemo(
+    () => (palletOnlyMode ? ['1', '2', '3', '4'] : ['1', '1b', '2', '3', '4']),
+    [palletOnlyMode]
+  );
 
   const resolveInitialStep = useCallback(() => {
     if (!historyMode) return '1';
