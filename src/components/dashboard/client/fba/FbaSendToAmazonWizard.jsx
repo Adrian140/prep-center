@@ -485,7 +485,12 @@ export default function FbaSendToAmazonWizard({
     },
     [t]
   );
-  const stepsOrder = ['1', '1b', '2', '3', '4'];
+  const stepsOrder = useMemo(() => {
+    if (historyMode) return ['1', '2', '3', '4'];
+    if (skipPacking) return ['1', '2', '3', '4'];
+    if (palletOnlyMode) return ['1', '2', '3', '4'];
+    return ['1', '1b', '2', '3', '4'];
+  }, [historyMode, skipPacking, palletOnlyMode]);
   const wizardCopy = useMemo(
     () => ({
       missingIds: tt('missingIdsError', 'Missing inboundPlanId or requestId; reload the plan.'),
@@ -5227,6 +5232,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
+    if (stepKey === '1b' && palletOnlyMode) {
+      setCurrentStep('2');
+      return;
+    }
     setCurrentStep(stepKey);
     if (stepKey === '1b') {
       const inboundId = resolveInboundPlanId();
