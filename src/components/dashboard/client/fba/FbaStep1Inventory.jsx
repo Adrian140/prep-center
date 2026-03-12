@@ -1694,7 +1694,6 @@ export default function FbaStep1Inventory({
                 <div className="mt-1 text-xs text-red-700 font-medium">{listingProblem}</div>
               ) : null}
             </div>
-            )}
           </div>
         </td>
         <td className="py-3">
@@ -2703,7 +2702,6 @@ export default function FbaStep1Inventory({
                 ))
               )}
             </div>
-            )}
           </div>
         </div>
       )}
@@ -3256,7 +3254,10 @@ export default function FbaStep1Inventory({
             ))}
           </div>
         )}
-        </div>
+      </div>
+
+      </>
+      )}
 
       <div className="px-6 py-4 border-t border-slate-200 space-y-3">
         <div className="font-semibold text-slate-900">{tr('packGroupsPreviewTitle')}</div>
@@ -3360,9 +3361,6 @@ export default function FbaStep1Inventory({
             </button>
           </div>
         </div>
-        </>
-        )}
-
       {packingModal.open && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/25 px-4 pt-20">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[70vh] overflow-y-auto">
