@@ -75,7 +75,8 @@ export default function FbaStep2Shipping({
     warning = '',
     palletDetails = null,
     from = null,
-    to = null
+    to = null,
+    palletSummary = null // read-only, pre-calculated pallet info
   } = shipment || {};
   const optionsList = useMemo(
     () => (Array.isArray(shippingOptions) ? shippingOptions : []),
@@ -160,6 +161,44 @@ export default function FbaStep2Shipping({
   const globalReadyStartRaw = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.start || '' : '';
   const globalReadyStart = toDateOnly(globalReadyStartRaw);
   const globalReadyEnd = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.end || '' : '';
+
+  const renderPalletSummary = () => {
+    if (!palletSummary) return null;
+    return (
+      <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50">
+        <div className="flex items-center justify-between">
+          <div className="font-semibold text-slate-900">{tt('palletEstimates', 'Pallet estimates')}</div>
+          <div className="text-xs text-slate-500">{tt('autoFromBoxes', 'Auto-calculated from box contents')}</div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div>
+            <div className="text-xs text-slate-500">{tt('pallets', 'Pallets')}</div>
+            <div className="font-semibold">{palletSummary.pallets ?? '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">{tt('totalWeight', 'Total weight')}</div>
+            <div className="font-semibold">
+              {palletSummary.totalWeightKg ? `${palletSummary.totalWeightKg} kg` : '—'}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">{tt('freightClass', 'Freight class')}</div>
+            <div className="font-semibold">{palletSummary.freightClass || '—'}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500">{tt('volume', 'Volume')}</div>
+            <div className="font-semibold">
+              {palletSummary.totalVolumeCm3 ? `${palletSummary.totalVolumeCm3.toLocaleString()} cm³` : '—'}
+            </div>
+          </div>
+        </div>
+        <div className="text-xs text-slate-500">
+          {tt('palletFootprint', 'Footprint')}: {palletSummary.footprint || '—'} · {tt('stackability', 'Stackability')}:{' '}
+          {palletSummary.stackability || 'STACKABLE'}
+        </div>
+      </div>
+    );
+  };
   const normalizeOptionMode = (mode) => {
     const up = String(mode || '').toUpperCase();
     if (!up) return '';
@@ -745,126 +784,92 @@ export default function FbaStep2Shipping({
         </div>
 
         {selectedMode && selectedMode !== 'SPD' && (
-          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
-            <div className="font-semibold text-slate-900">Pallet and freight information</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Pallet quantity</div>
-                <input
-                  type="number"
-                  min="1"
-                  id="pallet-quantity"
-                  name="pallet-quantity"
-                  value={safePalletDetails.quantity ?? 1}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, quantity: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
+          <>
+            {renderPalletSummary()}
+            <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+              <div className="font-semibold text-slate-900">{tt('palletFreight', 'Freight details')}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Pallet quantity</div>
+                  <input
+                    type="number"
+                    min="1"
+                    id="pallet-quantity"
+                    name="pallet-quantity"
+                    value={safePalletDetails.quantity ?? 1}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, quantity: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Pallet weight (kg)</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    id="pallet-weight"
+                    name="pallet-weight"
+                    value={safePalletDetails.weight ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, weight: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Stackability</div>
+                  <select
+                    id="pallet-stackability"
+                    name="pallet-stackability"
+                    value={safePalletDetails.stackability || 'STACKABLE'}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, stackability: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="STACKABLE">STACKABLE</option>
+                    <option value="NON_STACKABLE">NON_STACKABLE</option>
+                  </select>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Freight class</div>
+                  <input
+                    type="text"
+                    id="freight-class"
+                    name="freight-class"
+                    value={safePalletDetails.freightClass ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, freightClass: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Declared value</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    id="declared-value"
+                    name="declared-value"
+                    value={safePalletDetails.declaredValue ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValue: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">Currency</div>
+                  <input
+                    type="text"
+                    id="declared-currency"
+                    name="declared-currency"
+                    value={safePalletDetails.declaredValueCurrency ?? ''}
+                    onChange={(e) =>
+                      onPalletDetailsChange?.({ ...safePalletDetails, declaredValueCurrency: e.target.value })
+                    }
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
               </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Pallet weight (kg)</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  id="pallet-weight"
-                  name="pallet-weight"
-                  value={safePalletDetails.weight ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, weight: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Stackability</div>
-                <select
-                  id="pallet-stackability"
-                  name="pallet-stackability"
-                  value={safePalletDetails.stackability || 'STACKABLE'}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, stackability: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="STACKABLE">STACKABLE</option>
-                  <option value="NON_STACKABLE">NON_STACKABLE</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Length (cm)</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  id="pallet-length"
-                  name="pallet-length"
-                  value={safePalletDetails.length ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, length: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Width (cm)</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  id="pallet-width"
-                  name="pallet-width"
-                  value={safePalletDetails.width ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, width: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Height (cm)</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  id="pallet-height"
-                  name="pallet-height"
-                  value={safePalletDetails.height ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, height: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Freight class</div>
-                <input
-                  type="text"
-                  id="freight-class"
-                  name="freight-class"
-                  value={safePalletDetails.freightClass ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, freightClass: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Declared value</div>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  id="declared-value"
-                  name="declared-value"
-                  value={safePalletDetails.declaredValue ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValue: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
-              </div>
-              <div>
-                <div className="text-xs text-slate-500 mb-1">Currency</div>
-                <input
-                  type="text"
-                  id="declared-currency"
-                  name="declared-currency"
-                  value={safePalletDetails.declaredValueCurrency ?? ''}
-                  onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, declaredValueCurrency: e.target.value })}
-                  className="w-full border rounded-md px-3 py-2 text-sm"
-                />
+              <div className="text-xs text-slate-500">
+                {tt('palletFreightHint', 'Amazon uses these details for LTL/FTL options and PCP rates.')}
               </div>
             </div>
-            <div className="text-xs text-slate-500">
-              {tt('palletFreightHint', 'Amazon uses these details for LTL/FTL options and PCP rates.')}
-            </div>
-          </div>
+          </>
         )}
 
         <div className="space-y-3">

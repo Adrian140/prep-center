@@ -740,6 +740,30 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }, 0);
   }, [plan?.skus]);
 
+  const derivedPalletSummary = useMemo(() => {
+    if (!palletOnlyMode) return null;
+    const market = String(currentMarket || '').toUpperCase();
+    const isEu = market === 'FR' || market === 'DE';
+    const footprint = isEu ? `${DEFAULT_EU_PALLET.length}x${DEFAULT_EU_PALLET.width} cm` : '120x100 cm';
+    const totalWeight = derivedWeightKg || 0;
+    const weightLimit = palletLimits.maxWeightKg || 500;
+    const pallets = Math.max(1, totalWeight > 0 ? Math.ceil(totalWeight / weightLimit) : 1);
+    const weightPerPallet = totalWeight > 0 ? Number((totalWeight / pallets).toFixed(2)) : '';
+    const defaultHeight = isEu ? 120 : 120;
+    return {
+      pallets,
+      totalWeightKg: totalWeight ? Number(totalWeight.toFixed(2)) : '',
+      totalVolumeCm3: null,
+      freightClass: 'FC_XX',
+      footprint,
+      stackability: 'STACKABLE',
+      length: isEu ? DEFAULT_EU_PALLET.length : 120,
+      width: isEu ? DEFAULT_EU_PALLET.width : 100,
+      height: defaultHeight,
+      weightPerPallet
+    };
+  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, palletLimits.maxWeightKg, derivedWeightKg]);
+
   const palletOnlyMode = useMemo(() => {
     if (isLtlFtl(shipmentMode?.method)) return true;
 
@@ -786,7 +810,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const length = Number(prev.length || 0) || DEFAULT_EU_PALLET.length;
       const width = Number(prev.width || 0) || DEFAULT_EU_PALLET.width;
       const height = Number(prev.height || 0) || prev.height || '';
-      const weight = Number(prev.weight || 0) || (derivedWeightKg > 0 ? Number((derivedWeightKg).toFixed(2)) : prev.weight);
+      const weight =
+        Number(prev.weight || 0) || (derivedWeightKg > 0 ? Number(derivedWeightKg.toFixed(2)) : prev.weight);
       if (length === prev.length && width === prev.width && weight === prev.weight && height === prev.height) return prev;
       return { ...prev, length, width, weight, height };
     });
@@ -3765,33 +3790,34 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart) || null;
     const windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null;
     const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
+    const footprint = derivedPalletSummary;
     const palletPayload = usePallets
       ? [
           {
-            quantity: Number(palletDetails.quantity || 1),
+            quantity: Number(palletDetails.quantity || footprint?.pallets || 1),
             dimensions: {
-              // Amazon SP API expects inches
-              length: Number(((palletDetails.length || 0) / 2.54).toFixed(2)),
-              width: Number(((palletDetails.width || 0) / 2.54).toFixed(2)),
-              height: Number(((palletDetails.height || 0) / 2.54).toFixed(2)),
+              length: Number((((palletDetails.length || footprint?.length || 120) / 2.54)).toFixed(2)),
+              width: Number((((palletDetails.width || footprint?.width || 100) / 2.54)).toFixed(2)),
+              height: Number((((palletDetails.height || footprint?.height || 120) / 2.54)).toFixed(2)),
               unit: 'IN'
             },
             weight: {
-              // Amazon SP API expects pounds
-              value: Number(((palletDetails.weight || 0) * 2.20462).toFixed(2)),
+              value: Number(
+                (((palletDetails.weight || footprint?.weightPerPallet || derivedWeightKg || 25) || 0) * 2.20462).toFixed(2)
+              ),
               unit: 'LB'
             },
-            stackability: palletDetails.stackability || 'STACKABLE'
+            stackability: palletDetails.stackability || footprint?.stackability || 'STACKABLE'
           }
         ]
       : null;
     const freightInformation = usePallets
       ? {
           declaredValue: {
-            amount: Number(palletDetails.declaredValue || 0),
+            amount: Number(palletDetails.declaredValue || 1),
             code: palletDetails.declaredValueCurrency || 'EUR'
           },
-          freightClass: palletDetails.freightClass || null
+          freightClass: palletDetails.freightClass || footprint?.freightClass || 'FC_XX'
         }
       : null;
 
@@ -5629,7 +5655,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             carrier: shipmentMode.carrier,
             palletDetails,
             shipments: shipmentsWithFallback,
-            warning
+            warning,
+            palletSummary: derivedPalletSummary
           }}
           shippingOptions={shippingOptions}
           shippingSummary={shippingSummary}
