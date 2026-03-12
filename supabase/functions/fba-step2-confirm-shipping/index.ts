@@ -3019,16 +3019,12 @@ serve(async (req) => {
         errorsCount: spdErrors.length
       });
 
+      // În trecut blocam aici; acum lăsăm Amazon să decidă. Convertim în warning informativ.
       if (spdErrors.length) {
-        return new Response(
-          JSON.stringify({
-            error:
-              "Coletele nu respectă regulile SPD (EU): greutate max 23 kg și limite de dimensiuni depășite.",
-            code: "SPD_PACKAGE_NOT_ELIGIBLE",
-            details: spdErrors,
-            traceId
-          }),
-          { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
+        spdWarnings.push(
+          `Coletele pot fi respinse de Amazon pentru SPD: ${spdErrors.join(
+            "; "
+          )}. Continuați pe proprie răspundere.`
         );
       }
     }
