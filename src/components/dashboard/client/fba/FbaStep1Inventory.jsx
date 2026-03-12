@@ -1555,6 +1555,7 @@ export default function FbaStep1Inventory({
     !requestId ||
     !hasUnits ||
     (!palletOnlyMode && !boxPlanValidation.isValid) ||
+    (palletOnlyMode && skus.some((sku) => parsePositiveInteger(sku.unitsPerBox) > 150)) ||
     (loadingPlan && skus.length === 0);
 
   const renderSkuRow = (sku, groupId = 'ungrouped', groupLabel = tr('allItems')) => {
@@ -1663,9 +1664,10 @@ export default function FbaStep1Inventory({
     const canSubmitListingAttrs = Boolean(
       listingAttrReq && !listingSaving && hasRequiredListingAttrs && hasListingAttrChanges
     );
-    const unitsPerBox = parsePositiveInteger(sku.unitsPerBox);
-    const normalizedPackingType = normalizePackingType(sku.packing);
-    const isCasePacked = normalizedPackingType === PACKING_TYPE.CASE || !!unitsPerBox;
+  const unitsPerBox = parsePositiveInteger(sku.unitsPerBox);
+  const normalizedPackingType = normalizePackingType(sku.packing);
+  const isCasePacked = normalizedPackingType === PACKING_TYPE.CASE || !!unitsPerBox;
+  const unitsPerBoxWarning = palletOnlyMode && unitsPerBox > 150;
     const computedBoxesCount = unitsPerBox
       ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
       : null;
@@ -1689,6 +1691,9 @@ export default function FbaStep1Inventory({
               <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
                 {badgeLabel}
                 {statusReason ? <span className="text-slate-500">· {statusReason}</span> : null}
+                {unitsPerBoxWarning && (
+                  <span className="text-amber-700 font-semibold">· {tr('teamLiftWarning', 'Team Lift >150 units/box')}</span>
+                )}
               </div>
               {listingProblem ? (
                 <div className="mt-1 text-xs text-red-700 font-medium">{listingProblem}</div>

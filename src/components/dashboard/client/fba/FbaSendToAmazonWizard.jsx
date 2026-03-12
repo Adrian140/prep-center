@@ -3684,14 +3684,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           {
             quantity: Number(palletDetails.quantity || 1),
             dimensions: {
-              length: Number(palletDetails.length || 0),
-              width: Number(palletDetails.width || 0),
-              height: Number(palletDetails.height || 0),
-              unit: 'CM'
+              // Amazon SP API expects inches
+              length: Number(((palletDetails.length || 0) / 2.54).toFixed(2)),
+              width: Number(((palletDetails.width || 0) / 2.54).toFixed(2)),
+              height: Number(((palletDetails.height || 0) / 2.54).toFixed(2)),
+              unit: 'IN'
             },
             weight: {
-              value: Number(palletDetails.weight || 0),
-              unit: 'KG'
+              // Amazon SP API expects pounds
+              value: Number(((palletDetails.weight || 0) * 2.20462).toFixed(2)),
+              unit: 'LB'
             },
             stackability: palletDetails.stackability || 'STACKABLE'
           }
@@ -4641,6 +4643,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setCarrierTouched(true);
   };
 
+  const PALLET_MAX_WEIGHT_KG = 680;
+  const PALLET_MAX_HEIGHT_CM = 182;
+
   const validatePalletDetails = () => {
     if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
     const qty = Number(palletDetails.quantity || 0);
@@ -4651,6 +4656,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const declaredValue = Number(palletDetails.declaredValue || 0);
     if (!(qty > 0 && length > 0 && width > 0 && height > 0 && weight > 0)) {
       return 'Complete pallet quantity, dimensions and weight for LTL/FTL.';
+    }
+    if (weight > PALLET_MAX_WEIGHT_KG) {
+      return 'Greutatea pe palet depășește 680 kg (limită Amazon LTL).';
+    }
+    if (height > PALLET_MAX_HEIGHT_CM) {
+      return 'Înălțimea paletului depășește 182 cm (limită Amazon LTL).';
     }
     if (!(declaredValue > 0) || !palletDetails.freightClass) {
       return 'Complete freight class and declared value for LTL/FTL.';
