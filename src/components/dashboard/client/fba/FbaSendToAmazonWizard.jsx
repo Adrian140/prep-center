@@ -5562,28 +5562,39 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const msg =
           packRes?.message ||
           wizardCopy.packingWait;
-        setInboundPlanMissing(true);
-        if (allowNoInboundPlan) {
-          completeAndNext('1');
-          return;
-        }
-        setStep1SaveError(msg);
+      setInboundPlanMissing(true);
+      if (allowNoInboundPlan) {
+        completeAndNext('1');
         return;
       }
-      setInboundPlanMissing(false);
-      // asigură-te că avem inboundPlanId după reîncărcare, altfel nu trecem în 1b
-      const inboundPlanId = resolveInboundPlanId();
-      if (!inboundPlanId) {
-        setInboundPlanMissing(true);
-        if (allowNoInboundPlan) {
-          completeAndNext('1');
-          return;
-        }
-        setStep1SaveError(wizardCopy.inboundPlanWait);
+      setStep1SaveError(msg);
+      return;
+    }
+    setInboundPlanMissing(false);
+    // asigură-te că avem inboundPlanId după reîncărcare, altfel nu trecem în 1b
+    const inboundPlanId = resolveInboundPlanId();
+    if (!inboundPlanId) {
+      setInboundPlanMissing(true);
+      if (allowNoInboundPlan) {
+        completeAndNext('1');
         return;
       }
-      completeAndNext('1');
-    } catch (e) {
+      setStep1SaveError(wizardCopy.inboundPlanWait);
+      return;
+    }
+
+    // Dacă avem deja box plan complet (autoPackingReady) și nu suntem pe paleți,
+    // sar peste UI-ul din Step1b și trimit direct packingInformation.
+    if (!palletOnlyMode && autoPackingReady) {
+      const payload = buildPackingPayload(packGroupsForAuto);
+      submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
+      setCompletedSteps((prev) => Array.from(new Set([...prev, '1', '1b'])));
+      setCurrentStep('2');
+      return;
+    }
+
+    completeAndNext('1');
+  } catch (e) {
       const message = e?.message || 'Could not save quantities.';
       // cod 42501 -> RLS blocked (ex: insert din upsert)
       if (String(e?.code) === '42501') {
