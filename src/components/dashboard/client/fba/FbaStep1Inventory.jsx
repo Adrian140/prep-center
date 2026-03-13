@@ -1672,7 +1672,25 @@ export default function FbaStep1Inventory({
   const normalizedPackingType = normalizePackingType(sku.packing);
   const isCasePacked = normalizedPackingType === PACKING_TYPE.CASE || !!unitsPerBox;
   const unitsPerBoxWarning = palletOnlyMode && unitsPerBox > 150;
-  const displayEan = sku.ean || sku.ean13 || sku.barcode || '-';
+  const extractEan = (obj) => {
+    const candidateFields = [
+      obj?.ean,
+      obj?.ean13,
+      obj?.barcode,
+      obj?.EAN,
+      obj?.GTIN,
+      obj?.gtin,
+      obj?.UPC,
+      obj?.upc,
+      obj?.item?.ean,
+      obj?.item?.ean13
+    ].map((v) => (typeof v === 'string' ? v.trim() : v)).filter(Boolean);
+    if (candidateFields.length) return candidateFields[0];
+    const skuText = String(obj?.sku || '').trim();
+    const match = skuText.match(/(\d{12,14})/);
+    return match ? match[1] : null;
+  };
+  const displayEan = extractEan(sku) || '-';
     const computedBoxesCount = unitsPerBox
       ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
       : null;
@@ -2287,7 +2305,7 @@ export default function FbaStep1Inventory({
     const itemId = item?.id || `ignored-${idx + 1}`;
     const title = item?.product_name || `Line ${idx + 1}`;
     const asin = item?.asin || '—';
-    const ean = item?.ean || item?.ean13 || item?.barcode || '-';
+    const ean = extractEan(item) || '-';
     const units = Number(item?.units || 0) || 0;
     const reason = translateSkuStatusReason(item?.reason || tr('skuMissing'));
     return (
