@@ -1672,6 +1672,7 @@ export default function FbaStep1Inventory({
   const normalizedPackingType = normalizePackingType(sku.packing);
   const isCasePacked = normalizedPackingType === PACKING_TYPE.CASE || !!unitsPerBox;
   const unitsPerBoxWarning = palletOnlyMode && unitsPerBox > 150;
+  const displayEan = sku.ean || sku.ean13 || sku.barcode || '-';
     const computedBoxesCount = unitsPerBox
       ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
       : null;
@@ -1691,6 +1692,7 @@ export default function FbaStep1Inventory({
               </div>
               <div className="text-xs text-slate-500">{tr('skuLabelShort')}: {sku.sku}</div>
               <div className="text-xs text-slate-500">ASIN: {sku.asin}</div>
+              <div className="text-xs text-slate-500">EAN: {displayEan}</div>
               <div className="text-xs text-slate-500">{tr('storageLabel')}: {sku.storageType}</div>
               <div className={`mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded ${badgeClass}`}>
                 {badgeLabel}
@@ -2285,6 +2287,7 @@ export default function FbaStep1Inventory({
     const itemId = item?.id || `ignored-${idx + 1}`;
     const title = item?.product_name || `Line ${idx + 1}`;
     const asin = item?.asin || '—';
+    const ean = item?.ean || item?.ean13 || item?.barcode || '-';
     const units = Number(item?.units || 0) || 0;
     const reason = translateSkuStatusReason(item?.reason || tr('skuMissing'));
     return (
@@ -2300,6 +2303,7 @@ export default function FbaStep1Inventory({
               <div className="font-semibold text-slate-900">{title}</div>
               <div className="text-xs text-slate-500">{tr('skuMissing')}</div>
               <div className="text-xs text-slate-500">ASIN: {asin}</div>
+              <div className="text-xs text-slate-500">EAN: {ean}</div>
               <div className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded text-amber-800 bg-amber-50 border-amber-200">
                 {tr('ignored')}
                 <span className="text-slate-500">· {reason}</span>
