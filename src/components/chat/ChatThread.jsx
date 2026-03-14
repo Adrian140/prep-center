@@ -11,10 +11,16 @@ import {
 
 const PAGE_SIZE = 50;
 
-const formatTime = (value) => {
+const formatDateTime = (value) => {
   if (!value) return '';
   const date = new Date(value);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 const canEditWithinWindow = (createdAt) => {
@@ -409,14 +415,27 @@ export default function ChatThread({
           <div className="text-center text-xs text-slate-400">Loading messages...</div>
         )}
         {messages.map((msg) => {
+          const isAdminMessage = msg.sender_role === 'admin';
           const isMine = msg.sender_id === currentUserId;
+          const isOutgoing = senderRole === 'admin' ? isAdminMessage : !isAdminMessage;
           const canEdit = isAdmin || (isMine && canEditWithinWindow(msg.created_at));
           const canDelete = isAdmin || (isMine && canEditWithinWindow(msg.created_at));
-          const senderLabel = msg.sender_role === 'admin' ? staffName : displayClient;
+          const senderLabel = isAdminMessage ? staffName : displayClient;
+          const recipientLabel = isAdminMessage ? displayClient : staffName;
+          const bubbleClass = isOutgoing
+            ? 'bg-primary text-white'
+            : 'border border-slate-200 bg-slate-50 text-slate-900';
+          const metaClass = isOutgoing ? 'text-white/75' : 'text-slate-500';
+          const actionClass = isOutgoing
+            ? 'text-white/85 hover:text-white'
+            : 'text-slate-500 hover:text-slate-800';
           return (
-            <div key={msg.id} className={`mb-4 flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-2 ${isMine ? 'bg-primary text-white' : 'bg-slate-100 text-slate-900'}`}>
-                <div className="mb-1 text-[11px] opacity-70">{senderLabel}</div>
+            <div key={msg.id} className={`mb-4 flex ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm ${bubbleClass}`}>
+                <div className={`mb-2 flex items-center justify-between gap-4 text-[11px] font-medium ${metaClass}`}>
+                  <span className="truncate">From: {senderLabel}</span>
+                  <span className="truncate text-right">To: {recipientLabel}</span>
+                </div>
                 {editingId === msg.id ? (
                   <div className="space-y-2">
                     <textarea
@@ -444,8 +463,8 @@ export default function ChatThread({
                   <div className="whitespace-pre-wrap text-sm">{msg.body}</div>
                 )}
                 {(msg.chat_message_attachments || []).map(renderAttachment)}
-                <div className="mt-2 flex items-center justify-between text-[10px] opacity-70">
-                  <span>{formatTime(msg.created_at)}</span>
+                <div className={`mt-3 flex items-center justify-between text-[10px] ${metaClass}`}>
+                  <span>{formatDateTime(msg.created_at)}</span>
                   {renderStatus(msg)}
                 </div>
                 {(canEdit || canDelete) && editingId !== msg.id && (
@@ -453,7 +472,7 @@ export default function ChatThread({
                     {canEdit && (
                       <button
                         onClick={() => startEdit(msg)}
-                        className="inline-flex items-center gap-1 text-white/80 hover:text-white"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${actionClass}`}
                       >
                         <Pencil size={12} />
                         Edit
@@ -462,7 +481,7 @@ export default function ChatThread({
                     {canDelete && (
                       <button
                         onClick={() => removeMessage(msg.id)}
-                        className="inline-flex items-center gap-1 text-white/80 hover:text-white"
+                        className={`inline-flex items-center gap-1 rounded-md px-2 py-1 ${actionClass}`}
                       >
                         <Trash2 size={12} />
                         Delete
