@@ -4,6 +4,11 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import ChatThread from '@/components/chat/ChatThread';
+import {
+  mergeAdminManualUnreadCounts,
+  setAdminManualUnreadConversation,
+  subscribeAdminManualUnread
+} from '@/utils/adminChatUnread';
 
 const staffLabelByCountry = (country) => {
   const upper = String(country || 'FR').toUpperCase();
@@ -22,6 +27,7 @@ export default function AdminChatWidget() {
   const [activeId, setActiveId] = useState(null);
   const [metaByConversationId, setMetaByConversationId] = useState({});
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
+  const [manualUnreadIds, setManualUnreadIds] = useState([]);
   const widgetRef = useRef(null);
   const activeIdRef = useRef(null);
   const autoSelectEnabledRef = useRef(true);
@@ -33,6 +39,15 @@ export default function AdminChatWidget() {
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    if (!user?.id || !isAdmin) return;
+    return subscribeAdminManualUnread({
+      userId: user.id,
+      market,
+      onChange: setManualUnreadIds
+    });
+  }, [user?.id, isAdmin, market]);
 
   const hydrateConversationMeta = async (rows = []) => {
     if (!rows.length) {
@@ -97,22 +112,41 @@ export default function AdminChatWidget() {
       };
     });
 
+    const serverCounts = Object.fromEntries(unreadEntries);
     setMetaByConversationId(nextMeta);
-    setUnreadByConversationId(Object.fromEntries(unreadEntries));
+    setUnreadByConversationId(
+      mergeAdminManualUnreadCounts({
+        userId: user?.id,
+        market,
+        serverCounts
+      })
+    );
   };
 
   const markConversationUnread = (conversationId) => {
     if (!conversationId) return;
     autoSelectEnabledRef.current = false;
     setActiveId(null);
+    setAdminManualUnreadConversation({
+      userId: user?.id,
+      market,
+      conversationId,
+      unread: true
+    });
     setUnreadByConversationId((prev) => ({
       ...prev,
-      [conversationId]: (prev?.[conversationId] || 0) + 1
+      [conversationId]: Math.max(Number(prev?.[conversationId] || 0), 1)
     }));
   };
 
   const selectConversation = (conversationId) => {
     if (!conversationId) return;
+    setAdminManualUnreadConversation({
+      userId: user?.id,
+      market,
+      conversationId,
+      unread: false
+    });
     autoSelectEnabledRef.current = true;
     setActiveId(conversationId);
   };

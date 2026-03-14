@@ -21,6 +21,10 @@ import AdminChatWidget from './AdminChatWidget';
 import AdminInvoicesOverview from './AdminInvoicesOverview';
 import { getTabId } from '@/utils/tabIdentity';
 import { tabSessionStorage } from '@/utils/tabStorage';
+import {
+  mergeAdminManualUnreadCounts,
+  subscribeAdminManualUnread
+} from '@/utils/adminChatUnread';
 import SupabaseSecuritySettings from '@/components/dashboard/SupabaseSecuritySettings';
 import { useMarket } from '@/contexts/MarketContext';
 
@@ -333,11 +337,18 @@ useEffect(() => {
         const unreadEntries = await Promise.all(
           rows.map(async (conv) => {
             const res = await supabaseHelpers.getChatUnreadCount({ conversationId: conv.id });
-            return Number(res?.data || 0);
+            return [conv.id, Number(res?.data || 0)];
           })
         );
         if (!mounted) return;
-        setChatUnreadCount(unreadEntries.reduce((sum, n) => sum + n, 0));
+        const mergedCounts = mergeAdminManualUnreadCounts({
+          userId: user.id,
+          market: currentMarket || null,
+          serverCounts: Object.fromEntries(unreadEntries)
+        });
+        setChatUnreadCount(
+          Object.values(mergedCounts).reduce((sum, n) => sum + Number(n || 0), 0)
+        );
         chatUnreadLastRunRef.current = Date.now();
       } finally {
         chatUnreadInFlightRef.current = false;
@@ -350,6 +361,14 @@ useEffect(() => {
     tick();
     const intervalId = setInterval(tick, 5000);
     const onVisibility = () => tick();
+    const unsubscribeManualUnread = subscribeAdminManualUnread({
+      userId: user?.id,
+      market: currentMarket || null,
+      onChange: () => {
+        chatUnreadLastRunRef.current = 0;
+        tick();
+      }
+    });
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', onVisibility);
     }
@@ -357,6 +376,7 @@ useEffect(() => {
       mounted = false;
       clearInterval(intervalId);
       chatUnreadInFlightRef.current = false;
+      unsubscribeManualUnread();
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', onVisibility);
       }

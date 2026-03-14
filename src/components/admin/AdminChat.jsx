@@ -5,6 +5,11 @@ import { useMarket } from '@/contexts/MarketContext';
 import { supabase } from '@/config/supabase';
 import { supabaseHelpers } from '@/config/supabase';
 import ChatThread from '@/components/chat/ChatThread';
+import {
+  mergeAdminManualUnreadCounts,
+  setAdminManualUnreadConversation,
+  subscribeAdminManualUnread
+} from '@/utils/adminChatUnread';
 
 const staffLabelByCountry = (country) => {
   const upper = String(country || 'FR').toUpperCase();
@@ -28,8 +33,10 @@ export default function AdminChat() {
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
   const [loading, setLoading] = useState(false);
   const [allowAutoSelect, setAllowAutoSelect] = useState(true);
+  const [manualUnreadIds, setManualUnreadIds] = useState([]);
   const activeIdRef = useRef(null);
   const allowAutoSelectRef = useRef(true);
+  const manualUnreadIdsRef = useRef([]);
 
   const market = String(currentMarket || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
@@ -41,6 +48,19 @@ export default function AdminChat() {
   useEffect(() => {
     allowAutoSelectRef.current = allowAutoSelect;
   }, [allowAutoSelect]);
+
+  useEffect(() => {
+    manualUnreadIdsRef.current = manualUnreadIds;
+  }, [manualUnreadIds]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    return subscribeAdminManualUnread({
+      userId: user.id,
+      market,
+      onChange: setManualUnreadIds
+    });
+  }, [user?.id, market]);
 
   const loadConversations = async ({ keepActive = true } = {}) => {
     setLoading(true);
@@ -128,8 +148,15 @@ export default function AdminChat() {
       };
     });
 
+    const serverCounts = Object.fromEntries(unreadEntries);
     setMetaByConversationId(nextMeta);
-    setUnreadByConversationId(Object.fromEntries(unreadEntries));
+    setUnreadByConversationId(
+      mergeAdminManualUnreadCounts({
+        userId: user?.id,
+        market,
+        serverCounts
+      })
+    );
   };
 
   const markConversationUnread = (conversationId) => {
@@ -137,14 +164,26 @@ export default function AdminChat() {
     allowAutoSelectRef.current = false;
     setAllowAutoSelect(false);
     setActiveId(null);
+    setAdminManualUnreadConversation({
+      userId: user?.id,
+      market,
+      conversationId,
+      unread: true
+    });
     setUnreadByConversationId((prev) => ({
       ...prev,
-      [conversationId]: (prev?.[conversationId] || 0) + 1
+      [conversationId]: Math.max(Number(prev?.[conversationId] || 0), 1)
     }));
   };
 
   const selectConversation = (conversationId) => {
     if (!conversationId) return;
+    setAdminManualUnreadConversation({
+      userId: user?.id,
+      market,
+      conversationId,
+      unread: false
+    });
     allowAutoSelectRef.current = true;
     setAllowAutoSelect(true);
     setActiveId(conversationId);
