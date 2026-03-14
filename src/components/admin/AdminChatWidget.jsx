@@ -23,10 +23,16 @@ export default function AdminChatWidget() {
   const [metaByConversationId, setMetaByConversationId] = useState({});
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
   const widgetRef = useRef(null);
+  const activeIdRef = useRef(null);
+  const autoSelectEnabledRef = useRef(true);
 
   const isAdmin = profile?.is_admin === true || profile?.account_type === 'admin';
   const market = String(currentMarket || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   const hydrateConversationMeta = async (rows = []) => {
     if (!rows.length) {
@@ -97,11 +103,18 @@ export default function AdminChatWidget() {
 
   const markConversationUnread = (conversationId) => {
     if (!conversationId) return;
+    autoSelectEnabledRef.current = false;
     setActiveId(null);
     setUnreadByConversationId((prev) => ({
       ...prev,
       [conversationId]: (prev?.[conversationId] || 0) + 1
     }));
+  };
+
+  const selectConversation = (conversationId) => {
+    if (!conversationId) return;
+    autoSelectEnabledRef.current = true;
+    setActiveId(conversationId);
   };
 
   useEffect(() => {
@@ -114,9 +127,12 @@ export default function AdminChatWidget() {
       const rows = res?.data || [];
       setConversations(rows);
       await hydrateConversationMeta(rows);
-      if (!activeId && rows.length) {
+      const currentActiveId = activeIdRef.current;
+      if (!currentActiveId && rows.length && autoSelectEnabledRef.current) {
         const withUnread = rows.find((r) => (unreadByConversationId[r.id] || 0) > 0);
         setActiveId(withUnread?.id || rows[0].id);
+      } else if (currentActiveId && !rows.some((r) => r.id === currentActiveId)) {
+        setActiveId(autoSelectEnabledRef.current ? rows[0]?.id || null : null);
       }
       setLoading(false);
     };
@@ -126,7 +142,7 @@ export default function AdminChatWidget() {
       mounted = false;
       clearInterval(timer);
     };
-  }, [user?.id, isAdmin, market, activeId]);
+  }, [user?.id, isAdmin, market]);
 
   useEffect(() => {
     if (!open) return;
@@ -179,7 +195,7 @@ export default function AdminChatWidget() {
                   return (
                     <button
                       key={conv.id}
-                      onClick={() => setActiveId(conv.id)}
+                      onClick={() => selectConversation(conv.id)}
                       className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
                         conv.id === activeId
                           ? 'border-primary bg-primary/10 text-primary'

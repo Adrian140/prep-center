@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Building2, Search } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -28,9 +28,19 @@ export default function AdminChat() {
   const [unreadByConversationId, setUnreadByConversationId] = useState({});
   const [loading, setLoading] = useState(false);
   const [allowAutoSelect, setAllowAutoSelect] = useState(true);
+  const activeIdRef = useRef(null);
+  const allowAutoSelectRef = useRef(true);
 
   const market = String(currentMarket || 'FR').toUpperCase();
   const staffLabel = staffLabelByCountry(market);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
+  useEffect(() => {
+    allowAutoSelectRef.current = allowAutoSelect;
+  }, [allowAutoSelect]);
 
   const loadConversations = async ({ keepActive = true } = {}) => {
     setLoading(true);
@@ -41,12 +51,13 @@ export default function AdminChat() {
     const rows = res.data || [];
     setConversations(rows);
     await hydrateConversationMeta(rows);
-    if (allowAutoSelect && rows.length) {
+    const currentActiveId = activeIdRef.current;
+    if (allowAutoSelectRef.current && rows.length) {
       if (!keepActive) {
         setActiveId(rows[0].id);
-      } else if (!activeId) {
+      } else if (!currentActiveId) {
         setActiveId(rows[0].id);
-      } else if (activeId && !rows.some((r) => r.id === activeId)) {
+      } else if (currentActiveId && !rows.some((r) => r.id === currentActiveId)) {
         setActiveId(rows[0].id);
       }
     }
@@ -123,6 +134,7 @@ export default function AdminChat() {
 
   const markConversationUnread = (conversationId) => {
     if (!conversationId) return;
+    allowAutoSelectRef.current = false;
     setAllowAutoSelect(false);
     setActiveId(null);
     setUnreadByConversationId((prev) => ({
@@ -131,19 +143,24 @@ export default function AdminChat() {
     }));
   };
 
+  const selectConversation = (conversationId) => {
+    if (!conversationId) return;
+    allowAutoSelectRef.current = true;
+    setAllowAutoSelect(true);
+    setActiveId(conversationId);
+  };
+
   useEffect(() => {
     if (!user?.id) return;
-    let mounted = true;
     const load = async () => {
       await loadConversations();
     };
     load();
     const timer = setInterval(load, 5000);
     return () => {
-      mounted = false;
       clearInterval(timer);
     };
-  }, [user?.id, market, search, activeId]);
+  }, [user?.id, market, search]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -186,7 +203,7 @@ export default function AdminChat() {
     setCompanyActionLoading(true);
     const existing = conversations.find((c) => c.company_id === selectedCompanyId && c.country === market);
     if (existing?.id) {
-      setActiveId(existing.id);
+      selectConversation(existing.id);
       setCompanyActionLoading(false);
       return;
     }
@@ -203,11 +220,11 @@ export default function AdminChat() {
       .single();
     if (!created?.error && created?.data?.id) {
       await loadConversations({ keepActive: true });
-      setActiveId(created.data.id);
+      selectConversation(created.data.id);
     } else {
       const rowsAfter = await loadConversations({ keepActive: true });
       const recovered = (rowsAfter || []).find((c) => c.company_id === selectedCompanyId && c.country === market);
-      if (recovered?.id) setActiveId(recovered.id);
+      if (recovered?.id) selectConversation(recovered.id);
       if (created?.error) {
         console.error('Failed to create company chat conversation:', created.error);
       }
@@ -337,7 +354,7 @@ export default function AdminChat() {
             return (
             <button
               key={conv.id}
-              onClick={() => setActiveId(conv.id)}
+              onClick={() => selectConversation(conv.id)}
               className={`w-full rounded-lg border px-2.5 py-1.5 text-left text-sm ${
                 conv.id === activeId
                   ? 'border-primary bg-primary/10 text-primary'
