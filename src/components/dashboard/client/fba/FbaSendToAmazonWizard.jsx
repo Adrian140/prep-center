@@ -3669,13 +3669,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
         return { ok: false, code: responseData?.code || 'PACKING_OPTIONS_NOT_READY', message: msg, traceId: trace };
       }
-      const quantityMismatchNotice =
-        Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length
-          ? (() => {
-              const first = responseData.quantityMismatches[0];
-              return `Amazon confirmed packing groups and quantities will follow Amazon data (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
-            })()
-          : '';
       if (responseData?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
         const cachedGroups = Array.isArray(responseData?.packingGroups) ? responseData.packingGroups : [];
         const trace = responseData?.traceId || responseData?.trace_id || null;
@@ -3693,7 +3686,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setPackGroups((prev) => mergePackGroups(prev, normalized));
         if (Array.isArray(responseData?.shipments)) setShipments(responseData.shipments);
         setPlanError('');
-        if (quantityMismatchNotice) setPlanNotice((prev) => prev || quantityMismatchNotice);
+        if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+          const first = responseData.quantityMismatches[0];
+          const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
+          setPackGroups([]); // nu folosi grupuri Amazon cu cantități vechi
+          setPackingReadyError(msg);
+          return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: responseData.quantityMismatches };
+        }
         return { ok: true, code: 'PLACEMENT_ALREADY_ACCEPTED', packingOptionId: responseData?.packingOptionId || null, packingGroups: normalized };
       }
       if (responseData?.packingOptionId) setPackingOptionId(responseData.packingOptionId);
@@ -3723,7 +3722,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             inboundPlanId,
             inbound_plan_id: inboundPlanId
           }));
-          if (quantityMismatchNotice) setPlanNotice((prev) => prev || quantityMismatchNotice);
+          if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+            const first = responseData.quantityMismatches[0];
+            const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
+            setPackGroups([]); // evităm afișarea grupurilor cu cantități vechi
+            setPackingReadyError(msg);
+            return { ok: false, code: 'PACKING_QTY_MISMATCH', quantityMismatches: responseData.quantityMismatches };
+          }
           return { ok: true, packingOptionId: responseData?.packingOptionId || null, packingGroups: filtered };
         }
         if (Array.isArray(responseData?.shipments)) setShipments(responseData.shipments);
