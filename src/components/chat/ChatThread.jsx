@@ -40,7 +40,8 @@ export default function ChatThread({
   isAdmin = false,
   market = 'FR',
   onClose,
-  onMarkUnread
+  onMarkUnread,
+  onMarkedRead
 }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -66,6 +67,18 @@ export default function ChatThread({
   const displayClient = clientName || 'Client';
 
   const conversationId = conversation?.id;
+
+  const markConversationRead = async () => {
+    if (!conversationId) return;
+    try {
+      await supabaseHelpers.markChatRead({ conversationId });
+      if (typeof onMarkedRead === 'function') {
+        onMarkedRead(conversationId);
+      }
+    } catch {
+      // ignore read sync errors
+    }
+  };
 
   const markUnread = async () => {
     if (!conversationId) return;
@@ -113,7 +126,7 @@ export default function ChatThread({
         setHasMore(res.data.length >= PAGE_SIZE);
       }
       setLoading(false);
-      supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
+      markConversationRead();
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           scrollToBottom();
@@ -154,7 +167,7 @@ export default function ChatThread({
             mergeMessages([payload.new]);
             requestAnimationFrame(scrollToBottom);
             if (payload.new?.sender_id !== currentUserId) {
-              supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
+              markConversationRead();
             }
           }
           if (payload.eventType === 'UPDATE') {
@@ -178,24 +191,6 @@ export default function ChatThread({
       }
     };
   }, [conversationId, currentUserId]);
-
-  useEffect(() => {
-    if (!conversationId) return;
-    let cancelled = false;
-    const refresh = async () => {
-      const res = await supabaseHelpers.listChatMessages({
-        conversationId,
-        limit: PAGE_SIZE
-      });
-      if (cancelled || res?.error || !res?.data) return;
-      mergeMessages(res.data);
-    };
-    const timer = setInterval(refresh, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [conversationId]);
 
   useEffect(() => {
     if (!scrollRef.current) return;
@@ -272,7 +267,7 @@ export default function ChatThread({
       setInput('');
       setFiles([]);
       setAttachmentError('');
-      supabaseHelpers.markChatRead({ conversationId }).catch(() => {});
+      markConversationRead();
     }
     setSending(false);
   };

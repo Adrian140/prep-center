@@ -326,25 +326,20 @@ useEffect(() => {
     const loadChatUnread = async () => {
       if (!user?.id) return;
       if (chatUnreadInFlightRef.current) return;
-      const now = Date.now();
-      if (now - chatUnreadLastRunRef.current < 3000) return;
       chatUnreadInFlightRef.current = true;
       try {
         const convRes = await supabaseHelpers.listChatConversations({
           country: currentMarket || null
         });
         const rows = convRes?.data || [];
-        const unreadEntries = await Promise.all(
-          rows.map(async (conv) => {
-            const res = await supabaseHelpers.getChatUnreadCount({ conversationId: conv.id });
-            return [conv.id, Number(res?.data || 0)];
-          })
-        );
+        const unreadRes = await supabaseHelpers.getChatUnreadCounts({
+          conversationIds: rows.map((conv) => conv.id)
+        });
         if (!mounted) return;
         const mergedCounts = mergeAdminManualUnreadCounts({
           userId: user.id,
           market: currentMarket || null,
-          serverCounts: Object.fromEntries(unreadEntries)
+          serverCounts: unreadRes?.data || {}
         });
         setChatUnreadCount(
           Object.values(mergedCounts).reduce((sum, n) => sum + Number(n || 0), 0)
@@ -359,7 +354,21 @@ useEffect(() => {
       loadChatUnread();
     };
     tick();
-    const intervalId = setInterval(tick, 5000);
+    const channel = supabase
+      .channel(`admin-panel-chat-unread-${currentMarket || 'all'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_conversations',
+          ...(currentMarket ? { filter: `country=eq.${String(currentMarket).toUpperCase()}` } : {})
+        },
+        () => {
+          tick();
+        }
+      )
+      .subscribe();
     const onVisibility = () => tick();
     const unsubscribeManualUnread = subscribeAdminManualUnread({
       userId: user?.id,
@@ -374,7 +383,7 @@ useEffect(() => {
     }
     return () => {
       mounted = false;
-      clearInterval(intervalId);
+      supabase.removeChannel(channel);
       chatUnreadInFlightRef.current = false;
       unsubscribeManualUnread();
       if (typeof document !== 'undefined') {

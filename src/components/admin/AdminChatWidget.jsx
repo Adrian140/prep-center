@@ -61,7 +61,7 @@ export default function AdminChatWidget() {
     const profileIds = Array.from(new Set([...userIds, ...companyIds]));
     const lastMessageIds = Array.from(new Set(rows.map((r) => r.last_message_id).filter(Boolean)));
 
-    const [profilesRes, lastMessagesRes, unreadEntries] = await Promise.all([
+    const [profilesRes, lastMessagesRes, unreadRes] = await Promise.all([
       profileIds.length
         ? supabase
             .from('profiles')
@@ -74,12 +74,9 @@ export default function AdminChatWidget() {
             .select('id, body, created_at')
             .in('id', lastMessageIds)
         : Promise.resolve({ data: [], error: null }),
-      Promise.all(
-        rows.map(async (conv) => {
-          const res = await supabaseHelpers.getChatUnreadCount({ conversationId: conv.id });
-          return [conv.id, res?.data || 0];
-        })
-      )
+      supabaseHelpers.getChatUnreadCounts({
+        conversationIds: rows.map((conv) => conv.id)
+      })
     ]);
 
     const byProfileId = {};
@@ -112,7 +109,7 @@ export default function AdminChatWidget() {
       };
     });
 
-    const serverCounts = Object.fromEntries(unreadEntries);
+    const serverCounts = unreadRes?.data || {};
     setMetaByConversationId(nextMeta);
     setUnreadByConversationId(
       mergeAdminManualUnreadCounts({
@@ -171,10 +168,24 @@ export default function AdminChatWidget() {
       setLoading(false);
     };
     load();
-    const timer = setInterval(load, 5000);
+    const channel = supabase
+      .channel(`admin-chat-widget-conversations-${market}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: `country=eq.${market}`
+        },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
     return () => {
       mounted = false;
-      clearInterval(timer);
+      supabase.removeChannel(channel);
     };
   }, [user?.id, isAdmin, market]);
 
@@ -263,17 +274,20 @@ export default function AdminChatWidget() {
                   conversation={activeConversation}
                   currentUserId={user.id}
                   senderRole="admin"
-              staffLabel={staffLabel}
-              clientName={activeMeta?.clientName || activeConversation.client_display_name}
-              headerTitle={activeMeta?.companyName || 'Company'}
-              headerSubtitle={activeMeta?.clientName || activeConversation.client_display_name}
-              isAdmin
-              onMarkUnread={() => markConversationUnread(activeConversation.id)}
-              onClose={() => setOpen(false)}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-slate-500">
-              Select a conversation
+                  staffLabel={staffLabel}
+                  clientName={activeMeta?.clientName || activeConversation.client_display_name}
+                  headerTitle={activeMeta?.companyName || 'Company'}
+                  headerSubtitle={activeMeta?.clientName || activeConversation.client_display_name}
+                  isAdmin
+                  onMarkUnread={() => markConversationUnread(activeConversation.id)}
+                  onMarkedRead={(conversationId) => {
+                    setUnreadByConversationId((prev) => ({ ...prev, [conversationId]: 0 }));
+                  }}
+                  onClose={() => setOpen(false)}
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                  Select a conversation
                 </div>
               )}
             </div>

@@ -43,6 +43,18 @@ const listingFromConversation = (conv) => {
   return row || null;
 };
 
+const computeB2bUnreadMap = ({ conversations = [], lastReadByConversationId = {}, currentUserId }) =>
+  Object.fromEntries(
+    (conversations || []).map((conv) => {
+      const latestAt = conv?.last_message_at;
+      if (!latestAt) return [conv.id, 0];
+      if (conv?.last_message_sender_user_id === currentUserId) return [conv.id, 0];
+      const lastRead = lastReadByConversationId?.[conv.id];
+      if (!lastRead) return [conv.id, 1];
+      return [conv.id, new Date(latestAt).getTime() > new Date(lastRead).getTime() ? 1 : 0];
+    })
+  );
+
 export default function ClientChatWidget() {
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
@@ -164,6 +176,24 @@ export default function ClientChatWidget() {
 
   const setMarketStatus = (market, patch) => {
     setStatusByMarket((prev) => ({ ...prev, [market]: { ...(prev[market] || {}), ...patch } }));
+  };
+
+  const refreshSupportUnreadCounts = async (nextConversationsByMarket = conversationsByMarket) => {
+    const conversationIds = trackedMarkets
+      .map((market) => nextConversationsByMarket?.[market]?.id)
+      .filter(Boolean);
+    const unreadRes = await supabaseHelpers.getChatUnreadCounts({
+      conversationIds
+    });
+    setUnreadByMarket((prev) => ({
+      ...prev,
+      ...Object.fromEntries(
+        trackedMarkets.map((market) => [
+          market,
+          Number(unreadRes?.data?.[nextConversationsByMarket?.[market]?.id] || 0)
+        ])
+      )
+    }));
   };
 
     const loadSupportConversation = async (market, { silent = false } = {}) => {
@@ -316,17 +346,18 @@ export default function ClientChatWidget() {
 
   useEffect(() => {
     if (!user?.id || isAdmin) return;
-    loadB2bConversations();
-    const timer = setInterval(() => loadB2bConversations({ silent: true }), 6000);
-    return () => clearInterval(timer);
-  }, [user?.id, isAdmin]);
+    refreshSupportUnreadCounts();
+  }, [conversationsByMarket, user?.id, isAdmin]);
 
   useEffect(() => {
     if (!activeB2bConversationId) return;
     loadB2bMessages(activeB2bConversationId);
-    const timer = setInterval(() => loadB2bMessages(activeB2bConversationId), 5000);
-    return () => clearInterval(timer);
   }, [activeB2bConversationId]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin) return;
+    loadB2bConversations();
+  }, [user?.id, isAdmin]);
 
   useEffect(() => {
     if (!open || mode !== 'b2b' || !activeB2bConversationId || !b2bMessages.length) return;
@@ -361,59 +392,58 @@ export default function ClientChatWidget() {
 
   useEffect(() => {
     if (!user?.id || isAdmin || !isPageVisible) return;
-    let cancelled = false;
-    const shouldPoll = open && mode === 'support';
-    const fetchUnread = async () => {
-      const entries = await Promise.all(
-        trackedMarkets.map(async (market) => {
-          const conv = conversationsByMarket[market];
-          if (!conv?.id) return [market, 0];
-          const res = await supabaseHelpers.getChatUnreadCount({
-            conversationId: conv.id
+    const channel = supabase
+      .channel(`client-support-conversations-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'chat_conversations'
+        },
+        () => {
+          trackedMarkets.forEach((market) => {
+            loadSupportConversation(market, { silent: true });
           });
-          return [market, res?.data != null ? Number(res.data) : 0];
-        })
-      );
-      if (!cancelled) {
-        setUnreadByMarket((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-      }
-    };
-    fetchUnread();
-    const timer = shouldPoll ? setInterval(fetchUnread, 5000) : null;
+        }
+      )
+      .subscribe();
     return () => {
-      cancelled = true;
-      if (timer) clearInterval(timer);
+      supabase.removeChannel(channel);
     };
-  }, [conversationsByMarket, open, mode, isPageVisible, user?.id, isAdmin]);
+  }, [isPageVisible, user?.id, isAdmin]);
 
   useEffect(() => {
     if (!user?.id || isAdmin) return;
-    let cancelled = false;
-    const fetchB2bUnread = async () => {
-      const entries = await Promise.all(
-        b2bConversations.map(async (conv) => {
-          const res = await supabaseHelpers.getClientMarketConversationLatestMessage({
-            conversationId: conv.id
-          });
-          const latest = res?.data || null;
-          if (!latest?.created_at) return [conv.id, 0];
-          if (latest.sender_user_id === user.id) return [conv.id, 0];
-          const lastRead = b2bReadByConversationId?.[conv.id];
-          if (!lastRead) return [conv.id, 1];
-          return [conv.id, new Date(latest.created_at).getTime() > new Date(lastRead).getTime() ? 1 : 0];
-        })
-      );
-      if (!cancelled) {
-        setB2bUnreadByConversationId(Object.fromEntries(entries));
-      }
-    };
-    fetchB2bUnread();
-    const timer = setInterval(fetchB2bUnread, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
+    setB2bUnreadByConversationId(
+      computeB2bUnreadMap({
+        conversations: b2bConversations,
+        lastReadByConversationId: b2bReadByConversationId,
+        currentUserId: user.id
+      })
+    );
   }, [b2bConversations, b2bReadByConversationId, user?.id, isAdmin]);
+
+  useEffect(() => {
+    if (!user?.id || isAdmin || !isPageVisible) return;
+    const channel = supabase
+      .channel(`client-b2b-conversations-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'client_market_conversations'
+        },
+        () => {
+          loadB2bConversations({ silent: true });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [isPageVisible, user?.id, isAdmin]);
 
   useEffect(() => {
     if (!open) return;
@@ -743,6 +773,10 @@ export default function ClientChatWidget() {
                     market={selectedMarket}
                     onClose={() => setOpen(false)}
                     onMarkUnread={markSupportUnread}
+                    onMarkedRead={() => {
+                      if (!selectedMarket) return;
+                      setUnreadByMarket((prev) => ({ ...prev, [selectedMarket]: 0 }));
+                    }}
                   />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-500">

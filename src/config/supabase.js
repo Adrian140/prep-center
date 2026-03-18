@@ -4150,6 +4150,24 @@ getAllReceivingShipments: async (options = {}) => {
     });
   },
 
+  getChatUnreadCounts: async ({ conversationIds } = {}) => {
+    const ids = Array.from(new Set((conversationIds || []).filter(Boolean)));
+    if (!ids.length) return { data: {}, error: null };
+    const res = await supabase.rpc('chat_unread_counts', {
+      p_conversation_ids: ids
+    });
+    if (res?.error) return { data: {}, error: res.error };
+    const counts = {};
+    (Array.isArray(res?.data) ? res.data : []).forEach((row) => {
+      if (!row?.conversation_id) return;
+      counts[row.conversation_id] = Number(row.unread_count || 0);
+    });
+    ids.forEach((id) => {
+      if (!(id in counts)) counts[id] = 0;
+    });
+    return { data: counts, error: null };
+  },
+
   markChatRead: async ({ conversationId }) => {
     if (!conversationId) return { data: 0, error: null };
     return await supabase.rpc('chat_mark_read', {
