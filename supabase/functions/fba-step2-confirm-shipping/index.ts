@@ -730,9 +730,12 @@ serve(async (req) => {
     const shouldConfirm = (confirmExplicit ? Boolean(confirmRaw) : Boolean(confirmOptionId)) && !skipConfirm;
     const autoConfirmPlacement =
       body?.auto_confirm_placement ?? body?.autoConfirmPlacement ?? false;
+    // Transportation options require a confirmed placement option. In preview mode
+    // the UI may request options with confirm=false, so we still auto-confirm placement
+    // unless the caller explicitly asks to skip it.
     const shouldConfirmPlacement =
       !(body?.skip_placement_confirm ?? body?.skipPlacementConfirm ?? false) &&
-      (shouldConfirm || autoConfirmPlacement);
+      (Boolean(effectivePlacementOptionId) || shouldConfirm || autoConfirmPlacement);
     // dacă lipsește placement_option_id, îl vom alege după generate/list
 
     // dacă lipsește packing_option_id în body, încearcă să-l citești din prep_requests
