@@ -843,6 +843,9 @@ serve(async (req) => {
       snapshot?.packingGroups ||
       snapshot?.packing_groups ||
       [];
+    const snapshotPackingGroupsBoxCount = Array.isArray(snapshotPackingGroups)
+      ? snapshotPackingGroups.reduce((sum: number, g: any) => sum + (Number(g?.boxes || g?.boxCount || 1) || 1), 0)
+      : 0;
     const packingGroupSummary = new Map<string, { items: any[]; skuCount: number; units: number }>();
     if (Array.isArray(snapshotPackingGroups)) {
       snapshotPackingGroups.forEach((g: any, idx: number) => {
@@ -1223,11 +1226,21 @@ serve(async (req) => {
       return { last, boxes, count };
     };
 
+    const requestPackagesCount = Array.isArray(shipmentTransportConfigs)
+      ? shipmentTransportConfigs.reduce((sum: number, cfg: any) => {
+          const packages = Array.isArray(cfg?.packages) ? cfg.packages.length : 0;
+          return sum + packages;
+        }, 0)
+      : 0;
+
+    const getEffectivePackingReadyCount = (amazonBoxesCount: number) =>
+      Number(amazonBoxesCount || 0) || requestPackagesCount || snapshotPackingGroupsBoxCount || 0;
+
     let boxesPrecheck: { last: any; boxes: any[]; count: number } | null = null;
 
     if (!effectivePlacementOptionId) {
       boxesPrecheck = await fetchBoxesWithRetry(2);
-      if (boxesPrecheck.count === 0) {
+      if (getEffectivePackingReadyCount(boxesPrecheck.count) === 0) {
         return new Response(
           JSON.stringify({
             error: "Trebuie să setezi packingInformation (boxe) înainte de generatePlacementOptions.",
@@ -1310,11 +1323,17 @@ serve(async (req) => {
     logStep("listInboundPlanBoxes", {
       traceId,
       boxesCount: boxesCount,
+      requestPackagesCount,
+      snapshotBoxesCount: snapshotPackingGroupsBoxCount,
+      effectivePackingReadyCount: getEffectivePackingReadyCount(boxesCount),
       requestId: boxesRes?.requestId || null
     });
     logStep("shipping_precheck", {
       traceId,
       boxesCount,
+      requestPackagesCount,
+      snapshotBoxesCount: snapshotPackingGroupsBoxCount,
+      effectivePackingReadyCount: getEffectivePackingReadyCount(boxesCount),
       placementStatus: confirmedPlacement ? normalizePlacementStatus(confirmedPlacement) : null
     });
 
@@ -1435,7 +1454,7 @@ serve(async (req) => {
 
     await maybeSelectPlacementForPcp();
 
-    if (boxesCount === 0) {
+    if (getEffectivePackingReadyCount(boxesCount) === 0) {
       return new Response(
         JSON.stringify({
           error: "Trebuie să setezi packingInformation (boxe) înainte de generateTransportationOptions.",
