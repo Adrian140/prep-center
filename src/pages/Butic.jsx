@@ -461,6 +461,7 @@ export default function Butic() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const messagesRef = useRef(null);
+  const activeConversationIdRef = useRef(null);
 
   const isAdmin = !!(
     profile?.account_type === 'admin' ||
@@ -470,6 +471,10 @@ export default function Butic() {
   const me = user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const myCompanyId = profile?.company_id || null;
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   const loadAllListings = async () => {
     if (!me) return;
@@ -507,17 +512,23 @@ export default function Butic() {
     const res = await supabaseHelpers.listClientMarketConversations({ country: market });
     const rows = res?.data || [];
     setConversations(rows);
-    if (!activeConversationId && rows.length) setActiveConversationId(rows[0].id);
-    if (activeConversationId && rows.length && !rows.some((r) => r.id === activeConversationId)) {
+    const currentActiveConversationId = activeConversationIdRef.current;
+    if (!currentActiveConversationId && rows.length) setActiveConversationId(rows[0].id);
+    if (
+      currentActiveConversationId &&
+      rows.length &&
+      !rows.some((r) => r.id === currentActiveConversationId)
+    ) {
       setActiveConversationId(rows[0].id);
+    }
+    if (currentActiveConversationId && rows.length === 0) {
+      setActiveConversationId(null);
     }
   };
 
   useEffect(() => {
     if (!me) return;
     loadAllListings();
-    const timer = setInterval(loadAllListings, 10000);
-    return () => clearInterval(timer);
   }, [me, allSearch]);
 
   useEffect(() => {
@@ -528,8 +539,50 @@ export default function Butic() {
   useEffect(() => {
     if (!me) return;
     loadConversations();
-    const timer = setInterval(loadConversations, 5000);
-    return () => clearInterval(timer);
+  }, [me, market]);
+
+  useEffect(() => {
+    if (!me) return;
+    const listingsChannel = supabase
+      .channel(`butic-listings-${me}-${market}-${allSearch.trim() || 'all'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'client_market_listings'
+        },
+        () => {
+          loadAllListings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(listingsChannel);
+    };
+  }, [me, market, allSearch]);
+
+  useEffect(() => {
+    if (!me) return;
+    const conversationsChannel = supabase
+      .channel(`butic-conversations-${me}-${market}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'client_market_conversations'
+        },
+        () => {
+          loadConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(conversationsChannel);
+    };
   }, [me, market]);
 
   const selectedInventoryItem = useMemo(
