@@ -116,6 +116,25 @@ const normalizeShipDate = (val) => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const invokeAuthedFunction = async (functionName, body) => {
+  const {
+    data: { session },
+    error: sessionError
+  } = await supabase.auth.getSession();
+
+  if (sessionError) throw sessionError;
+  if (!session?.access_token) {
+    throw new Error('Session expired. Please refresh and sign in again.');
+  }
+
+  return await supabase.functions.invoke(functionName, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`
+    },
+    body
+  });
+};
+
 // Return an ISO datetime:
 // - if input already contains time, normalize that exact moment to ISO
 // - if input is a date only, keep previous logic (today/past => now+6h, future => 12:00 UTC)
@@ -3067,12 +3086,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPackGroupsPreviewLoading(true);
     setPackGroupsPreviewError('');
     try {
-      const { data, error } = await supabase.functions.invoke('fba-plan-step1-preview', {
-        body: {
-          request_id: requestId,
-          inbound_plan_id: inboundPlanId,
-          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
-        }
+      const { data, error } = await invokeAuthedFunction('fba-plan-step1-preview', {
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId,
+        amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null
       });
       if (error) throw error;
       if (data?.code === 'PACKING_OPTIONS_NOT_READY' || data?.code === 'PACKING_GROUPS_NOT_READY') {
@@ -3623,16 +3640,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
       });
       const resetSnapshot = false;
-      const { data, error } = await supabase.functions.invoke('fba-plan-step1b', {
-        body: {
-          request_id: requestId,
-          inbound_plan_id: inboundPlanId,
-          amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
-          packing_option_id: selectedPackingOptionId || packingOptionId || null,
-          include_placement: true,
-          reset_snapshot: resetSnapshot,
-          packing_group_updates: packingGroupUpdates
-        }
+      const { data, error } = await invokeAuthedFunction('fba-plan-step1b', {
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId,
+        amazon_integration_id: plan?.amazonIntegrationId || plan?.amazon_integration_id || null,
+        packing_option_id: selectedPackingOptionId || packingOptionId || null,
+        include_placement: true,
+        reset_snapshot: resetSnapshot,
+        packing_group_updates: packingGroupUpdates
       });
       let resolvedData = data;
       if (error) {
@@ -5283,16 +5298,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (!requestId) throw new Error('Missing requestId.');
       const cleanSku = String(sku || '').trim();
       if (!cleanSku) throw new Error('Missing SKU.');
-      const { data, error } = await supabase.functions.invoke('fba-plan', {
-        body: {
-          request_id: requestId,
-          listingAttributesBySku: {
-            [cleanSku]: {
-              length_cm: getPositiveNumber(attrs?.length_cm),
-              width_cm: getPositiveNumber(attrs?.width_cm),
-              height_cm: getPositiveNumber(attrs?.height_cm),
-              weight_kg: getPositiveNumber(attrs?.weight_kg)
-            }
+      const { data, error } = await invokeAuthedFunction('fba-plan', {
+        request_id: requestId,
+        listingAttributesBySku: {
+          [cleanSku]: {
+            length_cm: getPositiveNumber(attrs?.length_cm),
+            width_cm: getPositiveNumber(attrs?.width_cm),
+            height_cm: getPositiveNumber(attrs?.height_cm),
+            weight_kg: getPositiveNumber(attrs?.weight_kg)
           }
         }
       });
