@@ -735,6 +735,9 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
             <p className="text-sm text-text-secondary">
               {profile?.email} · Companie: <strong>{company?.name || '—'}</strong>
             </p>
+            <p className="text-sm text-text-secondary">
+              Telefon: {profile?.phone || '—'}
+            </p>
           </div>
 
           {/* dreapta: 2 rânduri de acțiuni (sus: Billing/Invoices; jos: FBA/FBM/Stock/Retururi) */}
