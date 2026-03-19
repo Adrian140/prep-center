@@ -36,6 +36,10 @@ const TRANSIENT_RETRY_MAX_ATTEMPTS = Number(
 );
 const TRANSIENT_RETRY_BASE_MS = Number(process.env.SPAPI_TRANSIENT_RETRY_BASE_MS || 2000);
 
+function logStamp() {
+  return new Date().toISOString();
+}
+
 function assertBaseEnv() {
   const missing = [];
   if (!process.env.SUPABASE_URL) missing.push('SUPABASE_URL');
@@ -252,6 +256,7 @@ function resolveCatalogMarketplaceIds(preferredMarketplaceId) {
 }
 
 async function createListingReport(spClient, marketplaceId) {
+  console.log(`[${logStamp()}] [Listings sync] createReport marketplace=${marketplaceId} started`);
   const body = {
     reportType: LISTING_REPORT_TYPE,
     marketplaceIds: [marketplaceId]
@@ -267,11 +272,18 @@ async function createListingReport(spClient, marketplaceId) {
     throw new Error('Failed to create listing report');
   }
 
+  console.log(
+    `[${logStamp()}] [Listings sync] createReport marketplace=${marketplaceId} reportId=${response.reportId}`
+  );
+
   return response.reportId;
 }
 
 async function waitForReport(spClient, reportId) {
   for (let attempt = 0; attempt < REPORT_POLL_LIMIT; attempt += 1) {
+    console.log(
+      `[${logStamp()}] [Listings sync] waitForReport reportId=${reportId} attempt=${attempt + 1}/${REPORT_POLL_LIMIT}`
+    );
     const report = await spClient.callAPI({
       operation: 'getReport',
       endpoint: 'reports',
@@ -282,6 +294,9 @@ async function waitForReport(spClient, reportId) {
 
     switch (report.processingStatus) {
       case 'DONE':
+        console.log(
+          `[${logStamp()}] [Listings sync] waitForReport reportId=${reportId} status=DONE documentId=${report.reportDocumentId}`
+        );
         return report.reportDocumentId;
       case 'FATAL':
       case 'CANCELLED':
@@ -289,6 +304,9 @@ async function waitForReport(spClient, reportId) {
       case 'DONE_NO_DATA':
         throw new Error('Amazon listing report completed without data');
       default:
+        console.log(
+          `[${logStamp()}] [Listings sync] waitForReport reportId=${reportId} status=${report.processingStatus}`
+        );
         await delay(REPORT_POLL_INTERVAL);
     }
   }
@@ -298,6 +316,9 @@ async function waitForReport(spClient, reportId) {
 }
 
 async function downloadReportDocument(spClient, reportDocumentId) {
+  console.log(
+    `[${logStamp()}] [Listings sync] downloadReportDocument documentId=${reportDocumentId} started`
+  );
   const document = await spClient.callAPI({
     operation: 'getReportDocument',
     endpoint: 'reports',
@@ -326,8 +347,14 @@ async function downloadReportDocument(spClient, reportDocumentId) {
   if (replacementCount > 10) {
     // Fallback la latin1 în caz de raport livrat ISO-8859-1.
     const latin1Decoder = new TextDecoder('latin1');
+    console.log(
+      `[${logStamp()}] [Listings sync] downloadReportDocument documentId=${reportDocumentId} completed encoding=latin1`
+    );
     return latin1Decoder.decode(buffer);
   }
+  console.log(
+    `[${logStamp()}] [Listings sync] downloadReportDocument documentId=${reportDocumentId} completed encoding=utf-8`
+  );
   return utf8;
 }
 
@@ -1006,7 +1033,7 @@ async function syncListingsIntegration(integration) {
   });
 
   console.log(
-    `Syncing LISTINGS for integration ${integration.id} (company ${integration.company_id}, marketplace ${marketplaceId})`
+    `[${logStamp()}] Syncing LISTINGS for integration ${integration.id} (company ${integration.company_id}, marketplace ${marketplaceId})`
   );
 
   try {
