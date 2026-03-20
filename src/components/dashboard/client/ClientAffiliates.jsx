@@ -401,35 +401,39 @@ export default function ClientAffiliates() {
             const showAllMembers = Boolean(showAllMembersByMarket?.[market]);
             const visibleMembers = showAllMembers ? members : positiveMembers;
             return (
-              <div key={market} className="space-y-4">
+              <div key={market} className="border rounded-2xl p-5 space-y-5 bg-white">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{marketMeta.flag}</span>
                   <h3 className="text-lg font-semibold text-text-primary">{marketMeta.name}</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="border rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-wide text-text-secondary">
-                      {t('ClientAffiliates.codeCard.title')}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-2xl font-semibold">{snapshot.code.code}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleCopyValue(snapshot.code.code, `${market}-code`)}
-                        className="text-sm text-primary flex items-center gap-1"
-                      >
-                        {copied === `${market}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
-                        {copied === `${market}-code`
-                          ? t('ClientAffiliates.codeCard.copied')
-                          : t('ClientAffiliates.codeCard.copy')}
-                      </button>
+
+                <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-5">
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-text-secondary">
+                        {t('ClientAffiliates.codeCard.title')}
+                      </p>
+                      <div className="flex items-center justify-between mt-2 gap-3">
+                        <span className="text-2xl font-semibold break-all">{snapshot.code.code}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyValue(snapshot.code.code, `${market}-code`)}
+                          className="text-sm text-primary flex items-center gap-1 shrink-0"
+                        >
+                          {copied === `${market}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+                          {copied === `${market}-code`
+                            ? t('ClientAffiliates.codeCard.copied')
+                            : t('ClientAffiliates.codeCard.copy')}
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-text-secondary">
+                        {snapshot.code.active
+                          ? t('ClientAffiliates.codeCard.active')
+                          : t('ClientAffiliates.codeCard.inactive')}
+                      </p>
                     </div>
-                    <p className="mt-1 text-xs text-text-secondary">
-                      {snapshot.code.active
-                        ? t('ClientAffiliates.codeCard.active')
-                        : t('ClientAffiliates.codeCard.inactive')}
-                    </p>
-                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                       <p className="text-[11px] uppercase tracking-wide text-text-secondary">Referral link</p>
                       <a
                         href={buildAffiliateLink(snapshot.code.code)}
@@ -453,17 +457,17 @@ export default function ClientAffiliates() {
                         {copied === `${market}-link` ? 'Copied' : 'Copy link'}
                       </button>
                     </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-text-secondary">
+                        {t('ClientAffiliates.rules.title')}
+                      </p>
+                      <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
+                      <PayoutSummary code={snapshot.code} />
+                    </div>
                   </div>
 
-                  <div className="border rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-wide text-text-secondary">
-                      {t('ClientAffiliates.rules.title')}
-                    </p>
-                    <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
-                    <PayoutSummary code={snapshot.code} />
-                  </div>
-
-                  <div className="border rounded-xl p-4 space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs uppercase tracking-wide text-text-secondary">
                         {t('ClientAffiliates.stats.title')}
@@ -508,7 +512,7 @@ export default function ClientAffiliates() {
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-1 text-sm text-text-secondary">
+                    <div className="rounded-lg bg-slate-50 p-4 space-y-2 text-sm text-text-secondary">
                       <div className="flex items-center justify-between">
                         <span>{t('ClientAffiliates.stats.clients')}</span>
                         <strong className="text-text-primary">{totals.count}</strong>
@@ -541,7 +545,7 @@ export default function ClientAffiliates() {
                   </div>
                 </div>
 
-                <div className="border rounded-xl p-4 space-y-3">
+                <div className="border-t pt-5 space-y-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs uppercase tracking-wide text-text-secondary">
                       {t('ClientAffiliates.credit.title')}
@@ -615,7 +619,7 @@ export default function ClientAffiliates() {
                   )}
                 </div>
 
-                <div className="border rounded-xl p-4">
+                <div className="border-t pt-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Users className="w-4 h-4 text-text-secondary" />
                     <h3 className="font-semibold">{t('ClientAffiliates.members.title')}</h3>
