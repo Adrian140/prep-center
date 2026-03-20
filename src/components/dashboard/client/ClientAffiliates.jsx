@@ -85,6 +85,9 @@ export default function ClientAffiliates() {
   const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
   const [showAllMembersByMarket, setShowAllMembersByMarket] = useState({});
   const [expandedByMarket, setExpandedByMarket] = useState({});
+  const [aliasCode, setAliasCode] = useState('');
+  const [aliasSubmitting, setAliasSubmitting] = useState(false);
+  const [aliasFlash, setAliasFlash] = useState(null);
   const currentMonth = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -278,6 +281,34 @@ export default function ClientAffiliates() {
     }
   };
 
+  const handleCreateAlias = async (event) => {
+    event.preventDefault();
+    const nextCode = String(aliasCode || '').trim().toUpperCase();
+    if (!nextCode) {
+      setAliasFlash({ type: 'error', message: t('ClientAffiliates.alias.errorRequired') });
+      return;
+    }
+    setAliasSubmitting(true);
+    setAliasFlash(null);
+    try {
+      const { error: createError } = await supabaseHelpers.createAffiliateAlias({
+        code: nextCode
+      });
+      if (createError) throw createError;
+      setAliasCode('');
+      setAliasFlash({ type: 'success', message: t('ClientAffiliates.alias.success') });
+      await loadState();
+    } catch (err) {
+      console.error('create affiliate alias', err);
+      setAliasFlash({
+        type: 'error',
+        message: err.message || t('ClientAffiliates.alias.errorGeneric')
+      });
+    } finally {
+      setAliasSubmitting(false);
+    }
+  };
+
   const handleRedeemCredit = async (cardKey, market, availableCredit) => {
     const raw = String(creditAmounts[cardKey] || '').replace(',', '.');
     const value = Number(raw);
@@ -387,6 +418,57 @@ export default function ClientAffiliates() {
           <RefreshCw className="w-4 h-4" /> {t('ClientAffiliates.actions.refresh')}
         </button>
       </div>
+
+      {hasCode && (
+        <div className="border rounded-xl p-4 bg-white space-y-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-text-secondary">
+              {t('ClientAffiliates.alias.title')}
+            </p>
+            <p className="text-sm text-text-secondary mt-1">
+              {t('ClientAffiliates.alias.description')}
+            </p>
+          </div>
+          <form onSubmit={handleCreateAlias} className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <input
+              type="text"
+              value={aliasCode}
+              onChange={(e) => setAliasCode(e.target.value.toUpperCase())}
+              placeholder={t('ClientAffiliates.alias.placeholder')}
+              className="border rounded-lg px-3 py-2 uppercase flex-1"
+              disabled={aliasSubmitting}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAliasCode(randomCode())}
+                className="px-3 py-2 border rounded-lg text-sm text-text-secondary hover:text-text-primary"
+                disabled={aliasSubmitting}
+              >
+                {t('ClientAffiliates.alias.generate')}
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                disabled={aliasSubmitting}
+              >
+                {aliasSubmitting
+                  ? t('ClientAffiliates.alias.submitting')
+                  : t('ClientAffiliates.alias.submit')}
+              </button>
+            </div>
+          </form>
+          {aliasFlash && (
+            <div
+              className={`text-sm ${
+                aliasFlash.type === 'success' ? 'text-green-700' : 'text-red-600'
+              }`}
+            >
+              {aliasFlash.message}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
         {t('ClientAffiliates.rules.bonus')}
