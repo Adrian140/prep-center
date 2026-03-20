@@ -17,6 +17,11 @@ type QueueRow = {
   last_sent_snapshot: Snapshot | null;
 };
 
+type RequestPayload = {
+  shipment_id?: string | null;
+  force_send?: boolean | null;
+};
+
 type ProfileRow = {
   id: string;
   email: string | null;
@@ -82,10 +87,6 @@ const SMTP_SECURE = ["1", "true", "yes", "on"].includes(
   String(Deno.env.get("SMTP_SECURE") ?? "").trim().toLowerCase(),
 );
 const SMTP_FROM_NAME = Deno.env.get("SMTP_FROM_NAME") ?? "Prep Center";
-const PREP_ADMIN_EMAIL =
-  Deno.env.get("PREP_ADMIN_EMAIL") ??
-  Deno.env.get("ADMIN_EMAIL") ??
-  "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
@@ -129,6 +130,16 @@ async function fetchDueQueue(limit = 50): Promise<QueueRow[]> {
     .limit(limit);
   if (error) throw error;
   return (data || []) as QueueRow[];
+}
+
+async function fetchQueueByShipmentId(shipmentId: string): Promise<QueueRow | null> {
+  const { data, error } = await supabase
+    .from("reception_notification_queue")
+    .select("shipment_id,company_id,user_id,market,force_send,last_sent_snapshot")
+    .eq("shipment_id", shipmentId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as QueueRow | null) || null;
 }
 
 async function fetchProfile(userId: string): Promise<ProfileRow | null> {
@@ -390,9 +401,6 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
 }
 
 async function sendEmail(to: string, subject: string, html: string) {
-  const bccList = [PREP_ADMIN_EMAIL]
-    .map((value) => String(value || "").trim())
-    .filter((value) => value && value.toLowerCase() !== String(to || "").trim().toLowerCase());
   const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASSWORD && FROM_EMAIL);
   if (smtpConfigured) {
     const client = new SMTPClient({
@@ -411,12 +419,11 @@ async function sendEmail(to: string, subject: string, html: string) {
       await client.send({
         from: `${SMTP_FROM_NAME} <${FROM_EMAIL}>`,
         to,
-        bcc: bccList.length ? bccList.join(",") : undefined,
         subject,
         content: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
         html,
       });
-      console.info("send_reception_emails smtp sent", { to, bcc: bccList, subject });
+      console.info("send_reception_emails smtp sent", { to, subject });
       return;
     } finally {
       await client.close();
@@ -432,7 +439,6 @@ async function sendEmail(to: string, subject: string, html: string) {
     body: JSON.stringify({
       from: FROM_EMAIL,
       to: [to],
-      bcc: bccList,
       subject,
       html,
     }),
@@ -442,7 +448,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     const errText = await resp.text();
     throw new Error(`Resend failed: ${resp.status} ${errText}`);
   }
-  console.info("send_reception_emails resend sent", { to, bcc: bccList, subject });
+  console.info("send_reception_emails resend sent", { to, subject });
 }
 
 async function markQueueHandled(shipmentId: string, snapshot: Snapshot | null) {
@@ -483,12 +489,33 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const pending = await fetchDueQueue(50);
+    let payload: RequestPayload = {};
+    try {
+      payload = (await req.json()) as RequestPayload;
+    } catch {
+      payload = {};
+    }
+
+    const targetShipmentId = String(payload?.shipment_id || "").trim();
     const sent: string[] = [];
     const skipped: string[] = [];
     const errors: string[] = [];
+    let pendingRows: QueueRow[] = [];
+    if (targetShipmentId) {
+      const row = await fetchQueueByShipmentId(targetShipmentId);
+      if (row) {
+        pendingRows = [
+          {
+            ...row,
+            force_send: payload?.force_send === true ? true : row.force_send,
+          },
+        ];
+      }
+    } else {
+      pendingRows = await fetchDueQueue(50);
+    }
 
-    for (const row of pending) {
+    for (const row of pendingRows) {
       try {
         const [profile, snapshot] = await Promise.all([
           fetchProfile(row.user_id),
@@ -528,7 +555,7 @@ Deno.serve(async (req) => {
     }
 
     console.info("send_reception_emails completed", {
-      processed: pending.length,
+      processed: pendingRows.length,
       sent: sent.length,
       skipped: skipped.length,
       errors,
@@ -536,7 +563,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        processed: pending.length,
+        processed: pendingRows.length,
         sent: sent.length,
         skipped: skipped.length,
         skipped_details: skipped,

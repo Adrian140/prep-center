@@ -376,7 +376,9 @@ async function markItemsAsReceived(shipmentId, itemIds, receivedBy) {
   const syncResult = await syncReceivingShipmentStatus(shipmentId, receivedBy);
   if (!syncResult?.error) {
     try {
-      await supabase.functions.invoke('send_reception_emails');
+      await supabase.functions.invoke('send_reception_emails', {
+        body: { shipment_id: shipmentId, force_send: true }
+      });
     } catch (invokeError) {
       console.error('send_reception_emails invoke failed after markItemsAsReceived', invokeError);
     }
@@ -406,7 +408,9 @@ async function markShipmentFullyReceived(shipmentId, receivedBy) {
       .eq('id', shipmentId);
     if (!updateError) {
       try {
-        await supabase.functions.invoke('send_reception_emails');
+        await supabase.functions.invoke('send_reception_emails', {
+          body: { shipment_id: shipmentId, force_send: true }
+        });
       } catch (invokeError) {
         console.error('send_reception_emails invoke failed after markShipmentFullyReceived', invokeError);
       }
@@ -3399,7 +3403,9 @@ createReceivingShipment: async (shipmentData) => {
       Object.prototype.hasOwnProperty.call(basePatch, 'processed_at')
     ) {
       try {
-        await supabase.functions.invoke('send_reception_emails');
+        await supabase.functions.invoke('send_reception_emails', {
+          body: { shipment_id: shipmentId, force_send: true }
+        });
       } catch (invokeError) {
         console.error('send_reception_emails invoke failed after updateReceivingShipment', invokeError);
       }
@@ -3973,7 +3979,9 @@ getAllReceivingShipments: async (options = {}) => {
           .eq('id', shipmentId);
         if (shipmentError) throw shipmentError;
         try {
-          await supabase.functions.invoke('send_reception_emails');
+          await supabase.functions.invoke('send_reception_emails', {
+            body: { shipment_id: shipmentId, force_send: true }
+          });
         } catch (invokeError) {
           console.error('send_reception_emails invoke failed after processReceivingToStock', invokeError);
         }
