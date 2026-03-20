@@ -376,26 +376,8 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
     if (!shipment?.id) return;
     if (['cancelled', 'processed'].includes(syncedStatus)) return;
     if (!derivedStatus || derivedStatus === syncedStatus) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await supabaseHelpers.updateReceivingShipment(shipment.id, {
-          status: derivedStatus
-        });
-        if (!cancelled) {
-          setSyncedStatus(derivedStatus);
-          onUpdate?.(shipment.id);
-        }
-      } catch (error) {
-        console.error('Auto status sync failed', error);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [derivedStatus, syncedStatus, shipment?.id, onUpdate]);
+    setSyncedStatus(derivedStatus);
+  }, [derivedStatus, syncedStatus, shipment?.id]);
 
   useEffect(() => {
     if (!shipment?.id) return;
