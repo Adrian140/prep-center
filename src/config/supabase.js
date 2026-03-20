@@ -373,7 +373,15 @@ async function markItemsAsReceived(shipmentId, itemIds, receivedBy) {
     .in('id', itemIds)
     .eq('shipment_id', shipmentId);
   if (error) return { error };
-  return await syncReceivingShipmentStatus(shipmentId, receivedBy);
+  const syncResult = await syncReceivingShipmentStatus(shipmentId, receivedBy);
+  if (!syncResult?.error) {
+    try {
+      await supabase.functions.invoke('send_reception_emails');
+    } catch (invokeError) {
+      console.error('send_reception_emails invoke failed after markItemsAsReceived', invokeError);
+    }
+  }
+  return syncResult;
 }
 
 async function markShipmentFullyReceived(shipmentId, receivedBy) {
@@ -396,6 +404,13 @@ async function markShipmentFullyReceived(shipmentId, receivedBy) {
       .from('receiving_shipments')
       .update(patch)
       .eq('id', shipmentId);
+    if (!updateError) {
+      try {
+        await supabase.functions.invoke('send_reception_emails');
+      } catch (invokeError) {
+        console.error('send_reception_emails invoke failed after markShipmentFullyReceived', invokeError);
+      }
+    }
     return { error: updateError || null };
   }
   return await markItemsAsReceived(shipmentId, ids, receivedBy);
@@ -3945,6 +3960,11 @@ getAllReceivingShipments: async (options = {}) => {
           })
           .eq('id', shipmentId);
         if (shipmentError) throw shipmentError;
+        try {
+          await supabase.functions.invoke('send_reception_emails');
+        } catch (invokeError) {
+          console.error('send_reception_emails invoke failed after processReceivingToStock', invokeError);
+        }
       }
 
       return { error: null, fbaLines };
