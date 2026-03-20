@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabaseHelpers';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '@/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { MARKETS } from '@/contexts/MarketContext';
 import {
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
   Clipboard,
   ClipboardCheck,
   Loader2,
@@ -34,6 +37,15 @@ const randomCode = () => {
 
 const round2 = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
+const MARKET_LABELS = {
+  en: { FR: 'France', DE: 'Germany' },
+  fr: { FR: 'France', DE: 'Allemagne' },
+  ro: { FR: 'Franța', DE: 'Germania' },
+  de: { FR: 'Frankreich', DE: 'Deutschland' },
+  it: { FR: 'Francia', DE: 'Germania' },
+  es: { FR: 'Francia', DE: 'Alemania' }
+};
+
 const normalizeTiers = (tiers) => {
   if (!Array.isArray(tiers)) return [];
   return tiers
@@ -58,6 +70,7 @@ const normalizeTiers = (tiers) => {
 export default function ClientAffiliates() {
   const { profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
+  const { currentLanguage } = useLanguage();
   const [status, setStatus] = useState('loading');
   const [clientStatus, setClientStatus] = useState(null);
   const [ownerSnapshots, setOwnerSnapshots] = useState({});
@@ -71,6 +84,7 @@ export default function ClientAffiliates() {
   const [creditLoadingByMarket, setCreditLoadingByMarket] = useState({});
   const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
   const [showAllMembersByMarket, setShowAllMembersByMarket] = useState({});
+  const [expandedByMarket, setExpandedByMarket] = useState({});
   const currentMonth = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -396,15 +410,34 @@ export default function ClientAffiliates() {
             const creditLoading = Boolean(creditLoadingByMarket?.[market]);
             const creditFlash = creditFlashByMarket?.[market] || null;
             const marketMeta = MARKETS[market] || { name: market, flag: '' };
+            const localizedMarketName =
+              MARKET_LABELS[currentLanguage]?.[market] ||
+              MARKET_LABELS.en?.[market] ||
+              marketMeta.name;
             const positiveMembers = members.filter((member) => Number(member.payout || 0) > 0);
             const zeroMembers = members.filter((member) => Number(member.payout || 0) <= 0);
             const showAllMembers = Boolean(showAllMembersByMarket?.[market]);
             const visibleMembers = showAllMembers ? members : positiveMembers;
+            const isExpanded = Boolean(expandedByMarket?.[market]);
             return (
               <div key={market} className="border rounded-2xl p-5 space-y-5 bg-white">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{marketMeta.flag}</span>
-                  <h3 className="text-lg font-semibold text-text-primary">{marketMeta.name}</h3>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{marketMeta.flag}</span>
+                    <h3 className="text-lg font-semibold text-text-primary">{localizedMarketName}</h3>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg text-text-secondary hover:text-text-primary hover:border-text-primary/40 transition-colors"
+                    onClick={() =>
+                      setExpandedByMarket((prev) => ({ ...prev, [market]: !prev?.[market] }))
+                    }
+                  >
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {isExpanded
+                      ? t('ClientAffiliates.actions.closeDetails') || 'Close'
+                      : t('ClientAffiliates.actions.openDetails') || 'Open'}
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr] gap-5">
@@ -434,7 +467,9 @@ export default function ClientAffiliates() {
                     </div>
 
                     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-text-secondary">Referral link</p>
+                      <p className="text-[11px] uppercase tracking-wide text-text-secondary">
+                        {t('ClientAffiliates.codeCard.linkLabel')}
+                      </p>
                       <a
                         href={buildAffiliateLink(snapshot.code.code)}
                         target="_blank"
@@ -454,7 +489,9 @@ export default function ClientAffiliates() {
                         className="mt-2 text-xs text-primary inline-flex items-center gap-1"
                       >
                         {copied === `${market}-link` ? <ClipboardCheck className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-                        {copied === `${market}-link` ? 'Copied' : 'Copy link'}
+                        {copied === `${market}-link`
+                          ? t('ClientAffiliates.codeCard.copied')
+                          : t('ClientAffiliates.codeCard.copyLink')}
                       </button>
                     </div>
 
@@ -545,6 +582,8 @@ export default function ClientAffiliates() {
                   </div>
                 </div>
 
+                {isExpanded && (
+                  <>
                 <div className="border-t pt-5 space-y-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs uppercase tracking-wide text-text-secondary">
@@ -693,6 +732,8 @@ export default function ClientAffiliates() {
                     {t('ClientAffiliates.members.hint')}
                   </p>
                 </div>
+                  </>
+                )}
               </div>
             );
           })}

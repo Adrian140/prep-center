@@ -895,7 +895,9 @@
       "subtitle": "Invite other sellers and earn the commission configured by our team.",
       "actions": {
         "refresh": "Refresh",
-        "resetMonth": "Current month"
+        "resetMonth": "Current month",
+        "openDetails": "Open",
+        "closeDetails": "Close"
       },
       "flash": {
         "requestSent": "Request sent successfully. We'll reply soon.",
@@ -903,7 +905,9 @@
       },
       "codeCard": {
         "title": "Your affiliate code",
+        "linkLabel": "Referral link",
         "copy": "Copy code",
+        "copyLink": "Copy link",
         "copied": "Copied!",
         "active": "Active",
         "inactive": "Paused"
@@ -1939,7 +1943,9 @@
       "subtitle": "Invită alți selleri și câștigă comisionul stabilit de echipa noastră.",
       "actions": {
         "refresh": "Actualizează",
-        "resetMonth": "Luna curentă"
+        "resetMonth": "Luna curentă",
+        "openDetails": "Deschide",
+        "closeDetails": "Închide"
       },
       "flash": {
         "requestSent": "Cererea a fost trimisă. Revenim curând.",
@@ -2266,14 +2272,90 @@
       "reports": "Rapports"
     },
     "ClientAffiliates": {
+      "title": "Programme d’affiliation",
+      "subtitle": "Invitez d’autres vendeurs et gagnez la commission définie par notre équipe.",
+      "flash": {
+        "requestSent": "Votre demande a bien été envoyée. Nous revenons vers vous rapidement.",
+        "requestError": "Impossible d’envoyer la demande. Veuillez réessayer."
+      },
+      "codeCard": {
+        "title": "Votre code d’affiliation",
+        "linkLabel": "Lien de parrainage",
+        "copy": "Copier le code",
+        "copyLink": "Copier le lien",
+        "copied": "Copié !",
+        "active": "Actif",
+        "inactive": "En pause"
+      },
       "rules": {
-        "bonus": "Si vous parrainez un nouveau client avec votre code et qu'il atteint 1 000 € facturés dans les 3 premiers mois, vous gagnez un bonus de 100 €. Le client parrainé reçoit 25 € de remise sur sa prochaine facture."
+        "title": "Règles de paiement",
+        "bonus": "Si vous parrainez un nouveau client avec votre code et qu'il atteint 1 000 € facturés dans les 3 premiers mois, vous gagnez un bonus de 100 €. Le client parrainé reçoit 25 € de remise sur sa prochaine facture.",
+        "percent": "Vous gagnez {percent}% sur chaque facture payée par vos filleuls.",
+        "threshold": "En dessous de {threshold} : {below} %. Au-dessus : {above} %.",
+        "fixed": "Dès qu’un client parrainé atteint {threshold}, vous recevez {amount} une seule fois.",
+        "tier": "≥ {amount} : {percent} %",
+        "missing": "Nous préparons les règles de rémunération."
       },
       "actions": {
-        "resetMonth": "Mois en cours"
+        "refresh": "Actualiser",
+        "resetMonth": "Mois en cours",
+        "openDetails": "Ouvrir",
+        "closeDetails": "Fermer"
+      },
+      "stats": {
+        "title": "Performance",
+        "clients": "Clients affiliés",
+        "billed": "Total facturé",
+        "payout": "Commission estimée"
+      },
+      "credit": {
+        "title": "Crédit d’affiliation",
+        "available": "Crédit disponible",
+        "used": "Utilisé",
+        "remaining": "Crédit restant",
+        "amountPh": "ex. 50",
+        "apply": "Appliquer le crédit",
+        "applyAll": "Tout appliquer",
+        "applying": "Application…",
+        "note": "Le crédit d’affiliation appliqué est déduit de la valeur des prochains services facturés (prestation réalisée). Si le crédit dépasse le montant dû, une facture séparée est émise pour la différence.",
+        "success": "{amount} a été appliqué à votre solde.",
+        "errorAmount": "Saisissez un montant valide.",
+        "errorMax": "Le maximum disponible est de {amount}.",
+        "errorApply": "Impossible d’appliquer le crédit. Veuillez réessayer."
+      },
+      "members": {
+        "title": "Clients liés à votre code",
+        "empty": "Personne n’a encore utilisé votre code.",
+        "billed": "Facturé",
+        "payout": "Votre part",
+        "payoutPercent": "{percent}% →",
+        "thresholdReached": "Bonus débloqué : {payout}",
+        "thresholdProgress": "{billed} / {threshold} pour débloquer",
+        "seeAll": "Voir tout",
+        "hint": "La liste se met à jour automatiquement lorsque nous ajoutons ou retirons des clients."
       },
       "request": {
+        "title": "Demander votre code d’affiliation",
+        "desc": "Expliquez-nous comment vous comptez promouvoir Prep Center. Nous examinons chaque demande manuellement.",
         "applyCta": "Pas encore de code ? Demandez-le et commencez à gagner avec vos parrainages."
+        ,
+        "preferred": "Code souhaité",
+        "preferredPh": "Ex. ADRIAN10",
+        "generate": "Suggérer un code",
+        "preferredHint": "Optionnel. Laissez vide si vous voulez que nous générions un code court.",
+        "notes": "Message à notre équipe",
+        "notesPh": "Partagez des détails sur votre audience ou votre communauté…",
+        "submitting": "Envoi…",
+        "submit": "Envoyer la demande",
+        "footer": "Nous répondons par e-mail sous 1 à 2 jours ouvrés.",
+        "pendingTitle": "Votre demande est en cours d’examen",
+        "details": "Code souhaité : {code}"
+      },
+      "status": {
+        "pending": "Votre demande est à l’étude. Nous vous enverrons un e-mail dès qu’elle sera approuvée.",
+        "review": "Nous validons votre demande. Vous recevrez un retour rapidement.",
+        "approved": "Approuvée. Nous activerons votre code sous peu.",
+        "needCode": "Demandez un code d’affiliation pour commencer à gagner des commissions."
       }
     },
     "billing": {
@@ -3323,6 +3405,10 @@
       "reports": "Berichte"
     },
     "ClientAffiliates": {
+      "actions": {
+        "openDetails": "Öffnen",
+        "closeDetails": "Schließen"
+      },
       "rules": {
         "bonus": "Wenn du mit deinem Code einen neuen Kunden wirbst und dieser in den ersten 3 Monaten 1.000 € Rechnungen erreicht, erhältst du 100 € Bonus. Der geworbene Kunde bekommt 25 € Rabatt auf die nächste Rechnung."
       },
@@ -4322,6 +4408,10 @@
       "reports": "Report"
     },
     "ClientAffiliates": {
+      "actions": {
+        "openDetails": "Apri",
+        "closeDetails": "Chiudi"
+      },
       "rules": {
         "bonus": "Se porti un nuovo cliente con il tuo codice e raggiunge 1.000 € fatturati nei primi 3 mesi, ricevi un bonus di 100 €. Il cliente invitato ottiene 25 € di sconto sulla prossima fattura."
       },
@@ -5321,6 +5411,10 @@
       "reports": "Reportes"
     },
     "ClientAffiliates": {
+      "actions": {
+        "openDetails": "Abrir",
+        "closeDetails": "Cerrar"
+      },
       "rules": {
         "bonus": "Si traes un nuevo cliente con tu código y llega a 1.000 € facturados en los primeros 3 meses, ganas un bono de 100 €. El cliente recomendado recibe 25 € de descuento en su siguiente factura."
       },
