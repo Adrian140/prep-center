@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "reception-emails": {
+      "schedule": "*/5 * * * *",
+      "endpoint": "/",
+      "method": "POST"
+    }
+  }
+}

@@ -1245,24 +1245,17 @@ function AdminReceiving() {
   };
   const receivingEventsForShipment = (shipment) => {
     const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
-    const getUnits = (it) => {
-      const raw =
-        it?.received_units ??
-        it?.quantity_received ??
-        it?.qty ??
-        it?.quantity ??
-        0;
-      const num = Number(raw);
-      return Number.isFinite(num) && num > 0 ? num : 0;
-    };
     const events = items
-      .filter((it) => getUnits(it) > 0)
-      .map((it) => ({
-        label: it.product_name || it.sku || it.asin || 'Line',
-        qty: getUnits(it),
-        date: it.received_at ? new Date(it.received_at) : null
-      }))
-      .filter((ev) => ev.date);
+      .flatMap((it) =>
+        (Array.isArray(it?.receiving_item_events) ? it.receiving_item_events : [])
+          .filter((ev) => ev?.created_at)
+          .map((ev) => ({
+            label: it.product_name || it.sku || it.asin || 'Line',
+            qty: Number(ev.quantity_delta || 0),
+            total: Number(ev.quantity_after || 0),
+            date: new Date(ev.created_at)
+          }))
+      );
     events.sort((a, b) => b.date - a.date);
     return events;
   };
@@ -1847,7 +1840,10 @@ useEffect(() => {
                               {events.map((ev, idx) => (
                                 <div key={idx} className="flex items-center justify-between gap-2">
                                   <span className="truncate">{ev.label}</span>
-                                  <span className="font-semibold text-text-primary">{ev.qty}u</span>
+                                  <span className="font-semibold text-text-primary">
+                                    {ev.qty > 0 ? `+${ev.qty}` : ev.qty}u
+                                  </span>
+                                  <span className="text-[10px] text-text-secondary">{ev.total} total</span>
                                   <span className="whitespace-nowrap">{formatDateTime(ev.date)}</span>
                                 </div>
                               ))}

@@ -123,6 +123,13 @@ const getConfirmedQty = (item) => {
   return Number.isFinite(base) && base >= 0 ? base : 0;
 };
 
+const getReceivingItemEvents = (item) => {
+  const rows = Array.isArray(item?.receiving_item_events) ? item.receiving_item_events : [];
+  return [...rows]
+    .filter((row) => row?.created_at)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+};
+
 const deriveReceivingStatus = (shipment) => {
   if (!shipment) return 'submitted';
   const base = shipment.status || 'submitted';
@@ -1088,7 +1095,13 @@ const resolveBoxesCount = (shipment) => {
               <tbody>
                 {viewItems.map((item, idx) => {
                   const sendDirect = item.send_to_fba && Number(item.fba_qty || 0) > 0;
-                  const receivedAt = item.received_at ? new Date(item.received_at) : null;
+                  const itemEvents = getReceivingItemEvents(item);
+                  const lastEvent = itemEvents[0] || null;
+                  const receivedAt = lastEvent?.created_at
+                    ? new Date(lastEvent.created_at)
+                    : item.received_at
+                    ? new Date(item.received_at)
+                    : null;
                   const expectedQty = Math.max(0, Number(item.quantity_received || 0));
                   const confirmedQty = Math.max(0, Number(item.received_units || 0));
                   const diff = Math.max(0, expectedQty - confirmedQty);
@@ -1163,7 +1176,29 @@ const resolveBoxesCount = (shipment) => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {item.product_name}
+                        <div className="space-y-2">
+                          <div>{item.product_name}</div>
+                          {itemEvents.length > 0 && (
+                            <div className="text-[11px] text-text-secondary space-y-1">
+                              {itemEvents.map((event) => {
+                                const delta = Number(event.quantity_delta || 0);
+                                const deltaLabel = delta > 0 ? `+${delta}` : String(delta);
+                                return (
+                                  <div key={event.id || event.created_at}>
+                                    {`${new Date(event.created_at).toLocaleString(DATE_LOCALE, {
+                                      hour12: false,
+                                      year: 'numeric',
+                                      month: '2-digit',
+                                      day: '2-digit',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })} · ${deltaLabel} · ${event.quantity_after}/${expectedQty || event.quantity_after}`}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     <td className="px-4 py-3 text-right">
                       {lineEditable ? (

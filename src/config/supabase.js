@@ -3392,6 +3392,18 @@ createReceivingShipment: async (shipmentData) => {
         throw error;
       }
     }
+
+    if (
+      Object.prototype.hasOwnProperty.call(basePatch, 'status') ||
+      Object.prototype.hasOwnProperty.call(basePatch, 'received_at') ||
+      Object.prototype.hasOwnProperty.call(basePatch, 'processed_at')
+    ) {
+      try {
+        await supabase.functions.invoke('send_reception_emails');
+      } catch (invokeError) {
+        console.error('send_reception_emails invoke failed after updateReceivingShipment', invokeError);
+      }
+    }
   },
 
   deleteReceivingShipment: async (shipmentId) => {
@@ -3563,7 +3575,7 @@ getAllReceivingShipments: async (options = {}) => {
       *,
       companies:companies(name),
       receiving_shipment_items(*),
-      receiving_items(*, stock_item:stock_items(*))
+      receiving_items(*, stock_item:stock_items(*), receiving_item_events(*))
     `,
       { count: 'exact' }
     )
@@ -3594,7 +3606,7 @@ getAllReceivingShipments: async (options = {}) => {
       *,
       companies:companies(name),
       receiving_shipment_items(*),
-      receiving_items(*, stock_item:stock_items(*))
+      receiving_items(*, stock_item:stock_items(*), receiving_item_events(*))
     `,
         { count: 'exact' }
       )
@@ -3655,7 +3667,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (missingItemShipments.length > 0) {
     const { data: fallbackItems } = await supabase
       .from('receiving_items')
-      .select('*, stock_item:stock_items(*)')
+      .select('*, stock_item:stock_items(*), receiving_item_events(*)')
       .in('shipment_id', missingItemShipments);
     (fallbackItems || []).forEach((item) => {
       if (!item?.shipment_id) return;

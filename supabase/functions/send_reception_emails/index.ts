@@ -28,6 +28,14 @@ type ShipmentRow = {
   status: string | null;
 };
 
+type SnapshotEvent = {
+  id: string;
+  quantity_delta: number;
+  quantity_before: number;
+  quantity_after: number;
+  created_at: string;
+};
+
 type SnapshotItem = {
   id: string;
   asin: string | null;
@@ -36,6 +44,7 @@ type SnapshotItem = {
   image_url: string | null;
   planned: number;
   cumulative_received: number;
+  events: SnapshotEvent[];
 };
 
 type Snapshot = {
@@ -71,6 +80,17 @@ const toNum = (value: unknown) => {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const formatEventDateTime = (value: string) =>
+  new Date(value).toLocaleString("fr-FR", {
+    timeZone: "Europe/Paris",
+    hour12: false,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 const escapeHtml = (value: string) =>
   value
@@ -133,7 +153,9 @@ async function buildSnapshot(row: QueueRow): Promise<Snapshot | null> {
   }
 
   const itemRows = Array.isArray(items) ? items : [];
+  const itemIds = itemRows.map((it: any) => it.id).filter(Boolean);
   const stockIds = Array.from(new Set(itemRows.map((it: any) => it.stock_item_id).filter(Boolean)));
+  const eventsByItemId: Record<string, SnapshotEvent[]> = {};
   const stockById: Record<string, { image_url: string | null; asin: string | null; sku: string | null }> = {};
   if (stockIds.length > 0) {
     const { data: stockItems } = await supabase
@@ -146,6 +168,29 @@ async function buildSnapshot(row: QueueRow): Promise<Snapshot | null> {
         asin: entry.asin ?? null,
         sku: entry.sku ?? null,
       };
+    });
+  }
+
+  if (itemIds.length > 0) {
+    const { data: eventRows, error: eventsError } = await supabase
+      .from("receiving_item_events")
+      .select("id,receiving_item_id,quantity_delta,quantity_before,quantity_after,created_at")
+      .in("receiving_item_id", itemIds)
+      .order("created_at", { ascending: true });
+    if (eventsError) {
+      console.error("receiving item events lookup failed", row.shipment_id, eventsError);
+      return null;
+    }
+    (eventRows || []).forEach((entry: any) => {
+      const itemId = String(entry.receiving_item_id || "");
+      if (!itemId) return;
+      (eventsByItemId[itemId] ||= []).push({
+        id: String(entry.id),
+        quantity_delta: toNum(entry.quantity_delta),
+        quantity_before: toNum(entry.quantity_before),
+        quantity_after: toNum(entry.quantity_after),
+        created_at: String(entry.created_at),
+      });
     });
   }
 
@@ -163,6 +208,7 @@ async function buildSnapshot(row: QueueRow): Promise<Snapshot | null> {
       image_url: stock?.image_url || null,
       planned,
       cumulative_received: cumulative,
+      events: eventsByItemId[String(item.id)] || [],
     };
   });
 
@@ -218,6 +264,19 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
       const prevReceived = prev.get(item.id) ?? 0;
       const receivedNow = Math.max(item.cumulative_received - prevReceived, 0);
       const remaining = Math.max(item.planned - item.cumulative_received, 0);
+      const historyHtml = item.events.length
+        ? `<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#f8fafc">
+            <div style="font-size:11px;font-weight:700;margin-bottom:4px;color:#334155">Reception history</div>
+            ${item.events
+              .map((event) => {
+                const deltaLabel = event.quantity_delta > 0 ? `+${event.quantity_delta}` : String(event.quantity_delta);
+                return `<div style="font-size:11px;color:#475569;margin-top:3px">
+                  ${escapeHtml(formatEventDateTime(event.created_at))} · ${escapeHtml(deltaLabel)} unit(s) · total ${event.quantity_after}/${item.planned}
+                </div>`;
+              })
+              .join("")}
+          </div>`
+        : `<div style="margin-top:8px;font-size:11px;color:#94a3b8">No reception history yet</div>`;
       const imageTag = item.image_url
         ? `<img src="${escapeHtml(String(item.image_url))}" alt="" style="max-width:56px;max-height:56px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;" />`
         : "—";
@@ -226,7 +285,10 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
           <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:center">${imageTag}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee">${escapeHtml(String(item.asin || "-"))}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee">${escapeHtml(String(item.sku || "-"))}</td>
-          <td style="padding:10px 8px;border-bottom:1px solid #eee">${escapeHtml(String(item.title || "-"))}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid #eee">
+            <div>${escapeHtml(String(item.title || "-"))}</div>
+            ${historyHtml}
+          </td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right">${item.planned}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right">${receivedNow}</td>
           <td style="padding:10px 8px;border-bottom:1px solid #eee;text-align:right">${item.cumulative_received}</td>
@@ -248,7 +310,7 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
 
   const intro = isFinal
     ? "Your reception has been finalized. Please find the latest summary below."
-    : "This is your latest reception snapshot after 1 hour without changes.";
+    : "This is your latest reception snapshot after 30 minutes without changes.";
 
   const html = `
     <div style="font-family:Inter,Arial,sans-serif;color:#111;line-height:1.45">
