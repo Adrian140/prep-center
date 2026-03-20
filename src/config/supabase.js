@@ -2261,8 +2261,18 @@ createPrepItem: async (requestId, item) => {
       .gte('service_date', dateFrom)
       .lte('service_date', dateTo)
       .limit(20000);
+    const returnServiceLinesPromise = withCountry(
+      withCompany(
+        supabase
+          .from('return_service_lines')
+          .select('total, unit_price, units, service_date')
+      )
+    )
+      .gte('service_date', dateFrom)
+      .lte('service_date', dateTo)
+      .limit(20000);
 
-    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaStandaloneRes, finalizedPrepRequestsRes, fbmLinesRes, otherLinesRes, balanceRes] = await Promise.all([
+    let [stockRes, stockAllRes, clientStockRes, stockTotalRpcRes, stockTotalByCountryRpcRes, invoicesRes, returnsRes, prepRes, receivingRes, prepItemsRes, receivingItemsRes, fbaStandaloneRes, finalizedPrepRequestsRes, fbmLinesRes, otherLinesRes, returnServiceLinesRes, balanceRes] = await Promise.all([
       stockPromise,
       stockAllPromise,
       clientStockPromise,
@@ -2278,6 +2288,7 @@ createPrepItem: async (requestId, item) => {
       finalizedPrepRequestsPromise,
       fbmLinesPromise,
       otherLinesPromise,
+      returnServiceLinesPromise,
       balancePromise
     ]);
     let pendingItemsRes = await pendingItemsPromise;
@@ -2449,6 +2460,7 @@ createPrepItem: async (requestId, item) => {
     const finalizedPrepRequestsRows = Array.isArray(finalizedPrepRequestsRes.data) ? finalizedPrepRequestsRes.data : [];
     const fbmLines = Array.isArray(fbmLinesRes.data) ? fbmLinesRes.data : [];
     const otherLines = Array.isArray(otherLinesRes.data) ? otherLinesRes.data : [];
+    const returnServiceLines = Array.isArray(returnServiceLinesRes.data) ? returnServiceLinesRes.data : [];
     const fbaFinalizedDateByRequestId = new Map();
     const fbaFinalizedDateByShipmentId = new Map();
     const fbaCountryByRequestId = new Map();
@@ -2686,17 +2698,17 @@ createPrepItem: async (requestId, item) => {
     const financeAmounts = {
       fba: sumAmount(fbaLinesForFinance, 'service_date', 'units'),
       fbm: sumAmount(fbmLines, 'service_date', 'orders_units'),
-      other: sumAmount(otherLines, 'service_date', 'units')
+      other: sumAmount(otherLines, 'service_date', 'units') + sumAmount(returnServiceLines, 'service_date', 'units')
     };
     const financeAmountsToday = {
       fba: sumAmountByDate(fbaLinesForFinance, 'service_date', 'units'),
       fbm: sumAmountByDate(fbmLines, 'service_date', 'orders_units'),
-      other: sumAmountByDate(otherLines, 'service_date', 'units')
+      other: sumAmountByDate(otherLines, 'service_date', 'units') + sumAmountByDate(returnServiceLines, 'service_date', 'units')
     };
     const financeAmountsTodayAbsolute = {
       fba: sumAmountByExactDate(fbaLinesForFinance, 'service_date', 'units', endKey),
       fbm: sumAmountByExactDate(fbmLines, 'service_date', 'orders_units', endKey),
-      other: sumAmountByExactDate(otherLines, 'service_date', 'units', endKey)
+      other: sumAmountByExactDate(otherLines, 'service_date', 'units', endKey) + sumAmountByExactDate(returnServiceLines, 'service_date', 'units', endKey)
     };
 
     const buildDailyAmounts = (rows, dateField, qtyField) => {
@@ -2719,7 +2731,7 @@ createPrepItem: async (requestId, item) => {
     };
 
     const financeDailyAmounts = buildDailyAmounts(
-      [...fbaLinesForFinance, ...fbmLines, ...otherLines],
+      [...fbaLinesForFinance, ...fbmLines, ...otherLines, ...returnServiceLines],
       'service_date',
       'units'
     );
@@ -3002,6 +3014,7 @@ createPrepItem: async (requestId, item) => {
         returnsRes.error ||
         prepRes.error ||
         receivingRes.error ||
+        returnServiceLinesRes.error ||
         balanceRes.error ||
         null
     };
@@ -3013,7 +3026,7 @@ createPrepItem: async (requestId, item) => {
     const withCountry = (query) =>
       marketCode ? query.eq('country', marketCode) : query;
 
-    const [fbaRes, fbmRes, otherRes, invoicesRes] = await Promise.all([
+    const [fbaRes, fbmRes, otherRes, returnServicesRes, invoicesRes] = await Promise.all([
       withCountry(
         supabase
           .from('fba_lines')
@@ -3034,6 +3047,12 @@ createPrepItem: async (requestId, item) => {
       ),
       withCountry(
         supabase
+          .from('return_service_lines')
+          .select('unit_price, units, total')
+          .eq('company_id', companyId)
+      ),
+      withCountry(
+        supabase
           .from('invoices')
           .select('amount, status')
           .eq('company_id', companyId)
@@ -3044,6 +3063,7 @@ createPrepItem: async (requestId, item) => {
       fbaRes.error ||
       fbmRes.error ||
       otherRes.error ||
+      returnServicesRes.error ||
       invoicesRes.error ||
       null;
     if (error) return { data: 0, error };
@@ -3051,7 +3071,8 @@ createPrepItem: async (requestId, item) => {
     const services =
       sumLineRows(fbaRes.data, 'units') +
       sumLineRows(fbmRes.data, 'orders_units') +
-      sumLineRows(otherRes.data, 'units');
+      sumLineRows(otherRes.data, 'units') +
+      sumLineRows(returnServicesRes.data, 'units');
     const paid = sumPaidInvoices(invoicesRes.data);
     return { data: services - paid, error: null };
   },

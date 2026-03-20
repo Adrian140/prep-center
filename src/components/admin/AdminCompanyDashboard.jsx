@@ -343,7 +343,7 @@ export default function AdminCompanyDashboard() {
     const withCompany = (query) => (companyId ? query.eq('company_id', companyId) : query);
     const withCountry = (query) => (currentMarket ? query.eq('country', currentMarket) : query);
 
-    const [fbaRes, fbmRes, otherRes] = await Promise.all([
+    const [fbaRes, fbmRes, otherRes, returnServicesRes] = await Promise.all([
       withCountry(
         withCompany(
           supabase
@@ -373,10 +373,20 @@ export default function AdminCompanyDashboard() {
       )
         .gte('service_date', monthStart)
         .lte('service_date', monthEnd)
+        .limit(20000),
+      withCountry(
+        withCompany(
+          supabase
+            .from('return_service_lines')
+            .select('total, unit_price, units')
+        )
+      )
+        .gte('service_date', monthStart)
+        .lte('service_date', monthEnd)
         .limit(20000)
     ]);
 
-    const error = fbaRes?.error || fbmRes?.error || otherRes?.error;
+    const error = fbaRes?.error || fbmRes?.error || otherRes?.error || returnServicesRes?.error;
     if (error) {
       setMonthFinance(null);
       return;
@@ -389,7 +399,11 @@ export default function AdminCompanyDashboard() {
         return acc + total;
       }, 0);
 
-    const total = sumRows(fbaRes.data, 'units') + sumRows(fbmRes.data, 'orders_units') + sumRows(otherRes.data, 'units');
+    const total =
+      sumRows(fbaRes.data, 'units') +
+      sumRows(fbmRes.data, 'orders_units') +
+      sumRows(otherRes.data, 'units') +
+      sumRows(returnServicesRes.data, 'units');
     setMonthFinance({ total });
   };
 
@@ -597,10 +611,11 @@ export default function AdminCompanyDashboard() {
         return q;
       };
 
-      const [fbaRes, fbmRes, otherRes] = await Promise.all([
+      const [fbaRes, fbmRes, otherRes, returnServicesRes] = await Promise.all([
         withFilters(supabase.from('fba_lines').select('company_id, total, unit_price, units')),
         withFilters(supabase.from('fbm_lines').select('company_id, total, unit_price, orders_units')),
-        withFilters(supabase.from('other_lines').select('company_id, total, unit_price, units'))
+        withFilters(supabase.from('other_lines').select('company_id, total, unit_price, units')),
+        withFilters(supabase.from('return_service_lines').select('company_id, total, unit_price, units'))
       ]);
 
       const numberOrZero = (v) => {
@@ -647,14 +662,15 @@ export default function AdminCompanyDashboard() {
         });
       };
 
-      if (fbaRes?.error || fbmRes?.error || otherRes?.error) {
-        const err = fbaRes?.error || fbmRes?.error || otherRes?.error;
+      if (fbaRes?.error || fbmRes?.error || otherRes?.error || returnServicesRes?.error) {
+        const err = fbaRes?.error || fbmRes?.error || otherRes?.error || returnServicesRes?.error;
         throw new Error(err?.message || 'Failed to load breakdown');
       }
 
       acc(fbaRes, 'fba');
       acc(fbmRes, 'fbm');
       acc(otherRes, 'other');
+      acc(returnServicesRes, 'other');
 
       const toBucket = (total) => {
         if (total > 0) return 0; // positive first
