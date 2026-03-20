@@ -113,6 +113,10 @@ export default function ClientAffiliates() {
   );
 
   const hasCode = marketCards.length > 0;
+  const hasExpandedCard = useMemo(
+    () => Object.values(expandedByMarket || {}).some(Boolean),
+    [expandedByMarket]
+  );
   const pendingRequest = clientStatus?.request || null;
 
   const resolvePercent = (code, amount) => {
@@ -471,9 +475,11 @@ export default function ClientAffiliates() {
         </div>
       )}
 
-      <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
-        {t('ClientAffiliates.rules.bonus')}
-      </div>
+      {hasCode && hasExpandedCard && (
+        <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
+          {t('ClientAffiliates.rules.bonus')}
+        </div>
+      )}
 
       {flash && (
         <div
@@ -589,14 +595,6 @@ export default function ClientAffiliates() {
                           : t('ClientAffiliates.codeCard.copyLink')}
                       </button>
                     </div>
-
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-text-secondary">
-                        {t('ClientAffiliates.rules.title')}
-                      </p>
-                      <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
-                      <PayoutSummary code={code} />
-                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -679,6 +677,14 @@ export default function ClientAffiliates() {
 
                 {isExpanded && (
                   <>
+                <div className="border-t pt-5 space-y-2">
+                  <p className="text-xs uppercase tracking-wide text-text-secondary">
+                    {t('ClientAffiliates.rules.title')}
+                  </p>
+                  <p className="text-sm text-text-secondary">{t('ClientAffiliates.rules.bonus')}</p>
+                  <PayoutSummary code={code} />
+                </div>
+
                 {isPrimary && (
                 <div className="border-t pt-5 space-y-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
