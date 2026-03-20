@@ -1,6 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-service-key",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 type QueueRow = {
   shipment_id: string;
   company_id: string;
@@ -407,11 +413,22 @@ async function markQueueHandled(shipmentId: string, snapshot: Snapshot | null) {
 
 console.info("send_reception_emails started");
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "Method Not Allowed" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   if (!RESEND_API_KEY || !FROM_EMAIL) {
     return new Response(
       JSON.stringify({ error: "Missing RESEND_API_KEY or PREP_FROM_EMAIL" }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
@@ -460,20 +477,28 @@ Deno.serve(async () => {
       }
     }
 
+    console.info("send_reception_emails completed", {
+      processed: pending.length,
+      sent: sent.length,
+      skipped: skipped.length,
+      errors,
+    });
+
     return new Response(
       JSON.stringify({
         processed: pending.length,
         sent: sent.length,
         skipped: skipped.length,
+        skipped_details: skipped,
         errors,
       }),
-      { headers: { "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("send_reception_emails error", err);
     return new Response(
       JSON.stringify({ error: err?.message || String(err) }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

@@ -860,11 +860,13 @@ const checkStockMatches = async () => {
             ) : trimmedNotes ? (
               <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700">
                 <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-wide">
                     Client note
                   </p>
-                  <p className="text-sm whitespace-pre-line text-red-800">{trimmedNotes}</p>
+                  <p className="text-sm whitespace-pre-line break-words overflow-hidden text-red-800">
+                    {trimmedNotes}
+                  </p>
                 </div>
               </div>
             ) : (
