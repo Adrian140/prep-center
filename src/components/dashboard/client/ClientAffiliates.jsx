@@ -85,6 +85,9 @@ export default function ClientAffiliates() {
   const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
   const [showAllMembersByMarket, setShowAllMembersByMarket] = useState({});
   const [expandedByMarket, setExpandedByMarket] = useState({});
+  const [aliasCode, setAliasCode] = useState('');
+  const [aliasSubmitting, setAliasSubmitting] = useState(false);
+  const [aliasFlash, setAliasFlash] = useState(null);
   const currentMonth = useMemo(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -191,17 +194,20 @@ export default function ClientAffiliates() {
         nextSnapshots[market] = info?.data || null;
       });
       setOwnerSnapshots(nextSnapshots);
-      const codeId =
-        nextSnapshots?.FR?.code?.id ||
-        nextSnapshots?.DE?.code?.id ||
-        null;
-      if (profile?.company_id && codeId) {
+      const ownerCodeIds = Array.from(
+        new Set(
+          Object.values(nextSnapshots || {})
+            .flatMap((snapshot) => (snapshot?.codes || []).map((code) => code.id))
+            .filter(Boolean)
+        )
+      );
+      if (profile?.company_id && ownerCodeIds.length > 0) {
         const credits = {};
         const creditResults = await Promise.all(
           marketsToShow.map((market) =>
             supabaseHelpers.getAffiliateCreditUsage({
               companyId: profile.company_id,
-              codeId,
+              codeIds: ownerCodeIds,
               billingMonth: billingMonth || null,
               country: market
             })
@@ -263,6 +269,34 @@ export default function ClientAffiliates() {
       setTimeout(() => setCopied(''), 1800);
     } catch (err) {
       console.error('copy affiliate code', err);
+    }
+  };
+
+  const handleCreateAlias = async (event) => {
+    event.preventDefault();
+    const nextCode = String(aliasCode || '').trim().toUpperCase();
+    if (!nextCode) {
+      setAliasFlash({ type: 'error', message: t('ClientAffiliates.alias.errorRequired') });
+      return;
+    }
+    setAliasSubmitting(true);
+    setAliasFlash(null);
+    try {
+      const { error: createError } = await supabaseHelpers.createAffiliateAlias({
+        code: nextCode
+      });
+      if (createError) throw createError;
+      setAliasCode('');
+      setAliasFlash({ type: 'success', message: t('ClientAffiliates.alias.success') });
+      await loadState();
+    } catch (err) {
+      console.error('create affiliate alias', err);
+      setAliasFlash({
+        type: 'error',
+        message: err.message || t('ClientAffiliates.alias.errorGeneric')
+      });
+    } finally {
+      setAliasSubmitting(false);
     }
   };
 
@@ -419,6 +453,9 @@ export default function ClientAffiliates() {
             const showAllMembers = Boolean(showAllMembersByMarket?.[market]);
             const visibleMembers = showAllMembers ? members : positiveMembers;
             const isExpanded = Boolean(expandedByMarket?.[market]);
+            const ownerCodes = Array.isArray(snapshot?.codes) ? snapshot.codes : [];
+            const primaryCode = ownerCodes[0] || snapshot.code;
+            const secondaryCodes = ownerCodes.slice(1);
             return (
               <div key={market} className="border rounded-2xl p-5 space-y-5 bg-white">
                 <div className="flex items-center justify-between gap-3">
@@ -447,10 +484,10 @@ export default function ClientAffiliates() {
                         {t('ClientAffiliates.codeCard.title')}
                       </p>
                       <div className="flex items-center justify-between mt-2 gap-3">
-                        <span className="text-2xl font-semibold break-all">{snapshot.code.code}</span>
+                        <span className="text-2xl font-semibold break-all">{primaryCode?.code}</span>
                         <button
                           type="button"
-                          onClick={() => handleCopyValue(snapshot.code.code, `${market}-code`)}
+                          onClick={() => handleCopyValue(primaryCode?.code, `${market}-code`)}
                           className="text-sm text-primary flex items-center gap-1 shrink-0"
                         >
                           {copied === `${market}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
@@ -460,7 +497,7 @@ export default function ClientAffiliates() {
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-text-secondary">
-                        {snapshot.code.active
+                        {primaryCode?.active
                           ? t('ClientAffiliates.codeCard.active')
                           : t('ClientAffiliates.codeCard.inactive')}
                       </p>
@@ -471,18 +508,18 @@ export default function ClientAffiliates() {
                         {t('ClientAffiliates.codeCard.linkLabel')}
                       </p>
                       <a
-                        href={buildAffiliateLink(snapshot.code.code)}
+                        href={buildAffiliateLink(primaryCode?.code)}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 block break-all text-xs text-primary hover:underline"
                       >
-                        {buildAffiliateLink(snapshot.code.code)}
+                        {buildAffiliateLink(primaryCode?.code)}
                       </a>
                       <button
                         type="button"
                         onClick={() =>
                           handleCopyValue(
-                            buildAffiliateLink(snapshot.code.code),
+                            buildAffiliateLink(primaryCode?.code),
                             `${market}-link`
                           )
                         }
@@ -494,6 +531,52 @@ export default function ClientAffiliates() {
                           : t('ClientAffiliates.codeCard.copyLink')}
                       </button>
                     </div>
+
+                    {secondaryCodes.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-wide text-text-secondary">
+                          {t('ClientAffiliates.alias.listTitle')}
+                        </p>
+                        <div className="space-y-2">
+                          {secondaryCodes.map((code) => (
+                            <div
+                              key={code.id}
+                              className="rounded-lg border border-slate-200 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div>
+                                <p className="font-medium text-text-primary">{code.code}</p>
+                                <p className="text-xs text-text-secondary">
+                                  {buildAffiliateLink(code.code)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyValue(code.code, `${market}-${code.id}-code`)}
+                                  className="text-xs text-primary inline-flex items-center gap-1"
+                                >
+                                  <Clipboard className="w-3.5 h-3.5" />
+                                  {t('ClientAffiliates.codeCard.copy')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopyValue(
+                                      buildAffiliateLink(code.code),
+                                      `${market}-${code.id}-link`
+                                    )
+                                  }
+                                  className="text-xs text-primary inline-flex items-center gap-1"
+                                >
+                                  <Clipboard className="w-3.5 h-3.5" />
+                                  {t('ClientAffiliates.codeCard.copyLink')}
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div>
                       <p className="text-xs uppercase tracking-wide text-text-secondary">
@@ -584,6 +667,53 @@ export default function ClientAffiliates() {
 
                 {isExpanded && (
                   <>
+                <div className="border-t pt-5 space-y-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-text-secondary">
+                      {t('ClientAffiliates.alias.title')}
+                    </p>
+                    <p className="text-sm text-text-secondary mt-1">
+                      {t('ClientAffiliates.alias.description')}
+                    </p>
+                  </div>
+                  <form onSubmit={handleCreateAlias} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      value={aliasCode}
+                      onChange={(e) => setAliasCode(e.target.value.toUpperCase())}
+                      placeholder={t('ClientAffiliates.alias.placeholder')}
+                      className="border rounded-lg px-3 py-2 uppercase flex-1"
+                      disabled={aliasSubmitting}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAliasCode(randomCode())}
+                      className="px-3 py-2 border rounded-lg text-sm text-text-secondary hover:text-text-primary"
+                      disabled={aliasSubmitting}
+                    >
+                      {t('ClientAffiliates.alias.generate')}
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
+                      disabled={aliasSubmitting}
+                    >
+                      {aliasSubmitting
+                        ? t('ClientAffiliates.alias.submitting')
+                        : t('ClientAffiliates.alias.submit')}
+                    </button>
+                  </form>
+                  {aliasFlash && (
+                    <div
+                      className={`text-sm ${
+                        aliasFlash.type === 'success' ? 'text-green-700' : 'text-red-600'
+                      }`}
+                    >
+                      {aliasFlash.message}
+                    </div>
+                  )}
+                </div>
+
                 <div className="border-t pt-5 space-y-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs uppercase tracking-wide text-text-secondary">

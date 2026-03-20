@@ -256,10 +256,6 @@ export default function AdminAffiliates() {
       setMessage(t('affiliates.formError'));
       return;
     }
-    if (codes.some((c) => c.owner_profile_id === form.owner_profile_id && c.active)) {
-      setMessage(t('affiliates.ownerHasCode'));
-      return;
-    }
     setCreating(true);
     try {
       const pendingRequest = requests.find(
@@ -502,10 +498,6 @@ export default function AdminAffiliates() {
   };
 
   const requestCards = useMemo(() => requests.filter((r) => r.status === 'pending'), [requests]);
-  const takenOwnerIds = useMemo(
-    () => new Set((codes || []).filter((c) => c?.active).map((c) => c.owner_profile_id).filter(Boolean)),
-    [codes]
-  );
   const ownerChoices = useMemo(() => {
     const registry = new Map();
     ownerOptions.forEach((profile) => {
@@ -540,18 +532,11 @@ export default function AdminAffiliates() {
                 className="block w-full border rounded-lg px-3 py-2"
               >
                 <option value="">{t('affiliates.ownerPlaceholder')}</option>
-                {ownerChoices.map((client) => {
-                  const disabled =
-                    takenOwnerIds.has(client.id) && form.owner_profile_id !== client.id;
-                  return (
-                    <option key={client.id} value={client.id} disabled={disabled}>
-                      {formatClientName(client)} (
-                      {client.company_name || client.store_name || '—'}
-                      {disabled ? ` · ${t('affiliates.ownerHasCode')}` : ''}
-                      )
-                    </option>
-                  );
-                })}
+                {ownerChoices.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {formatClientName(client)} ({client.company_name || client.store_name || '—'})
+                  </option>
+                ))}
               </select>
               {ownersLoading && (
                 <p className="text-xs text-text-secondary mt-1 flex items-center gap-1">

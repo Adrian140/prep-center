@@ -912,6 +912,18 @@
         "active": "Active",
         "inactive": "Paused"
       },
+      "alias": {
+        "title": "Additional referral code",
+        "description": "Create another public code under the same affiliate account. Billing and commission stay on the same account.",
+        "listTitle": "Other active codes",
+        "placeholder": "E.g. SCORASIN10",
+        "generate": "Suggest code",
+        "submit": "Create code",
+        "submitting": "Creating…",
+        "success": "Referral code created.",
+        "errorRequired": "Enter a code.",
+        "errorGeneric": "Could not create the referral code. Please try again."
+      },
       "rules": {
         "title": "Payout rules",
         "bonus": "If you refer a new client with your code and they reach €1000 billed in the first 3 months, you earn a €100 bonus. The referred client gets €25 off their next invoice.",
@@ -2286,6 +2298,18 @@
         "copied": "Copié !",
         "active": "Actif",
         "inactive": "En pause"
+      },
+      "alias": {
+        "title": "Code de parrainage supplémentaire",
+        "description": "Créez un autre code public sous le même compte d’affiliation. La facturation et la commission restent sur le même compte.",
+        "listTitle": "Autres codes actifs",
+        "placeholder": "Ex. SCORASIN10",
+        "generate": "Suggérer un code",
+        "submit": "Créer le code",
+        "submitting": "Création…",
+        "success": "Le code de parrainage a été créé.",
+        "errorRequired": "Saisissez un code.",
+        "errorGeneric": "Impossible de créer le code de parrainage. Veuillez réessayer."
       },
       "rules": {
         "title": "Règles de paiement",

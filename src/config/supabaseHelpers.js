@@ -847,6 +847,14 @@ export const supabaseHelpers = {
       .single();
   },
 
+  createAffiliateAlias: async ({ code, label, description } = {}) => {
+    return await supabase.rpc('create_affiliate_alias', {
+      p_code: (code || '').trim().toUpperCase(),
+      p_label: label || null,
+      p_description: description || null
+    });
+  },
+
   updateAffiliateCode: async (id, patch = {}) => {
     return await supabase
       .from('affiliate_codes')
@@ -861,18 +869,25 @@ export const supabaseHelpers = {
   },
 
   getAffiliateOwnerSnapshot: async (profileId, { billingMonth, country } = {}) => {
-    const { data: code, error } = await supabase
+    const { data: codes, error } = await supabase
       .from('affiliate_codes')
       .select('*')
       .eq('owner_profile_id', profileId)
       .eq('active', true)
-      .maybeSingle();
-    if (error || !code) return { data: null, error };
+      .order('created_at', { ascending: true });
+    if (error || !(codes || []).length) return { data: null, error };
+
+    const primaryCode = codes[0];
+    const codeIds = codes.map((code) => code.id).filter(Boolean);
+    const codeMap = (codes || []).reduce((acc, item) => {
+      if (item?.id) acc[item.id] = item;
+      return acc;
+    }, {});
 
     const { data: assigned } = await supabase
       .from('profiles')
-      .select('id, first_name, last_name, company_name, store_name, company_id, country, allowed_markets, created_at')
-      .eq('affiliate_code_id', code.id);
+      .select('id, first_name, last_name, company_name, store_name, company_id, country, allowed_markets, created_at, affiliate_code_id')
+      .in('affiliate_code_id', codeIds);
 
     const marketCode = normalizeMarketCode(country);
     const scoped = marketCode
@@ -920,7 +935,7 @@ export const supabaseHelpers = {
           return isInvoiceWithinAffiliateWindow({
             invoiceDate: inv.issue_date || inv.created_at,
             memberCreatedAt: company?.created_at,
-            payoutMonthsLimit: code?.payout_months_limit
+            payoutMonthsLimit: codeMap?.[company?.affiliate_code_id]?.payout_months_limit
           });
         })
         .forEach((inv) => {
@@ -933,9 +948,11 @@ export const supabaseHelpers = {
 
     return {
       data: {
-        code,
+        code: primaryCode,
+        codes,
         members: scoped.map((client) => ({
           ...client,
+          affiliate_code: codeMap?.[client.affiliate_code_id]?.code || '',
           billing_total: client.company_id ? totals[client.company_id] || 0 : 0
         }))
       },
@@ -943,8 +960,11 @@ export const supabaseHelpers = {
     };
   },
 
-  getAffiliateCreditUsage: async ({ companyId, codeId, billingMonth, country } = {}) => {
-    if (!companyId || !codeId) {
+  getAffiliateCreditUsage: async ({ companyId, codeId, codeIds, billingMonth, country } = {}) => {
+    const normalizedCodeIds = Array.from(
+      new Set([...(Array.isArray(codeIds) ? codeIds : []), codeId].filter(Boolean))
+    );
+    if (!companyId || !normalizedCodeIds.length) {
       return { data: { used: 0 }, error: null };
     }
     const matchMonth = createMonthMatcher(billingMonth);
@@ -964,7 +984,9 @@ export const supabaseHelpers = {
     const used = (data || []).reduce((sum, row) => {
       const isAffiliate =
         (row.service || '').toLowerCase().includes('affiliate credit') ||
-        (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${codeId}`);
+        normalizedCodeIds.some((id) =>
+          (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${id}`)
+        );
       if (!isAffiliate) return sum;
       if (!matchMonth(row.service_date || row.created_at)) return sum;
       const total = Number(row.total ?? 0);
