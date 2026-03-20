@@ -982,11 +982,9 @@ export const supabaseHelpers = {
       return { data: { used: 0 }, error };
     }
     const used = (data || []).reduce((sum, row) => {
-      const isAffiliate =
-        (row.service || '').toLowerCase().includes('affiliate credit') ||
-        normalizedCodeIds.some((id) =>
-          (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${id}`)
-        );
+      const isAffiliate = normalizedCodeIds.some((id) =>
+        (row.obs_admin || '').toLowerCase().startsWith(`affiliate_credit:${id}`)
+      );
       if (!isAffiliate) return sum;
       if (!matchMonth(row.service_date || row.created_at)) return sum;
       const total = Number(row.total ?? 0);

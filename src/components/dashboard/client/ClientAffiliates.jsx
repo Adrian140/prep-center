@@ -291,15 +291,16 @@ export default function ClientAffiliates() {
     setAliasSubmitting(true);
     setAliasFlash(null);
     try {
-      const { error: createError } = await supabaseHelpers.createAffiliateAlias({
-        code: nextCode
+      const { error: requestError } = await supabaseHelpers.createAffiliateRequest({
+        profile_id: profile?.id,
+        preferred_code: nextCode,
+        notes: t('ClientAffiliates.alias.requestNote')
       });
-      if (createError) throw createError;
+      if (requestError) throw requestError;
       setAliasCode('');
       setAliasFlash({ type: 'success', message: t('ClientAffiliates.alias.success') });
-      await loadState();
     } catch (err) {
-      console.error('create affiliate alias', err);
+      console.error('request affiliate alias', err);
       setAliasFlash({
         type: 'error',
         message: err.message || t('ClientAffiliates.alias.errorGeneric')

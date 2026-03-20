@@ -913,16 +913,17 @@
         "inactive": "Paused"
       },
       "alias": {
-        "title": "Additional referral code",
-        "description": "Create another public code under the same affiliate account. Billing and commission stay on the same account.",
+        "title": "Request a new public code",
+        "description": "Send a request for another public code under the same affiliate account. Our team will review it and configure the payout settings.",
         "listTitle": "Other active codes",
         "placeholder": "E.g. SCORASIN10",
         "generate": "Suggest code",
-        "submit": "Create code",
-        "submitting": "Creating…",
-        "success": "Referral code created.",
+        "submit": "Send request",
+        "submitting": "Sending…",
+        "success": "Request sent to our team.",
         "errorRequired": "Enter a code.",
-        "errorGeneric": "Could not create the referral code. Please try again."
+        "errorGeneric": "Could not send the request. Please try again.",
+        "requestNote": "Additional affiliate code request from existing affiliate owner."
       },
       "rules": {
         "title": "Payout rules",
@@ -2300,16 +2301,17 @@
         "inactive": "En pause"
       },
       "alias": {
-        "title": "Code de parrainage supplémentaire",
-        "description": "Créez un autre code public sous le même compte d’affiliation. La facturation et la commission restent sur le même compte.",
+        "title": "Demander un nouveau code public",
+        "description": "Envoyez une demande pour un autre code public sous le même compte d’affiliation. Notre équipe le validera et configurera les règles de rémunération.",
         "listTitle": "Autres codes actifs",
         "placeholder": "Ex. SCORASIN10",
         "generate": "Suggérer un code",
-        "submit": "Créer le code",
-        "submitting": "Création…",
-        "success": "Le code de parrainage a été créé.",
+        "submit": "Envoyer la demande",
+        "submitting": "Envoi…",
+        "success": "La demande a été envoyée à notre équipe.",
         "errorRequired": "Saisissez un code.",
-        "errorGeneric": "Impossible de créer le code de parrainage. Veuillez réessayer."
+        "errorGeneric": "Impossible d’envoyer la demande. Veuillez réessayer.",
+        "requestNote": "Demande de code d’affiliation supplémentaire d’un affilié existant."
       },
       "rules": {
         "title": "Règles de paiement",
