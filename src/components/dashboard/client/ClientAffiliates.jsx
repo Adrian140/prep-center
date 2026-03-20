@@ -67,6 +67,16 @@ const normalizeTiers = (tiers) => {
     .sort((a, b) => a.min_amount - b.min_amount);
 };
 
+const hasStandardBonusOffer = (code) => {
+  if (!code) return false;
+  const payoutType = code.payout_type || 'percentage';
+  const threshold = Number(code.threshold_amount || 0);
+  const fixedAmount = Number(code.fixed_amount || 0);
+  const monthsLimit = Number(code.payout_months_limit || 0);
+  const tiers = normalizeTiers(code.payout_tiers);
+  return payoutType === 'threshold' && threshold === 1000 && fixedAmount === 100 && monthsLimit === 3 && tiers.length === 0;
+};
+
 export default function ClientAffiliates() {
   const { profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
@@ -116,6 +126,10 @@ export default function ClientAffiliates() {
   const hasExpandedCard = useMemo(
     () => Object.values(expandedByMarket || {}).some(Boolean),
     [expandedByMarket]
+  );
+  const hasExpandedStandardOfferCard = useMemo(
+    () => marketCards.some((card) => expandedByMarket?.[card.key] && hasStandardBonusOffer(card.code)),
+    [expandedByMarket, marketCards]
   );
   const pendingRequest = clientStatus?.request || null;
 
@@ -475,7 +489,7 @@ export default function ClientAffiliates() {
         </div>
       )}
 
-      {hasCode && hasExpandedCard && (
+      {hasCode && hasExpandedCard && hasExpandedStandardOfferCard && (
         <div className="p-3 border rounded-xl bg-blue-50/80 text-sm text-text-secondary">
           {t('ClientAffiliates.rules.bonus')}
         </div>
@@ -681,7 +695,9 @@ export default function ClientAffiliates() {
                   <p className="text-xs uppercase tracking-wide text-text-secondary">
                     {t('ClientAffiliates.rules.title')}
                   </p>
-                  <p className="text-sm text-text-secondary">{t('ClientAffiliates.rules.bonus')}</p>
+                  {hasStandardBonusOffer(code) && (
+                    <p className="text-sm text-text-secondary">{t('ClientAffiliates.rules.bonus')}</p>
+                  )}
                   <PayoutSummary code={code} />
                 </div>
 
