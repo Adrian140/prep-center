@@ -166,9 +166,6 @@ function renderHtml(payload: Payload) {
       <p style="margin:0 0 12px 0">
         Hello${payload.client_name ? ` ${escapeHtml(payload.client_name)}` : ""}${payload.company_name ? `, ${escapeHtml(`(${payload.company_name})`)}` : ""},
       </p>
-      <p style="margin:0 0 12px 0">
-        Your return preparation has been completed and it is now waiting to be handed over to a courier or to a collection point.
-      </p>
 
       <div style="margin:12px 0 14px 0;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#f8fafc">
         <div style="font-weight:600;margin-bottom:6px">English</div>
@@ -209,7 +206,8 @@ function renderHtml(payload: Payload) {
       <p style="margin:16px 0 0 0">Thank you!</p>
 
       <div style="margin-top:22px;border-top:1px solid #eee;padding-top:12px;font-size:12px;color:#6b7280">
-        Prep Center · contact@prep-center.eu
+        <div>Prep Center France · contact@prep-center.eu</div>
+        <div style="margin-top:4px">Prep Center Germany · logistics.de@prep-center.eu</div>
       </div>
     </div>
   `;

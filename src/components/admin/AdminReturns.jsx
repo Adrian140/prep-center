@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X, Mail } from 'lucide-react';
 import Section from '../common/Section';
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
@@ -39,6 +39,12 @@ const buildReturnGroupLabel = (items = []) => {
   );
   return `Retur ${asins.join(',') || '-'}`;
 };
+const todayLocalStr = () => {
+  const d = new Date();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+};
 
 export default function AdminReturns({
   reload,
@@ -61,6 +67,8 @@ export default function AdminReturns({
   const [editNotes, setEditNotes] = useState('');
   const [editItems, setEditItems] = useState({});
   const [serviceDrafts, setServiceDrafts] = useState({});
+  const [sendingMailId, setSendingMailId] = useState(null);
+  const [sendingTodayMails, setSendingTodayMails] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -376,7 +384,44 @@ export default function AdminReturns({
     if (mailError) {
       console.error('Failed to send return done email', mailError);
       alert(`Returul a fost marcat done, dar emailul nu a fost trimis: ${mailError.message || mailError}`);
+      return false;
     }
+    return true;
+  };
+
+  const sendManualDoneEmail = async (row) => {
+    if (row?.status !== 'done') {
+      alert('Emailul manual se poate trimite doar pentru retururi marcate done.');
+      return;
+    }
+    setSendingMailId(row.id);
+    try {
+      const ok = await sendDoneNotification(row, row);
+      if (ok) {
+        alert('Email trimis.');
+      }
+    } finally {
+      setSendingMailId(null);
+    }
+  };
+
+  const sendDoneEmailsForToday = async () => {
+    const today = todayLocalStr();
+    const doneTodayRows = rows.filter((row) => row?.status === 'done' && String(row?.done_at || '').slice(0, 10) === today);
+    if (!doneTodayRows.length) {
+      alert(`Nu există retururi done pentru ${today}.`);
+      return;
+    }
+    setSendingTodayMails(true);
+    let sent = 0;
+    let failed = 0;
+    for (const row of doneTodayRows) {
+      const ok = await sendDoneNotification(row, row);
+      if (ok) sent += 1;
+      else failed += 1;
+    }
+    setSendingTodayMails(false);
+    alert(`Email done today finalizat. Trimise: ${sent}. Eșuate: ${failed}. Data: ${today}.`);
   };
 
   const updateStatus = async (row, status) => {
@@ -611,6 +656,14 @@ export default function AdminReturns({
             disabled={loading}
           >
             <RefreshCcw className="w-4 h-4" /> Reîmprospătează
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm border rounded"
+            onClick={sendDoneEmailsForToday}
+            disabled={sendingTodayMails}
+          >
+            <Mail className="w-4 h-4" /> {sendingTodayMails ? 'Se trimite...' : 'Email done today'}
           </button>
           {canSelectForBilling && (
             <button
@@ -1021,6 +1074,15 @@ export default function AdminReturns({
                         >
                           <ArrowDownRight className="w-4 h-4" /> Done
                         </button>
+                        {r.status === 'done' && (
+                          <button
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border rounded"
+                            onClick={() => sendManualDoneEmail(r)}
+                            disabled={sendingMailId === r.id}
+                          >
+                            <Mail className="w-4 h-4" /> {sendingMailId === r.id ? 'Se trimite...' : 'Trimite email'}
+                          </button>
+                        )}
                         <button
                           className="inline-flex items-center gap-1 px-3 py-1.5 text-xs border border-red-200 text-red-700 rounded hover:bg-red-50"
                           onClick={() => handleDelete(r.id)}
