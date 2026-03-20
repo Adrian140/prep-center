@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X } from 'lucide-react';
 import Section from '../common/Section';
-import { supabase } from '../../config/supabase';
+import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
 import { buildPrepQtyPatch, getPrepQtyForMarket } from '@/utils/marketStock';
@@ -329,8 +329,59 @@ export default function AdminReturns({
     }
   };
 
+  const collectReturnTrackingIds = (row) =>
+    Array.from(
+      new Set(
+        (Array.isArray(row?.return_service_lines) ? row.return_service_lines : [])
+          .map((line) => String(line?.transport_tracking_id || '').trim())
+          .filter(Boolean)
+      )
+    );
+
+  const sendDoneNotification = async (row, nextRow) => {
+    const clientEmail = String(nextRow?.profile?.email || row?.profile?.email || '').trim();
+    if (!clientEmail) return;
+    const trackingIds = collectReturnTrackingIds(nextRow);
+    const clientName =
+      [
+        nextRow?.profile?.first_name || row?.profile?.first_name || '',
+        nextRow?.profile?.last_name || row?.profile?.last_name || ''
+      ]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+        .join(' ') || null;
+    const companyName =
+      nextRow?.profile?.company_name ||
+      nextRow?.profile?.store_name ||
+      row?.profile?.company_name ||
+      row?.profile?.store_name ||
+      null;
+    const items = (Array.isArray(nextRow?.return_items) ? nextRow.return_items : []).map((item) => ({
+      asin: item?.asin || null,
+      sku: item?.sku || null,
+      qty: Number(item?.qty || 0) || 0,
+      stock_item: item?.stock_item || null,
+    }));
+
+    const { error: mailError } = await supabaseHelpers.sendReturnDoneEmail({
+      return_id: nextRow?.id || row?.id,
+      email: clientEmail,
+      client_name: clientName,
+      company_name: companyName,
+      marketplace: nextRow?.marketplace || row?.marketplace || null,
+      note: nextRow?.notes || row?.notes || null,
+      tracking_ids: trackingIds,
+      items,
+    });
+    if (mailError) {
+      console.error('Failed to send return done email', mailError);
+      alert(`Returul a fost marcat done, dar emailul nu a fost trimis: ${mailError.message || mailError}`);
+    }
+  };
+
   const updateStatus = async (row, status) => {
     setSavingId(row.id);
+    const isTransitionToDone = status === 'done' && row.status !== 'done';
     const patch = {
       status,
       updated_at: new Date().toISOString(),
@@ -357,6 +408,13 @@ export default function AdminReturns({
         r.id === row.id ? { ...r, ...patch, stock_adjusted: r.stock_adjusted || patch.stock_adjusted } : r
       )
     );
+    if (isTransitionToDone) {
+      await sendDoneNotification(row, {
+        ...row,
+        ...patch,
+        stock_adjusted: row.stock_adjusted || patch.stock_adjusted,
+      });
+    }
     setSavingId(null);
   };
 

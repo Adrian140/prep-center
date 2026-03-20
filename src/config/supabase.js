@@ -2057,6 +2057,17 @@ createPrepItem: async (requestId, item) => {
     }
   },
 
+  sendReturnDoneEmail: async (payload) => {
+    try {
+      const { error } = await supabase.functions.invoke('send_return_done_email', {
+        body: payload,
+      });
+      return { error: error || null };
+    } catch (error) {
+      return { error };
+    }
+  },
+
   sendInvoiceEmail: async (payload, pdfBlob) => {
     try {
       const attachmentBase64 = pdfBlob ? await blobToBase64(pdfBlob) : '';
