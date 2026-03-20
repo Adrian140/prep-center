@@ -79,7 +79,7 @@ export default function ClientAffiliates() {
   const [submitting, setSubmitting] = useState(false);
   const [flash, setFlash] = useState(null);
   const [copied, setCopied] = useState('');
-  const [creditUsageByMarket, setCreditUsageByMarket] = useState({});
+  const [creditUsageByCodeMarket, setCreditUsageByCodeMarket] = useState({});
   const [creditAmounts, setCreditAmounts] = useState({});
   const [creditLoadingByMarket, setCreditLoadingByMarket] = useState({});
   const [creditFlashByMarket, setCreditFlashByMarket] = useState({});
@@ -95,27 +95,31 @@ export default function ClientAffiliates() {
   const [billingMonth, setBillingMonth] = useState(currentMonth);
 
   const marketsToShow = useMemo(() => Object.keys(MARKETS), []);
-  const ownerCode = useMemo(() => {
-    for (const market of marketsToShow) {
-      const code = ownerSnapshots?.[market]?.code;
-      if (code) return code;
-    }
-    return null;
-  }, [ownerSnapshots, marketsToShow]);
-  const payoutCode = ownerCode || null;
-  const payoutTiers = useMemo(
-    () => normalizeTiers(payoutCode?.payout_tiers || []),
-    [payoutCode?.payout_tiers]
+  const marketCards = useMemo(
+    () =>
+      marketsToShow.flatMap((market) => {
+        const snapshot = ownerSnapshots?.[market];
+        const codes = Array.isArray(snapshot?.codes) ? snapshot.codes : [];
+        return codes.map((code, index) => ({
+          key: `${market}:${code.id}`,
+          market,
+          code,
+          isPrimary: index === 0,
+          snapshot,
+          members: (snapshot?.members || []).filter((member) => member.affiliate_code_id === code.id)
+        }));
+      }),
+    [ownerSnapshots, marketsToShow]
   );
 
-  const hasCode = !!payoutCode;
-  const payoutType = payoutCode?.payout_type || 'percentage';
+  const hasCode = marketCards.length > 0;
   const pendingRequest = clientStatus?.request || null;
 
-  const resolvePercent = (amount) => {
+  const resolvePercent = (code, amount) => {
+    const payoutTiers = normalizeTiers(code?.payout_tiers || []);
     const base =
-      Number(payoutCode?.percent_below_threshold || 0) ||
-      Number(payoutCode?.percent_above_threshold || 0) ||
+      Number(code?.percent_below_threshold || 0) ||
+      Number(code?.percent_above_threshold || 0) ||
       0;
     if (payoutTiers.length === 0) return base;
     let percent = base;
@@ -127,22 +131,22 @@ export default function ClientAffiliates() {
     return percent;
   };
 
-  const buildMembers = (snapshot) => {
-    if (!snapshot?.members || !payoutCode) return [];
-    const type = payoutCode.payout_type || 'percentage';
-    const mapped = snapshot.members.map((member) => {
+  const buildMembers = (code, members = []) => {
+    if (!code || !Array.isArray(members)) return [];
+    const type = code.payout_type || 'percentage';
+    const mapped = members.map((member) => {
       const billed = Number(member.billing_total || 0);
       let payout = 0;
       let percent = 0;
       let thresholdMeta = null;
       if (type === 'threshold') {
-        const threshold = Number(payoutCode.threshold_amount || 0);
-        const fixed = Number(payoutCode.fixed_amount || 0);
+        const threshold = Number(code.threshold_amount || 0);
+        const fixed = Number(code.fixed_amount || 0);
         const reached = threshold > 0 && billed >= threshold;
         payout = reached ? fixed : 0;
         thresholdMeta = { threshold, fixed, reached };
       } else {
-        percent = resolvePercent(billed);
+        percent = resolvePercent(code, billed);
         payout = (billed * percent) / 100;
       }
       return {
@@ -204,22 +208,27 @@ export default function ClientAffiliates() {
       if (profile?.company_id && ownerCodeIds.length > 0) {
         const credits = {};
         const creditResults = await Promise.all(
-          marketsToShow.map((market) =>
+          ownerCodeIds.flatMap((codeId) =>
+            marketsToShow.map((market) =>
             supabaseHelpers.getAffiliateCreditUsage({
               companyId: profile.company_id,
-              codeIds: ownerCodeIds,
+              codeId,
               billingMonth: billingMonth || null,
               country: market
             })
+            )
           )
         );
-        creditResults.forEach((res, idx) => {
-          const market = marketsToShow[idx];
-          credits[market] = Number(res?.data?.used || 0);
+        let idx = 0;
+        ownerCodeIds.forEach((codeId) => {
+          marketsToShow.forEach((market) => {
+            credits[`${market}:${codeId}`] = Number(creditResults[idx]?.data?.used || 0);
+            idx += 1;
+          });
         });
-        setCreditUsageByMarket(credits);
+        setCreditUsageByCodeMarket(credits);
       } else {
-        setCreditUsageByMarket({});
+        setCreditUsageByCodeMarket({});
       }
       setStatus('ready');
     } catch (err) {
@@ -300,13 +309,13 @@ export default function ClientAffiliates() {
     }
   };
 
-  const handleRedeemCredit = async (market, availableCredit) => {
-    const raw = String(creditAmounts[market] || '').replace(',', '.');
+  const handleRedeemCredit = async (cardKey, market, availableCredit) => {
+    const raw = String(creditAmounts[cardKey] || '').replace(',', '.');
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0) {
       setCreditFlashByMarket((prev) => ({
         ...prev,
-        [market]: { type: 'error', message: t('ClientAffiliates.credit.errorAmount') }
+        [cardKey]: { type: 'error', message: t('ClientAffiliates.credit.errorAmount') }
       }));
       return;
     }
@@ -315,7 +324,7 @@ export default function ClientAffiliates() {
     if (value > roundedAvailable + 0.009) {
       setCreditFlashByMarket((prev) => ({
         ...prev,
-        [market]: {
+        [cardKey]: {
           type: 'error',
           message: tp('ClientAffiliates.credit.errorMax', {
             amount: euroFormatter.format(roundedAvailable)
@@ -324,8 +333,8 @@ export default function ClientAffiliates() {
       }));
       return;
     }
-    setCreditLoadingByMarket((prev) => ({ ...prev, [market]: true }));
-    setCreditFlashByMarket((prev) => ({ ...prev, [market]: null }));
+    setCreditLoadingByMarket((prev) => ({ ...prev, [cardKey]: true }));
+    setCreditFlashByMarket((prev) => ({ ...prev, [cardKey]: null }));
     try {
       const { data, error } = await supabaseHelpers.redeemAffiliateCredit({
         amount: value,
@@ -336,10 +345,10 @@ export default function ClientAffiliates() {
       }
       const payload = Array.isArray(data) ? data[0] : data;
       const applied = payload?.applied ?? Math.min(value, roundedAvailable);
-      setCreditAmounts((prev) => ({ ...prev, [market]: '' }));
+      setCreditAmounts((prev) => ({ ...prev, [cardKey]: '' }));
       setCreditFlashByMarket((prev) => ({
         ...prev,
-        [market]: {
+        [cardKey]: {
           type: 'success',
           message: tp('ClientAffiliates.credit.success', {
             amount: euroFormatter.format(applied)
@@ -351,13 +360,13 @@ export default function ClientAffiliates() {
       console.error('redeem affiliate credit', err);
       setCreditFlashByMarket((prev) => ({
         ...prev,
-        [market]: {
+        [cardKey]: {
           type: 'error',
           message: err.message || t('ClientAffiliates.credit.errorApply')
         }
       }));
     } finally {
-      setCreditLoadingByMarket((prev) => ({ ...prev, [market]: false }));
+      setCreditLoadingByMarket((prev) => ({ ...prev, [cardKey]: false }));
     }
   };
 
@@ -428,21 +437,21 @@ export default function ClientAffiliates() {
 
       {hasCode ? (
         <div className="space-y-8">
-          {marketsToShow.map((market) => {
-            const snapshot = ownerSnapshots?.[market];
-            if (!snapshot?.code) return null;
-            const members = buildMembers(snapshot);
+          {marketCards.map((card) => {
+            const { market, code, members: rawMembers, isPrimary } = card;
+            const members = buildMembers(code, rawMembers);
             const totalsRaw = buildTotals(members);
             const totals = {
               ...totalsRaw,
               billed: round2(totalsRaw.billed),
               payout: round2(totalsRaw.payout)
             };
-            const creditUsed = Number(creditUsageByMarket?.[market] || 0);
+            const cardKey = `${market}:${code.id}`;
+            const creditUsed = Number(creditUsageByCodeMarket?.[cardKey] || 0);
             const availableCredit = Math.max(round2((totals.payout || 0) - creditUsed), 0);
-            const creditAmount = creditAmounts?.[market] || '';
-            const creditLoading = Boolean(creditLoadingByMarket?.[market]);
-            const creditFlash = creditFlashByMarket?.[market] || null;
+            const creditAmount = creditAmounts?.[cardKey] || '';
+            const creditLoading = Boolean(creditLoadingByMarket?.[cardKey]);
+            const creditFlash = creditFlashByMarket?.[cardKey] || null;
             const marketMeta = MARKETS[market] || { name: market, flag: '' };
             const localizedMarketName =
               MARKET_LABELS[currentLanguage]?.[market] ||
@@ -450,14 +459,11 @@ export default function ClientAffiliates() {
               marketMeta.name;
             const positiveMembers = members.filter((member) => Number(member.payout || 0) > 0);
             const zeroMembers = members.filter((member) => Number(member.payout || 0) <= 0);
-            const showAllMembers = Boolean(showAllMembersByMarket?.[market]);
+            const showAllMembers = Boolean(showAllMembersByMarket?.[cardKey]);
             const visibleMembers = showAllMembers ? members : positiveMembers;
-            const isExpanded = Boolean(expandedByMarket?.[market]);
-            const ownerCodes = Array.isArray(snapshot?.codes) ? snapshot.codes : [];
-            const primaryCode = ownerCodes[0] || snapshot.code;
-            const secondaryCodes = ownerCodes.slice(1);
+            const isExpanded = Boolean(expandedByMarket?.[cardKey]);
             return (
-              <div key={market} className="border rounded-2xl p-5 space-y-5 bg-white">
+              <div key={cardKey} className="border rounded-2xl p-5 space-y-5 bg-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <span className="text-xl">{marketMeta.flag}</span>
@@ -467,7 +473,7 @@ export default function ClientAffiliates() {
                     type="button"
                     className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-lg text-text-secondary hover:text-text-primary hover:border-text-primary/40 transition-colors"
                     onClick={() =>
-                      setExpandedByMarket((prev) => ({ ...prev, [market]: !prev?.[market] }))
+                      setExpandedByMarket((prev) => ({ ...prev, [cardKey]: !prev?.[cardKey] }))
                     }
                   >
                     {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -484,20 +490,20 @@ export default function ClientAffiliates() {
                         {t('ClientAffiliates.codeCard.title')}
                       </p>
                       <div className="flex items-center justify-between mt-2 gap-3">
-                        <span className="text-2xl font-semibold break-all">{primaryCode?.code}</span>
+                        <span className="text-2xl font-semibold break-all">{code?.code}</span>
                         <button
                           type="button"
-                          onClick={() => handleCopyValue(primaryCode?.code, `${market}-code`)}
+                          onClick={() => handleCopyValue(code?.code, `${cardKey}-code`)}
                           className="text-sm text-primary flex items-center gap-1 shrink-0"
                         >
-                          {copied === `${market}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
-                          {copied === `${market}-code`
+                          {copied === `${cardKey}-code` ? <ClipboardCheck className="w-4 h-4" /> : <Clipboard className="w-4 h-4" />}
+                          {copied === `${cardKey}-code`
                             ? t('ClientAffiliates.codeCard.copied')
                             : t('ClientAffiliates.codeCard.copy')}
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-text-secondary">
-                        {primaryCode?.active
+                        {code?.active
                           ? t('ClientAffiliates.codeCard.active')
                           : t('ClientAffiliates.codeCard.inactive')}
                       </p>
@@ -508,82 +514,36 @@ export default function ClientAffiliates() {
                         {t('ClientAffiliates.codeCard.linkLabel')}
                       </p>
                       <a
-                        href={buildAffiliateLink(primaryCode?.code)}
+                        href={buildAffiliateLink(code?.code)}
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 block break-all text-xs text-primary hover:underline"
                       >
-                        {buildAffiliateLink(primaryCode?.code)}
+                        {buildAffiliateLink(code?.code)}
                       </a>
                       <button
                         type="button"
                         onClick={() =>
                           handleCopyValue(
-                            buildAffiliateLink(primaryCode?.code),
-                            `${market}-link`
+                            buildAffiliateLink(code?.code),
+                            `${cardKey}-link`
                           )
                         }
                         className="mt-2 text-xs text-primary inline-flex items-center gap-1"
                       >
-                        {copied === `${market}-link` ? <ClipboardCheck className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
-                        {copied === `${market}-link`
+                        {copied === `${cardKey}-link` ? <ClipboardCheck className="w-3.5 h-3.5" /> : <Clipboard className="w-3.5 h-3.5" />}
+                        {copied === `${cardKey}-link`
                           ? t('ClientAffiliates.codeCard.copied')
                           : t('ClientAffiliates.codeCard.copyLink')}
                       </button>
                     </div>
-
-                    {secondaryCodes.length > 0 && (
-                      <div className="space-y-2">
-                        <p className="text-xs uppercase tracking-wide text-text-secondary">
-                          {t('ClientAffiliates.alias.listTitle')}
-                        </p>
-                        <div className="space-y-2">
-                          {secondaryCodes.map((code) => (
-                            <div
-                              key={code.id}
-                              className="rounded-lg border border-slate-200 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-                            >
-                              <div>
-                                <p className="font-medium text-text-primary">{code.code}</p>
-                                <p className="text-xs text-text-secondary">
-                                  {buildAffiliateLink(code.code)}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleCopyValue(code.code, `${market}-${code.id}-code`)}
-                                  className="text-xs text-primary inline-flex items-center gap-1"
-                                >
-                                  <Clipboard className="w-3.5 h-3.5" />
-                                  {t('ClientAffiliates.codeCard.copy')}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleCopyValue(
-                                      buildAffiliateLink(code.code),
-                                      `${market}-${code.id}-link`
-                                    )
-                                  }
-                                  className="text-xs text-primary inline-flex items-center gap-1"
-                                >
-                                  <Clipboard className="w-3.5 h-3.5" />
-                                  {t('ClientAffiliates.codeCard.copyLink')}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
                     <div>
                       <p className="text-xs uppercase tracking-wide text-text-secondary">
                         {t('ClientAffiliates.rules.title')}
                       </p>
                       <p className="text-sm text-text-secondary mt-1">{t('ClientAffiliates.rules.bonus')}</p>
-                      <PayoutSummary code={snapshot.code} />
+                      <PayoutSummary code={code} />
                     </div>
                   </div>
 
@@ -667,6 +627,7 @@ export default function ClientAffiliates() {
 
                 {isExpanded && (
                   <>
+                {isPrimary && (
                 <div className="border-t pt-5 space-y-3">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-text-secondary">
@@ -713,7 +674,9 @@ export default function ClientAffiliates() {
                     </div>
                   )}
                 </div>
+                )}
 
+                {isPrimary && (
                 <div className="border-t pt-5 space-y-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs uppercase tracking-wide text-text-secondary">
@@ -742,7 +705,7 @@ export default function ClientAffiliates() {
                         placeholder={t('ClientAffiliates.credit.amountPh')}
                         value={creditAmount}
                         onChange={(e) =>
-                          setCreditAmounts((prev) => ({ ...prev, [market]: e.target.value }))
+                          setCreditAmounts((prev) => ({ ...prev, [cardKey]: e.target.value }))
                         }
                         disabled={creditLoading || availableCredit <= 0}
                       />
@@ -750,7 +713,7 @@ export default function ClientAffiliates() {
                         type="button"
                         className="px-4 py-2 bg-primary text-white rounded-lg disabled:opacity-50"
                         disabled={creditLoading || availableCredit <= 0}
-                        onClick={() => handleRedeemCredit(market, availableCredit)}
+                        onClick={() => handleRedeemCredit(cardKey, market, availableCredit)}
                       >
                         {creditLoading
                           ? t('ClientAffiliates.credit.applying')
@@ -763,9 +726,9 @@ export default function ClientAffiliates() {
                         onClick={() => {
                           setCreditAmounts((prev) => ({
                             ...prev,
-                            [market]: String(availableCredit.toFixed(2))
+                            [cardKey]: String(availableCredit.toFixed(2))
                           }));
-                          handleRedeemCredit(market, availableCredit);
+                          handleRedeemCredit(cardKey, market, availableCredit);
                         }}
                       >
                         {t('ClientAffiliates.credit.applyAll') || 'Apply all'}
@@ -787,6 +750,7 @@ export default function ClientAffiliates() {
                     </div>
                   )}
                 </div>
+                )}
 
                 <div className="border-t pt-5">
                   <div className="flex items-center gap-2 mb-3">
@@ -817,11 +781,11 @@ export default function ClientAffiliates() {
                                 {euroFormatter.format(member.billing_total)}
                               </strong>
                             </span>
-                            {payoutType === 'threshold' ? (
+                            {(code?.payout_type || 'percentage') === 'threshold' ? (
                               member.thresholdMeta?.reached ? (
                                 <span className="text-text-primary font-semibold">
                                   {tp('ClientAffiliates.members.thresholdReached', {
-                                    payout: euroFormatter.format(member.payout || Number(payoutCode?.fixed_amount || 0))
+                                    payout: euroFormatter.format(member.payout || Number(code?.fixed_amount || 0))
                                   })}
                                 </span>
                               ) : member.thresholdMeta?.threshold ? (
@@ -852,7 +816,7 @@ export default function ClientAffiliates() {
                       type="button"
                       className="mt-3 text-sm text-primary underline"
                       onClick={() =>
-                        setShowAllMembersByMarket((prev) => ({ ...prev, [market]: true }))
+                        setShowAllMembersByMarket((prev) => ({ ...prev, [cardKey]: true }))
                       }
                     >
                       {t('ClientAffiliates.members.seeAll') || 'See all'}
