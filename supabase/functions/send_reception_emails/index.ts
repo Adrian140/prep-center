@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,6 +74,14 @@ const FROM_EMAIL =
   Deno.env.get("RESEND_FROM") ??
   Deno.env.get("FROM_EMAIL") ??
   "";
+const SMTP_HOST = Deno.env.get("SMTP_HOST") ?? "";
+const SMTP_PORT = Number(Deno.env.get("SMTP_PORT") ?? "465");
+const SMTP_USER = Deno.env.get("SMTP_USER") ?? "";
+const SMTP_PASSWORD = Deno.env.get("SMTP_PASSWORD") ?? "";
+const SMTP_SECURE = ["1", "true", "yes", "on"].includes(
+  String(Deno.env.get("SMTP_SECURE") ?? "").trim().toLowerCase(),
+);
+const SMTP_FROM_NAME = Deno.env.get("SMTP_FROM_NAME") ?? "Prep Center";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
@@ -377,6 +386,35 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
 }
 
 async function sendEmail(to: string, subject: string, html: string) {
+  const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASSWORD && FROM_EMAIL);
+  if (smtpConfigured) {
+    const client = new SMTPClient({
+      connection: {
+        hostname: SMTP_HOST,
+        port: Number.isFinite(SMTP_PORT) && SMTP_PORT > 0 ? SMTP_PORT : 465,
+        tls: SMTP_SECURE || SMTP_PORT === 465,
+        auth: {
+          username: SMTP_USER,
+          password: SMTP_PASSWORD,
+        },
+      },
+    });
+
+    try {
+      await client.send({
+        from: `${SMTP_FROM_NAME} <${FROM_EMAIL}>`,
+        to,
+        subject,
+        content: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+        html,
+      });
+      console.info("send_reception_emails smtp sent", { to, subject });
+      return;
+    } finally {
+      await client.close();
+    }
+  }
+
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -395,6 +433,7 @@ async function sendEmail(to: string, subject: string, html: string) {
     const errText = await resp.text();
     throw new Error(`Resend failed: ${resp.status} ${errText}`);
   }
+  console.info("send_reception_emails resend sent", { to, subject });
 }
 
 async function markQueueHandled(shipmentId: string, snapshot: Snapshot | null) {
@@ -425,9 +464,11 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (!RESEND_API_KEY || !FROM_EMAIL) {
+  const smtpConfigured = !!(SMTP_HOST && SMTP_USER && SMTP_PASSWORD && FROM_EMAIL);
+  const resendConfigured = !!(RESEND_API_KEY && FROM_EMAIL);
+  if (!smtpConfigured && !resendConfigured) {
     return new Response(
-      JSON.stringify({ error: "Missing RESEND_API_KEY or PREP_FROM_EMAIL" }),
+      JSON.stringify({ error: "Missing SMTP or Resend configuration" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
