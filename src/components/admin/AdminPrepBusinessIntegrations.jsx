@@ -153,7 +153,7 @@ export default function AdminPrepBusinessIntegrations() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
-  const [openPanel, setOpenPanel] = useState('profitPath');
+  const [openPanel, setOpenPanel] = useState('');
 
   const [profilesById, setProfilesById] = useState({});
   const [prepRowsByUser, setPrepRowsByUser] = useState({});

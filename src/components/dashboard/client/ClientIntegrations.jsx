@@ -198,7 +198,7 @@ export default function ClientIntegrations() {
     ups: true,
     qogita: true
   });
-  const [openIntegration, setOpenIntegration] = useState('ups');
+  const [openIntegration, setOpenIntegration] = useState('');
 
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
@@ -385,7 +385,6 @@ export default function ClientIntegrations() {
   }, []);
 
   useEffect(() => {
-    const order = ['amazon', 'etsy', 'profit-path', 'arbitrage-one', 'ups', 'qogita'];
     const map = {
       amazon: visibility.amazon,
       etsy: visibility.etsy,
@@ -396,8 +395,7 @@ export default function ClientIntegrations() {
     };
     if (!openIntegration) return;
     if (map[openIntegration]) return;
-    const firstVisible = order.find((id) => map[id]);
-    if (firstVisible) setOpenIntegration(firstVisible);
+    setOpenIntegration('');
   }, [visibility, openIntegration]);
 
   const removeIntegration = async (id) => {
