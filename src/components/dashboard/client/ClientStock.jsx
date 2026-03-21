@@ -22,6 +22,7 @@ import { getKeepaMainImage } from '@/utils/keepaClient';
 import UserGuidePlayer from '@/components/common/UserGuidePlayer';
 import { useMarket } from '@/contexts/MarketContext';
 import { buildPrepQtyPatch, mapStockRowsForMarket } from '@/utils/marketStock';
+import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const isBadImageUrl = (url) => {
   if (!url) return true;
@@ -857,6 +858,7 @@ export default function ClientStock({
   enableQtyAdjust = false
 } = {}) {
   const { t, tp } = useDashboardTranslation();
+  const { t: et } = useEtsyI18n();
   const tr = useCallback(
     (key, fallback) => {
       const value = t(key);
@@ -3438,28 +3440,44 @@ const saveReqChanges = async () => {
       )}
       {(etsyListings.length > 0 || etsyOrders) && (
         <div className="mt-1 rounded border border-orange-200 bg-orange-50 px-2 py-2 text-[11px] text-orange-900">
-          <div className="font-semibold">Product Etsy</div>
+          <div className="font-semibold">{et('product.title')}</div>
           {etsyListings.length > 0 && (
             <div className="mt-1">
-              Listings: {etsyListings.map((row) => `${row.shop_name || 'Shop'} #${row.listing_id} (${row.state || 'active'})`).join(' · ')}
+              {et('product.listings', {
+                value: etsyListings.map((row) => `${row.shop_name || 'Shop'} #${row.listing_id} (${row.state || 'active'})`).join(' · ')
+              })}
             </div>
           )}
           {etsyOrders && (
             <>
               <div className="mt-1">
-                Orders: {etsyOrders.totalOrders || 0} · Units sold: {etsyOrders.totalUnits || 0}
+                {et('product.orders', {
+                  orders: etsyOrders.totalOrders || 0,
+                  units: etsyOrders.totalUnits || 0
+                })}
               </div>
               <div className="mt-1 space-y-1">
                 {etsyOrders.recent.map((row, index) => (
                   <div key={`${r.id}-etsy-${row.receipt_id || index}`} className="rounded border border-orange-100 bg-white px-2 py-1">
                     <div>
-                      Receipt {row.receipt_id || '—'} · {row.shop_name || 'Etsy'} · {row.status || '—'}
+                      {et('product.receipt', {
+                        receipt: row.receipt_id || '—',
+                        shop: row.shop_name || 'Etsy',
+                        status: row.status || '—'
+                      })}
                     </div>
                     <div>
-                      Qty {row.quantity || 0} · Track ID {row.tracking_code || '—'} · {row.tracking_status || 'No tracking status'}
+                      {et('product.tracking', {
+                        qty: row.quantity || 0,
+                        tracking: row.tracking_code || '—',
+                        trackingStatus: row.tracking_status || et('product.noTrackingStatus')
+                      })}
                     </div>
                     <div className="text-[10px] text-orange-700">
-                      Created {formatShortDateTime(row.order_created_at) || '—'} · Shipped {formatShortDateTime(row.shipped_at) || '—'}
+                      {et('product.dates', {
+                        created: formatShortDateTime(row.order_created_at) || '—',
+                        shipped: formatShortDateTime(row.shipped_at) || '—'
+                      })}
                     </div>
                   </div>
                 ))}

@@ -5,6 +5,7 @@ import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import ClientUpsIntegration from './ClientUpsIntegration';
 import ClientEtsyIntegration from './ClientEtsyIntegration';
+import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const AMAZON_REGIONS = [
   { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
@@ -157,6 +158,7 @@ function IntegrationPanel({
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
+  const { t: te } = useEtsyI18n();
   const supportError = t('common.supportError');
   const isIndividualAccount =
     (profile?.account_type || profile?.accountType || profile?.type) === 'individual';
@@ -734,8 +736,8 @@ export default function ClientIntegrations() {
 
       {visibility.etsy && <IntegrationPanel
         id="etsy"
-        title="Etsy"
-        subtitle="Shop, orders, tracking și Product Etsy"
+        title={te('client.title')}
+        subtitle={te('client.panelSubtitle')}
         logo="https://logo.clearbit.com/etsy.com"
         fallbackLogo="/branding/integrations/etsy.svg"
         openId={openIntegration}

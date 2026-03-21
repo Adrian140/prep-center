@@ -1,12 +1,33 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle, Loader2, RefreshCw, Save } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Loader2, RefreshCw, Unplug } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
+import { useEtsyI18n } from '@/i18n/etsyI18n';
+
+const PKCE_STORAGE_PREFIX = 'etsy_pkce_verifier:';
 
 const formatDateTime = (value) => {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString();
+};
+
+const base64UrlEncode = (input) =>
+  btoa(input)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+const randomPkceVerifier = (length = 64) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (byte) => chars[byte % chars.length]).join('');
+};
+
+const sha256Base64Url = async (value) => {
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return base64UrlEncode(String.fromCharCode(...new Uint8Array(digest)));
 };
 
 const statusTone = (status) => {
@@ -20,24 +41,26 @@ const statusTone = (status) => {
 };
 
 export default function ClientEtsyIntegration({ user, profile }) {
+  const { t, list } = useEtsyI18n();
   const [integration, setIntegration] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
-  const [form, setForm] = useState({
-    shop_name: '',
-    shop_url: '',
-    shop_id: ''
-  });
+
+  const etsyClientId = import.meta.env.VITE_ETSY_CLIENT_ID || '';
+  const etsyRedirectUri = import.meta.env.VITE_ETSY_REDIRECT_URI || `${window.location.origin}/auth/etsy/callback`;
+  const etsyOauthBaseUrl = (import.meta.env.VITE_ETSY_OAUTH_BASE_URL || 'https://www.etsy.com').replace(/\/$/, '');
+  const etsyScopes = String(import.meta.env.VITE_ETSY_SCOPES || 'shops_r listings_r transactions_r').trim();
+  const hasOauthConfig = Boolean(etsyClientId) && Boolean(etsyRedirectUri);
 
   const companyId = useMemo(
     () => profile?.company_id || profile?.companyId || user?.id || null,
     [profile?.company_id, profile?.companyId, user?.id]
   );
 
-  const isConnected = integration?.status === 'active' || integration?.status === 'connected';
+  const isConnected = integration?.status === 'connected' || integration?.status === 'active';
 
   const setSuccess = (message) => {
     setFlash(message);
@@ -57,14 +80,9 @@ export default function ClientEtsyIntegration({ user, profile }) {
     const { data, error } = await supabaseHelpers.getEtsyIntegrationForUser(user.id);
     if (error) {
       setIntegration(null);
-      setError(error.message || 'Nu am putut încărca integrarea Etsy.');
+      setError(error.message || t('client.flash.loadError'));
     } else {
       setIntegration(data || null);
-      setForm({
-        shop_name: data?.shop_name || '',
-        shop_url: data?.shop_url || '',
-        shop_id: data?.shop_id || ''
-      });
       setFlash('');
     }
     setLoading(false);
@@ -81,61 +99,91 @@ export default function ClientEtsyIntegration({ user, profile }) {
     setRefreshing(false);
   };
 
-  const handleSave = async (event) => {
-    event.preventDefault();
+  const handleConnectEtsy = async () => {
     if (!user?.id) return;
+    if (!hasOauthConfig) {
+      setError(t('client.flash.missingOauth'));
+      return;
+    }
+
     setSaving(true);
     setFlash('');
 
-    const shopName = String(form.shop_name || '').trim();
-    const shopUrl = String(form.shop_url || '').trim();
-    const shopId = String(form.shop_id || '').trim();
+    const payload = {
+      id: integration?.id,
+      user_id: user.id,
+      company_id: companyId,
+      status: 'pending',
+      metadata: {
+        ...(integration?.metadata || {}),
+        oauth_configured: true,
+        connected_from: 'client-dashboard',
+        pending_oauth: true
+      },
+      last_error: null
+    };
 
-    if (!shopName && !shopUrl && !shopId) {
-      setError('Completează cel puțin Shop name, Shop URL sau Shop ID.');
+    const { data, error } = await supabaseHelpers.upsertEtsyIntegration(payload);
+    if (error) {
+      setError(error.message || t('client.flash.connectError'));
       setSaving(false);
       return;
     }
 
+    const codeVerifier = randomPkceVerifier();
+    const codeChallenge = await sha256Base64Url(codeVerifier);
+    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    sessionStorage.setItem(`${PKCE_STORAGE_PREFIX}${nonce}`, codeVerifier);
+
+    const statePayload = {
+      userId: user.id,
+      companyId,
+      integrationId: data?.id || null,
+      redirectUri: etsyRedirectUri,
+      nonce
+    };
+    const state = btoa(JSON.stringify(statePayload));
+    const query = new URLSearchParams({
+      response_type: 'code',
+      client_id: etsyClientId,
+      redirect_uri: etsyRedirectUri,
+      scope: etsyScopes,
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256'
+    });
+    window.location.href = `${etsyOauthBaseUrl}/oauth/connect?${query.toString()}`;
+  };
+
+  const handleDisconnectEtsy = async () => {
+    if (!integration?.id) return;
+    if (!window.confirm(t('client.confirmDisconnect'))) return;
+
     const { data, error } = await supabaseHelpers.upsertEtsyIntegration({
-      id: integration?.id,
-      user_id: user.id,
-      company_id: companyId,
-      status: isConnected ? integration?.status : 'pending',
-      shop_name: shopName || null,
-      shop_url: shopUrl || null,
-      shop_id: shopId || null,
-      etsy_user_id: integration?.etsy_user_id || null,
-      access_scopes: Array.isArray(integration?.access_scopes) ? integration.access_scopes : [],
-      connected_at: integration?.connected_at || null,
-      last_synced_at: integration?.last_synced_at || null,
+      ...integration,
+      status: 'disconnected',
+      connected_at: null,
       last_error: null,
       metadata: {
         ...(integration?.metadata || {}),
-        key_status: 'pending_personal_approval',
-        requested_from: 'client-dashboard',
-        requested_at: new Date().toISOString()
+        etsy_oauth: null
       }
     });
 
     if (error) {
-      setError(error.message || 'Nu am putut salva Etsy.');
-    } else {
-      setIntegration(data || null);
-      setSuccess(
-        data?.status === 'active'
-          ? 'Integrarea Etsy a fost actualizată.'
-          : 'Cererea Etsy a fost salvată. După activarea cheii API, autorizăm shop-ul și pornim sync-ul.'
-      );
+      setError(error.message || t('client.flash.disconnectError'));
+      return;
     }
-    setSaving(false);
+
+    setIntegration(data || null);
+    setSuccess(t('client.flash.disconnected'));
   };
 
   if (loading) {
     return (
       <section className="bg-white border rounded-xl p-5">
         <div className="flex items-center gap-2 text-sm text-text-secondary">
-          <Loader2 className="w-4 h-4 animate-spin" /> Se încarcă Etsy...
+          <Loader2 className="w-4 h-4 animate-spin" /> {t('client.loading')}
         </div>
       </section>
     );
@@ -146,85 +194,65 @@ export default function ClientEtsyIntegration({ user, profile }) {
       <section className="bg-white border rounded-xl p-5 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">Etsy</h2>
-            <p className="text-sm text-text-secondary">
-              Integrare separată pentru shop Etsy, comenzi, track ID și statusuri de livrare.
-            </p>
+            <h2 className="text-lg font-semibold text-text-primary">{t('client.title')}</h2>
+            <p className="text-sm text-text-secondary">{t('client.desc')}</p>
           </div>
           <button
             onClick={refreshAll}
             className="inline-flex items-center gap-2 border rounded-lg px-3 py-1.5 text-sm"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('client.actions.refresh')}
           </button>
         </div>
 
         <div className={`rounded-lg border p-3 text-sm ${statusTone(integration?.status)}`}>
           <div className="flex items-center gap-2 font-medium">
             {isConnected ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-            {isConnected ? 'Etsy connected' : 'Etsy pending setup'}
+            {isConnected ? t('client.statusConnected') : t('client.statusPending')}
           </div>
           <div className="mt-1 text-xs">
-            Ultimul sync: {formatDateTime(integration?.last_synced_at)} · Conectat: {formatDateTime(integration?.connected_at)}
+            {t('client.lastSync', { date: formatDateTime(integration?.last_synced_at) })} · {t('client.connectedAt', { date: formatDateTime(integration?.connected_at) })}
           </div>
           {integration?.last_error && <div className="mt-2 text-xs break-all">{integration.last_error}</div>}
         </div>
 
-        <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
-          <div className="font-semibold mb-2">Pașii clientului</div>
+        {!hasOauthConfig && (
+          <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-800 text-sm">
+            {t('client.flash.missingOauth')}
+          </div>
+        )}
+
+        <section className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          <div className="mb-2 font-semibold">{t('client.connectTitle')}</div>
           <ol className="list-decimal pl-5 space-y-1">
-            <li>Completează datele shop-ului Etsy mai jos.</li>
-            <li>Păstrează shop-ul activ și verifică numele exact al shop-ului din Etsy Shop Manager.</li>
-            <li>După aprobarea cheii API Etsy, autorizăm shop-ul și pornim sync pentru orders, listings și tracking.</li>
-            <li>După primul sync, în `Products` apare secțiunea `Etsy` cu order history, quantities, receipt ID și track ID.</li>
+            {list('client.steps').map((step, index) => (
+              <li key={`etsy-step-${index}`}>{step}</li>
+            ))}
           </ol>
+        </section>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={handleConnectEtsy}
+            disabled={saving || !hasOauthConfig}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+            {isConnected ? t('client.actions.reconnect') : t('client.actions.connect')}
+          </button>
+
+          {isConnected && (
+            <button
+              onClick={handleDisconnectEtsy}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-red-500 text-red-600 hover:bg-red-50"
+            >
+              <Unplug className="w-4 h-4" /> {t('client.actions.disconnect')}
+            </button>
+          )}
         </div>
 
-        <form onSubmit={handleSave} className="grid gap-4 md:grid-cols-3">
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-text-primary">Shop name</span>
-            <input
-              type="text"
-              value={form.shop_name}
-              onChange={(e) => setForm((prev) => ({ ...prev, shop_name: e.target.value }))}
-              className="w-full rounded-lg border px-3 py-2"
-              placeholder="ecomprephub"
-            />
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-text-primary">Shop URL</span>
-            <input
-              type="url"
-              value={form.shop_url}
-              onChange={(e) => setForm((prev) => ({ ...prev, shop_url: e.target.value }))}
-              className="w-full rounded-lg border px-3 py-2"
-              placeholder="https://www.etsy.com/shop/..."
-            />
-          </label>
-          <label className="space-y-2">
-            <span className="text-sm font-medium text-text-primary">Shop ID</span>
-            <input
-              type="text"
-              value={form.shop_id}
-              onChange={(e) => setForm((prev) => ({ ...prev, shop_id: e.target.value }))}
-              className="w-full rounded-lg border px-3 py-2"
-              placeholder="numeric sau slug"
-            />
-          </label>
-          <div className="md:col-span-3 flex flex-wrap items-center gap-3">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Salvează Etsy
-            </button>
-            <div className="text-xs text-text-secondary">
-              Salvăm cererea separat de UPS. Shop-ul Etsy devine activ după aprobarea cheii și autorizarea OAuth.
-            </div>
-          </div>
-        </form>
+        <p className="text-xs text-text-secondary">{t('client.accountHint')}</p>
 
         {flash && (
           <div
@@ -241,3 +269,5 @@ export default function ClientEtsyIntegration({ user, profile }) {
     </div>
   );
 }
+
+export { PKCE_STORAGE_PREFIX };

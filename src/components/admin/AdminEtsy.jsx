@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader2, Package, RefreshCw, Store } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
 import { supabase } from '@/config/supabase';
+import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const fmt = (value) => {
   if (!value) return '—';
@@ -23,28 +24,30 @@ const money = (amount, currency = 'EUR') => {
 };
 
 function StatusBadge({ status }) {
+  const { t } = useEtsyI18n();
   if (status === 'active' || status === 'connected') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-        <CheckCircle className="h-3 w-3" /> Active
+        <CheckCircle className="h-3 w-3" /> {t('admin.status.active')}
       </span>
     );
   }
   if (status === 'error') {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-700">
-        <AlertTriangle className="h-3 w-3" /> Error
+        <AlertTriangle className="h-3 w-3" /> {t('admin.status.error')}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
-      Pending
+      {t('admin.status.pending')}
     </span>
   );
 }
 
 export default function AdminEtsy() {
+  const { t } = useEtsyI18n();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [flash, setFlash] = useState('');
@@ -78,7 +81,7 @@ export default function AdminEtsy() {
     ]);
     const err = integrationsRes.error || ordersRes.error || trackingRes.error;
     if (err) {
-      setFlash(err.message || 'Nu am putut încărca Etsy.');
+      setFlash(err.message || t('admin.flash.loadError'));
       setIntegrations([]);
       setOrders([]);
       setTrackingEvents([]);
@@ -118,9 +121,9 @@ export default function AdminEtsy() {
           <Store className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-text-primary">Etsy</h2>
+          <h2 className="text-2xl font-bold text-text-primary">{t('admin.title')}</h2>
           <p className="text-sm text-text-secondary">
-            Overview separat pentru shop-uri Etsy, comenzi, receipt ID, track ID și tracking status.
+            {t('admin.subtitle')}
           </p>
         </div>
       </header>
@@ -131,15 +134,15 @@ export default function AdminEtsy() {
 
       <section className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-text-secondary">Integrations</div>
+          <div className="text-xs uppercase tracking-wide text-text-secondary">{t('admin.metrics.integrations')}</div>
           <div className="mt-2 text-3xl font-semibold text-text-primary">{integrations.length}</div>
         </div>
         <div className="rounded-xl border bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-text-secondary">Orders</div>
+          <div className="text-xs uppercase tracking-wide text-text-secondary">{t('admin.metrics.orders')}</div>
           <div className="mt-2 text-3xl font-semibold text-text-primary">{orders.length}</div>
         </div>
         <div className="rounded-xl border bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-text-secondary">Tracking Events</div>
+          <div className="text-xs uppercase tracking-wide text-text-secondary">{t('admin.metrics.trackingEvents')}</div>
           <div className="mt-2 text-3xl font-semibold text-text-primary">{trackingEvents.length}</div>
         </div>
       </section>
@@ -147,25 +150,25 @@ export default function AdminEtsy() {
       <section className="rounded-xl border bg-white">
         <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-text-primary">Shop-uri Etsy conectate</h3>
-            <p className="text-sm text-text-secondary">Selectezi shop-ul și vezi tot ce ține de comenzile lui.</p>
+            <h3 className="text-lg font-semibold text-text-primary">{t('admin.shopsTitle')}</h3>
+            <p className="text-sm text-text-secondary">{t('admin.shopsSubtitle')}</p>
           </div>
           <button
             onClick={load}
             disabled={refreshing}
             className="inline-flex items-center gap-2 rounded-lg border border-primary px-3 py-2 text-sm text-primary disabled:opacity-50"
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> {t('client.actions.refresh')}
           </button>
         </div>
 
         {loading ? (
           <div className="p-6 text-sm text-text-secondary">
             <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-            Se încarcă Etsy Admin...
+            {t('admin.loading')}
           </div>
         ) : integrations.length === 0 ? (
-          <div className="p-6 text-sm text-text-secondary">Nicio integrare Etsy încă.</div>
+          <div className="p-6 text-sm text-text-secondary">{t('admin.emptyIntegrations')}</div>
         ) : (
           <div className="divide-y">
             {integrations.map((row) => (
@@ -179,10 +182,10 @@ export default function AdminEtsy() {
               >
                 <div>
                   <div className="font-medium text-text-primary">
-                    {row.shop_name || row.shop_id || 'Shop Etsy'} · {row.shop_url || 'URL lipsă'}
+                    {row.shop_name || row.shop_id || t('admin.shopFallback')} · {row.shop_url || t('admin.urlMissing')}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    User: {row.user_id || '—'} · Last sync: {fmt(row.last_synced_at)}
+                    {t('admin.userLabel', { user: row.user_id || '—', date: fmt(row.last_synced_at) })}
                   </div>
                   {row.last_error && <div className="mt-1 text-xs text-red-600 break-all">{row.last_error}</div>}
                 </div>
@@ -196,25 +199,25 @@ export default function AdminEtsy() {
       <section className="grid gap-6 xl:grid-cols-[1.3fr,0.9fr]">
         <div className="rounded-xl border bg-white">
           <div className="border-b px-5 py-4">
-            <h3 className="text-lg font-semibold text-text-primary">Comenzi Etsy</h3>
+            <h3 className="text-lg font-semibold text-text-primary">{t('admin.ordersTitle')}</h3>
             <p className="text-sm text-text-secondary">
-              Receipt ID, total, shop, tracking code și status live din tabelele Etsy.
+              {t('admin.ordersSubtitle')}
             </p>
           </div>
           {visibleOrders.length === 0 ? (
-            <div className="p-6 text-sm text-text-secondary">Nicio comandă Etsy pentru shop-ul selectat.</div>
+            <div className="p-6 text-sm text-text-secondary">{t('admin.emptyOrders')}</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-text-secondary">
                   <tr>
-                    <th className="px-4 py-3 text-left">Receipt ID</th>
-                    <th className="px-4 py-3 text-left">Shop</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-left">Track ID</th>
-                    <th className="px-4 py-3 text-left">Tracking status</th>
-                    <th className="px-4 py-3 text-left">Date</th>
-                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.receiptId')}</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.shop')}</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.status')}</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.trackId')}</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.trackingStatus')}</th>
+                    <th className="px-4 py-3 text-left">{t('admin.table.date')}</th>
+                    <th className="px-4 py-3 text-right">{t('admin.table.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -230,7 +233,7 @@ export default function AdminEtsy() {
                       <td className="px-4 py-3">{row.tracking_status_label || row.tracking_status || '—'}</td>
                       <td className="px-4 py-3">
                         <div>{fmt(row.order_created_at)}</div>
-                        <div className="text-xs text-text-secondary">Shipped: {fmt(row.shipped_at)}</div>
+                        <div className="text-xs text-text-secondary">{t('admin.table.shipped', { date: fmt(row.shipped_at) })}</div>
                       </td>
                       <td className="px-4 py-3 text-right">{money(row.grandtotal_amount, row.currency_code || 'EUR')}</td>
                     </tr>
@@ -243,11 +246,11 @@ export default function AdminEtsy() {
 
         <div className="rounded-xl border bg-white">
           <div className="border-b px-5 py-4">
-            <h3 className="text-lg font-semibold text-text-primary">Tracking timeline</h3>
-            <p className="text-sm text-text-secondary">Ultimele evenimente pentru track ID-urile Etsy.</p>
+            <h3 className="text-lg font-semibold text-text-primary">{t('admin.timelineTitle')}</h3>
+            <p className="text-sm text-text-secondary">{t('admin.timelineSubtitle')}</p>
           </div>
           {visibleTracking.length === 0 ? (
-            <div className="p-6 text-sm text-text-secondary">Nu există încă evenimente de tracking.</div>
+            <div className="p-6 text-sm text-text-secondary">{t('admin.emptyTracking')}</div>
           ) : (
             <div className="divide-y">
               {visibleTracking.map((row) => (
@@ -257,14 +260,14 @@ export default function AdminEtsy() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-medium text-text-primary">{row.status_label || row.status || 'Tracking update'}</div>
+                      <div className="font-medium text-text-primary">{row.status_label || row.status || t('admin.trackingUpdate')}</div>
                       <div className="font-mono text-xs text-text-secondary">{row.tracking_code || '—'}</div>
                     </div>
                     <div className="mt-1 text-sm text-text-secondary">
-                      {row.status_detail || 'Fără detalii suplimentare'}
+                      {row.status_detail || t('admin.noStatusDetail')}
                     </div>
                     <div className="mt-1 text-xs text-text-secondary">
-                      {fmt(row.event_time)} · {row.location || 'Location necunoscut'}
+                      {fmt(row.event_time)} · {row.location || t('admin.unknownLocation')}
                     </div>
                   </div>
                 </div>

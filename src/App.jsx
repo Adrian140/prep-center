@@ -14,6 +14,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import AuthCallback from './pages/AuthCallback';
 import AmazonIntegrationCallback from './pages/AmazonIntegrationCallback';
 import UpsIntegrationCallback from './pages/UpsIntegrationCallback';
+import EtsyIntegrationCallback from './pages/EtsyIntegrationCallback';
 import Integrations from './pages/Integrations';
 import Butic from './pages/Butic';
 
@@ -85,7 +86,7 @@ function RoutePersistence() {
   const location = useLocation();
   React.useEffect(() => {
     const p = location.pathname;
-    const skip = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback', '/auth/amazon/callback', '/auth/ups/callback'];
+    const skip = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback', '/auth/amazon/callback', '/auth/ups/callback', '/auth/etsy/callback'];
     if (!skip.includes(p)) {
       setTabLastPath(p + location.search + location.hash);
     }
@@ -254,6 +255,16 @@ export default function App() {
                 <MaintenanceGate>
                   <ClientRoute>
                     <UpsIntegrationCallback />
+                  </ClientRoute>
+                </MaintenanceGate>
+              }
+            />
+            <Route
+              path="/auth/etsy/callback"
+              element={
+                <MaintenanceGate>
+                  <ClientRoute>
+                    <EtsyIntegrationCallback />
                   </ClientRoute>
                 </MaintenanceGate>
               }
