@@ -19,8 +19,8 @@ import { useMarket } from '@/contexts/MarketContext';
 
 function Box({ title, children }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-      <h3 className="text-base font-semibold text-text-primary mb-3">{title}</h3>
+    <div className="bg-gradient-to-br from-white to-slate-50/80 rounded-xl border border-slate-200/60 shadow-sm shadow-slate-100 p-5 mb-6">
+      <h3 className="text-sm font-semibold text-[#1B3A4B] mb-3">{title}</h3>
       {children}
     </div>
   );
@@ -556,7 +556,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
   return (
   <div className="space-y-6">
       <Box title={t('SupabaseClientActivity.chartTitle')}>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           {[
             { k: "1m", label: t('SupabaseClientActivity.range.m1') },
             { k: "3m", label: t('SupabaseClientActivity.range.m3') },
@@ -565,10 +565,10 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
             <button
               key={opt.k}
               onClick={() => setRange(opt.k)}
-              className={`px-3 py-1 rounded-lg border text-sm ${
+              className={`px-3 py-1 rounded-md text-sm font-medium transition-all duration-200 ${
                 range === opt.k
-                  ? "bg-primary text-white border-primary"
-                  : "bg-white text-text-primary border-gray-300"
+                  ? "bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-200/50"
+                  : "bg-white text-slate-500 border border-slate-200 hover:border-[#0EA5E9]/40 hover:text-[#0EA5E9]"
               }`}
             >
               {opt.label}
@@ -576,9 +576,23 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
           ))}
         </div>
 
-        <ResponsiveContainer width="100%" height={300}>
+        <ResponsiveContainer width="100%" height={180}>
           <LineChart data={filteredChartData}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <defs>
+              <linearGradient id="fbaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ec4899" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#ec4899" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="fbmGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0EA5E9" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#0EA5E9" stopOpacity={0} />
+              </linearGradient>
+              <linearGradient id="otherGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#14B8A6" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#14B8A6" stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
             <XAxis
               dataKey="date"
               tickFormatter={(value) => {
@@ -589,13 +603,22 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
                   day: 'numeric'
                 });
               }}
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
               axisLine={false}
               tickLine={false}
             />
-            <YAxis />
+            <YAxis
+              tick={{ fontSize: 11, fill: '#94a3b8' }}
+              axisLine={false}
+              tickLine={false}
+              width={40}
+            />
             <Tooltip content={<CustomTooltip />} />
-            <Legend />
+            <Legend
+              iconType="circle"
+              iconSize={8}
+              wrapperStyle={{ fontSize: 12, paddingTop: 4 }}
+            />
             <Line
               type="monotone"
               dataKey="fba"
@@ -607,7 +630,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
             <Line
               type="monotone"
               dataKey="fbm"
-              stroke="#3b82f6"
+              stroke="#0EA5E9"
               strokeWidth={2}
               dot={false}
               name={t('SupabaseClientActivity.fbmTitle')}
@@ -615,7 +638,7 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
             <Line
               type="monotone"
               dataKey="other"
-              stroke="#22c55e"
+              stroke="#14B8A6"
               strokeWidth={2}
               dot={false}
               name={t('SupabaseClientActivity.otherTitle')}
@@ -624,17 +647,17 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
         </ResponsiveContainer>
       </Box>
 
-      <div className="bg-white rounded-xl shadow-sm p-5">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-3 mb-4">
+      <div className="bg-gradient-to-br from-white to-slate-50/80 rounded-xl border border-slate-200/60 shadow-sm shadow-slate-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3 mb-4">
           <div className="flex items-center gap-2">
               {reportTabs.map((opt) => (
                 <button
                   key={opt.id}
                   onClick={() => setActiveReport(opt.id)}
-                  className={`px-4 py-1.5 rounded-lg text-sm border transition-colors ${
+                  className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 ${
                   activeReport === opt.id
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-text-primary border-gray-300 hover:bg-gray-50'
+                    ? "bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-200/50"
+                    : "bg-white text-slate-500 border border-slate-200 hover:border-[#0EA5E9]/40 hover:text-[#0EA5E9]"
                 }`}
               >
                 {opt.label}

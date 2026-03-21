@@ -367,8 +367,8 @@ const renderTabContent = useMemo(() => {
 
   return (
     <>
-    <div className="min-h-screen bg-gray-50 py-4 notranslate" translate="no">
-      <div className="max-w-[1500px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F8FAFB] py-4 notranslate" translate="no">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         {activeTab === 'activity' && (
           <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
             {isAdmin ? <ClientDealsPopover companyId={companyId} /> : null}
@@ -377,61 +377,61 @@ const renderTabContent = useMemo(() => {
             )}
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] gap-5 lg:gap-6">
           {/* Sidebar */}
           <div>
-            <div className="bg-white rounded-xl shadow-sm p-4">
+            <div className="bg-[#1B3A4B] rounded-xl shadow-md p-3">
               {groups.map((g) => (
-                <div key={g.key} className="mb-6">
-                  <div className="px-1 pb-2 text-[11px] uppercase tracking-wide text-text-light">
+                <div key={g.key} className="mb-4">
+                  <div className="px-2 pb-1.5 text-[10px] uppercase tracking-widest text-sky-300/60 font-semibold">
                     {g.label}
                   </div>
-                  <nav className="space-y-1.5">
+                  <nav className="space-y-0.5">
                     {tabs
                       .filter((tab) => tab.group === g.key)
                       .map((tab) => (
                         <React.Fragment key={tab.id}>
                           <button
                             onClick={() => setActiveTab(tab.id)}
-                            className={`w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm transition-colors ${
+                            className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] transition-all duration-200 ${
                               activeTab === tab.id
-                                ? 'bg-primary text-white'
-                                : 'text-text-secondary hover:bg-gray-50'
+                                ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
                             }`}
                           >
-                            <tab.icon className="w-4 h-4" />
+                            <tab.icon className="w-3.5 h-3.5 flex-shrink-0" />
                             {tab.label}
                           </button>
 
                           {g.key === 'Operations' && tab.id === 'stock' && (
-                            <div className="ml-2 mt-2">
+                            <div className="ml-1 mt-1">
                               <button
                                 onClick={() => setReportsOpen((v) => !v)}
-                                className="w-full flex items-center justify-between px-3 py-2 text-left rounded-lg border text-sm text-text-secondary hover:bg-gray-50"
+                                className="w-full flex items-center justify-between px-2.5 py-1.5 text-left rounded-md border border-white/10 text-[13px] text-slate-300/70 hover:bg-white/10 hover:text-white transition-all duration-200"
                               >
                                 <span className="flex items-center gap-2">
-                                  <FileText className="w-4 h-4" />
+                                  <FileText className="w-3.5 h-3.5" />
                                   {t('sidebar.reports')}
                                 </span>
                                 <ChevronDown
-                                  className={`w-4 h-4 transition-transform ${
+                                  className={`w-3.5 h-3.5 transition-transform ${
                                     reportsOpen ? 'rotate-180' : ''
                                   }`}
                                 />
                               </button>
                               {reportsOpen && (
-                                <div className="mt-2 space-y-1.5 pl-5">
+                                <div className="mt-1 space-y-0.5 pl-4">
                                   {reportTabs.map((reportTab) => (
                                     <button
                                       key={reportTab.id}
                                       onClick={() => setActiveTab(reportTab.id)}
-                                      className={`w-full flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm transition-colors ${
+                                      className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] transition-all duration-200 ${
                                         activeTab === reportTab.id
-                                          ? 'bg-primary/90 text-white'
-                                          : 'text-text-secondary hover:bg-gray-50'
+                                          ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                          : 'text-slate-300/70 hover:bg-white/10 hover:text-white'
                                       }`}
                                     >
-                                      <reportTab.icon className="w-4 h-4" />
+                                      <reportTab.icon className="w-3.5 h-3.5" />
                                       {t(reportTab.labelKey)}
                                     </button>
                                   ))}
@@ -443,13 +443,13 @@ const renderTabContent = useMemo(() => {
                           {g.key === 'Operations' && tab.id === 'stock' && hasQogita && (
                             <button
                               onClick={() => setActiveTab('reports-qogita')}
-                              className={`ml-2 w-[calc(100%-0.5rem)] flex items-center gap-2 px-3 py-2 text-left rounded-lg text-sm mt-2 border transition-colors ${
+                              className={`ml-1 w-[calc(100%-0.25rem)] flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] mt-1 border border-white/10 transition-all duration-200 ${
                                 activeTab === 'reports-qogita'
-                                  ? 'bg-primary/90 text-white'
-                                  : 'text-text-secondary hover:bg-gray-50'
+                                  ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                  : 'text-slate-300/70 hover:bg-white/10 hover:text-white'
                               }`}
                             >
-                              <Link2 className="w-4 h-4" />
+                              <Link2 className="w-3.5 h-3.5" />
                               {t('reportsMenu.qogita', 'Qogita')}
                             </button>
                           )}
@@ -464,8 +464,8 @@ const renderTabContent = useMemo(() => {
           {/* Main Content */}
           <div>
             {reviewPrompt.show && (
-              <div className="mb-4 flex items-center gap-4 p-4 rounded-xl border bg-blue-50/70 text-sm text-text-primary">
-                <div className="p-2 rounded-full bg-blue-100 text-blue-700">
+              <div className="mb-4 flex items-center gap-4 p-4 rounded-xl border border-cyan-200/60 bg-cyan-50/50 text-sm text-text-primary">
+                <div className="p-2 rounded-full bg-[#0EA5E9]/15 text-[#0EA5E9]">
                   <Star className="w-5 h-5" />
                 </div>
                 <div className="flex-1">
@@ -474,7 +474,7 @@ const renderTabContent = useMemo(() => {
                   <div className="flex flex-wrap gap-2 mt-2">
                     <button
                       onClick={() => setReviewModal(true)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm"
+                      className="px-3 py-1.5 rounded-lg bg-[#0EA5E9] text-white text-sm hover:bg-[#0284C7] transition-colors"
                     >
                       {t('reviewPrompt.ctaNow')}
                     </button>
@@ -503,7 +503,7 @@ const renderTabContent = useMemo(() => {
                 </button>
               </div>
             )}
-            <div key={activeTab} className="bg-white rounded-xl shadow-sm p-5 animate-fade-in">
+            <div key={activeTab} className="bg-gradient-to-br from-white via-white to-sky-50/30 rounded-xl shadow-sm shadow-slate-200/50 border border-slate-200/60 p-5 animate-fade-in">
               <ErrorBoundary>
                 {renderTabContent}
               </ErrorBoundary>
@@ -555,7 +555,7 @@ const renderTabContent = useMemo(() => {
               <button
                 onClick={submitReview}
                 disabled={reviewSubmitting}
-                className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm disabled:opacity-60"
+                className="px-3 py-1.5 rounded-lg bg-[#0EA5E9] text-white text-sm disabled:opacity-60 hover:bg-[#0284C7] transition-colors"
               >
                 {reviewSubmitting ? t('reviewPrompt.modalSubmitting') : t('reviewPrompt.modalSubmit')}
               </button>

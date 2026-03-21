@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Search, ShoppingBag, MessageSquare, Send, Package, Tag, Plus, Pencil, Check, Trash2, ExternalLink } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,6 +11,7 @@ const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 
 const BUTIC_COPY = {
   en: {
+    heroTitle: 'B2B Exchange',
     heroDescription: 'Anonymous offers. Add products for sale directly from your inventory with price and note.',
     openChat: 'Open chat',
     allOffers: 'All offers',
@@ -73,6 +74,7 @@ const BUTIC_COPY = {
     ean: 'EAN',
   },
   ro: {
+    heroTitle: 'Schimb B2B',
     heroDescription: 'Oferte anonime. Tu adaugi la vanzare direct din inventar, cu pret si nota.',
     openChat: 'Deschide chat',
     allOffers: 'Toate ofertele',
@@ -83,9 +85,9 @@ const BUTIC_COPY = {
     contact: 'Contacteaza',
     qtyUnit: 'buc',
     myOffersFromInventory: 'Ofertele mele (din inventar)',
-    inventorySectionHint: 'Aici apar toate produsele din inventar. Cele cu stoc sunt afișate primele.',
+    inventorySectionHint: 'Aici apar toate produsele din inventar. Cele cu stoc sunt afisate primele.',
     inventorySearchPlaceholder: 'Cauta in inventar: ASIN / EAN / nume',
-    noInventoryStock: 'Nu ai produse în inventar.',
+    noInventoryStock: 'Nu ai produse in inventar.',
     stockLabel: 'Stoc',
     selectedLabel: 'Selectat',
     selectHint: 'Selecteaza un produs din inventar, apoi adauga pret + nota.',
@@ -135,6 +137,7 @@ const BUTIC_COPY = {
     ean: 'EAN',
   },
   fr: {
+    heroTitle: 'Echange B2B',
     heroDescription: 'Offres anonymes. Ajoutez des produits a vendre depuis votre inventaire avec prix et note.',
     openChat: 'Ouvrir le chat',
     allOffers: 'Toutes les offres',
@@ -197,6 +200,7 @@ const BUTIC_COPY = {
     ean: 'EAN',
   },
   de: {
+    heroTitle: 'B2B Austausch',
     heroDescription: 'Anonyme Angebote. Produkte direkt aus dem Bestand mit Preis und Notiz anbieten.',
     openChat: 'Chat offnen',
     allOffers: 'Alle Angebote',
@@ -259,149 +263,27 @@ const BUTIC_COPY = {
     ean: 'EAN',
   },
   it: {
+    heroTitle: 'Scambio B2B',
     heroDescription: 'Offerte anonime. Aggiungi prodotti in vendita direttamente dal tuo inventario con prezzo e nota.',
-    openChat: 'Apri chat',
-    allOffers: 'Tutte le offerte',
-    searchAllPlaceholder: 'ASIN / EAN / nome',
-    loading: 'Caricamento...',
-    noOffers: 'Nessuna offerta disponibile.',
-    myOfferTag: 'La mia offerta',
-    contact: 'Contatta',
-    qtyUnit: 'pz',
-    myOffersFromInventory: 'Le mie offerte (da inventario)',
-    inventorySectionHint: 'Qui sono mostrati tutti i prodotti in inventario. Quelli con stock sono in alto.',
-    inventorySearchPlaceholder: 'Cerca in inventario: ASIN / EAN / nome',
-    noInventoryStock: 'Nessun prodotto trovato in inventario.',
-    stockLabel: 'Stock',
-    selectedLabel: 'Selezionato',
-    selectHint: 'Seleziona un prodotto dall inventario, poi aggiungi prezzo + nota.',
-    pricePlaceholder: 'Prezzo EUR',
-    notePlaceholder: 'Nota (opzionale)',
-    linkFrPlaceholder: 'Link FR (opzionale)',
-    linkDePlaceholder: 'Link DE (opzionale)',
-    linksLabel: 'Link',
-    publishing: 'Pubblicazione...',
-    addForSale: 'Aggiungi in vendita',
-    listingCountryLabel: 'Paese di stoccaggio',
-    listingCountryPlaceholder: 'Seleziona paese (FR/DE)',
-    listingCountryHelp: 'Seleziona il paese del magazzino dove la merce e fisicamente stoccata.',
-    countryNotSelected: 'non selezionato',
-    locatedIn: 'Il prodotto "{name}" si trova in {country}.',
-    quantityToSellLabel: 'Quantita da vendere',
-    quantityToSellPlaceholder: 'Quantita da vendere',
-    availableStockLabel: 'Stock disponibile',
-    noMyOffers: 'Nessuna offerta pubblicata.',
-    chatTitle: 'Chat Marketplace',
-    chatSubtitle: 'Negoziazione tra clienti',
-    closeChat: 'Chiudi chat',
-    noConversations: 'Nessuna conversazione.',
-    listingFallback: 'Annuncio',
-    noCode: 'Nessun codice',
-    selectConversation: 'Scegli una conversazione o premi "Contatta".',
-    writeMessagePlaceholder: 'Scrivi un messaggio...',
-    send: 'Invia',
-    authOnly: 'Il marketplace e disponibile solo per clienti autenticati.',
-    invalidPrice: 'Inserisci un prezzo valido maggiore di 0.',
-    selectProductError: 'Seleziona prima un prodotto dall inventario.',
-    selectCountryError: 'Seleziona il paese di stoccaggio (FR o DE).',
-    quantityInvalidError: 'Inserisci una quantita valida da vendere.',
-    quantityExceedsError: 'La quantita da vendere non puo superare lo stock disponibile.',
-    publishFailed: 'Impossibile pubblicare l offerta. Riprova.',
-    sendFailed: 'Impossibile inviare il messaggio. Riprova.',
-    finalizeSale: 'Vendita completata',
-    editListing: 'Modifica',
-    saveChanges: 'Salva',
-    cancelEdit: 'Annulla',
-    removeFromSale: 'Rimuovi dalla vendita',
-    editFailed: 'Impossibile aggiornare l offerta. Riprova.',
-    finalizeSaleError: 'Impossibile completare la vendita. Riprova.',
-    removeSaleError: 'Impossibile rimuovere l offerta. Riprova.',
-    saleFeeHint: 'La chiusura applica una tariffa FBA di 0.05 EUR per unita.',
-    asin: 'ASIN',
-    ean: 'EAN',
+    openChat: 'Apri chat', allOffers: 'Tutte le offerte', searchAllPlaceholder: 'ASIN / EAN / nome', loading: 'Caricamento...', noOffers: 'Nessuna offerta disponibile.', myOfferTag: 'La mia offerta', contact: 'Contatta', qtyUnit: 'pz', myOffersFromInventory: 'Le mie offerte (da inventario)', inventorySectionHint: 'Qui sono mostrati tutti i prodotti in inventario. Quelli con stock sono in alto.', inventorySearchPlaceholder: 'Cerca in inventario: ASIN / EAN / nome', noInventoryStock: 'Nessun prodotto trovato in inventario.', stockLabel: 'Stock', selectedLabel: 'Selezionato', selectHint: 'Seleziona un prodotto dall inventario, poi aggiungi prezzo + nota.', pricePlaceholder: 'Prezzo EUR', notePlaceholder: 'Nota (opzionale)', linkFrPlaceholder: 'Link FR (opzionale)', linkDePlaceholder: 'Link DE (opzionale)', linksLabel: 'Link', publishing: 'Pubblicazione...', addForSale: 'Aggiungi in vendita', listingCountryLabel: 'Paese di stoccaggio', listingCountryPlaceholder: 'Seleziona paese (FR/DE)', listingCountryHelp: 'Seleziona il paese del magazzino dove la merce e fisicamente stoccata.', countryNotSelected: 'non selezionato', locatedIn: 'Il prodotto "{name}" si trova in {country}.', quantityToSellLabel: 'Quantita da vendere', quantityToSellPlaceholder: 'Quantita da vendere', availableStockLabel: 'Stock disponibile', noMyOffers: 'Nessuna offerta pubblicata.', chatTitle: 'Chat Marketplace', chatSubtitle: 'Negoziazione tra clienti', closeChat: 'Chiudi chat', noConversations: 'Nessuna conversazione.', listingFallback: 'Annuncio', noCode: 'Nessun codice', selectConversation: 'Scegli una conversazione o premi "Contatta".', writeMessagePlaceholder: 'Scrivi un messaggio...', send: 'Invia', authOnly: 'Il marketplace e disponibile solo per clienti autenticati.', invalidPrice: 'Inserisci un prezzo valido maggiore di 0.', selectProductError: 'Seleziona prima un prodotto dall inventario.', selectCountryError: 'Seleziona il paese di stoccaggio (FR o DE).', quantityInvalidError: 'Inserisci una quantita valida da vendere.', quantityExceedsError: 'La quantita da vendere non puo superare lo stock disponibile.', publishFailed: 'Impossibile pubblicare l offerta. Riprova.', sendFailed: 'Impossibile inviare il messaggio. Riprova.', finalizeSale: 'Vendita completata', editListing: 'Modifica', saveChanges: 'Salva', cancelEdit: 'Annulla', removeFromSale: 'Rimuovi dalla vendita', editFailed: 'Impossibile aggiornare l offerta. Riprova.', finalizeSaleError: 'Impossibile completare la vendita. Riprova.', removeSaleError: 'Impossibile rimuovere l offerta. Riprova.', saleFeeHint: 'La chiusura applica una tariffa FBA di 0.05 EUR per unita.', asin: 'ASIN', ean: 'EAN',
   },
   es: {
+    heroTitle: 'Intercambio B2B',
     heroDescription: 'Ofertas anonimas. Agrega productos para vender desde tu inventario con precio y nota.',
-    openChat: 'Abrir chat',
-    allOffers: 'Todas las ofertas',
-    searchAllPlaceholder: 'ASIN / EAN / nombre',
-    loading: 'Cargando...',
-    noOffers: 'No hay ofertas disponibles.',
-    myOfferTag: 'Mi oferta',
-    contact: 'Contactar',
-    qtyUnit: 'uds',
-    myOffersFromInventory: 'Mis ofertas (desde inventario)',
-    inventorySectionHint: 'Aqui se muestran todos los productos del inventario. Los que tienen stock aparecen primero.',
-    inventorySearchPlaceholder: 'Buscar en inventario: ASIN / EAN / nombre',
-    noInventoryStock: 'No hay productos en inventario.',
-    stockLabel: 'Stock',
-    selectedLabel: 'Seleccionado',
-    selectHint: 'Selecciona un producto del inventario y agrega precio + nota.',
-    pricePlaceholder: 'Precio EUR',
-    notePlaceholder: 'Nota (opcional)',
-    linkFrPlaceholder: 'Enlace FR (opcional)',
-    linkDePlaceholder: 'Enlace DE (opcional)',
-    linksLabel: 'Enlaces',
-    publishing: 'Publicando...',
-    addForSale: 'Agregar en venta',
-    listingCountryLabel: 'Pais de almacen',
-    listingCountryPlaceholder: 'Selecciona pais (FR/DE)',
-    listingCountryHelp: 'Selecciona el pais del almacen donde la mercancia esta guardada fisicamente.',
-    countryNotSelected: 'no seleccionado',
-    locatedIn: 'El producto "{name}" esta en {country}.',
-    quantityToSellLabel: 'Cantidad a vender',
-    quantityToSellPlaceholder: 'Cantidad a vender',
-    availableStockLabel: 'Stock disponible',
-    noMyOffers: 'No tienes ofertas publicadas.',
-    chatTitle: 'Chat Marketplace',
-    chatSubtitle: 'Negociacion entre clientes',
-    closeChat: 'Cerrar chat',
-    noConversations: 'No tienes conversaciones aun.',
-    listingFallback: 'Oferta',
-    noCode: 'Sin codigo',
-    selectConversation: 'Elige una conversacion o pulsa "Contactar".',
-    writeMessagePlaceholder: 'Escribe un mensaje...',
-    send: 'Enviar',
-    authOnly: 'El marketplace esta disponible solo para clientes autenticados.',
-    invalidPrice: 'Introduce un precio valido mayor que 0.',
-    selectProductError: 'Selecciona primero un producto del inventario.',
-    selectCountryError: 'Selecciona el pais de almacen (FR o DE).',
-    quantityInvalidError: 'Introduce una cantidad valida para vender.',
-    quantityExceedsError: 'La cantidad a vender no puede superar el stock disponible.',
-    publishFailed: 'No se pudo publicar la oferta. Intentalo de nuevo.',
-    sendFailed: 'No se pudo enviar el mensaje. Intentalo de nuevo.',
-    finalizeSale: 'Venta finalizada',
-    editListing: 'Editar',
-    saveChanges: 'Guardar',
-    cancelEdit: 'Cancelar',
-    removeFromSale: 'Quitar de la venta',
-    editFailed: 'No se pudo actualizar la oferta. Intentalo de nuevo.',
-    finalizeSaleError: 'No se pudo finalizar la venta. Intentalo de nuevo.',
-    removeSaleError: 'No se pudo quitar la oferta. Intentalo de nuevo.',
-    saleFeeHint: 'Al finalizar se aplica una tarifa FBA de 0.05 EUR por unidad.',
-    asin: 'ASIN',
-    ean: 'EAN',
+    openChat: 'Abrir chat', allOffers: 'Todas las ofertas', searchAllPlaceholder: 'ASIN / EAN / nombre', loading: 'Cargando...', noOffers: 'No hay ofertas disponibles.', myOfferTag: 'Mi oferta', contact: 'Contactar', qtyUnit: 'uds', myOffersFromInventory: 'Mis ofertas (desde inventario)', inventorySectionHint: 'Aqui se muestran todos los productos del inventario. Los que tienen stock aparecen primero.', inventorySearchPlaceholder: 'Buscar en inventario: ASIN / EAN / nombre', noInventoryStock: 'No hay productos en inventario.', stockLabel: 'Stock', selectedLabel: 'Seleccionado', selectHint: 'Selecciona un producto del inventario y agrega precio + nota.', pricePlaceholder: 'Precio EUR', notePlaceholder: 'Nota (opcional)', linkFrPlaceholder: 'Enlace FR (opcional)', linkDePlaceholder: 'Enlace DE (opcional)', linksLabel: 'Enlaces', publishing: 'Publicando...', addForSale: 'Agregar en venta', listingCountryLabel: 'Pais de almacen', listingCountryPlaceholder: 'Selecciona pais (FR/DE)', listingCountryHelp: 'Selecciona el pais del almacen donde la mercancia esta guardada fisicamente.', countryNotSelected: 'no seleccionado', locatedIn: 'El producto "{name}" esta en {country}.', quantityToSellLabel: 'Cantidad a vender', quantityToSellPlaceholder: 'Cantidad a vender', availableStockLabel: 'Stock disponible', noMyOffers: 'No tienes ofertas publicadas.', chatTitle: 'Chat Marketplace', chatSubtitle: 'Negociacion entre clientes', closeChat: 'Cerrar chat', noConversations: 'No tienes conversaciones aun.', listingFallback: 'Oferta', noCode: 'Sin codigo', selectConversation: 'Elige una conversacion o pulsa "Contactar".', writeMessagePlaceholder: 'Escribe un mensaje...', send: 'Enviar', authOnly: 'El marketplace esta disponible solo para clientes autenticados.', invalidPrice: 'Introduce un precio valido mayor que 0.', selectProductError: 'Selecciona primero un producto del inventario.', selectCountryError: 'Selecciona el pais de almacen (FR o DE).', quantityInvalidError: 'Introduce una cantidad valida para vender.', quantityExceedsError: 'La cantidad a vender no puede superar el stock disponible.', publishFailed: 'No se pudo publicar la oferta. Intentalo de nuevo.', sendFailed: 'No se pudo enviar el mensaje. Intentalo de nuevo.', finalizeSale: 'Venta finalizada', editListing: 'Editar', saveChanges: 'Guardar', cancelEdit: 'Cancelar', removeFromSale: 'Quitar de la venta', editFailed: 'No se pudo actualizar la oferta. Intentalo de nuevo.', finalizeSaleError: 'No se pudo finalizar la venta. Intentalo de nuevo.', removeSaleError: 'No se pudo quitar la oferta. Intentalo de nuevo.', saleFeeHint: 'Al finalizar se aplica una tarifa FBA de 0.05 EUR por unidad.', asin: 'ASIN', ean: 'EAN',
   }
 };
 
 function formatProductCodes(copy, asin, ean) {
-  const normalizedAsin = String(asin || '').trim();
-  const normalizedEan = String(ean || '').trim();
-  if (normalizedAsin && normalizedEan) {
-    return `${copy.asin}: ${normalizedAsin} · ${copy.ean}: ${normalizedEan}`;
-  }
-  if (normalizedAsin) {
-    return `${copy.asin}: ${normalizedAsin}`;
-  }
-  if (normalizedEan) {
-    return `${copy.ean}: ${normalizedEan}`;
-  }
+  const a = String(asin || '').trim();
+  const e = String(ean || '').trim();
+  if (a && e) return `${copy.asin}: ${a} · ${copy.ean}: ${e}`;
+  if (a) return `${copy.asin}: ${a}`;
+  if (e) return `${copy.ean}: ${e}`;
   return copy.noCode;
 }
 
-function getListingImageUrl(listing) {
-  return listing?.image_url || null;
-}
+function getListingImageUrl(listing) { return listing?.image_url || null; }
 
 function toExternalUrl(value) {
   const raw = String(value || '').trim();
@@ -413,15 +295,16 @@ function getAvailableInventoryStock(item) {
   const qty = Number(item?.qty || 0);
   const byCountry = item?.prep_qty_by_country;
   if (!byCountry || typeof byCountry !== 'object') return qty;
-  const prepSum = Object.values(byCountry).reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const prepSum = Object.values(byCountry).reduce((sum, v) => sum + (Number(v) || 0), 0);
   return Math.max(qty, prepSum);
 }
+
+const inputStyles = "w-full px-4 py-3 bg-white border border-gray-200 rounded-md text-lg text-text-primary placeholder:text-text-light focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300 outline-none";
 
 export default function Butic() {
   const t = useT();
   const { currentLanguage } = useLanguage();
   const copy = BUTIC_COPY[currentLanguage] || BUTIC_COPY.en;
-
   const { user, profile } = useSupabaseAuth();
   const { currentMarket } = useMarket();
   const [allSearch, setAllSearch] = useState('');
@@ -441,19 +324,8 @@ export default function Butic() {
   const [listingActionError, setListingActionError] = useState('');
   const [busyListingId, setBusyListingId] = useState(null);
   const [editingListingId, setEditingListingId] = useState(null);
-  const [editDraft, setEditDraft] = useState({
-    productName: '',
-    asin: '',
-    ean: '',
-    country: '',
-    quantity: '1',
-    priceEur: '',
-    note: '',
-    linkFr: '',
-    linkDe: ''
-  });
+  const [editDraft, setEditDraft] = useState({ productName: '', asin: '', ean: '', country: '', quantity: '1', priceEur: '', note: '', linkFr: '', linkDe: '' });
   const [failedImageIds, setFailedImageIds] = useState(() => new Set());
-  const [showChat, setShowChat] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -463,882 +335,290 @@ export default function Butic() {
   const messagesRef = useRef(null);
   const activeConversationIdRef = useRef(null);
 
-  const isAdmin = !!(
-    profile?.account_type === 'admin' ||
-    profile?.is_admin === true ||
-    user?.user_metadata?.account_type === 'admin'
-  );
   const me = user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const myCompanyId = profile?.company_id || null;
 
-  useEffect(() => {
-    activeConversationIdRef.current = activeConversationId;
-  }, [activeConversationId]);
+  useEffect(() => { activeConversationIdRef.current = activeConversationId; }, [activeConversationId]);
 
-  const loadAllListings = async () => {
-    if (!me) return;
-    setLoadingListings(true);
-    const res = await supabaseHelpers.listClientMarketListings({
-      country: null,
-      search: allSearch.trim() || null
-    });
-    setAllListings(res?.data || []);
-    setLoadingListings(false);
-  };
+  const loadAllListings = async () => { if (!me) return; setLoadingListings(true); const res = await supabaseHelpers.listClientMarketListings({ country: null, search: allSearch.trim() || null }); setAllListings(res?.data || []); setLoadingListings(false); };
+  const loadInventory = async () => { const res = await supabaseHelpers.listClientInventoryForMarket({ companyId: myCompanyId || null, search: inventorySearch.trim() || null }); const rows = (res?.data || []).slice(); rows.sort((a, b) => { const sA = getAvailableInventoryStock(a); const sB = getAvailableInventoryStock(b); if ((sA > 0 ? 1 : 0) !== (sB > 0 ? 1 : 0)) return (sB > 0 ? 1 : 0) - (sA > 0 ? 1 : 0); if (sA !== sB) return sB - sA; return String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' }); }); setInventoryItems(rows); };
+  const loadConversations = async () => { if (!me) return; const res = await supabaseHelpers.listClientMarketConversations({ country: market }); const rows = res?.data || []; setConversations(rows); const cur = activeConversationIdRef.current; if (!cur && rows.length) setActiveConversationId(rows[0].id); if (cur && rows.length && !rows.some((r) => r.id === cur)) setActiveConversationId(rows[0].id); if (cur && rows.length === 0) setActiveConversationId(null); };
 
-  const loadInventory = async () => {
-    const res = await supabaseHelpers.listClientInventoryForMarket({
-      companyId: myCompanyId || null,
-      search: inventorySearch.trim() || null
-    });
-    const rows = (res?.data || []).slice();
-    rows.sort((a, b) => {
-      const stockA = getAvailableInventoryStock(a);
-      const stockB = getAvailableInventoryStock(b);
-      const hasStockA = stockA > 0 ? 1 : 0;
-      const hasStockB = stockB > 0 ? 1 : 0;
-      if (hasStockA !== hasStockB) return hasStockB - hasStockA;
-      if (stockA !== stockB) return stockB - stockA;
-      return String(a?.name || a?.product_name || '').localeCompare(String(b?.name || b?.product_name || ''), undefined, {
-        sensitivity: 'base'
-      });
-    });
-    setInventoryItems(rows);
-  };
+  useEffect(() => { if (!me) return; loadAllListings(); }, [me, allSearch]);
+  useEffect(() => { if (!me) return; loadInventory(); }, [me, inventorySearch, myCompanyId]);
+  useEffect(() => { if (!me) return; loadConversations(); }, [me, market]);
+  useEffect(() => { if (!me) return; const ch = supabase.channel(`butic-listings-${me}-${market}-${allSearch.trim() || 'all'}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_listings' }, () => { loadAllListings(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [me, market, allSearch]);
+  useEffect(() => { if (!me) return; const ch = supabase.channel(`butic-conversations-${me}-${market}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_conversations' }, () => { loadConversations(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [me, market]);
 
-  const loadConversations = async () => {
-    if (!me) return;
-    const res = await supabaseHelpers.listClientMarketConversations({ country: market });
-    const rows = res?.data || [];
-    setConversations(rows);
-    const currentActiveConversationId = activeConversationIdRef.current;
-    if (!currentActiveConversationId && rows.length) setActiveConversationId(rows[0].id);
-    if (
-      currentActiveConversationId &&
-      rows.length &&
-      !rows.some((r) => r.id === currentActiveConversationId)
-    ) {
-      setActiveConversationId(rows[0].id);
-    }
-    if (currentActiveConversationId && rows.length === 0) {
-      setActiveConversationId(null);
-    }
-  };
-
-  useEffect(() => {
-    if (!me) return;
-    loadAllListings();
-  }, [me, allSearch]);
-
-  useEffect(() => {
-    if (!me) return;
-    loadInventory();
-  }, [me, inventorySearch, myCompanyId]);
-
-  useEffect(() => {
-    if (!me) return;
-    loadConversations();
-  }, [me, market]);
-
-  useEffect(() => {
-    if (!me) return;
-    const listingsChannel = supabase
-      .channel(`butic-listings-${me}-${market}-${allSearch.trim() || 'all'}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'client_market_listings'
-        },
-        () => {
-          loadAllListings();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(listingsChannel);
-    };
-  }, [me, market, allSearch]);
-
-  useEffect(() => {
-    if (!me) return;
-    const conversationsChannel = supabase
-      .channel(`butic-conversations-${me}-${market}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'client_market_conversations'
-        },
-        () => {
-          loadConversations();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(conversationsChannel);
-    };
-  }, [me, market]);
-
-  const selectedInventoryItem = useMemo(
-    () => inventoryItems.find((item) => String(item.id) === String(selectedStockItemId)) || null,
-    [inventoryItems, selectedStockItemId]
-  );
-
-  useEffect(() => {
-    if (!selectedInventoryItem) {
-      setQuantityToSell('1');
-      return;
-    }
-    const stock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem));
-    setQuantityToSell((prev) => {
-      const numeric = Number(prev);
-      if (!Number.isFinite(numeric) || numeric < 1) return '1';
-      if (numeric > stock) return String(stock);
-      return prev;
-    });
-  }, [selectedInventoryItem?.id, selectedInventoryItem?.qty]);
+  const selectedInventoryItem = useMemo(() => inventoryItems.find((item) => String(item.id) === String(selectedStockItemId)) || null, [inventoryItems, selectedStockItemId]);
+  useEffect(() => { if (!selectedInventoryItem) { setQuantityToSell('1'); return; } const stock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem)); setQuantityToSell((prev) => { const n = Number(prev); if (!Number.isFinite(n) || n < 1) return '1'; if (n > stock) return String(stock); return prev; }); }, [selectedInventoryItem?.id, selectedInventoryItem?.qty]);
 
   const marketListings = useMemo(() => allListings, [allListings]);
+  const activeConversation = useMemo(() => conversations.find((c) => c.id === activeConversationId) || null, [conversations, activeConversationId]);
 
-  const activeConversation = useMemo(
-    () => conversations.find((c) => c.id === activeConversationId) || null,
-    [conversations, activeConversationId]
-  );
+  const loadMessages = async () => { if (!activeConversationId) { setMessages([]); return; } const res = await supabaseHelpers.listClientMarketMessages({ conversationId: activeConversationId }); setMessages(res?.data || []); requestAnimationFrame(() => { if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight; }); };
+  useEffect(() => { loadMessages(); }, [activeConversationId]);
+  useEffect(() => { if (!activeConversationId) return; const ch = supabase.channel(`client-market-${activeConversationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_messages', filter: `conversation_id=eq.${activeConversationId}` }, () => { loadMessages(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [activeConversationId]);
 
-  const loadMessages = async () => {
-    if (!activeConversationId) {
-      setMessages([]);
-      return;
-    }
-    const res = await supabaseHelpers.listClientMarketMessages({
-      conversationId: activeConversationId
-    });
-    setMessages(res?.data || []);
-    requestAnimationFrame(() => {
-      if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-    });
-  };
+  const createListingFromInventory = async (event) => { event.preventDefault(); if (!selectedInventoryItem) { setCreateError(copy.selectProductError); return; } if (!offerCountry || !OFFER_COUNTRY_OPTIONS.includes(offerCountry)) { setCreateError(copy.selectCountryError); return; } const availableStock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem)); const parsedQuantity = Number(quantityToSell); if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1) { setCreateError(copy.quantityInvalidError); return; } if (parsedQuantity > availableStock) { setCreateError(copy.quantityExceedsError); return; } const parsedPrice = Number(priceEur); if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) { setCreateError(copy.invalidPrice); return; } if (!me) return; setCreateError(''); setCreating(true); setListingActionError(''); const res = await supabaseHelpers.createClientMarketListing({ ownerUserId: me, ownerCompanyId: myCompanyId || selectedInventoryItem?.company_id || me, stockItemId: selectedInventoryItem.id, country: offerCountry, asin: selectedInventoryItem.asin || null, ean: selectedInventoryItem.ean || null, imageUrl: selectedInventoryItem.image_url || null, productName: selectedInventoryItem.name || 'Product', priceEur: parsedPrice, quantity: Math.max(1, Math.floor(parsedQuantity)), note, linkFr, linkDe }); if (res?.error) { const errMsg = String(res.error?.message || ''); setCreateError(errMsg ? `${copy.publishFailed} (${errMsg})` : copy.publishFailed); } else { setPriceEur(''); setNote(''); setLinkFr(''); setLinkDe(''); setSelectedStockItemId(''); setOfferCountry(''); setQuantityToSell('1'); setCreateError(''); loadAllListings(); } setCreating(false); };
 
-  useEffect(() => {
-    loadMessages();
-  }, [activeConversationId]);
+  const finalizeListingSale = async (listing) => { if (!listing?.id || busyListingId) return; setBusyListingId(listing.id); setListingActionError(''); const res = await supabaseHelpers.finalizeClientMarketSale({ listingId: listing.id, units: listing.quantity }); if (res?.error) { setListingActionError(copy.finalizeSaleError); } else { await loadAllListings(); } setBusyListingId(null); };
+  const removeListing = async (listing) => { if (!listing?.id || busyListingId) return; setBusyListingId(listing.id); setListingActionError(''); const res = await supabaseHelpers.setClientMarketListingActive({ listingId: listing.id, isActive: false }); if (res?.error) { const errMsg = String(res.error?.message || ''); setListingActionError(errMsg ? `${copy.removeSaleError} (${errMsg})` : copy.removeSaleError); } else { await loadAllListings(); } setBusyListingId(null); };
+  const beginEditListing = (listing) => { if (!listing?.id) return; setListingActionError(''); setEditingListingId(listing.id); setEditDraft({ productName: listing.product_name || '', asin: listing.asin || '', ean: listing.ean || '', country: String(listing.country || '').toUpperCase(), quantity: String(Math.max(1, Number(listing.quantity || 1))), priceEur: String(Number(listing.price_eur || 0)), note: listing.note || '', linkFr: listing.link_fr || '', linkDe: listing.link_de || '' }); };
+  const cancelEditListing = () => { setEditingListingId(null); setEditDraft({ productName: '', asin: '', ean: '', country: '', quantity: '1', priceEur: '', note: '', linkFr: '', linkDe: '' }); };
+  const saveEditListing = async (listing) => { if (!listing?.id || busyListingId) return; const parsedPrice = Number(editDraft.priceEur); const parsedQty = Number(editDraft.quantity); if (!editDraft.country || !OFFER_COUNTRY_OPTIONS.includes(editDraft.country)) { setListingActionError(copy.selectCountryError); return; } if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) { setListingActionError(copy.invalidPrice); return; } if (!Number.isFinite(parsedQty) || parsedQty < 1) { setListingActionError(copy.quantityInvalidError); return; } setBusyListingId(listing.id); setListingActionError(''); const res = await supabaseHelpers.updateClientMarketListing({ listingId: listing.id, productName: editDraft.productName, asin: editDraft.asin, ean: editDraft.ean, country: editDraft.country, priceEur: parsedPrice, quantity: Math.floor(parsedQty), note: editDraft.note, linkFr: editDraft.linkFr, linkDe: editDraft.linkDe }); if (res?.error) { const errMsg = String(res.error?.message || ''); setListingActionError(errMsg ? `${copy.editFailed} (${errMsg})` : copy.editFailed); } else { await loadAllListings(); cancelEditListing(); } setBusyListingId(null); };
+  const openListingChat = async (listing) => { if (!listing?.id || !me) return; const conv = await supabaseHelpers.getOrCreateClientMarketConversation({ listingId: listing.id }); if (conv?.error) return; await loadConversations(); if (conv?.data?.id) { setActiveConversationId(conv.data.id); window.dispatchEvent(new CustomEvent(CHAT_OPEN_B2B_EVENT, { detail: { conversationId: conv.data.id, market: listing?.country || market } })); } };
+  const sendMessage = async () => { if (!activeConversationId || !me || !messageInput.trim() || sending) return; setSending(true); setSendError(''); const res = await supabaseHelpers.sendClientMarketMessage({ conversationId: activeConversationId, senderUserId: me, body: messageInput }); if (!res?.error) { setMessageInput(''); loadMessages(); loadConversations(); } else { setSendError(copy.sendFailed); } setSending(false); };
 
-  useEffect(() => {
-    if (!activeConversationId) return;
-    const channel = supabase
-      .channel(`client-market-${activeConversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'client_market_messages',
-          filter: `conversation_id=eq.${activeConversationId}`
-        },
-        () => {
-          loadMessages();
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeConversationId]);
-
-  const createListingFromInventory = async (event) => {
-    event.preventDefault();
-    if (!selectedInventoryItem) {
-      setCreateError(copy.selectProductError);
-      return;
-    }
-    if (!offerCountry || !OFFER_COUNTRY_OPTIONS.includes(offerCountry)) {
-      setCreateError(copy.selectCountryError);
-      return;
-    }
-    const availableStock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem));
-    const parsedQuantity = Number(quantityToSell);
-    if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1) {
-      setCreateError(copy.quantityInvalidError);
-      return;
-    }
-    if (parsedQuantity > availableStock) {
-      setCreateError(copy.quantityExceedsError);
-      return;
-    }
-    const parsedPrice = Number(priceEur);
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      setCreateError(copy.invalidPrice);
-      return;
-    }
-    if (!me) return;
-
-    setCreateError('');
-    setCreating(true);
-    setListingActionError('');
-    const res = await supabaseHelpers.createClientMarketListing({
-      ownerUserId: me,
-      ownerCompanyId: myCompanyId || selectedInventoryItem?.company_id || me,
-      stockItemId: selectedInventoryItem.id,
-      country: offerCountry,
-      asin: selectedInventoryItem.asin || null,
-      ean: selectedInventoryItem.ean || null,
-      imageUrl: selectedInventoryItem.image_url || null,
-      productName: selectedInventoryItem.name || 'Product',
-      priceEur: parsedPrice,
-      quantity: Math.max(1, Math.floor(parsedQuantity)),
-      note,
-      linkFr,
-      linkDe
-    });
-    if (res?.error) {
-      console.error('Failed to create listing:', res.error);
-      const errMessage = String(res.error?.message || '');
-      setCreateError(errMessage ? `${copy.publishFailed} (${errMessage})` : copy.publishFailed);
-    } else {
-      setPriceEur('');
-      setNote('');
-      setLinkFr('');
-      setLinkDe('');
-      setSelectedStockItemId('');
-      setOfferCountry('');
-      setQuantityToSell('1');
-      setCreateError('');
-      loadAllListings();
-    }
-    setCreating(false);
-  };
-
-  const finalizeListingSale = async (listing) => {
-    if (!listing?.id || busyListingId) return;
-    setBusyListingId(listing.id);
-    setListingActionError('');
-    const res = await supabaseHelpers.finalizeClientMarketSale({
-      listingId: listing.id,
-      units: listing.quantity
-    });
-    if (res?.error) {
-      console.error('Failed to finalize listing sale:', res.error);
-      setListingActionError(copy.finalizeSaleError);
-    } else {
-      await loadAllListings();
-    }
-    setBusyListingId(null);
-  };
-
-  const removeListing = async (listing) => {
-    if (!listing?.id || busyListingId) return;
-    setBusyListingId(listing.id);
-    setListingActionError('');
-    const res = await supabaseHelpers.setClientMarketListingActive({
-      listingId: listing.id,
-      isActive: false
-    });
-    if (res?.error) {
-      console.error('Failed to remove listing:', res.error);
-      const errMessage = String(res.error?.message || '');
-      setListingActionError(errMessage ? `${copy.removeSaleError} (${errMessage})` : copy.removeSaleError);
-    } else {
-      await loadAllListings();
-    }
-    setBusyListingId(null);
-  };
-
-  const beginEditListing = (listing) => {
-    if (!listing?.id) return;
-    setListingActionError('');
-    setEditingListingId(listing.id);
-    setEditDraft({
-      productName: listing.product_name || '',
-      asin: listing.asin || '',
-      ean: listing.ean || '',
-      country: String(listing.country || '').toUpperCase(),
-      quantity: String(Math.max(1, Number(listing.quantity || 1))),
-      priceEur: String(Number(listing.price_eur || 0)),
-      note: listing.note || '',
-      linkFr: listing.link_fr || '',
-      linkDe: listing.link_de || ''
-    });
-  };
-
-  const cancelEditListing = () => {
-    setEditingListingId(null);
-    setEditDraft({
-      productName: '',
-      asin: '',
-      ean: '',
-      country: '',
-      quantity: '1',
-      priceEur: '',
-      note: '',
-      linkFr: '',
-      linkDe: ''
-    });
-  };
-
-  const saveEditListing = async (listing) => {
-    if (!listing?.id || busyListingId) return;
-    const parsedPrice = Number(editDraft.priceEur);
-    const parsedQty = Number(editDraft.quantity);
-    if (!editDraft.country || !OFFER_COUNTRY_OPTIONS.includes(editDraft.country)) {
-      setListingActionError(copy.selectCountryError);
-      return;
-    }
-    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-      setListingActionError(copy.invalidPrice);
-      return;
-    }
-    if (!Number.isFinite(parsedQty) || parsedQty < 1) {
-      setListingActionError(copy.quantityInvalidError);
-      return;
-    }
-    setBusyListingId(listing.id);
-    setListingActionError('');
-    const res = await supabaseHelpers.updateClientMarketListing({
-      listingId: listing.id,
-      productName: editDraft.productName,
-      asin: editDraft.asin,
-      ean: editDraft.ean,
-      country: editDraft.country,
-      priceEur: parsedPrice,
-      quantity: Math.floor(parsedQty),
-      note: editDraft.note,
-      linkFr: editDraft.linkFr,
-      linkDe: editDraft.linkDe
-    });
-    if (res?.error) {
-      console.error('Failed to update listing:', res.error);
-      const errMessage = String(res.error?.message || '');
-      setListingActionError(errMessage ? `${copy.editFailed} (${errMessage})` : copy.editFailed);
-    } else {
-      await loadAllListings();
-      cancelEditListing();
-    }
-    setBusyListingId(null);
-  };
-
-  const openListingChat = async (listing) => {
-    if (!listing?.id || !me) return;
-    const conv = await supabaseHelpers.getOrCreateClientMarketConversation({
-      listingId: listing.id
-    });
-    if (conv?.error) {
-      console.error('Failed to open listing chat:', conv.error);
-      return;
-    }
-    await loadConversations();
-    if (conv?.data?.id) {
-      setActiveConversationId(conv.data.id);
-      window.dispatchEvent(
-        new CustomEvent(CHAT_OPEN_B2B_EVENT, {
-          detail: {
-            conversationId: conv.data.id,
-            market: listing?.country || market
-          }
-        })
-      );
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!activeConversationId || !me || !messageInput.trim() || sending) return;
-    setSending(true);
-    setSendError('');
-    const res = await supabaseHelpers.sendClientMarketMessage({
-      conversationId: activeConversationId,
-      senderUserId: me,
-      body: messageInput
-    });
-    if (!res?.error) {
-      setMessageInput('');
-      loadMessages();
-      loadConversations();
-    } else {
-      console.error('Failed to send marketplace message:', res.error);
-      setSendError(copy.sendFailed);
-    }
-    setSending(false);
-  };
+  const handleImgError = (key) => { setFailedImageIds((prev) => { const next = new Set(prev); next.add(key); return next; }); };
+  const imgSrc = (key, url) => failedImageIds.has(key) ? '/images/product-placeholder.png' : (url || '/images/product-placeholder.png');
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-16">
-        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">
-          {copy.authOnly}
+      <div id="exchange_auth_gate" className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="bg-white rounded-md border border-gray-100 shadow-lg p-10 max-w-md w-full text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-md bg-orange-100 text-orange-600 mx-auto"><ShoppingBag className="w-7 h-7" /></div>
+          <p className="text-xl text-text-primary font-semibold">{copy.heroTitle || 'Exchange'}</p>
+          <p className="text-lg text-text-secondary font-light">{copy.authOnly}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] px-4 py-6">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-800">{copy.allOffers}</div>
-          <div className="mb-2 flex items-center gap-2">
-            <input
-              value={allSearch}
-              onChange={(e) => setAllSearch(e.target.value)}
-              placeholder={copy.searchAllPlaceholder}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
+    <div id="exchange_root" className="min-h-screen">
+      {/* HERO */}
+      <section id="exchange_hero" className="relative overflow-hidden bg-[#060d19] pt-28 pb-16 lg:pt-36 lg:pb-24">
+        <div className="absolute inset-0">
+          <div className="absolute top-[-20%] left-[-10%] w-[700px] h-[700px] bg-orange-500/8 rounded-full blur-[120px]" />
+          <div className="absolute bottom-[-20%] right-[-10%] w-[600px] h-[600px] bg-amber-500/8 rounded-full blur-[120px]" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <div className="inline-flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-5 py-2.5 mb-8 backdrop-blur-md">
+              <ShoppingBag className="w-4 h-4 text-orange-400" />
+              <span className="text-lg text-white/60 font-medium">B2B Marketplace</span>
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white mb-6 leading-[1.08] tracking-tight" style={{ textWrap: 'balance' }}>
+              {copy.heroTitle || 'Exchange'}
+            </h1>
+            <p className="text-xl text-white/45 max-w-2xl leading-relaxed font-light">{copy.heroDescription}</p>
           </div>
-          <div className="max-h-[760px] space-y-2 overflow-y-auto pr-1">
-            {loadingListings && <div className="text-sm text-slate-500">{copy.loading}</div>}
-            {!loadingListings && marketListings.length === 0 && (
-              <div className="text-sm text-slate-500">{copy.noOffers}</div>
-            )}
-            {listingActionError && <div className="text-xs font-medium text-red-600">{listingActionError}</div>}
-            {marketListings.map((listing) => (
-              <div key={listing.id} className="rounded-xl border border-slate-200 p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-start gap-3">
-                    <img
-                      src={
-                        failedImageIds.has(`listing-${listing.id}`)
-                          ? '/images/product-placeholder.png'
-                          : (getListingImageUrl(listing) || '/images/product-placeholder.png')
-                      }
-                      onError={() => {
-                        setFailedImageIds((prev) => {
-                          const next = new Set(prev);
-                          next.add(`listing-${listing.id}`);
-                          return next;
-                        });
-                      }}
-                      alt={listing.product_name || 'Product'}
-                      className="h-14 w-14 shrink-0 rounded-lg border border-slate-200 object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-semibold text-slate-900">{listing.product_name}</div>
-                        {listing.owner_user_id === me && (
-                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700">
-                            {copy.myOfferTag}
-                          </span>
-                        )}
-                      </div>
-                      {editingListingId === listing.id ? (
-                        <div className="mt-2 space-y-2">
-                          <input
-                            value={editDraft.productName}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, productName: e.target.value }))}
-                            className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                            placeholder="Product name"
-                          />
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              value={editDraft.asin}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, asin: e.target.value }))}
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder="ASIN"
-                            />
-                            <input
-                              value={editDraft.ean}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, ean: e.target.value }))}
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder="EAN"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="text"
-                              value={editDraft.linkFr}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, linkFr: e.target.value }))}
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder={copy.linkFrPlaceholder}
-                            />
-                            <input
-                              type="text"
-                              value={editDraft.linkDe}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, linkDe: e.target.value }))}
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder={copy.linkDePlaceholder}
-                            />
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <select
-                              value={editDraft.country}
-                              onChange={(e) =>
-                                setEditDraft((prev) => ({ ...prev, country: String(e.target.value || '').toUpperCase() }))
-                              }
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                            >
-                              <option value="">Country</option>
-                              {OFFER_COUNTRY_OPTIONS.map((code) => (
-                                <option key={code} value={code}>{code}</option>
-                              ))}
-                            </select>
-                            <input
-                              type="number"
-                              min="1"
-                              step="1"
-                              value={editDraft.quantity}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, quantity: e.target.value }))}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder={copy.quantityToSellLabel}
-                            />
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={editDraft.priceEur}
-                              onChange={(e) => setEditDraft((prev) => ({ ...prev, priceEur: e.target.value }))}
-                              className="rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                              placeholder={copy.pricePlaceholder}
-                            />
-                          </div>
-                          <textarea
-                            value={editDraft.note}
-                            onChange={(e) => setEditDraft((prev) => ({ ...prev, note: e.target.value }))}
-                            rows={2}
-                            className="w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                            placeholder={copy.notePlaceholder}
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <div className="mt-1 text-xs text-slate-500">
-                            {formatProductCodes(copy, listing.asin, listing.ean)}
-                          </div>
-                          <div className="mt-1 text-xs text-slate-600">
-                            {listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}
-                          </div>
-                          {listing.note && <div className="mt-1 text-xs text-slate-500">{listing.note}</div>}
-                          {(listing.link_fr || listing.link_de) && (
-                            <div className="mt-1 space-y-1 text-xs text-slate-600">
-                              {listing.link_fr && (
-                                <a
-                                  href={toExternalUrl(listing.link_fr)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block text-primary hover:underline"
-                                >
-                                  FR: {listing.link_fr}
-                                </a>
-                              )}
-                              {listing.link_de && (
-                                <a
-                                  href={toExternalUrl(listing.link_de)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="block text-primary hover:underline"
-                                >
-                                  DE: {listing.link_de}
-                                </a>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-2">
-                    {listing.owner_user_id === me ? (
-                      <>
-                        {editingListingId === listing.id ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => saveEditListing(listing)}
-                              disabled={busyListingId === listing.id}
-                              className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
-                            >
-                              {copy.saveChanges}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelEditListing}
-                              disabled={busyListingId === listing.id}
-                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                              {copy.cancelEdit}
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => beginEditListing(listing)}
-                              disabled={busyListingId === listing.id}
-                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                              {copy.editListing}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => finalizeListingSale(listing)}
-                              disabled={busyListingId === listing.id}
-                              className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
-                            >
-                              {copy.finalizeSale}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeListing(listing)}
-                              disabled={busyListingId === listing.id}
-                              className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                            >
-                              {copy.removeFromSale}
-                            </button>
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => openListingChat(listing)}
-                        className="rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
-                      >
-                        {copy.contact}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-50 to-transparent" />
+      </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-4">
-          <div className="mb-3 text-sm font-semibold text-slate-800">{copy.myOffersFromInventory}</div>
-          <div className="mb-2 text-xs text-slate-500">{copy.inventorySectionHint}</div>
-          <div className="rounded-xl border border-slate-200 p-3">
-            <input
-              value={inventorySearch}
-              onChange={(e) => setInventorySearch(e.target.value)}
-              placeholder={copy.inventorySearchPlaceholder}
-              className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            />
+      {/* MAIN CONTENT */}
+      <section id="exchange_content" className="py-12 lg:py-16 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
 
-            <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
-              {inventoryItems.length === 0 && (
-                <div className="text-sm text-slate-500">{copy.noInventoryStock}</div>
-              )}
-              {inventoryItems.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => setSelectedStockItemId(String(item.id))}
-                  className={`w-full rounded-xl border p-2 text-left ${
-                    String(item.id) === String(selectedStockItemId)
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
+            {/* ALL OFFERS */}
+            <div className="bg-white rounded-md border border-gray-100 hover:shadow-xl transition-all duration-500 overflow-hidden">
+              <div className="h-1 bg-orange-500" />
+              <div className="p-6 space-y-5">
+                <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={
-                        failedImageIds.has(String(item.id))
-                          ? '/images/product-placeholder.png'
-                          : (item.image_url || '/images/product-placeholder.png')
-                      }
-                      onError={() => {
-                        setFailedImageIds((prev) => {
-                          const next = new Set(prev);
-                          next.add(String(item.id));
-                          return next;
-                        });
-                      }}
-                      alt={item.name || 'Product'}
-                      className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-slate-800">{item.name || 'Product'}</div>
-                      <div className="truncate text-xs text-slate-500">
-                        {formatProductCodes(copy, item.asin, item.ean)}
-                      </div>
-                    </div>
-                    <div className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
-                      {copy.stockLabel} {getAvailableInventoryStock(item)}
-                    </div>
+                    <div className="w-10 h-10 rounded-md bg-orange-500 flex items-center justify-center"><Tag className="w-5 h-5 text-white" /></div>
+                    <h2 className="text-xl font-semibold text-text-primary">{copy.allOffers}</h2>
                   </div>
-                </button>
-              ))}
-            </div>
-
-            <form onSubmit={createListingFromInventory} className="mt-3 space-y-2 border-t border-slate-200 pt-3">
-              <div className="text-xs text-slate-500">
-                {selectedInventoryItem
-                  ? `${copy.selectedLabel}: ${selectedInventoryItem.name || 'Product'} (${formatProductCodes(copy, selectedInventoryItem.asin, selectedInventoryItem.ean)})`
-                  : copy.selectHint}
-              </div>
-              {selectedInventoryItem && (
-                <div className="text-xs text-slate-500">
-                  {copy.locatedIn
-                    .replace('{name}', selectedInventoryItem.name || 'Product')
-                    .replace('{country}', offerCountry || copy.countryNotSelected)}
+                  <span className="text-lg text-text-light font-light">{marketListings.length}</span>
                 </div>
-              )}
-              <select
-                value={offerCountry}
-                onChange={(e) => setOfferCountry(String(e.target.value || '').toUpperCase())}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                aria-label={copy.listingCountryLabel}
-                required
-              >
-                <option value="">{copy.listingCountryPlaceholder}</option>
-                {OFFER_COUNTRY_OPTIONS.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
-              </select>
-              <div className="text-xs text-slate-500">{copy.listingCountryHelp}</div>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={quantityToSell}
-                onChange={(e) => setQuantityToSell(e.target.value)}
-                placeholder={copy.quantityToSellPlaceholder}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                aria-label={copy.quantityToSellLabel}
-                required
-              />
-              {selectedInventoryItem && (
-                <div className="text-xs text-slate-500">
-                  {copy.availableStockLabel}: {Math.max(1, getAvailableInventoryStock(selectedInventoryItem))}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-light" />
+                  <input value={allSearch} onChange={(e) => setAllSearch(e.target.value)} placeholder={copy.searchAllPlaceholder} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-md text-lg placeholder:text-text-light focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all" />
                 </div>
-              )}
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={priceEur}
-                onChange={(e) => setPriceEur(e.target.value)}
-                placeholder={copy.pricePlaceholder}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                required
-              />
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={copy.notePlaceholder}
-                rows={2}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                type="text"
-                value={linkFr}
-                onChange={(e) => setLinkFr(e.target.value)}
-                placeholder={copy.linkFrPlaceholder}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              <input
-                type="text"
-                value={linkDe}
-                onChange={(e) => setLinkDe(e.target.value)}
-                placeholder={copy.linkDePlaceholder}
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              />
-              {createError && <div className="text-xs font-medium text-red-600">{createError}</div>}
-              <button
-                type="submit"
-                disabled={!selectedStockItemId || !priceEur || !offerCountry || !quantityToSell || creating}
-                className="w-full rounded-lg bg-orange-500 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
-              >
-                {creating ? copy.publishing : copy.addForSale}
-              </button>
-            </form>
-          </div>
-
-        </section>
-      </div>
-
-      {false && showChat && (
-        <div className="fixed inset-0 z-[80] bg-black/35 p-4">
-          <div className="mx-auto flex h-full max-h-[860px] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">{copy.chatTitle}</div>
-                <div className="text-xs text-slate-500">{copy.chatSubtitle}</div>
-              </div>
-              <button
-                onClick={() => setShowChat(false)}
-                className="rounded-full p-1 text-slate-500 hover:text-slate-700"
-                aria-label={copy.closeChat}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
-              <div className="border-r border-slate-200 p-3">
-                <div className="max-h-full space-y-2 overflow-y-auto pr-1">
-                  {conversations.length === 0 && (
-                    <div className="text-sm text-slate-500">{copy.noConversations}</div>
-                  )}
-                  {conversations.map((conv) => {
-                    const listing = Array.isArray(conv.client_market_listings)
-                      ? conv.client_market_listings[0]
-                      : conv.client_market_listings;
-                    return (
-                      <button
-                        key={conv.id}
-                        onClick={() => setActiveConversationId(conv.id)}
-                        className={`w-full rounded-lg border p-2 text-left ${
-                          conv.id === activeConversationId
-                            ? 'border-primary bg-primary/10'
-                            : 'border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="truncate text-xs font-semibold text-slate-800">
-                          {listing?.product_name || copy.listingFallback}
-                        </div>
-                        <div className="mt-1 text-[11px] text-slate-500">
-                          {formatProductCodes(copy, listing?.asin, listing?.ean)}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="flex h-full min-h-0 flex-col">
-                <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-3">
-                  {!activeConversation && (
-                    <div className="text-sm text-slate-500">{copy.selectConversation}</div>
-                  )}
-                  {messages.map((msg) => {
-                    const mine = msg.sender_user_id === me;
-                    return (
-                      <div key={msg.id} className={`mb-3 flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary text-white' : 'bg-slate-100 text-slate-900'}`}>
-                          <div className="whitespace-pre-wrap">{msg.body}</div>
-                          <div className={`mt-1 text-[10px] ${mine ? 'text-white/70' : 'text-slate-500'}`}>
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {listingActionError && <div className="px-4 py-3 rounded-md bg-red-50 border border-red-200 text-lg text-red-700">{listingActionError}</div>}
+                <div className="max-h-[700px] space-y-3 overflow-y-auto pr-1">
+                  {loadingListings && <div className="text-lg text-text-light font-light text-center py-8">{copy.loading}</div>}
+                  {!loadingListings && marketListings.length === 0 && <div className="text-lg text-text-light font-light text-center py-8">{copy.noOffers}</div>}
+                  {marketListings.map((listing) => (
+                    <div key={listing.id} className="group rounded-md border border-gray-100 hover:border-gray-200 hover:shadow-lg p-4 transition-all duration-300">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <img src={imgSrc(`listing-${listing.id}`, getListingImageUrl(listing))} onError={() => handleImgError(`listing-${listing.id}`)} alt={listing.product_name || 'Product'} className="h-16 w-16 shrink-0 rounded-md border border-gray-200 object-cover" />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="text-lg font-semibold text-text-primary">{listing.product_name}</div>
+                              {listing.owner_user_id === me && (<span className="rounded-full bg-orange-100 px-2.5 py-1 text-lg font-semibold text-orange-700">{copy.myOfferTag}</span>)}
+                            </div>
+                            {editingListingId === listing.id ? (
+                              <div className="mt-3 space-y-2">
+                                <input value={editDraft.productName} onChange={(e) => setEditDraft((p) => ({ ...p, productName: e.target.value }))} className={inputStyles} placeholder="Product name" />
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input value={editDraft.asin} onChange={(e) => setEditDraft((p) => ({ ...p, asin: e.target.value }))} className={inputStyles} placeholder="ASIN" />
+                                  <input value={editDraft.ean} onChange={(e) => setEditDraft((p) => ({ ...p, ean: e.target.value }))} className={inputStyles} placeholder="EAN" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input value={editDraft.linkFr} onChange={(e) => setEditDraft((p) => ({ ...p, linkFr: e.target.value }))} className={inputStyles} placeholder={copy.linkFrPlaceholder} />
+                                  <input value={editDraft.linkDe} onChange={(e) => setEditDraft((p) => ({ ...p, linkDe: e.target.value }))} className={inputStyles} placeholder={copy.linkDePlaceholder} />
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <select value={editDraft.country} onChange={(e) => setEditDraft((p) => ({ ...p, country: String(e.target.value || '').toUpperCase() }))} className={inputStyles}><option value="">Country</option>{OFFER_COUNTRY_OPTIONS.map((c) => (<option key={c} value={c}>{c}</option>))}</select>
+                                  <input type="number" min="1" step="1" value={editDraft.quantity} onChange={(e) => setEditDraft((p) => ({ ...p, quantity: e.target.value }))} className={inputStyles} placeholder={copy.quantityToSellLabel} />
+                                  <input type="number" min="0" step="0.01" value={editDraft.priceEur} onChange={(e) => setEditDraft((p) => ({ ...p, priceEur: e.target.value }))} className={inputStyles} placeholder={copy.pricePlaceholder} />
+                                </div>
+                                <textarea value={editDraft.note} onChange={(e) => setEditDraft((p) => ({ ...p, note: e.target.value }))} rows={2} className={inputStyles + " resize-none"} placeholder={copy.notePlaceholder} />
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-1 text-lg text-text-secondary font-light">{formatProductCodes(copy, listing.asin, listing.ean)}</div>
+                                <div className="mt-1 text-lg text-text-primary font-semibold">{listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}</div>
+                                {listing.note && <div className="mt-1 text-lg text-text-light font-light">{listing.note}</div>}
+                                {(listing.link_fr || listing.link_de) && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {listing.link_fr && (<a href={toExternalUrl(listing.link_fr)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lg text-primary hover:underline"><ExternalLink className="w-4 h-4" />FR</a>)}
+                                    {listing.link_de && (<a href={toExternalUrl(listing.link_de)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lg text-primary hover:underline"><ExternalLink className="w-4 h-4" />DE</a>)}
+                                  </div>
+                                )}
+                              </>
+                            )}
                           </div>
                         </div>
+                        <div className="flex shrink-0 flex-col gap-2">
+                          {listing.owner_user_id === me ? (
+                            editingListingId === listing.id ? (
+                              <>
+                                <button type="button" onClick={() => saveEditListing(listing)} disabled={busyListingId === listing.id} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-lg font-semibold text-white hover:bg-primary-dark disabled:opacity-60 transition-all"><Check className="w-4 h-4" />{copy.saveChanges}</button>
+                                <button type="button" onClick={cancelEditListing} disabled={busyListingId === listing.id} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-lg font-semibold text-text-secondary hover:bg-gray-50 disabled:opacity-60 transition-all">{copy.cancelEdit}</button>
+                              </>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => beginEditListing(listing)} disabled={busyListingId === listing.id} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-lg font-semibold text-text-secondary hover:bg-gray-50 disabled:opacity-60 transition-all"><Pencil className="w-4 h-4" />{copy.editListing}</button>
+                                <button type="button" onClick={() => finalizeListingSale(listing)} disabled={busyListingId === listing.id} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-lg font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 transition-all"><Check className="w-4 h-4" />{copy.finalizeSale}</button>
+                                <button type="button" onClick={() => removeListing(listing)} disabled={busyListingId === listing.id} className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-3 py-2 text-lg font-semibold text-text-secondary hover:bg-gray-50 disabled:opacity-60 transition-all"><Trash2 className="w-4 h-4" />{copy.removeFromSale}</button>
+                              </>
+                            )
+                          ) : (
+                            <button onClick={() => openListingChat(listing)} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-lg font-semibold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"><MessageSquare className="w-4 h-4" />{copy.contact}</button>
+                          )}
+                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-                <div className="border-t border-slate-200 p-3">
-                  <div className="flex items-end gap-2">
-                    <textarea
-                      value={messageInput}
-                      onChange={(e) => setMessageInput(e.target.value)}
-                      rows={2}
-                      placeholder={copy.writeMessagePlaceholder}
-                      className="flex-1 resize-none rounded-lg border border-slate-200 p-2 text-sm"
-                    />
-                    <button
-                      onClick={sendMessage}
-                      disabled={!activeConversation || !messageInput.trim() || sending}
-                      className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50"
-                    >
-                      {copy.send}
-                    </button>
+              </div>
+            </div>
+
+            {/* MY OFFERS / PUBLISH */}
+            <div className="bg-white rounded-md border border-gray-100 hover:shadow-xl transition-all duration-500 overflow-hidden">
+              <div className="h-1 bg-blue-600" />
+              <div className="p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-md bg-blue-600 flex items-center justify-center"><Package className="w-5 h-5 text-white" /></div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-text-primary">{copy.myOffersFromInventory}</h2>
+                    <p className="text-lg text-text-light font-light">{copy.inventorySectionHint}</p>
                   </div>
-                  {sendError && <div className="mt-2 text-xs font-medium text-red-600">{sendError}</div>}
+                </div>
+                <div className="rounded-md border border-gray-100 p-4 space-y-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-light" />
+                    <input value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder={copy.inventorySearchPlaceholder} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-md text-lg placeholder:text-text-light focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                  </div>
+                  <div className="max-h-[260px] space-y-2 overflow-y-auto pr-1">
+                    {inventoryItems.length === 0 && <div className="text-lg text-text-light font-light text-center py-6">{copy.noInventoryStock}</div>}
+                    {inventoryItems.map((item) => (
+                      <button key={item.id} onClick={() => setSelectedStockItemId(String(item.id))} className={`w-full rounded-md border p-3 text-left transition-all duration-300 ${String(item.id) === String(selectedStockItemId) ? 'border-orange-400 bg-orange-50 shadow-md' : 'border-gray-100 hover:bg-gray-50 hover:border-gray-200'}`}>
+                        <div className="flex items-center gap-3">
+                          <img src={imgSrc(String(item.id), item.image_url)} onError={() => handleImgError(String(item.id))} alt={item.name || 'Product'} className="h-12 w-12 rounded-md border border-gray-200 object-cover" />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-lg font-semibold text-text-primary">{item.name || 'Product'}</div>
+                            <div className="truncate text-lg text-text-light font-light">{formatProductCodes(copy, item.asin, item.ean)}</div>
+                          </div>
+                          <div className="rounded-full bg-emerald-100 px-3 py-1.5 text-lg font-semibold text-emerald-700">{copy.stockLabel} {getAvailableInventoryStock(item)}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <form onSubmit={createListingFromInventory} noValidate className="mt-4 space-y-3 border-t border-gray-100 pt-4">
+                    <div className="text-lg text-text-secondary font-light">{selectedInventoryItem ? `${copy.selectedLabel}: ${selectedInventoryItem.name || 'Product'}` : copy.selectHint}</div>
+                    {selectedInventoryItem && (
+                      <div className="text-lg text-text-light font-light">{copy.locatedIn.replace('{name}', selectedInventoryItem.name || 'Product').replace('{country}', offerCountry || copy.countryNotSelected)}</div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <select value={offerCountry} onChange={(e) => setOfferCountry(e.target.value)} className={inputStyles}><option value="">{copy.listingCountryPlaceholder}</option>{OFFER_COUNTRY_OPTIONS.map((c) => (<option key={c} value={c}>{c}</option>))}</select>
+                      <input type="number" min="1" step="1" value={quantityToSell} onChange={(e) => setQuantityToSell(e.target.value)} className={inputStyles} placeholder={copy.quantityToSellPlaceholder} />
+                    </div>
+                    {selectedInventoryItem && <div className="text-lg text-text-light font-light">{copy.availableStockLabel}: {getAvailableInventoryStock(selectedInventoryItem)}</div>}
+                    <input type="number" min="0.01" step="0.01" value={priceEur} onChange={(e) => setPriceEur(e.target.value)} className={inputStyles} placeholder={copy.pricePlaceholder} />
+                    <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className={inputStyles + " resize-none"} placeholder={copy.notePlaceholder} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <input value={linkFr} onChange={(e) => setLinkFr(e.target.value)} className={inputStyles} placeholder={copy.linkFrPlaceholder} />
+                      <input value={linkDe} onChange={(e) => setLinkDe(e.target.value)} className={inputStyles} placeholder={copy.linkDePlaceholder} />
+                    </div>
+                    {createError && <div className="px-4 py-3 rounded-md bg-red-50 border border-red-200 text-lg text-red-700">{createError}</div>}
+                    <button type="submit" disabled={creating} className="group w-full inline-flex items-center justify-center gap-2 bg-primary text-white py-3.5 px-6 rounded-md font-semibold text-lg hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/20 disabled:opacity-50">
+                      {creating ? copy.publishing : (<><Plus className="w-5 h-5" />{copy.addForSale}</>)}
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </section>
+
+      {/* CHAT SECTION */}
+      {conversations.length > 0 && (
+        <section id="exchange_chat" className="py-12 lg:py-16 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-[#060d19] rounded-md overflow-hidden relative">
+              <div className="absolute inset-0">
+                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/8 rounded-full blur-[100px]" />
+                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-orange-500/8 rounded-full blur-[100px]" />
+              </div>
+              <div className="relative z-10 p-6 lg:p-8">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center"><MessageSquare className="w-5 h-5 text-white" /></div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">{copy.chatTitle}</h3>
+                    <p className="text-lg text-white/40 font-light">{copy.chatSubtitle}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-4">
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+                    {conversations.map((conv) => {
+                      const isActive = conv.id === activeConversationId;
+                      const displayName = conv.listing_product_name || conv.other_company_name || conv.other_user_name || copy.listingFallback;
+                      return (
+                        <button key={conv.id} onClick={() => setActiveConversationId(conv.id)} className={`w-full text-left px-4 py-3 rounded-md transition-all duration-300 ${isActive ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}>
+                          <div className="text-lg font-semibold text-white truncate">{displayName}</div>
+                          <div className="text-lg text-white/40 font-light truncate">{formatProductCodes(copy, conv.listing_asin, conv.listing_ean)}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex flex-col bg-white/5 border border-white/10 rounded-md overflow-hidden">
+                    <div ref={messagesRef} className="flex-1 max-h-[340px] overflow-y-auto p-4 space-y-3">
+                      {messages.length === 0 && <div className="text-lg text-white/30 font-light text-center py-8">{copy.selectConversation}</div>}
+                      {messages.map((msg) => {
+                        const isMe = msg.sender_user_id === me;
+                        return (
+                          <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[70%] px-4 py-3 rounded-md text-lg font-light ${isMe ? 'bg-primary text-white' : 'bg-white/10 text-white/80'}`}>
+                              {msg.body}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {activeConversationId && (
+                      <div className="p-3 border-t border-white/10">
+                        {sendError && <div className="text-lg text-red-400 mb-2">{sendError}</div>}
+                        <div className="flex gap-2">
+                          <input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-md text-lg text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:border-transparent outline-none" placeholder={copy.writeMessagePlaceholder} />
+                          <button onClick={sendMessage} disabled={sending || !messageInput.trim()} className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-primary text-white hover:bg-primary-dark disabled:opacity-50 transition-all"><Send className="w-5 h-5" /></button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
     </div>
   );
