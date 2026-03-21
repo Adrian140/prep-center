@@ -132,7 +132,7 @@ create table if not exists public.etsy_order_items (
   integration_id uuid not null references public.etsy_integrations(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   company_id uuid null references public.companies(id) on delete set null,
-  stock_item_id uuid null references public.stock_items(id) on delete set null,
+  stock_item_id bigint null references public.stock_items(id) on delete set null,
   receipt_id bigint not null,
   listing_id bigint,
   product_id bigint,
@@ -153,7 +153,7 @@ alter table if exists public.etsy_order_items add column if not exists order_id 
 alter table if exists public.etsy_order_items add column if not exists integration_id uuid;
 alter table if exists public.etsy_order_items add column if not exists user_id uuid;
 alter table if exists public.etsy_order_items add column if not exists company_id uuid;
-alter table if exists public.etsy_order_items add column if not exists stock_item_id uuid;
+alter table if exists public.etsy_order_items add column if not exists stock_item_id bigint;
 alter table if exists public.etsy_order_items add column if not exists receipt_id bigint;
 alter table if exists public.etsy_order_items add column if not exists listing_id bigint;
 alter table if exists public.etsy_order_items add column if not exists product_id bigint;
@@ -170,6 +170,9 @@ alter table if exists public.etsy_order_items add column if not exists created_a
 alter table if exists public.etsy_order_items add column if not exists updated_at timestamptz;
 
 alter table if exists public.etsy_order_items alter column quantity set default 0;
+alter table if exists public.etsy_order_items
+  alter column stock_item_id type bigint
+  using case when stock_item_id is null then null else stock_item_id::bigint end;
 alter table if exists public.etsy_order_items alter column raw_payload set default '{}'::jsonb;
 alter table if exists public.etsy_order_items alter column created_at set default now();
 alter table if exists public.etsy_order_items alter column updated_at set default now();
@@ -236,7 +239,7 @@ create table if not exists public.etsy_shop_listings (
   integration_id uuid not null references public.etsy_integrations(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   company_id uuid null references public.companies(id) on delete set null,
-  stock_item_id uuid null references public.stock_items(id) on delete set null,
+  stock_item_id bigint null references public.stock_items(id) on delete set null,
   shop_id text,
   shop_name text,
   listing_id bigint not null,
@@ -257,7 +260,7 @@ create table if not exists public.etsy_shop_listings (
 alter table if exists public.etsy_shop_listings add column if not exists integration_id uuid;
 alter table if exists public.etsy_shop_listings add column if not exists user_id uuid;
 alter table if exists public.etsy_shop_listings add column if not exists company_id uuid;
-alter table if exists public.etsy_shop_listings add column if not exists stock_item_id uuid;
+alter table if exists public.etsy_shop_listings add column if not exists stock_item_id bigint;
 alter table if exists public.etsy_shop_listings add column if not exists shop_id text;
 alter table if exists public.etsy_shop_listings add column if not exists shop_name text;
 alter table if exists public.etsy_shop_listings add column if not exists listing_id bigint;
@@ -274,6 +277,9 @@ alter table if exists public.etsy_shop_listings add column if not exists raw_pay
 alter table if exists public.etsy_shop_listings add column if not exists created_at timestamptz;
 alter table if exists public.etsy_shop_listings add column if not exists updated_at timestamptz;
 
+alter table if exists public.etsy_shop_listings
+  alter column stock_item_id type bigint
+  using case when stock_item_id is null then null else stock_item_id::bigint end;
 alter table if exists public.etsy_shop_listings alter column raw_payload set default '{}'::jsonb;
 alter table if exists public.etsy_shop_listings alter column created_at set default now();
 alter table if exists public.etsy_shop_listings alter column updated_at set default now();
