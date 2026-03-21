@@ -1699,55 +1699,58 @@ if (!isAdmin) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-3 lg:gap-4">
           {/* Sidebar */}
-          <div>
-            <div className={isAnalyticsTab ? 'bg-dark-900/80 border border-white/10 rounded-xl p-4' : 'bg-white rounded-xl shadow-sm p-4'}>
-              <nav className="space-y-1.5">
+          <div className="lg:sticky lg:top-24 lg:self-start">
+            <div className={isAnalyticsTab ? 'bg-dark-900/80 border border-white/10 rounded-r-xl lg:rounded-l-none lg:rounded-r-xl p-3' : 'bg-[#1B3A4B] rounded-r-xl lg:rounded-l-none lg:rounded-r-xl shadow-md p-3'}>
+              <div className="px-2 pb-1.5 text-[10px] uppercase tracking-widest text-sky-300/60 font-semibold">
+                {t('common.groups.operations')}
+              </div>
+              <nav className="space-y-0.5">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center px-3 py-2 text-left rounded-lg text-sm transition-colors ${
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] transition-all duration-200 ${
                       tab.id === 'prep-requests' && pendingPrepCount > 0
                         ? activeTab === tab.id
-                          ? 'bg-green-600 text-white'
-                          : 'bg-green-50 text-green-700 hover:bg-green-100'
+                          ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                          : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
                         : tab.id === 'returns' && pendingReturnsCount > 0
                           ? activeTab === tab.id
-                            ? 'bg-green-600 text-white'
-                            : 'bg-green-50 text-green-700 hover:bg-green-100'
+                            ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                            : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
                           : tab.id === 'affiliates' && pendingAffiliateCount > 0
                             ? activeTab === tab.id
-                              ? 'bg-green-600 text-white'
-                              : 'bg-green-50 text-green-700 hover:bg-green-100'
-                          : tab.id === 'chat' && chatUnreadCount > 0
-                            ? activeTab === tab.id
-                              ? 'bg-red-600 text-white'
-                              : 'bg-red-50 text-red-700 hover:bg-red-100'
-                          : tab.id === 'prep-business' && pendingIntegrationCount > 0
-                            ? activeTab === tab.id
-                              ? 'bg-green-600 text-white'
-                              : 'bg-green-50 text-green-700 hover:bg-green-100'
-                          : activeTab === tab.id
-                            ? 'bg-primary text-white'
-                            : isAnalyticsTab
-                              ? 'text-white/70 hover:bg-white/10'
-                              : 'text-text-secondary hover:bg-gray-50'
+                              ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                              : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                            : tab.id === 'chat' && chatUnreadCount > 0
+                              ? activeTab === tab.id
+                                ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                              : tab.id === 'prep-business' && pendingIntegrationCount > 0
+                                ? activeTab === tab.id
+                                  ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                  : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                                : activeTab === tab.id
+                                  ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                  : isAnalyticsTab
+                                    ? 'text-white/70 hover:bg-white/10 hover:text-white'
+                                    : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
                     }`}
                   >
-                    <tab.icon className="w-4 h-4 mr-2" />
+                    <tab.icon className="w-3.5 h-3.5 flex-shrink-0" />
                     {tab.label}
                     {tab.id === 'prep-business' && pendingIntegrationCount > 0 && (
                       <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                        activeTab === tab.id ? 'bg-white text-green-700' : 'bg-green-600 text-white'
+                        activeTab === tab.id ? 'bg-white text-[#0EA5E9]' : 'bg-[#0EA5E9] text-white'
                       }`}>
                         {pendingIntegrationCount > 99 ? '99+' : pendingIntegrationCount}
                       </span>
                     )}
                     {tab.id === 'chat' && chatUnreadCount > 0 && (
                       <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                        activeTab === tab.id ? 'bg-white text-red-600' : 'bg-red-600 text-white'
+                        activeTab === tab.id ? 'bg-white text-[#0EA5E9]' : 'bg-[#0EA5E9] text-white'
                       }`}>
                         {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
                       </span>
