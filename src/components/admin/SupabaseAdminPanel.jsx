@@ -1714,24 +1714,24 @@ if (!isAdmin) {
                     className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] transition-all duration-200 ${
                       tab.id === 'prep-requests' && pendingPrepCount > 0
                         ? activeTab === tab.id
-                          ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
-                          : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                          ? 'bg-gradient-to-r from-[#15803D] to-[#22C55E] text-white shadow-sm shadow-green-500/30 ring-2 ring-green-300/60'
+                          : 'bg-green-500/10 text-green-200 hover:bg-green-500/20 hover:text-white'
                         : tab.id === 'returns' && pendingReturnsCount > 0
                           ? activeTab === tab.id
-                            ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
-                            : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                            ? 'bg-gradient-to-r from-[#15803D] to-[#22C55E] text-white shadow-sm shadow-green-500/30 ring-2 ring-green-300/60'
+                            : 'bg-green-500/10 text-green-200 hover:bg-green-500/20 hover:text-white'
                           : tab.id === 'affiliates' && pendingAffiliateCount > 0
                             ? activeTab === tab.id
-                              ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
-                              : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                              ? 'bg-gradient-to-r from-[#15803D] to-[#22C55E] text-white shadow-sm shadow-green-500/30 ring-2 ring-green-300/60'
+                              : 'bg-green-500/10 text-green-200 hover:bg-green-500/20 hover:text-white'
                             : tab.id === 'chat' && chatUnreadCount > 0
                               ? activeTab === tab.id
-                                ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
-                                : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                                ? 'bg-gradient-to-r from-[#DC2626] to-[#F97316] text-white shadow-sm shadow-red-500/30 ring-2 ring-red-300/60'
+                                : 'bg-red-500/10 text-red-200 hover:bg-red-500/20 hover:text-white'
                               : tab.id === 'prep-business' && pendingIntegrationCount > 0
                                 ? activeTab === tab.id
-                                  ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
-                                  : 'text-slate-300/80 hover:bg-white/10 hover:text-white'
+                                  ? 'bg-gradient-to-r from-[#15803D] to-[#22C55E] text-white shadow-sm shadow-green-500/30 ring-2 ring-green-300/60'
+                                  : 'bg-green-500/10 text-green-200 hover:bg-green-500/20 hover:text-white'
                                 : activeTab === tab.id
                                   ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
                                   : isAnalyticsTab
@@ -1743,14 +1743,14 @@ if (!isAdmin) {
                     {tab.label}
                     {tab.id === 'prep-business' && pendingIntegrationCount > 0 && (
                       <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                        activeTab === tab.id ? 'bg-white text-[#0EA5E9]' : 'bg-[#0EA5E9] text-white'
+                        activeTab === tab.id ? 'bg-white text-[#15803D]' : 'bg-[#22C55E] text-white'
                       }`}>
                         {pendingIntegrationCount > 99 ? '99+' : pendingIntegrationCount}
                       </span>
                     )}
                     {tab.id === 'chat' && chatUnreadCount > 0 && (
                       <span className={`ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold ${
-                        activeTab === tab.id ? 'bg-white text-[#0EA5E9]' : 'bg-[#0EA5E9] text-white'
+                        activeTab === tab.id ? 'bg-white text-[#DC2626]' : 'bg-[#DC2626] text-white'
                       }`}>
                         {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
                       </span>
