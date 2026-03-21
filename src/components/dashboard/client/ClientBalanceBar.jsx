@@ -59,15 +59,17 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
     <div className={compact ? '' : 'mb-6'}>
       <div
         className={`bg-slate-50 border border-slate-200 rounded-xl ${
-          compact ? 'p-3 min-w-[220px] max-w-[240px] shadow-sm shrink-0' : 'p-4 flex flex-col items-end'
+          compact ? 'p-2.5 min-w-[176px] max-w-[192px] shadow-sm shrink-0' : 'p-4 flex flex-col items-end'
         }`}
       >
-        <div className={`text-sm text-text-secondary ${compact ? 'mb-1' : 'self-start'}`}>
-          {t('ClientBalanceBar.title')}
-        </div>
+        {!compact && (
+          <div className="text-sm text-text-secondary self-start">
+            {t('ClientBalanceBar.title')}
+          </div>
+        )}
         <div
           className={`px-3 py-1 rounded-md font-semibold ${cls} ${
-            compact ? 'text-sm' : 'text-base'
+            compact ? 'text-[13px]' : 'text-base'
           }`}
         >
           {loading
@@ -75,12 +77,12 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
             : t('ClientBalanceBar.current').replace('{amount}', fmt2(Number(balance || 0)))}
         </div>
         {!loading && balance < 0 && (
-          <div className="mt-1 text-xs text-green-600 italic">
+          <div className={compact ? 'mt-1 text-[11px] text-green-600 italic' : 'mt-1 text-xs text-green-600 italic'}>
             {t('ClientBalanceBar.prepayment').replace('{amount}', fmt2(Math.abs(balance)))}
           </div>
         )}
         {!loading && balance > 0 && (
-          <div className="mt-1 text-xs text-red-600 italic">
+          <div className={compact ? 'mt-1 text-[11px] text-red-600 italic' : 'mt-1 text-xs text-red-600 italic'}>
             {t('ClientBalanceBar.outstanding').replace('{amount}', fmt2(balance))}
           </div>
         )}

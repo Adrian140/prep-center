@@ -367,16 +367,16 @@ const renderTabContent = useMemo(() => {
   return (
     <>
     <div className="min-h-screen bg-[#F8FAFB] py-2 notranslate" translate="no">
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-none mx-auto px-0 lg:px-0">
         {activeTab === 'activity' && isAdmin ? (
           <div className="flex flex-wrap items-center justify-end gap-3 mb-3">
             <ClientDealsPopover companyId={companyId} />
           </div>
         ) : null}
-        <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] gap-5 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-3 lg:gap-4">
           {/* Sidebar */}
           <div>
-            <div className="bg-[#1B3A4B] rounded-xl shadow-md p-3">
+            <div className="bg-[#1B3A4B] rounded-r-xl lg:rounded-l-none lg:rounded-r-xl shadow-md p-3">
               {groups.map((g) => (
                 <div key={g.key} className="mb-4">
                   <div className="px-2 pb-1.5 text-[10px] uppercase tracking-widest text-sky-300/60 font-semibold">
