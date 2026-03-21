@@ -16,6 +16,7 @@ import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
 import AdminChat from './AdminChat';
+import AdminEtsy from './AdminEtsy';
 import AdminUPS from './AdminUPS';
 import AdminChatWidget from './AdminChatWidget';
 import AdminInvoicesOverview from './AdminInvoicesOverview';
@@ -39,7 +40,7 @@ const SERVICE_LANGUAGES = [
 
 import {
   Settings, DollarSign, Package, FileText, Plus, Edit, Trash2, Save, X,
-  Star, Users, BarChart3, PackageCheck, Truck, Shield, Link2
+  Star, Users, BarChart3, PackageCheck, Truck, Shield, Link2, Store
 } from 'lucide-react';
 import AdminPrepRequests from './AdminPrepRequests';
 import { useAdminTranslation } from '@/i18n/useAdminTranslation';
@@ -79,7 +80,7 @@ useEffect(() => {
   const lastUrlTabRef = useRef(null);
   const validTabs = [
     'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
-    'chat', 'ups', 'pricing', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
+    'chat', 'etsy', 'ups', 'pricing', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
   const [activeTab, setActiveTab] = useState(() => {
@@ -208,6 +209,7 @@ useEffect(() => {
     { id: 'returns', label: 'Returns', icon: Package },
     { id: 'chat', label: 'Chat', icon: Users },
     { id: 'invoices', label: t('sidebar.invoices'), icon: FileText },
+    { id: 'etsy', label: 'Etsy', icon: Store },
     { id: 'ups', label: 'UPS', icon: Truck },
     { id: 'pricing', label: t('sidebar.pricing'), icon: DollarSign },
     { id: 'prep-business', label: 'Integrations', icon: Link2 },
@@ -1643,6 +1645,7 @@ const renderTabContent = () => {
     case 'user-guide': return <AdminUserGuide />;
     case 'affiliates': return <AdminAffiliates />;
     case 'chat': return <AdminChat />;
+    case 'etsy': return <AdminEtsy />;
     case 'ups': return <AdminUPS />;
     case 'prep-business': return <AdminPrepBusinessIntegrations />;
     case 'security': return <SupabaseSecuritySettings />;

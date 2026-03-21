@@ -178,6 +178,21 @@ const formatSalesTimestamp = (value) => {
   }
 };
 
+const formatShortDateTime = (value) => {
+  if (!value) return '';
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  } catch {
+    return String(value);
+  }
+};
+
 const DEFAULT_PER_PAGE = 50;
 const COUNTRIES = [{ code: 'FR' }, { code: 'DE' }, { code: 'IT' }, { code: 'ES' }, { code: 'RO' }];
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
@@ -956,6 +971,8 @@ const [pendingShipmentFilter, setPendingShipmentFilter] = useSessionStorage(
 );
 const [pendingShipmentByItemId, setPendingShipmentByItemId] = useState({});
 const [listingPresenceByItemId, setListingPresenceByItemId] = useState({});
+const [etsyListingsByItemId, setEtsyListingsByItemId] = useState({});
+const [etsyOrdersByItemId, setEtsyOrdersByItemId] = useState({});
 
   const [searchField, setSearchField] = useSessionStorage(
     `${storagePrefix}-searchField`,
@@ -1164,6 +1181,8 @@ const refreshStockData = useCallback(async () => {
     setDestinationStockByItemId({});
     setPendingShipmentByItemId({});
     setListingPresenceByItemId({});
+    setEtsyListingsByItemId({});
+    setEtsyOrdersByItemId({});
     return;
   }
 
@@ -1399,6 +1418,97 @@ const refreshStockData = useCallback(async () => {
     setPendingShipmentByItemId({});
   }
 
+  try {
+    const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+    if (stockIds.length === 0) {
+      setEtsyListingsByItemId({});
+      setEtsyOrdersByItemId({});
+    } else {
+      let listingsQuery = supabase
+        .from('etsy_shop_listings')
+        .select('stock_item_id, listing_id, title, sku, state, shop_name, quantity, price_amount, currency_code, url, synced_at')
+        .in('stock_item_id', stockIds)
+        .order('synced_at', { ascending: false })
+        .limit(2000);
+      let ordersQuery = supabase
+        .from('etsy_order_items')
+        .select('stock_item_id, quantity, title, sku, order:etsy_orders(receipt_id, shop_name, status, status_label, tracking_code, tracking_status, tracking_status_label, order_created_at, shipped_at)')
+        .in('stock_item_id', stockIds)
+        .order('created_at', { ascending: false })
+        .limit(2000);
+
+      if (profile?.company_id) {
+        listingsQuery = listingsQuery.eq('company_id', profile.company_id);
+        ordersQuery = ordersQuery.eq('company_id', profile.company_id);
+      } else {
+        listingsQuery = listingsQuery.eq('user_id', profile.id);
+        ordersQuery = ordersQuery.eq('user_id', profile.id);
+      }
+
+      const [{ data: listingRows, error: listingErr }, { data: orderRows, error: orderErr }] = await Promise.all([
+        listingsQuery,
+        ordersQuery
+      ]);
+
+      if (listingErr) {
+        setEtsyListingsByItemId({});
+      } else {
+        const listingsMap = {};
+        (listingRows || []).forEach((row) => {
+          const stockId = row?.stock_item_id;
+          if (!stockId) return;
+          if (!listingsMap[stockId]) listingsMap[stockId] = [];
+          if (listingsMap[stockId].some((item) => item.listing_id === row.listing_id)) return;
+          listingsMap[stockId].push(row);
+        });
+        Object.keys(listingsMap).forEach((stockId) => {
+          listingsMap[stockId] = listingsMap[stockId].slice(0, 3);
+        });
+        setEtsyListingsByItemId(listingsMap);
+      }
+
+      if (orderErr) {
+        setEtsyOrdersByItemId({});
+      } else {
+        const ordersMap = {};
+        (orderRows || []).forEach((row) => {
+          const stockId = row?.stock_item_id;
+          if (!stockId) return;
+          if (!ordersMap[stockId]) {
+            ordersMap[stockId] = { totalUnits: 0, totalOrders: 0, receiptIds: new Set(), recent: [] };
+          }
+          const bucket = ordersMap[stockId];
+          const qty = Math.max(0, Number(row?.quantity || 0));
+          const receiptId = row?.order?.receipt_id;
+          bucket.totalUnits += qty;
+          if (receiptId && !bucket.receiptIds.has(receiptId)) {
+            bucket.receiptIds.add(receiptId);
+            bucket.totalOrders += 1;
+          }
+          bucket.recent.push({
+            receipt_id: receiptId,
+            quantity: qty,
+            title: row?.title || row?.sku || '—',
+            shop_name: row?.order?.shop_name || null,
+            status: row?.order?.status_label || row?.order?.status || null,
+            tracking_code: row?.order?.tracking_code || null,
+            tracking_status: row?.order?.tracking_status_label || row?.order?.tracking_status || null,
+            order_created_at: row?.order?.order_created_at || null,
+            shipped_at: row?.order?.shipped_at || null
+          });
+        });
+        Object.keys(ordersMap).forEach((stockId) => {
+          ordersMap[stockId].recent = ordersMap[stockId].recent.slice(0, 2);
+          delete ordersMap[stockId].receiptIds;
+        });
+        setEtsyOrdersByItemId(ordersMap);
+      }
+    }
+  } catch {
+    setEtsyListingsByItemId({});
+    setEtsyOrdersByItemId({});
+  }
+
   const seed = {};
   for (const r of mappedAll) {
     seed[r.id] = {
@@ -1463,6 +1573,25 @@ useEffect(() => {
   if (status === 'loading') return;
   refreshStockData();
 }, [status, refreshStockData]);
+
+useEffect(() => {
+  if (!profile?.id) return undefined;
+  const channel = supabase
+    .channel(`client-stock-etsy-${profile.company_id || profile.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'etsy_shop_listings' }, () => {
+      refreshStockData();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'etsy_order_items' }, () => {
+      refreshStockData();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'etsy_orders' }, () => {
+      refreshStockData();
+    })
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [profile?.company_id, profile?.id, refreshStockData]);
 
   useEffect(() => {
     if (keepaDisabledRef.current) return;
@@ -3172,6 +3301,8 @@ const saveReqChanges = async () => {
     const pendingByCountry = getPendingCountryEntries(pendingInfo?.byCountry || {});
     const listingWarn = listingWarningIds?.has(r.id);
     const warningDest = listingWarningDetails?.[r.id]?.destination || null;
+    const etsyListings = etsyListingsByItemId?.[r.id] || [];
+    const etsyOrders = etsyOrdersByItemId?.[r.id] || null;
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3301,6 +3432,38 @@ const saveReqChanges = async () => {
               >
                 {t('ClientStock.warnings.openSellerCentral')}
               </a>
+            </>
+          )}
+        </div>
+      )}
+      {(etsyListings.length > 0 || etsyOrders) && (
+        <div className="mt-1 rounded border border-orange-200 bg-orange-50 px-2 py-2 text-[11px] text-orange-900">
+          <div className="font-semibold">Product Etsy</div>
+          {etsyListings.length > 0 && (
+            <div className="mt-1">
+              Listings: {etsyListings.map((row) => `${row.shop_name || 'Shop'} #${row.listing_id} (${row.state || 'active'})`).join(' · ')}
+            </div>
+          )}
+          {etsyOrders && (
+            <>
+              <div className="mt-1">
+                Orders: {etsyOrders.totalOrders || 0} · Units sold: {etsyOrders.totalUnits || 0}
+              </div>
+              <div className="mt-1 space-y-1">
+                {etsyOrders.recent.map((row, index) => (
+                  <div key={`${r.id}-etsy-${row.receipt_id || index}`} className="rounded border border-orange-100 bg-white px-2 py-1">
+                    <div>
+                      Receipt {row.receipt_id || '—'} · {row.shop_name || 'Etsy'} · {row.status || '—'}
+                    </div>
+                    <div>
+                      Qty {row.quantity || 0} · Track ID {row.tracking_code || '—'} · {row.tracking_status || 'No tracking status'}
+                    </div>
+                    <div className="text-[10px] text-orange-700">
+                      Created {formatShortDateTime(row.order_created_at) || '—'} · Shipped {formatShortDateTime(row.shipped_at) || '—'}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           )}
         </div>

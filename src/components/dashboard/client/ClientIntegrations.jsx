@@ -4,6 +4,7 @@ import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../../translations';
 import ClientUpsIntegration from './ClientUpsIntegration';
+import ClientEtsyIntegration from './ClientEtsyIntegration';
 
 const AMAZON_REGIONS = [
   { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
@@ -189,6 +190,7 @@ export default function ClientIntegrations() {
   const [ppSaving, setPpSaving] = useState(false);
   const [visibility, setVisibility] = useState({
     amazon: true,
+    etsy: true,
     profitPath: true,
     arbitrageOne: true,
     ups: true,
@@ -370,6 +372,7 @@ export default function ClientIntegrations() {
       const value = data?.value || {};
       setVisibility({
         amazon: value.amazon !== false,
+        etsy: value.etsy !== false,
         profitPath: value.profitPath !== false,
         arbitrageOne: value.arbitrageOne !== false,
         ups: value.ups !== false,
@@ -380,9 +383,10 @@ export default function ClientIntegrations() {
   }, []);
 
   useEffect(() => {
-    const order = ['amazon', 'profit-path', 'arbitrage-one', 'ups', 'qogita'];
+    const order = ['amazon', 'etsy', 'profit-path', 'arbitrage-one', 'ups', 'qogita'];
     const map = {
       amazon: visibility.amazon,
+      etsy: visibility.etsy,
       'profit-path': visibility.profitPath,
       'arbitrage-one': visibility.arbitrageOne,
       ups: visibility.ups,
@@ -726,6 +730,18 @@ export default function ClientIntegrations() {
           )}
         </div>
       </section>
+      </IntegrationPanel>}
+
+      {visibility.etsy && <IntegrationPanel
+        id="etsy"
+        title="Etsy"
+        subtitle="Shop, orders, tracking și Product Etsy"
+        logo="https://logo.clearbit.com/etsy.com"
+        fallbackLogo="/branding/integrations/etsy.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+        <ClientEtsyIntegration user={user} profile={profile} />
       </IntegrationPanel>}
 
       {visibility.profitPath && <IntegrationPanel

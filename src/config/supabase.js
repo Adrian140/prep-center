@@ -1509,6 +1509,137 @@ resetPassword: async (email) => {
     return { data: unique, error: null };
   },
 
+  // ===== Etsy Integrations / Orders / Tracking / Listings =====
+  getEtsyIntegrationForUser: async (userId) => {
+    if (!userId) return { data: null, error: new Error('Missing user id') };
+    const { data, error } = await supabase
+      .from('etsy_integrations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { data, error };
+  },
+
+  upsertEtsyIntegration: async (payload = {}) => {
+    if (!payload?.user_id) return { data: null, error: new Error('Missing user id') };
+    const record = {
+      id: payload.id,
+      user_id: payload.user_id,
+      company_id: payload.company_id || null,
+      status: payload.status || 'pending',
+      shop_id: payload.shop_id || null,
+      shop_name: payload.shop_name || null,
+      shop_url: payload.shop_url || null,
+      etsy_user_id: payload.etsy_user_id || null,
+      access_scopes: Array.isArray(payload.access_scopes) ? payload.access_scopes : [],
+      connected_at: payload.connected_at || null,
+      last_synced_at: payload.last_synced_at || null,
+      last_error: payload.last_error || null,
+      metadata: payload.metadata || {},
+      created_at: payload.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const { data, error } = await supabase
+      .from('etsy_integrations')
+      .upsert(record, { onConflict: 'user_id' })
+      .select('*')
+      .maybeSingle();
+    return { data, error };
+  },
+
+  listEtsyIntegrations: async () => {
+    const { data, error } = await supabase
+      .from('etsy_integrations')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    return { data: data || [], error };
+  },
+
+  listEtsyOrders: async ({
+    userId,
+    companyId,
+    integrationId,
+    stockItemId,
+    trackingCode,
+    limit = 200
+  } = {}) => {
+    let query = supabase
+      .from('etsy_orders')
+      .select(stockItemId
+        ? '*, etsy_order_items!inner(stock_item_id, sku, title, quantity)'
+        : '*')
+      .order('order_created_at', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (integrationId) query = query.eq('integration_id', integrationId);
+    if (trackingCode) query = query.eq('tracking_code', trackingCode);
+    if (stockItemId) query = query.eq('etsy_order_items.stock_item_id', stockItemId);
+    return await query;
+  },
+
+  listEtsyOrderItems: async ({
+    userId,
+    companyId,
+    orderId,
+    stockItemId,
+    limit = 500
+  } = {}) => {
+    let query = supabase
+      .from('etsy_order_items')
+      .select('*, order:etsy_orders(id, receipt_id, status, status_label, tracking_code, tracking_status_label, order_created_at, shipped_at, shop_name, grandtotal_amount, currency_code)')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (orderId) query = query.eq('order_id', orderId);
+    if (stockItemId) query = query.eq('stock_item_id', stockItemId);
+    return await query;
+  },
+
+  listEtsyTrackingEvents: async ({
+    userId,
+    companyId,
+    orderId,
+    trackingCode,
+    limit = 500
+  } = {}) => {
+    let query = supabase
+      .from('etsy_tracking_events')
+      .select('*')
+      .order('event_time', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (orderId) query = query.eq('order_id', orderId);
+    if (trackingCode) query = query.eq('tracking_code', trackingCode);
+    return await query;
+  },
+
+  listEtsyShopListings: async ({
+    userId,
+    companyId,
+    integrationId,
+    stockItemId,
+    limit = 500
+  } = {}) => {
+    let query = supabase
+      .from('etsy_shop_listings')
+      .select('*')
+      .order('synced_at', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (integrationId) query = query.eq('integration_id', integrationId);
+    if (stockItemId) query = query.eq('stock_item_id', stockItemId);
+    return await query;
+  },
+
   // ===== Client Activity =====
   listFbaLinesByCompany: async (companyId, country) => {
     const run = async (useCountry, withInvoice = true) => {

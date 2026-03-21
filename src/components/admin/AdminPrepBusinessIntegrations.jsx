@@ -15,6 +15,14 @@ const INTEGRATIONS = [
     fallbackLogo: '/branding/integrations/amazon.svg'
   },
   {
+    id: 'etsy',
+    title: 'Etsy',
+    subtitle: 'Shop-uri Etsy, comenzi si tracking.',
+    settingField: 'etsy',
+    logo: 'https://logo.clearbit.com/etsy.com',
+    fallbackLogo: '/branding/integrations/etsy.svg'
+  },
+  {
     id: 'profitPath',
     title: 'Profit Path',
     subtitle: 'Token + email pentru mapare PrepBusiness.',
@@ -50,6 +58,7 @@ const INTEGRATIONS = [
 
 const defaultVisibility = {
   amazon: true,
+  etsy: true,
   profitPath: true,
   arbitrageOne: true,
   ups: true,
@@ -147,6 +156,7 @@ export default function AdminPrepBusinessIntegrations() {
   const [profilesById, setProfilesById] = useState({});
   const [prepRowsByUser, setPrepRowsByUser] = useState({});
   const [amazonByUser, setAmazonByUser] = useState({});
+  const [etsyByUser, setEtsyByUser] = useState({});
   const [upsByUser, setUpsByUser] = useState({});
   const [qogitaByUser, setQogitaByUser] = useState({});
 
@@ -163,7 +173,7 @@ export default function AdminPrepBusinessIntegrations() {
     setRefreshing(true);
     setMessage('');
 
-    const [profilesRes, prepRes, amazonRes, upsRes, qogitaRes, settingsRes] = await Promise.all([
+    const [profilesRes, prepRes, amazonRes, etsyRes, upsRes, qogitaRes, settingsRes] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, first_name, last_name, company_name, store_name, email, company_id, account_type, is_admin'),
@@ -171,6 +181,9 @@ export default function AdminPrepBusinessIntegrations() {
       supabase
         .from('amazon_integrations')
         .select('id, user_id, company_id, status, last_error, last_synced_at, updated_at, created_at, marketplace_id, region'),
+      supabase
+        .from('etsy_integrations')
+        .select('id, user_id, company_id, status, shop_id, shop_name, shop_url, last_error, connected_at, last_synced_at, updated_at'),
       supabase
         .from('ups_integrations')
         .select('id, user_id, status, last_error, connected_at, last_synced_at, updated_at'),
@@ -185,7 +198,7 @@ export default function AdminPrepBusinessIntegrations() {
         .maybeSingle()
     ]);
 
-    const err = profilesRes.error || prepRes.error || amazonRes.error || upsRes.error || qogitaRes.error || settingsRes.error;
+    const err = profilesRes.error || prepRes.error || amazonRes.error || etsyRes.error || upsRes.error || qogitaRes.error || settingsRes.error;
     if (err) {
       setMessage(err.message || 'Could not load integrations.');
       setRefreshing(false);
@@ -245,6 +258,11 @@ export default function AdminPrepBusinessIntegrations() {
       if (row?.user_id && !upsMap[row.user_id]) upsMap[row.user_id] = row;
     });
 
+    const etsyMap = {};
+    (etsyRes.data || []).forEach((row) => {
+      if (row?.user_id && !etsyMap[row.user_id]) etsyMap[row.user_id] = row;
+    });
+
     const qogitaMap = {};
     (qogitaRes.data || []).forEach((row) => {
       if (!row?.user_id) return;
@@ -262,6 +280,7 @@ export default function AdminPrepBusinessIntegrations() {
     const settingsValue = settingsRes.data?.value || {};
     setGlobalVisibility({
       amazon: settingsValue.amazon !== false,
+      etsy: settingsValue.etsy !== false,
       profitPath: settingsValue.profitPath !== false,
       arbitrageOne: settingsValue.arbitrageOne !== false,
       ups: settingsValue.ups !== false,
@@ -271,6 +290,7 @@ export default function AdminPrepBusinessIntegrations() {
     setProfilesById(profilesMap);
     setPrepRowsByUser(prepMap);
     setAmazonByUser(amazonMap);
+    setEtsyByUser(etsyMap);
     setUpsByUser(upsMap);
     setQogitaByUser(qogitaMap);
     setMerchantDrafts(merchantMap);
@@ -419,6 +439,12 @@ export default function AdminPrepBusinessIntegrations() {
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [upsByUser, profilesById]);
 
+  const etsyRows = useMemo(() => {
+    return Object.entries(etsyByUser)
+      .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
+      .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
+  }, [etsyByUser, profilesById]);
+
   const qogitaRows = useMemo(() => {
     return Object.entries(qogitaByUser)
       .map(([userId, rows]) => ({ userId, rows, profile: profilesById[userId] }))
@@ -516,6 +542,29 @@ export default function AdminPrepBusinessIntegrations() {
                       </div>
                     </div>
                   )}
+                  </div>
+                ) : emptyBlock
+              )}
+
+              {integration.id === 'etsy' && (
+                etsyRows.length ? (
+                  <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+                    {etsyRows.map(({ userId, row, profile }) => (
+                      <div key={`etsy-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-[260px]">
+                          <div className="font-medium text-text-primary">{displayClient(profile)}</div>
+                          <div className="text-xs text-text-secondary">{profile?.email || '—'}</div>
+                          <div className="text-xs text-text-secondary">
+                            Shop: {row.shop_name || row.shop_id || '—'} · URL: {row.shop_url || '—'}
+                          </div>
+                          <div className="text-xs text-text-secondary">
+                            Connected: {fmt(row.connected_at)} · Last sync: {fmt(row.last_synced_at)}
+                          </div>
+                          {row.last_error && <div className="text-xs text-red-600 mt-1 break-all">{row.last_error}</div>}
+                        </div>
+                        <StatusBadge status={row.status || 'inactive'} />
+                      </div>
+                    ))}
                   </div>
                 ) : emptyBlock
               )}
