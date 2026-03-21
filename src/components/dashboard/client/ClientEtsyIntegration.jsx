@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle, Loader2, RefreshCw, Save, Store } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Loader2, RefreshCw, Save } from 'lucide-react';
 import { supabaseHelpers } from '@/config/supabase';
 
 const formatDateTime = (value) => {
@@ -237,20 +237,6 @@ export default function ClientEtsyIntegration({ user, profile }) {
             {flash}
           </div>
         )}
-      </section>
-
-      <section className="bg-white border rounded-xl p-5">
-        <div className="flex items-center gap-2 text-text-primary font-semibold">
-          <Store className="w-4 h-4" /> Ce se vede după activare
-        </div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 text-sm text-text-secondary">
-          <div className="rounded-lg border p-3">
-            În Products / Etsy apar listing-urile Etsy legate de produs, comenzile recente, cantitățile vândute și shop-ul sursă.
-          </div>
-          <div className="rounded-lg border p-3">
-            În admin apare tab separat `Etsy`, unde vezi toate comenzile, receipt ID, tracking code, tracking status și timeline-ul de livrare.
-          </div>
-        </div>
       </section>
     </div>
   );
