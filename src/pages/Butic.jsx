@@ -415,14 +415,14 @@ export default function Butic() {
                   {loadingListings && <div className="text-lg text-text-light font-light text-center py-8">{copy.loading}</div>}
                   {!loadingListings && marketListings.length === 0 && <div className="text-lg text-text-light font-light text-center py-8">{copy.noOffers}</div>}
                   {marketListings.map((listing) => (
-                    <div key={listing.id} className="group rounded-md border border-gray-100 hover:border-gray-200 hover:shadow-lg p-4 transition-all duration-300">
+                    <div key={listing.id} className="group rounded-md border border-gray-100 hover:border-gray-200 hover:shadow-md p-2.5 transition-all duration-300">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex min-w-0 items-start gap-3">
-                          <img src={imgSrc(`listing-${listing.id}`, getListingImageUrl(listing))} onError={() => handleImgError(`listing-${listing.id}`)} alt={listing.product_name || 'Product'} className="h-16 w-16 shrink-0 rounded-md border border-gray-200 object-cover" />
+                          <img src={imgSrc(`listing-${listing.id}`, getListingImageUrl(listing))} onError={() => handleImgError(`listing-${listing.id}`)} alt={listing.product_name || 'Product'} className="h-10 w-10 shrink-0 rounded-md border border-gray-200 object-cover" />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <div className="text-lg font-semibold text-text-primary">{listing.product_name}</div>
-                              {listing.owner_user_id === me && (<span className="rounded-full bg-orange-100 px-2.5 py-1 text-lg font-semibold text-orange-700">{copy.myOfferTag}</span>)}
+                              <div className="text-sm font-semibold leading-snug text-text-primary">{listing.product_name}</div>
+                              {listing.owner_user_id === me && (<span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-semibold text-orange-700">{copy.myOfferTag}</span>)}
                             </div>
                             {editingListingId === listing.id ? (
                               <div className="mt-3 space-y-2">
@@ -444,20 +444,20 @@ export default function Butic() {
                               </div>
                             ) : (
                               <>
-                                <div className="mt-1 text-lg text-text-secondary font-light">{formatProductCodes(copy, listing.asin, listing.ean)}</div>
-                                <div className="mt-1 text-lg text-text-primary font-semibold">{listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}</div>
-                                {listing.note && <div className="mt-1 text-lg text-text-light font-light">{listing.note}</div>}
+                                <div className="mt-1 text-sm text-text-secondary font-light">{formatProductCodes(copy, listing.asin, listing.ean)}</div>
+                                <div className="mt-1 text-sm text-text-primary font-semibold">{listing.quantity} {copy.qtyUnit} · {Number(listing.price_eur || 0).toFixed(2)} EUR · {listing.country || '-'}</div>
+                                {listing.note && <div className="mt-1 text-sm text-text-light font-light">{listing.note}</div>}
                                 {(listing.link_fr || listing.link_de) && (
                                   <div className="mt-2 flex flex-wrap gap-2">
-                                    {listing.link_fr && (<a href={toExternalUrl(listing.link_fr)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lg text-primary hover:underline"><ExternalLink className="w-4 h-4" />FR</a>)}
-                                    {listing.link_de && (<a href={toExternalUrl(listing.link_de)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-lg text-primary hover:underline"><ExternalLink className="w-4 h-4" />DE</a>)}
+                                    {listing.link_fr && (<a href={toExternalUrl(listing.link_fr)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline"><ExternalLink className="w-3.5 h-3.5" />FR</a>)}
+                                    {listing.link_de && (<a href={toExternalUrl(listing.link_de)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline"><ExternalLink className="w-3.5 h-3.5" />DE</a>)}
                                   </div>
                                 )}
                               </>
                             )}
                           </div>
                         </div>
-                        <div className="flex shrink-0 flex-col gap-2">
+                        <div className="flex shrink-0 flex-col gap-1.5">
                           {listing.owner_user_id === me ? (
                             editingListingId === listing.id ? (
                               <>
@@ -472,7 +472,7 @@ export default function Butic() {
                               </>
                             )
                           ) : (
-                            <button onClick={() => openListingChat(listing)} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-lg font-semibold text-white hover:bg-primary-dark transition-all shadow-lg shadow-primary/20"><MessageSquare className="w-4 h-4" />{copy.contact}</button>
+                            <button onClick={() => openListingChat(listing)} className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-semibold text-white hover:bg-primary-dark transition-all shadow-md shadow-primary/20"><MessageSquare className="w-3.5 h-3.5" />{copy.contact}</button>
                           )}
                         </div>
                       </div>
