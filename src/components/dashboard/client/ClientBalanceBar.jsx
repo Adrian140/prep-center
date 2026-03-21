@@ -59,7 +59,7 @@ export default function ClientBalanceBar({ companyId, variant = 'default' }) {
     <div className={compact ? '' : 'mb-6'}>
       <div
         className={`bg-slate-50 border border-slate-200 rounded-xl ${
-          compact ? 'p-3 w-[210px]' : 'p-4 flex flex-col items-end'
+          compact ? 'p-3 min-w-[220px] max-w-[240px] shadow-sm shrink-0' : 'p-4 flex flex-col items-end'
         }`}
       >
         <div className={`text-sm text-text-secondary ${compact ? 'mb-1' : 'self-start'}`}>

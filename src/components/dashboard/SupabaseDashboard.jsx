@@ -34,7 +34,6 @@ import ClientReceiving from './client/ClientReceiving';
 import ClientIntegrations from './client/ClientIntegrations';
 import ClientPrepShipments from './client/ClientPrepShipments';
 import ClientDealsPopover from './client/ClientDealsPopover';
-import ClientBalanceBar from './client/ClientBalanceBar';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
@@ -367,16 +366,13 @@ const renderTabContent = useMemo(() => {
 
   return (
     <>
-    <div className="min-h-screen bg-[#F8FAFB] py-4 notranslate" translate="no">
+    <div className="min-h-screen bg-[#F8FAFB] py-2 notranslate" translate="no">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {activeTab === 'activity' && (
-          <div className="flex flex-wrap items-center justify-end gap-3 mb-4">
-            {isAdmin ? <ClientDealsPopover companyId={companyId} /> : null}
-            {!isLimitedAdmin && (
-              <ClientBalanceBar companyId={companyId} variant="compact" />
-            )}
+        {activeTab === 'activity' && isAdmin ? (
+          <div className="flex flex-wrap items-center justify-end gap-3 mb-3">
+            <ClientDealsPopover companyId={companyId} />
           </div>
-        )}
+        ) : null}
         <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] gap-5 lg:gap-6">
           {/* Sidebar */}
           <div>

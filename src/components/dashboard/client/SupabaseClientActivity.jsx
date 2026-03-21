@@ -16,11 +16,15 @@ import {
 } from "recharts";
 import { useDashboardTranslation } from "../../../translations";
 import { useMarket } from '@/contexts/MarketContext';
+import ClientBalanceBar from "./ClientBalanceBar";
 
-function Box({ title, children }) {
+function Box({ title, headerRight = null, children }) {
   return (
     <div className="bg-gradient-to-br from-white to-slate-50/80 rounded-xl border border-slate-200/60 shadow-sm shadow-slate-100 p-5 mb-6">
-      <h3 className="text-sm font-semibold text-[#1B3A4B] mb-3">{title}</h3>
+      <div className="mb-3 flex items-start justify-between gap-4">
+        <h3 className="text-sm font-semibold text-[#1B3A4B]">{title}</h3>
+        {headerRight}
+      </div>
       {children}
     </div>
   );
@@ -555,7 +559,10 @@ export default function SupabaseClientActivity({ onOpenFbaShipmentDetails } = {}
 
   return (
   <div className="space-y-6">
-      <Box title={t('SupabaseClientActivity.chartTitle')}>
+      <Box
+        title={t('SupabaseClientActivity.chartTitle')}
+        headerRight={companyId ? <ClientBalanceBar companyId={companyId} variant="compact" /> : null}
+      >
         <div className="flex flex-wrap items-center gap-2 mb-3">
           {[
             { k: "1m", label: t('SupabaseClientActivity.range.m1') },

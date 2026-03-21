@@ -1,13 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Search, ShoppingBag, MessageSquare, Send, Package, Tag, Plus, Pencil, Check, Trash2, ExternalLink } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, Search, ShoppingBag, MessageSquare, Package, Tag, Plus, Pencil, Check, Trash2, ExternalLink } from 'lucide-react';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { supabase, supabaseHelpers } from '@/config/supabase';
+import { supabaseHelpers } from '@/config/supabase';
 import { useT } from '@/i18n/useT';
 
 const OFFER_COUNTRY_OPTIONS = ['FR', 'DE'];
-const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 
 const BUTIC_COPY = {
   en: {
@@ -326,40 +325,20 @@ export default function Butic() {
   const [editingListingId, setEditingListingId] = useState(null);
   const [editDraft, setEditDraft] = useState({ productName: '', asin: '', ean: '', country: '', quantity: '1', priceEur: '', note: '', linkFr: '', linkDe: '' });
   const [failedImageIds, setFailedImageIds] = useState(() => new Set());
-  const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(null);
-  const [messages, setMessages] = useState([]);
-  const [messageInput, setMessageInput] = useState('');
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState('');
-  const messagesRef = useRef(null);
-  const activeConversationIdRef = useRef(null);
-
   const me = user?.id || null;
   const market = String(currentMarket || profile?.country || 'FR').toUpperCase();
   const myCompanyId = profile?.company_id || null;
 
-  useEffect(() => { activeConversationIdRef.current = activeConversationId; }, [activeConversationId]);
-
   const loadAllListings = async () => { if (!me) return; setLoadingListings(true); const res = await supabaseHelpers.listClientMarketListings({ country: null, search: allSearch.trim() || null }); setAllListings(res?.data || []); setLoadingListings(false); };
   const loadInventory = async () => { const res = await supabaseHelpers.listClientInventoryForMarket({ companyId: myCompanyId || null, search: inventorySearch.trim() || null }); const rows = (res?.data || []).slice(); rows.sort((a, b) => { const sA = getAvailableInventoryStock(a); const sB = getAvailableInventoryStock(b); if ((sA > 0 ? 1 : 0) !== (sB > 0 ? 1 : 0)) return (sB > 0 ? 1 : 0) - (sA > 0 ? 1 : 0); if (sA !== sB) return sB - sA; return String(a?.name || '').localeCompare(String(b?.name || ''), undefined, { sensitivity: 'base' }); }); setInventoryItems(rows); };
-  const loadConversations = async () => { if (!me) return; const res = await supabaseHelpers.listClientMarketConversations({ country: market }); const rows = res?.data || []; setConversations(rows); const cur = activeConversationIdRef.current; if (!cur && rows.length) setActiveConversationId(rows[0].id); if (cur && rows.length && !rows.some((r) => r.id === cur)) setActiveConversationId(rows[0].id); if (cur && rows.length === 0) setActiveConversationId(null); };
 
   useEffect(() => { if (!me) return; loadAllListings(); }, [me, allSearch]);
   useEffect(() => { if (!me) return; loadInventory(); }, [me, inventorySearch, myCompanyId]);
-  useEffect(() => { if (!me) return; loadConversations(); }, [me, market]);
-  useEffect(() => { if (!me) return; const ch = supabase.channel(`butic-listings-${me}-${market}-${allSearch.trim() || 'all'}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_listings' }, () => { loadAllListings(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [me, market, allSearch]);
-  useEffect(() => { if (!me) return; const ch = supabase.channel(`butic-conversations-${me}-${market}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_conversations' }, () => { loadConversations(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [me, market]);
 
   const selectedInventoryItem = useMemo(() => inventoryItems.find((item) => String(item.id) === String(selectedStockItemId)) || null, [inventoryItems, selectedStockItemId]);
   useEffect(() => { if (!selectedInventoryItem) { setQuantityToSell('1'); return; } const stock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem)); setQuantityToSell((prev) => { const n = Number(prev); if (!Number.isFinite(n) || n < 1) return '1'; if (n > stock) return String(stock); return prev; }); }, [selectedInventoryItem?.id, selectedInventoryItem?.qty]);
 
   const marketListings = useMemo(() => allListings, [allListings]);
-  const activeConversation = useMemo(() => conversations.find((c) => c.id === activeConversationId) || null, [conversations, activeConversationId]);
-
-  const loadMessages = async () => { if (!activeConversationId) { setMessages([]); return; } const res = await supabaseHelpers.listClientMarketMessages({ conversationId: activeConversationId }); setMessages(res?.data || []); requestAnimationFrame(() => { if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight; }); };
-  useEffect(() => { loadMessages(); }, [activeConversationId]);
-  useEffect(() => { if (!activeConversationId) return; const ch = supabase.channel(`client-market-${activeConversationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'client_market_messages', filter: `conversation_id=eq.${activeConversationId}` }, () => { loadMessages(); }).subscribe(); return () => { supabase.removeChannel(ch); }; }, [activeConversationId]);
 
   const createListingFromInventory = async (event) => { event.preventDefault(); if (!selectedInventoryItem) { setCreateError(copy.selectProductError); return; } if (!offerCountry || !OFFER_COUNTRY_OPTIONS.includes(offerCountry)) { setCreateError(copy.selectCountryError); return; } const availableStock = Math.max(1, getAvailableInventoryStock(selectedInventoryItem)); const parsedQuantity = Number(quantityToSell); if (!Number.isFinite(parsedQuantity) || parsedQuantity < 1) { setCreateError(copy.quantityInvalidError); return; } if (parsedQuantity > availableStock) { setCreateError(copy.quantityExceedsError); return; } const parsedPrice = Number(priceEur); if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) { setCreateError(copy.invalidPrice); return; } if (!me) return; setCreateError(''); setCreating(true); setListingActionError(''); const res = await supabaseHelpers.createClientMarketListing({ ownerUserId: me, ownerCompanyId: myCompanyId || selectedInventoryItem?.company_id || me, stockItemId: selectedInventoryItem.id, country: offerCountry, asin: selectedInventoryItem.asin || null, ean: selectedInventoryItem.ean || null, imageUrl: selectedInventoryItem.image_url || null, productName: selectedInventoryItem.name || 'Product', priceEur: parsedPrice, quantity: Math.max(1, Math.floor(parsedQuantity)), note, linkFr, linkDe }); if (res?.error) { const errMsg = String(res.error?.message || ''); setCreateError(errMsg ? `${copy.publishFailed} (${errMsg})` : copy.publishFailed); } else { setPriceEur(''); setNote(''); setLinkFr(''); setLinkDe(''); setSelectedStockItemId(''); setOfferCountry(''); setQuantityToSell('1'); setCreateError(''); loadAllListings(); } setCreating(false); };
 
@@ -368,8 +347,10 @@ export default function Butic() {
   const beginEditListing = (listing) => { if (!listing?.id) return; setListingActionError(''); setEditingListingId(listing.id); setEditDraft({ productName: listing.product_name || '', asin: listing.asin || '', ean: listing.ean || '', country: String(listing.country || '').toUpperCase(), quantity: String(Math.max(1, Number(listing.quantity || 1))), priceEur: String(Number(listing.price_eur || 0)), note: listing.note || '', linkFr: listing.link_fr || '', linkDe: listing.link_de || '' }); };
   const cancelEditListing = () => { setEditingListingId(null); setEditDraft({ productName: '', asin: '', ean: '', country: '', quantity: '1', priceEur: '', note: '', linkFr: '', linkDe: '' }); };
   const saveEditListing = async (listing) => { if (!listing?.id || busyListingId) return; const parsedPrice = Number(editDraft.priceEur); const parsedQty = Number(editDraft.quantity); if (!editDraft.country || !OFFER_COUNTRY_OPTIONS.includes(editDraft.country)) { setListingActionError(copy.selectCountryError); return; } if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) { setListingActionError(copy.invalidPrice); return; } if (!Number.isFinite(parsedQty) || parsedQty < 1) { setListingActionError(copy.quantityInvalidError); return; } setBusyListingId(listing.id); setListingActionError(''); const res = await supabaseHelpers.updateClientMarketListing({ listingId: listing.id, productName: editDraft.productName, asin: editDraft.asin, ean: editDraft.ean, country: editDraft.country, priceEur: parsedPrice, quantity: Math.floor(parsedQty), note: editDraft.note, linkFr: editDraft.linkFr, linkDe: editDraft.linkDe }); if (res?.error) { const errMsg = String(res.error?.message || ''); setListingActionError(errMsg ? `${copy.editFailed} (${errMsg})` : copy.editFailed); } else { await loadAllListings(); cancelEditListing(); } setBusyListingId(null); };
-  const openListingChat = async (listing) => { if (!listing?.id || !me) return; const conv = await supabaseHelpers.getOrCreateClientMarketConversation({ listingId: listing.id }); if (conv?.error) return; await loadConversations(); if (conv?.data?.id) { setActiveConversationId(conv.data.id); window.dispatchEvent(new CustomEvent(CHAT_OPEN_B2B_EVENT, { detail: { conversationId: conv.data.id, market: listing?.country || market } })); } };
-  const sendMessage = async () => { if (!activeConversationId || !me || !messageInput.trim() || sending) return; setSending(true); setSendError(''); const res = await supabaseHelpers.sendClientMarketMessage({ conversationId: activeConversationId, senderUserId: me, body: messageInput }); if (!res?.error) { setMessageInput(''); loadMessages(); loadConversations(); } else { setSendError(copy.sendFailed); } setSending(false); };
+  const openListingChat = async (listing) => {
+    if (!listing?.id || !me) return;
+    await supabaseHelpers.getOrCreateClientMarketConversation({ listingId: listing.id });
+  };
 
   const handleImgError = (key) => { setFailedImageIds((prev) => { const next = new Set(prev); next.add(key); return next; }); };
   const imgSrc = (key, url) => failedImageIds.has(key) ? '/images/product-placeholder.png' : (url || '/images/product-placeholder.png');
@@ -559,67 +540,6 @@ export default function Butic() {
           </div>
         </div>
       </section>
-
-      {/* CHAT SECTION */}
-      {conversations.length > 0 && (
-        <section id="exchange_chat" className="py-12 lg:py-16 bg-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-[#060d19] rounded-md overflow-hidden relative">
-              <div className="absolute inset-0">
-                <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-primary/8 rounded-full blur-[100px]" />
-                <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-orange-500/8 rounded-full blur-[100px]" />
-              </div>
-              <div className="relative z-10 p-6 lg:p-8">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-md bg-white/10 flex items-center justify-center"><MessageSquare className="w-5 h-5 text-white" /></div>
-                  <div>
-                    <h3 className="text-xl font-semibold text-white">{copy.chatTitle}</h3>
-                    <p className="text-lg text-white/40 font-light">{copy.chatSubtitle}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-4">
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-                    {conversations.map((conv) => {
-                      const isActive = conv.id === activeConversationId;
-                      const displayName = conv.listing_product_name || conv.other_company_name || conv.other_user_name || copy.listingFallback;
-                      return (
-                        <button key={conv.id} onClick={() => setActiveConversationId(conv.id)} className={`w-full text-left px-4 py-3 rounded-md transition-all duration-300 ${isActive ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/10 hover:bg-white/10'}`}>
-                          <div className="text-lg font-semibold text-white truncate">{displayName}</div>
-                          <div className="text-lg text-white/40 font-light truncate">{formatProductCodes(copy, conv.listing_asin, conv.listing_ean)}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div className="flex flex-col bg-white/5 border border-white/10 rounded-md overflow-hidden">
-                    <div ref={messagesRef} className="flex-1 max-h-[340px] overflow-y-auto p-4 space-y-3">
-                      {messages.length === 0 && <div className="text-lg text-white/30 font-light text-center py-8">{copy.selectConversation}</div>}
-                      {messages.map((msg) => {
-                        const isMe = msg.sender_user_id === me;
-                        return (
-                          <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[70%] px-4 py-3 rounded-md text-lg font-light ${isMe ? 'bg-primary text-white' : 'bg-white/10 text-white/80'}`}>
-                              {msg.body}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {activeConversationId && (
-                      <div className="p-3 border-t border-white/10">
-                        {sendError && <div className="text-lg text-red-400 mb-2">{sendError}</div>}
-                        <div className="flex gap-2">
-                          <input value={messageInput} onChange={(e) => setMessageInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }} className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-md text-lg text-white placeholder:text-white/30 focus:ring-2 focus:ring-primary focus:border-transparent outline-none" placeholder={copy.writeMessagePlaceholder} />
-                          <button onClick={sendMessage} disabled={sending || !messageInput.trim()} className="inline-flex items-center justify-center w-12 h-12 rounded-md bg-primary text-white hover:bg-primary-dark disabled:opacity-50 transition-all"><Send className="w-5 h-5" /></button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 }
