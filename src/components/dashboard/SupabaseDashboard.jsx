@@ -375,7 +375,7 @@ const renderTabContent = useMemo(() => {
         ) : null}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-3 lg:gap-4">
           {/* Sidebar */}
-          <div>
+          <div className="lg:sticky lg:top-24 lg:self-start">
             <div className="bg-[#1B3A4B] rounded-r-xl lg:rounded-l-none lg:rounded-r-xl shadow-md p-3">
               {groups.map((g) => (
                 <div key={g.key} className="mb-4">
