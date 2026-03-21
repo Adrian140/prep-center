@@ -3003,8 +3003,8 @@ const saveReqChanges = async () => {
           <p className="text-sm text-text-secondary">{t('ClientStock.desc')}</p>
         </div>
 
-        <div className="flex flex-col gap-1 items-stretch sm:items-end text-left sm:text-right">
-          <div className="flex flex-wrap items-center gap-2 justify-end">
+        <div className="flex flex-col gap-2 items-stretch sm:items-end text-left sm:text-right">
+          <div className="flex flex-col items-start gap-2 sm:items-end">
             <button
               onClick={() => setQuickAddOpen((open) => !open)}
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
@@ -3017,12 +3017,19 @@ const saveReqChanges = async () => {
               {t('ClientStock.createProduct.button')}
             </button>
             {!hideGuides && (
-              <UserGuidePlayer
-                section="stock"
-                title={t('ClientStock.guides.button')}
-                unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
-              />
+              <div className="flex flex-col items-start sm:items-end gap-1">
+                <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-primary/80">
+                  {t('ClientStock.guides.firstTime')}
+                </div>
+                <UserGuidePlayer
+                  section="stock"
+                  title={t('ClientStock.guides.watchShort')}
+                  unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
+                />
+              </div>
             )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 justify-end">
             <button
               type="button"
               aria-pressed={showPriceColumn}

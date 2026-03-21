@@ -511,6 +511,8 @@
       },
       "guides": {
         "button": "Video tutorial",
+        "firstTime": "First time here?",
+        "watchShort": "Watch 2-min tutorial",
         "error": "Cannot open guide ({lang}): {msg}",
         "unavailable": "Guide unavailable for section \"{section}\"."
       },
@@ -1597,6 +1599,8 @@
       },
       "guides": {
         "button": "Tutorial video",
+        "firstTime": "Prima dată aici?",
+        "watchShort": "Urmărește tutorialul de 2 min",
         "error": "Nu pot deschide ghidul ({lang}): {msg}",
         "unavailable": "Ghid indisponibil pentru secțiunea \"{section}\"."
       },
@@ -2827,6 +2831,8 @@
       },
       "guides": {
         "button": "Tutoriel vidéo",
+        "firstTime": "Première visite ici ?",
+        "watchShort": "Voir le tuto de 2 min",
         "error": "Impossible d’ouvrir le guide ({lang}) : {msg}",
         "unavailable": "Guide indisponible pour la section \"{section}\"."
       },
@@ -3833,6 +3839,8 @@
       },
       "guides": {
         "button": "Video-Tutorial",
+        "firstTime": "Zum ersten Mal hier?",
+        "watchShort": "2-Min.-Tutorial ansehen",
         "error": "Leitfaden kann nicht geöffnet werden ({lang}): {msg}",
         "unavailable": "Leitfaden für den Bereich \"{section}\" ist nicht verfügbar."
       },
@@ -4836,6 +4844,8 @@
       },
       "guides": {
         "button": "Tutorial video",
+        "firstTime": "Prima volta qui?",
+        "watchShort": "Guarda il tutorial di 2 min",
         "error": "Impossibile aprire la guida ({lang}): {msg}",
         "unavailable": "Guida non disponibile per la sezione \"{section}\"."
       },
@@ -5839,6 +5849,8 @@
       },
       "guides": {
         "button": "Tutorial en vídeo",
+        "firstTime": "¿Primera vez aquí?",
+        "watchShort": "Ver tutorial de 2 min",
         "error": "No se puede abrir la guía ({lang}): {msg}",
         "unavailable": "Guía no disponible para la sección \"{section}\"."
       },
