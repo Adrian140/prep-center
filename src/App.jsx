@@ -15,7 +15,6 @@ import AuthCallback from './pages/AuthCallback';
 import AmazonIntegrationCallback from './pages/AmazonIntegrationCallback';
 import UpsIntegrationCallback from './pages/UpsIntegrationCallback';
 import EtsyIntegrationCallback from './pages/EtsyIntegrationCallback';
-import Integrations from './pages/Integrations';
 import Butic from './pages/Butic';
 
 import AdminLoginInfo from './components/AdminLoginInfo';
@@ -192,7 +191,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
           <Route path="/services-pricing" element={<ServicesPricing />} />
-          <Route path="/integrations" element={<Integrations />} />
           <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
