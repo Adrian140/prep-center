@@ -23,6 +23,13 @@ const money = (amount, currency = 'EUR') => {
   }
 };
 
+const normalizeStatusKey = (value) =>
+  String(value || '')
+    .trim()
+    .replace(/([a-z])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase();
+
 function StatusBadge({ status }) {
   const { t } = useEtsyI18n();
   if (status === 'active' || status === 'connected') {
@@ -70,6 +77,13 @@ export default function AdminEtsy() {
     const orderIds = new Set(visibleOrders.map((row) => row.id));
     return trackingEvents.filter((row) => orderIds.has(row.order_id));
   }, [trackingEvents, visibleOrders]);
+
+  const trStatus = (value, fallbackPath = 'admin.values.notAvailable') => {
+    const normalized = normalizeStatusKey(value);
+    if (!normalized) return t(fallbackPath);
+    const translated = t(`admin.status.${normalized}`);
+    return translated === `admin.status.${normalized}` ? String(value) : translated;
+  };
 
   const load = async () => {
     setRefreshing(true);
@@ -185,7 +199,10 @@ export default function AdminEtsy() {
                     {row.shop_name || row.shop_id || t('admin.shopFallback')} · {row.shop_url || t('admin.urlMissing')}
                   </div>
                   <div className="text-xs text-text-secondary">
-                    {t('admin.userLabel', { user: row.user_id || '—', date: fmt(row.last_synced_at) })}
+                    {t('admin.userLabel', {
+                      user: row.user_id || t('admin.values.unknownUser'),
+                      date: fmt(row.last_synced_at)
+                    })}
                   </div>
                   {row.last_error && <div className="mt-1 text-xs text-red-600 break-all">{row.last_error}</div>}
                 </div>
@@ -223,14 +240,16 @@ export default function AdminEtsy() {
                 <tbody>
                   {visibleOrders.map((row) => (
                     <tr key={row.id} className="border-t align-top">
-                      <td className="px-4 py-3 font-mono text-xs">{row.receipt_id}</td>
-                      <td className="px-4 py-3">{row.shop_name || row.shop_id || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.receipt_id || t('admin.values.notAvailable')}</td>
+                      <td className="px-4 py-3">{row.shop_name || row.shop_id || t('admin.shopFallback')}</td>
                       <td className="px-4 py-3">
-                        <div>{row.status_label || row.status || '—'}</div>
-                        <div className="text-xs text-text-secondary">{row.buyer_name || row.recipient_name || '—'}</div>
+                        <div>{trStatus(row.status_label || row.status)}</div>
+                        <div className="text-xs text-text-secondary">
+                          {row.buyer_name || row.recipient_name || t('admin.values.notAvailable')}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs">{row.tracking_code || '—'}</td>
-                      <td className="px-4 py-3">{row.tracking_status_label || row.tracking_status || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs">{row.tracking_code || t('admin.values.notAvailable')}</td>
+                      <td className="px-4 py-3">{trStatus(row.tracking_status_label || row.tracking_status)}</td>
                       <td className="px-4 py-3">
                         <div>{fmt(row.order_created_at)}</div>
                         <div className="text-xs text-text-secondary">{t('admin.table.shipped', { date: fmt(row.shipped_at) })}</div>
@@ -260,8 +279,10 @@ export default function AdminEtsy() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <div className="font-medium text-text-primary">{row.status_label || row.status || t('admin.trackingUpdate')}</div>
-                      <div className="font-mono text-xs text-text-secondary">{row.tracking_code || '—'}</div>
+                      <div className="font-medium text-text-primary">
+                        {trStatus(row.status_label || row.status, 'admin.trackingUpdate')}
+                      </div>
+                      <div className="font-mono text-xs text-text-secondary">{row.tracking_code || t('admin.values.notAvailable')}</div>
                     </div>
                     <div className="mt-1 text-sm text-text-secondary">
                       {row.status_detail || t('admin.noStatusDetail')}

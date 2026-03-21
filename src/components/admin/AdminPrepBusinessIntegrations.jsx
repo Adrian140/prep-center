@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/config/supabase';
 import { AlertTriangle, CheckCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
+import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const INTEGRATIONS_KEY = 'integrations_visibility';
 const AMAZON_PAGE_SIZE = 10;
@@ -17,7 +18,7 @@ const INTEGRATIONS = [
   {
     id: 'etsy',
     title: 'Etsy',
-    subtitle: 'Shop-uri Etsy, comenzi si tracking.',
+    subtitle: '',
     settingField: 'etsy',
     logo: 'https://logo.clearbit.com/etsy.com',
     fallbackLogo: '/branding/integrations/etsy.svg'
@@ -148,6 +149,7 @@ function IntegrationPanel({ title, subtitle, logo, fallbackLogo, open, onToggle,
 }
 
 export default function AdminPrepBusinessIntegrations() {
+  const { t: et } = useEtsyI18n();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [message, setMessage] = useState('');
@@ -200,7 +202,7 @@ export default function AdminPrepBusinessIntegrations() {
 
     const err = profilesRes.error || prepRes.error || amazonRes.error || etsyRes.error || upsRes.error || qogitaRes.error || settingsRes.error;
     if (err) {
-      setMessage(err.message || 'Could not load integrations.');
+      setMessage(err.message || et('admin.flash.loadError'));
       setRefreshing(false);
       setLoading(false);
       return;
@@ -482,12 +484,12 @@ export default function AdminPrepBusinessIntegrations() {
       ) : (
         <div className="space-y-3">
           {INTEGRATIONS.map((integration) => (
-            <IntegrationPanel
-              key={integration.id}
-              title={integration.title}
-              subtitle={integration.subtitle}
-              logo={integration.logo}
-              fallbackLogo={integration.fallbackLogo}
+          <IntegrationPanel
+            key={integration.id}
+            title={integration.title}
+            subtitle={integration.id === 'etsy' ? et('admin.integrationCardSubtitle') : integration.subtitle}
+            logo={integration.logo}
+            fallbackLogo={integration.fallbackLogo}
               open={openPanel === integration.id}
               onToggle={() => setOpenPanel((prev) => (prev === integration.id ? '' : integration.id))}
               visible={globalVisibility[integration.settingField] !== false}

@@ -49,6 +49,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Standalone overview for Etsy shops, orders, receipt ID, track ID and tracking status.',
+      integrationCardSubtitle: 'Etsy shops, orders and tracking.',
       metrics: {
         integrations: 'Integrations',
         orders: 'Orders',
@@ -80,10 +81,28 @@ const ETSY_I18N = {
       trackingUpdate: 'Tracking update',
       noStatusDetail: 'No additional details',
       unknownLocation: 'Unknown location',
+      values: {
+        missing: 'Missing',
+        notAvailable: 'N/A',
+        unknownUser: 'Unknown user'
+      },
       status: {
         active: 'Active',
         error: 'Error',
-        pending: 'Pending'
+        pending: 'Pending',
+        disconnected: 'Disconnected',
+        complete: 'Complete',
+        shipped: 'Shipped',
+        paid: 'Paid',
+        unpaid: 'Unpaid',
+        fulfilled: 'Fulfilled',
+        inTransit: 'In transit',
+        delivered: 'Delivered',
+        outForDelivery: 'Out for delivery',
+        preTransit: 'Pre-transit',
+        availableForPickup: 'Available for pickup',
+        returned: 'Returned',
+        cancelled: 'Cancelled'
       },
       flash: {
         loadError: 'Could not load Etsy.'
@@ -141,6 +160,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Vue séparée pour les boutiques Etsy, commandes, receipt ID, track ID et statut de suivi.',
+      integrationCardSubtitle: 'Boutiques Etsy, commandes et suivi.',
       metrics: { integrations: 'Intégrations', orders: 'Commandes', trackingEvents: 'Événements de suivi' },
       shopsTitle: 'Boutiques Etsy connectées',
       shopsSubtitle: 'Sélectionnez une boutique et consultez toutes ses commandes Etsy.',
@@ -159,7 +179,25 @@ const ETSY_I18N = {
       trackingUpdate: 'Mise à jour du suivi',
       noStatusDetail: 'Aucun détail supplémentaire',
       unknownLocation: 'Lieu inconnu',
-      status: { active: 'Actif', error: 'Erreur', pending: 'En attente' },
+      values: { missing: 'Manquant', notAvailable: 'N/D', unknownUser: 'Utilisateur inconnu' },
+      status: {
+        active: 'Actif',
+        error: 'Erreur',
+        pending: 'En attente',
+        disconnected: 'Déconnecté',
+        complete: 'Terminé',
+        shipped: 'Expédié',
+        paid: 'Payé',
+        unpaid: 'Non payé',
+        fulfilled: 'Traitée',
+        inTransit: 'En transit',
+        delivered: 'Livré',
+        outForDelivery: 'En cours de livraison',
+        preTransit: 'Pré-transit',
+        availableForPickup: 'Disponible au retrait',
+        returned: 'Retourné',
+        cancelled: 'Annulé'
+      },
       flash: { loadError: 'Impossible de charger Etsy.' }
     },
     product: {
@@ -214,6 +252,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Separate Übersicht für Etsy-Shops, Bestellungen, Receipt ID, Track ID und Tracking-Status.',
+      integrationCardSubtitle: 'Etsy-Shops, Bestellungen und Tracking.',
       metrics: { integrations: 'Integrationen', orders: 'Bestellungen', trackingEvents: 'Tracking-Ereignisse' },
       shopsTitle: 'Verbundene Etsy-Shops',
       shopsSubtitle: 'Wähle einen Shop aus und prüfe alle Etsy-Bestellungen.',
@@ -232,7 +271,25 @@ const ETSY_I18N = {
       trackingUpdate: 'Tracking-Update',
       noStatusDetail: 'Keine zusätzlichen Details',
       unknownLocation: 'Unbekannter Ort',
-      status: { active: 'Aktiv', error: 'Fehler', pending: 'Ausstehend' },
+      values: { missing: 'Fehlt', notAvailable: 'k. A.', unknownUser: 'Unbekannter Benutzer' },
+      status: {
+        active: 'Aktiv',
+        error: 'Fehler',
+        pending: 'Ausstehend',
+        disconnected: 'Getrennt',
+        complete: 'Abgeschlossen',
+        shipped: 'Versandt',
+        paid: 'Bezahlt',
+        unpaid: 'Unbezahlt',
+        fulfilled: 'Erfüllt',
+        inTransit: 'Unterwegs',
+        delivered: 'Zugestellt',
+        outForDelivery: 'In Zustellung',
+        preTransit: 'Vor dem Versand',
+        availableForPickup: 'Zur Abholung bereit',
+        returned: 'Zurückgesendet',
+        cancelled: 'Storniert'
+      },
       flash: { loadError: 'Etsy konnte nicht geladen werden.' }
     },
     product: {
@@ -287,6 +344,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Panoramica separata per shop Etsy, ordini, receipt ID, track ID e stato tracking.',
+      integrationCardSubtitle: 'Shop Etsy, ordini e tracking.',
       metrics: { integrations: 'Integrazioni', orders: 'Ordini', trackingEvents: 'Eventi di tracking' },
       shopsTitle: 'Shop Etsy collegati',
       shopsSubtitle: 'Seleziona uno shop e controlla tutti i suoi ordini Etsy.',
@@ -305,7 +363,25 @@ const ETSY_I18N = {
       trackingUpdate: 'Aggiornamento tracking',
       noStatusDetail: 'Nessun dettaglio aggiuntivo',
       unknownLocation: 'Posizione sconosciuta',
-      status: { active: 'Attivo', error: 'Errore', pending: 'In attesa' },
+      values: { missing: 'Mancante', notAvailable: 'N/D', unknownUser: 'Utente sconosciuto' },
+      status: {
+        active: 'Attivo',
+        error: 'Errore',
+        pending: 'In attesa',
+        disconnected: 'Disconnesso',
+        complete: 'Completato',
+        shipped: 'Spedito',
+        paid: 'Pagato',
+        unpaid: 'Non pagato',
+        fulfilled: 'Evaso',
+        inTransit: 'In transito',
+        delivered: 'Consegnato',
+        outForDelivery: 'In consegna',
+        preTransit: 'Pre-transito',
+        availableForPickup: 'Disponibile per il ritiro',
+        returned: 'Restituito',
+        cancelled: 'Annullato'
+      },
       flash: { loadError: 'Impossibile caricare Etsy.' }
     },
     product: {
@@ -360,6 +436,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Vista separada para tiendas Etsy, pedidos, receipt ID, track ID y estado de seguimiento.',
+      integrationCardSubtitle: 'Tiendas Etsy, pedidos y seguimiento.',
       metrics: { integrations: 'Integraciones', orders: 'Pedidos', trackingEvents: 'Eventos de seguimiento' },
       shopsTitle: 'Tiendas Etsy conectadas',
       shopsSubtitle: 'Selecciona una tienda y revisa todos sus pedidos Etsy.',
@@ -378,7 +455,25 @@ const ETSY_I18N = {
       trackingUpdate: 'Actualización de seguimiento',
       noStatusDetail: 'Sin detalles adicionales',
       unknownLocation: 'Ubicación desconocida',
-      status: { active: 'Activo', error: 'Error', pending: 'Pendiente' },
+      values: { missing: 'Falta', notAvailable: 'N/D', unknownUser: 'Usuario desconocido' },
+      status: {
+        active: 'Activo',
+        error: 'Error',
+        pending: 'Pendiente',
+        disconnected: 'Desconectado',
+        complete: 'Completado',
+        shipped: 'Enviado',
+        paid: 'Pagado',
+        unpaid: 'No pagado',
+        fulfilled: 'Procesado',
+        inTransit: 'En tránsito',
+        delivered: 'Entregado',
+        outForDelivery: 'En reparto',
+        preTransit: 'Pretránsito',
+        availableForPickup: 'Disponible para recogida',
+        returned: 'Devuelto',
+        cancelled: 'Cancelado'
+      },
       flash: { loadError: 'No se pudo cargar Etsy.' }
     },
     product: {
@@ -433,6 +528,7 @@ const ETSY_I18N = {
     admin: {
       title: 'Etsy',
       subtitle: 'Overview separat pentru shop-uri Etsy, comenzi, receipt ID, track ID și tracking status.',
+      integrationCardSubtitle: 'Shop-uri Etsy, comenzi și tracking.',
       metrics: { integrations: 'Integrări', orders: 'Comenzi', trackingEvents: 'Evenimente tracking' },
       shopsTitle: 'Shop-uri Etsy conectate',
       shopsSubtitle: 'Selectezi shop-ul și vezi toate comenzile lui Etsy.',
@@ -451,7 +547,25 @@ const ETSY_I18N = {
       trackingUpdate: 'Tracking update',
       noStatusDetail: 'Fără detalii suplimentare',
       unknownLocation: 'Locație necunoscută',
-      status: { active: 'Activ', error: 'Eroare', pending: 'Pending' },
+      values: { missing: 'Lipsește', notAvailable: 'N/A', unknownUser: 'Utilizator necunoscut' },
+      status: {
+        active: 'Activ',
+        error: 'Eroare',
+        pending: 'În așteptare',
+        disconnected: 'Deconectat',
+        complete: 'Finalizat',
+        shipped: 'Expediat',
+        paid: 'Plătit',
+        unpaid: 'Neplătit',
+        fulfilled: 'Procesată',
+        inTransit: 'În tranzit',
+        delivered: 'Livrat',
+        outForDelivery: 'În livrare',
+        preTransit: 'Pre-tranzit',
+        availableForPickup: 'Disponibil pentru ridicare',
+        returned: 'Returnat',
+        cancelled: 'Anulat'
+      },
       flash: { loadError: 'Nu am putut încărca Etsy.' }
     },
     product: {
@@ -487,4 +601,3 @@ export function useEtsyI18n() {
   };
   return { t, list, lang: currentLanguage };
 }
-
