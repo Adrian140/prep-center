@@ -2999,12 +2999,30 @@ const saveReqChanges = async () => {
         </div>
       )}
       {/* HEADER */}
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="flex flex-col gap-2 items-start">
-          <div className="flex flex-wrap items-center gap-2">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        {!hideGuides ? (
+          <div className="w-full max-w-sm rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-lime-50 px-4 py-3 shadow-sm">
+            <div className="flex flex-col items-start gap-2">
+              <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-emerald-700/90">
+                {t('ClientStock.guides.firstTime')}
+              </div>
+              <UserGuidePlayer
+                section="stock"
+                title={t('ClientStock.guides.watchShort')}
+                unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
+                buttonClassName="inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-emerald-300 bg-emerald-100 px-5 py-1.5 text-sm font-semibold whitespace-nowrap text-emerald-900 shadow-sm hover:bg-emerald-200"
+              />
+            </div>
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <div className="flex w-full flex-col items-start gap-2 xl:items-end">
+          <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:justify-end">
             <button
               onClick={() => setQuickAddOpen((open) => !open)}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
+              className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
                 quickAddOpen
                   ? 'bg-primary text-white'
                   : 'bg-[#ffb703] text-[#4f2a00] hover:bg-[#ff9f00]'
@@ -3013,48 +3031,35 @@ const saveReqChanges = async () => {
               <Plus className="w-4 h-4" />
               {t('ClientStock.createProduct.button')}
             </button>
-            {!hideGuides && (
-              <UserGuidePlayer
-                section="stock"
-                title={t('ClientStock.guides.watchShort')}
-                unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
-              />
-            )}
           </div>
-          {!hideGuides && (
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-primary/80">
-              {t('ClientStock.guides.firstTime')}
-            </div>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
-          <button
-            type="button"
-            aria-pressed={showPriceColumn}
-            onClick={() => setShowPriceColumn((prev) => !prev)}
-            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-              showPriceColumn
-                ? 'bg-primary text-white border-primary'
-                : 'text-primary border-primary hover:bg-primary/5'
-            }`}
-          >
-            {showPriceColumn
-              ? t('ClientStock.priceColumn.hide')
-              : t('ClientStock.priceColumn.show')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={showPendingShipmentColumn}
-            onClick={() => setShowPendingShipmentColumn((prev) => !prev)}
-            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-              showPendingShipmentColumn
-                ? 'bg-primary text-white border-primary'
-                : 'text-primary border-primary hover:bg-primary/5'
-            }`}
-          >
-            {showPendingShipmentColumn ? 'Hide pending shipment' : 'Show pending shipment'}
-          </button>
+          <div className="flex w-full flex-wrap items-center gap-2 justify-start xl:justify-end">
+            <button
+              type="button"
+              aria-pressed={showPriceColumn}
+              onClick={() => setShowPriceColumn((prev) => !prev)}
+              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                showPriceColumn
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-primary border-primary hover:bg-primary/5'
+              }`}
+            >
+              {showPriceColumn
+                ? t('ClientStock.priceColumn.hide')
+                : t('ClientStock.priceColumn.show')}
+            </button>
+            <button
+              type="button"
+              aria-pressed={showPendingShipmentColumn}
+              onClick={() => setShowPendingShipmentColumn((prev) => !prev)}
+              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                showPendingShipmentColumn
+                  ? 'bg-primary text-white border-primary'
+                  : 'text-primary border-primary hover:bg-primary/5'
+              }`}
+            >
+              {showPendingShipmentColumn ? 'Hide pending shipment' : 'Show pending shipment'}
+            </button>
+          </div>
         </div>
       </div>
 
