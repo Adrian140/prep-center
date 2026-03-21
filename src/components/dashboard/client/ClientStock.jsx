@@ -2992,19 +2992,9 @@ const saveReqChanges = async () => {
         </div>
       )}
       {/* HEADER */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex items-center">
-            <h2 className="text-xl font-semibold text-text-primary whitespace-nowrap">
-              {t('ClientStock.title')}
-            </h2>
-          </div>
-
-          <p className="text-sm text-text-secondary">{t('ClientStock.desc')}</p>
-        </div>
-
-        <div className="flex flex-col gap-2 items-stretch sm:items-end text-left sm:text-right">
-          <div className="flex flex-col items-start gap-2 sm:items-end">
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-2 items-start">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setQuickAddOpen((open) => !open)}
               className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
@@ -3017,49 +3007,48 @@ const saveReqChanges = async () => {
               {t('ClientStock.createProduct.button')}
             </button>
             {!hideGuides && (
-              <div className="flex flex-col items-start sm:items-end gap-1">
-                <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-primary/80">
-                  {t('ClientStock.guides.firstTime')}
-                </div>
-                <UserGuidePlayer
-                  section="stock"
-                  title={t('ClientStock.guides.watchShort')}
-                  unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
-                />
-              </div>
+              <UserGuidePlayer
+                section="stock"
+                title={t('ClientStock.guides.watchShort')}
+                unavailableText={t('ClientStock.guides.unavailable', { section: 'stock' })}
+              />
             )}
           </div>
-          <div className="flex flex-wrap items-center gap-2 justify-end">
-            <button
-              type="button"
-              aria-pressed={showPriceColumn}
-              onClick={() => setShowPriceColumn((prev) => !prev)}
-              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                showPriceColumn
-                  ? 'bg-primary text-white border-primary'
-                  : 'text-primary border-primary hover:bg-primary/5'
-              }`}
-            >
-              {showPriceColumn
-                ? t('ClientStock.priceColumn.hide')
-                : t('ClientStock.priceColumn.show')}
-            </button>
-            <button
-              type="button"
-              aria-pressed={showPendingShipmentColumn}
-              onClick={() => setShowPendingShipmentColumn((prev) => !prev)}
-              className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                showPendingShipmentColumn
-                  ? 'bg-primary text-white border-primary'
-                  : 'text-primary border-primary hover:bg-primary/5'
-              }`}
-            >
-              {showPendingShipmentColumn ? 'Hide pending shipment' : 'Show pending shipment'}
-            </button>
-          </div>
+          {!hideGuides && (
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-primary/80">
+              {t('ClientStock.guides.firstTime')}
+            </div>
+          )}
         </div>
-      </div>
-      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+
+        <div className="flex flex-wrap items-center gap-2 justify-start lg:justify-end">
+          <button
+            type="button"
+            aria-pressed={showPriceColumn}
+            onClick={() => setShowPriceColumn((prev) => !prev)}
+            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              showPriceColumn
+                ? 'bg-primary text-white border-primary'
+                : 'text-primary border-primary hover:bg-primary/5'
+            }`}
+          >
+            {showPriceColumn
+              ? t('ClientStock.priceColumn.hide')
+              : t('ClientStock.priceColumn.show')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={showPendingShipmentColumn}
+            onClick={() => setShowPendingShipmentColumn((prev) => !prev)}
+            className={`inline-flex items-center rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+              showPendingShipmentColumn
+                ? 'bg-primary text-white border-primary'
+                : 'text-primary border-primary hover:bg-primary/5'
+            }`}
+          >
+            {showPendingShipmentColumn ? 'Hide pending shipment' : 'Show pending shipment'}
+          </button>
+        </div>
       </div>
 
       {quickAddOpen && (
