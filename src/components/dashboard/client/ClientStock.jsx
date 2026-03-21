@@ -1054,6 +1054,13 @@ const [etsyOrdersByItemId, setEtsyOrdersByItemId] = useState({});
     async (event, rowId, field, value) => {
       if (!value) return;
       try {
+        const selection = window.getSelection?.();
+        if (selection && event?.currentTarget) {
+          const range = document.createRange();
+          range.selectNodeContents(event.currentTarget);
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
         if (navigator?.clipboard?.writeText) {
           await navigator.clipboard.writeText(value);
         } else {
