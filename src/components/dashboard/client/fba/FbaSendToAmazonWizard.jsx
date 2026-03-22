@@ -3446,7 +3446,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
     if (!inboundPlanId || !requestId) {
       setPackingSubmitError('Missing inboundPlanId or requestId; finish Step 1 before confirming.');
-      return;
+      return false;
     }
 
     const derivedPayload = buildPackingPayload();
@@ -3478,7 +3478,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
     if ((missingGroupId || hasFallback) && !packageGroupingsFallback.length) {
       setPackingSubmitError('Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Încearcă din nou Step 1b sau setează manual cutiile.');
-      return;
+      return false;
     }
 
     if (!packingGroupsPayload.length && !packageGroupingsFallback.length) {
@@ -3487,7 +3487,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           ? 'Completează packing groups înainte de a continua.'
           : 'Completează dimensiunile/greutatea cutiilor înainte de a continua.'
       );
-      return;
+      return false;
     }
     if (!allowPalletRelax) {
       const invalid = packingGroupsPayload.find((g) => {
@@ -3518,13 +3518,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       });
       if (invalid) {
         setPackingSubmitError('Dimensiuni/greutate incomplete pentru cutie.');
-        return;
+        return false;
       }
     } else {
       const missingBoxes = packingGroupsPayload.some((g) => !(Number(g.boxes || 0) > 0));
       if (missingBoxes) {
         setPackingSubmitError('Setează numărul de cutii pentru fiecare packing group.');
-        return;
+        return false;
       }
     }
 
@@ -3630,6 +3630,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
       completeAndNext('1b');
+      return true;
     } catch (e) {
       const parsed = await extractFunctionInvokeError(e);
       const payload = parsed?.payload && typeof parsed.payload === 'object' ? parsed.payload : null;
@@ -3641,6 +3642,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         e?.message ||
         'SetPackingInformation failed.';
       setPackingSubmitError(trace ? `${message} · TraceId ${trace}` : message);
+      return false;
     } finally {
       setPackingSubmitLoading(false);
     }
@@ -6106,10 +6108,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     // sar peste UI-ul din Step1b și trimit direct packingInformation.
     if (!palletOnlyMode && autoPackingReady) {
       const payload = buildPackingPayload(packGroupsForAuto);
-      submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
-      setCompletedSteps((prev) => Array.from(new Set([...prev, '1', '1b'])));
-      setCurrentStep('2');
-      return;
+      const submitted = await submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
+      if (submitted) return;
+    }
+
+    // Pentru case-packed flow fără UI Step 1b, Seller Central face în fundal setPackingInformation.
+    // Reproducem același comportament aici înainte de Step 2.
+    if (skipPackingStep && !palletOnlyMode) {
+      const submitted = await submitPackingInformation();
+      if (submitted) return;
     }
 
     completeAndNext('1');
@@ -6139,6 +6146,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     resolveRequestId,
     skipPackingStep,
     snapshotServerUnits,
+    submitPackingInformation,
     wizardCopy
   ]);
 
