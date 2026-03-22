@@ -394,9 +394,16 @@ function buildEmailHtml(profile: ProfileRow, snapshot: Snapshot, prevSnapshot: S
     </div>
   `;
 
+  const cleanHtml = html
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .join("\n")
+    .replace(/>\s+</g, "><")
+    .trim();
+
   return {
     subject: title,
-    html,
+    html: cleanHtml,
   };
 }
 
@@ -416,11 +423,20 @@ async function sendEmail(to: string, subject: string, html: string) {
     });
 
     try {
+      const textContent = html
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/(p|div|h1|h2|h3|li|tr)>/gi, "\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
+
       await client.send({
         from: `${SMTP_FROM_NAME} <${FROM_EMAIL}>`,
         to,
         subject,
-        content: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+        content: textContent,
         html,
       });
       console.info("send_reception_emails smtp sent", { to, subject });
