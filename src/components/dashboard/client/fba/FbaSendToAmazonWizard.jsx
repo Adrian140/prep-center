@@ -4990,14 +4990,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         width
       }));
     }
-    if (!(qty > 0)) return 'Completează numărul total de paleți.';
-    if (!(length > 0 && width > 0 && height > 0)) return 'Completează lungimea, lățimea și înălțimea fiecărui palet.';
-    if (!(weight > 0)) return 'Completează greutatea pe palet.';
-    if (!(declaredValue > 0)) return 'Completează valoarea declarată pentru transportul pe paleți.';
-    if (!freightClass || freightClass === 'FC_XX') return 'Completează un freight class valid pentru LTL/FTL.';
-    if (!['STACKABLE', 'NON_STACKABLE'].includes(String(palletDetails.stackability || '').toUpperCase())) {
-      return 'Selectează stackability pentru paleți.';
-    }
+    if (!(qty > 0)) return 'Amazon nu a putut estima numărul de paleți pentru acest shipment.';
+    if (!(length > 0 && width > 0 && height > 0)) return 'Amazon nu a putut completa automat dimensiunile standard de europalet.';
+    if (!(weight > 0)) return 'Amazon nu a putut estima greutatea totală pe palet.';
     if (palletLimits.maxWeightKg && weight > palletLimits.maxWeightKg) {
       return `Greutatea pe palet depășește limita Amazon de ${palletLimits.maxWeightKg} kg.`;
     }
@@ -5012,8 +5007,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         width,
         height,
         weight,
-        declaredValue,
-        freightClass
+        declaredValue: declaredValue > 0 ? declaredValue : 1,
+        freightClass: freightClass || 'FC_XX',
+        stackability: ['STACKABLE', 'NON_STACKABLE'].includes(String(prev.stackability || '').toUpperCase())
+          ? prev.stackability
+          : 'STACKABLE'
       };
       if (
         next.quantity === prev.quantity &&
@@ -6199,6 +6197,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onGenerateOptions={fetchShippingOptions}
           error={shippingError}
           confirming={shippingConfirming}
+          amazonLikePalletStep2={palletOnlyMode}
           onNext={confirmShippingOptions}
           onBack={() => goToStep(palletOnlyMode ? '1' : '1b')}
         />

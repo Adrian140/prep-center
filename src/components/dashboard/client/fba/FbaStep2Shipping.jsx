@@ -31,7 +31,8 @@ export default function FbaStep2Shipping({
   confirming = false,
   shippingLoading = false,
   error = '',
-  readyWindowByShipment = {}
+  readyWindowByShipment = {},
+  amazonLikePalletStep2 = false
 }) {
   const { t, tp } = useDashboardTranslation();
   const tt = (key, fallback) => {
@@ -78,6 +79,7 @@ export default function FbaStep2Shipping({
     to = null,
     palletSummary = null // read-only, pre-calculated pallet info
   } = shipment || {};
+  const isAmazonLikePallet = Boolean(amazonLikePalletStep2 && method && method !== 'SPD');
   const optionsList = useMemo(
     () => (Array.isArray(shippingOptions) ? shippingOptions : []),
     [shippingOptions]
@@ -92,6 +94,21 @@ export default function FbaStep2Shipping({
   const partneredMissingDetails = Array.isArray(shippingSummary?.partneredMissingDetails)
     ? shippingSummary.partneredMissingDetails
     : [];
+  const safePalletDetails = useMemo(
+    () =>
+      palletDetails || {
+        quantity: 1,
+        length: '',
+        width: '',
+        height: '',
+        weight: '',
+        stackability: 'STACKABLE',
+        freightClass: 'FC_XX',
+        declaredValue: '',
+        declaredValueCurrency: 'EUR'
+      },
+    [palletDetails]
+  );
   const shipmentIds = useMemo(
     () =>
       (Array.isArray(shipments) ? shipments : [])
@@ -141,28 +158,13 @@ export default function FbaStep2Shipping({
     if (optionsList.length > 0) return;
     onGenerateOptions?.();
   }, [shipmentIds, readyWindowByShipment, shippingLoading, optionsList, onGenerateOptions]);
-  const safePalletDetails = useMemo(
-    () =>
-      palletDetails || {
-        quantity: 1,
-        length: '',
-        width: '',
-        height: '',
-        weight: '',
-        stackability: 'STACKABLE',
-        freightClass: 'FC_XX',
-        declaredValue: '',
-        declaredValueCurrency: 'EUR'
-      },
-    [palletDetails]
-  );
-
   const shipmentList = useMemo(() => (Array.isArray(shipments) ? shipments : []), [shipments]);
   const globalReadyStartRaw = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.start || '' : '';
   const globalReadyStart = toDateOnly(globalReadyStartRaw);
   const globalReadyEnd = shipmentIds.length ? readyWindowByShipment?.[shipmentIds[0]]?.end || '' : '';
 
   const renderPalletSummary = () => {
+    if (isAmazonLikePallet) return null;
     if (!palletSummary) return null;
     return (
       <div className="border border-slate-200 rounded-lg p-4 space-y-3 bg-slate-50">
@@ -290,6 +292,19 @@ export default function FbaStep2Shipping({
     });
   };
   const spdOptions = groupedOptions.SPD || [];
+  const modeEstimateCards = useMemo(() => {
+    const modeOrder = ['SPD', 'LTL', 'FTL'];
+    return modeOrder
+      .filter((modeKey) => (groupedOptions[modeKey] || []).length > 0)
+      .map((modeKey) => {
+        const list = groupedOptions[modeKey] || [];
+        const charges = list
+          .map((opt) => Number(opt?.charge))
+          .filter((value) => Number.isFinite(value));
+        const estimate = charges.length ? Math.min(...charges) : null;
+        return { modeKey, estimate };
+      });
+  }, [groupedOptions]);
   const spdPartneredOptions = useMemo(() => aggregateByCarrier(spdOptions.filter((o) => Boolean(o?.partnered))), [spdOptions, shipmentIds]);
   const spdNonPartneredOptions = useMemo(() => {
     const list = aggregateByCarrier(spdOptions.filter((o) => !o?.partnered));
@@ -473,10 +488,14 @@ export default function FbaStep2Shipping({
 
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-2">{tt('readyToShip', 'Ready to ship')}</div>
+            <div className="font-semibold text-slate-800 mb-2">
+              {isAmazonLikePallet ? tt('shipDate', 'Ship date') : tt('readyToShip', 'Ready to ship')}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:items-end">
               <div>
-                <div className="text-xs text-slate-600 mb-1">{tt('readyToShipStart', 'Ready to ship — start *')}</div>
+                <div className="text-xs text-slate-600 mb-1">
+                  {isAmazonLikePallet ? tt('shipDate', 'Ship date') : tt('readyToShipStart', 'Ready to ship — start *')}
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="date"
@@ -489,45 +508,52 @@ export default function FbaStep2Shipping({
                           end: readyWindowByShipment?.[id]?.end || ''
                         });
                       });
+                      onShipDateChange?.(nextStart);
                     }}
                     className="w-[170px] border rounded-md px-3 py-2 text-sm"
                   />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sameDayStart = formatLocalDateTimeInput(new Date(Date.now() + 6 * 60 * 60 * 1000));
-                      shipmentIds.forEach((id) => {
-                        onReadyWindowChange?.(id, {
-                          start: sameDayStart,
-                          end: readyWindowByShipment?.[id]?.end || ''
-                        });
-                      });
-                    }}
-                    className="px-3 py-2 rounded-md text-xs font-semibold border border-amber-400 bg-amber-300 text-amber-900 hover:bg-amber-200"
-                  >
-                    {tt('sameDay', 'Same Day')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nextDay = new Date();
-                      nextDay.setDate(nextDay.getDate() + 1);
-                      const nextDayStart = `${formatLocalDateInput(nextDay)}T08:00`;
-                      shipmentIds.forEach((id) => {
-                        onReadyWindowChange?.(id, {
-                          start: nextDayStart,
-                          end: readyWindowByShipment?.[id]?.end || ''
-                        });
-                      });
-                    }}
-                    className="px-3 py-2 rounded-md text-xs font-semibold border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
-                  >
-                    {tt('nextDay', 'Next Day')}
-                  </button>
+                  {!isAmazonLikePallet && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const sameDayStart = formatLocalDateTimeInput(new Date(Date.now() + 6 * 60 * 60 * 1000));
+                          shipmentIds.forEach((id) => {
+                            onReadyWindowChange?.(id, {
+                              start: sameDayStart,
+                              end: readyWindowByShipment?.[id]?.end || ''
+                            });
+                          });
+                        }}
+                        className="px-3 py-2 rounded-md text-xs font-semibold border border-amber-400 bg-amber-300 text-amber-900 hover:bg-amber-200"
+                      >
+                        {tt('sameDay', 'Same Day')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextDay = new Date();
+                          nextDay.setDate(nextDay.getDate() + 1);
+                          const nextDayStart = `${formatLocalDateInput(nextDay)}T08:00`;
+                          shipmentIds.forEach((id) => {
+                            onReadyWindowChange?.(id, {
+                              start: nextDayStart,
+                              end: readyWindowByShipment?.[id]?.end || ''
+                            });
+                          });
+                        }}
+                        className="px-3 py-2 rounded-md text-xs font-semibold border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
+                      >
+                        {tt('nextDay', 'Next Day')}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <div className="text-xs text-slate-600">{tt('shipDateHint', 'Ship date (Amazon uses start only)')}</div>
+                {!isAmazonLikePallet && (
+                  <div className="text-xs text-slate-600">{tt('shipDateHint', 'Ship date (Amazon uses start only)')}</div>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -539,11 +565,17 @@ export default function FbaStep2Shipping({
                         : 'bg-slate-200 text-slate-500 cursor-not-allowed'
                     }`}
                   >
-                    {shippingLoading ? tt('loading', 'Loading…') : tt('confirmReadyDate', 'Confirm ready date')}
+                    {shippingLoading
+                      ? tt('loading', 'Loading…')
+                      : isAmazonLikePallet
+                        ? tt('getShippingEstimates', 'Get shipping estimates')
+                        : tt('confirmReadyDate', 'Confirm ready date')}
                   </button>
                 </div>
                 <div className="text-[11px] text-slate-500">
-                  {tt('readyWindowHint', 'Select just the ship date; Amazon calculează fereastra intern.')}
+                  {isAmazonLikePallet
+                    ? tt('shipDateAmazonHint', 'Choose the ship date to retrieve the LTL/FTL offers from Amazon.')
+                    : tt('readyWindowHint', 'Select just the ship date; Amazon calculează fereastra intern.')}
                 </div>
               </div>
             </div>
@@ -554,6 +586,42 @@ export default function FbaStep2Shipping({
             )}
           </div>
         </div>
+
+        {isAmazonLikePallet && modeEstimateCards.length > 0 && (
+          <div className="border border-slate-200 rounded-lg p-4 space-y-3">
+            <div className="font-semibold text-slate-900">{tt('shippingMode', 'Shipping mode')}</div>
+            <div className="flex flex-wrap gap-3">
+              {modeEstimateCards.map(({ modeKey, estimate }) => {
+                const active = selectedModeKey === modeKey;
+                const label =
+                  modeKey === 'SPD'
+                    ? tt('spdMode', 'Small parcel delivery (SPD)')
+                    : modeKey === 'LTL'
+                      ? tt('ltlMode', 'Less-than-truckload (LTL)')
+                      : modeKey === 'FTL'
+                        ? tt('ftlMode', 'Full truckload (FTL)')
+                        : modeKey;
+                return (
+                  <button
+                    key={`mode-estimate-${modeKey}`}
+                    type="button"
+                    onClick={() => setSelectedModeKey(modeKey)}
+                    className={`min-w-[240px] text-left border rounded-md p-4 ${
+                      active ? 'border-blue-600 bg-blue-50' : 'border-slate-300'
+                    }`}
+                  >
+                    <div className="font-semibold text-slate-900">{label}</div>
+                    <div className="text-slate-600">
+                      {Number.isFinite(estimate)
+                        ? `${tt('estimatesStartingAt', 'Estimates starting at')} €${Number(estimate).toFixed(2)}`
+                        : tt('estimatesPending', 'Estimate will appear after Amazon returns options')}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div
           className="border border-slate-200 rounded-lg p-4 space-y-3"
@@ -769,7 +837,7 @@ export default function FbaStep2Shipping({
           )}
         </div>
 
-        {selectedMode && selectedMode !== 'SPD' && (
+        {selectedMode && selectedMode !== 'SPD' && !isAmazonLikePallet && (
           <>
             {renderPalletSummary()}
             <div className="border border-slate-200 rounded-lg p-4 space-y-3">
