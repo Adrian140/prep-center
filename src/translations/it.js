@@ -94,7 +94,7 @@ export const it = {
   benefitsTitle: 'Perché i Venditori Europei Ci Scelgono',
   benefitsSubtitle: 'Vantaggi che fanno la differenza per le tue operazioni',
   euDistributionTitle: 'Distribuzione in tutta l\'UE',
-  euDistributionDesc: 'Hub strategici in Francia e Germania per spedizioni rapide ai centri di fulfillment europei',
+  euDistributionDesc: 'Hub strategici in Francia e Germania per spedizioni rapide ai centri di fulfillment europei, con tutto in un’unica piattaforma e super semplice da gestire',
   complianceTitle: 'Expertise in Conformità',
   complianceDesc: 'Conoscenza approfondita dei requisiti marketplace e regolamenti europei',
   qualityAssuranceTitle: 'Garanzia di Qualità',

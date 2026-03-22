@@ -94,7 +94,7 @@ export const ro = {
   benefitsTitle: 'De Ce Vânzătorii Europeni Ne Aleg',
   benefitsSubtitle: 'Avantaje care fac diferența pentru operațiunile tale',
   euDistributionTitle: 'Distribuție în toată UE',
-  euDistributionDesc: 'Hub-uri strategice în Franța și Germania pentru expediere rapidă către centrele de fulfillment europene',
+  euDistributionDesc: 'Hub-uri strategice în Franța și Germania pentru expediere rapidă către centrele de fulfillment europene, cu totul într-o singură platformă și super simplu de gestionat',
   complianceTitle: 'Expertiză în Conformitate',
   complianceDesc: 'Cunoștințe profunde despre cerințele marketplace și reglementările europene',
   qualityAssuranceTitle: 'Asigurarea Calității',

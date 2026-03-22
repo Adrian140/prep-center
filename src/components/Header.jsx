@@ -165,11 +165,12 @@ function Header() {
   }, [showAddress]);
 
   return (
-    <header className="relative overflow-hidden bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
+    <header className="relative overflow-visible bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute inset-y-0 left-[-18%] w-[34%] bg-gradient-to-r from-transparent via-sky-300/25 to-transparent blur-2xl animate-header-wave" />
-        <div className="absolute inset-y-0 right-[-22%] w-[38%] bg-gradient-to-l from-transparent via-cyan-200/30 to-transparent blur-3xl animate-header-wave-slow" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-400/45 to-transparent" />
+        <div className="absolute inset-y-0 left-[-45%] w-[70%] bg-gradient-to-r from-transparent via-sky-300/45 to-transparent blur-3xl animate-header-wave" />
+        <div className="absolute inset-y-0 left-[-25%] right-[-25%] bg-[radial-gradient(circle_at_50%_35%,rgba(56,189,248,0.18),transparent_42%),radial-gradient(circle_at_75%_50%,rgba(34,211,238,0.14),transparent_38%)] animate-header-sheen" />
+        <div className="absolute bottom-0 left-[-10%] h-[4px] w-[120%] bg-[linear-gradient(90deg,rgba(59,130,246,0.1)_0%,rgba(14,165,233,0.95)_25%,rgba(45,212,191,0.95)_50%,rgba(14,165,233,0.95)_75%,rgba(59,130,246,0.1)_100%)] blur-[1px] animate-header-edge" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-sky-200/0 via-sky-400/70 to-cyan-300/0" />
       </div>
       <div className="relative w-full px-2 sm:px-3 lg:px-4">
         <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-2.5 min-h-[74px]">

@@ -94,7 +94,7 @@ export const de = {
   benefitsTitle: 'Warum Europäische Verkäufer Uns Wählen',
   benefitsSubtitle: 'Vorteile, die den Unterschied für Ihre Fulfillment-Prozesse machen',
   euDistributionTitle: 'EU-weite Distribution',
-  euDistributionDesc: 'Strategische Hubs in Frankreich und Deutschland für schnellen Versand zu EU-Fulfillment-Zentren',
+  euDistributionDesc: 'Strategische Hubs in Frankreich und Deutschland für schnellen Versand zu EU-Fulfillment-Zentren, mit allem auf einer einzigen Plattform und besonders einfach zu verwalten',
   complianceTitle: 'Compliance-Expertise',
   complianceDesc: 'Tiefes Wissen über Marktplatzanforderungen und europäische Vorschriften',
   qualityAssuranceTitle: 'Qualitätssicherung',
