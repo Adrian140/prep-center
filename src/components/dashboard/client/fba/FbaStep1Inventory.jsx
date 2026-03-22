@@ -113,6 +113,7 @@ export default function FbaStep1Inventory({
   onBoxPlanChange,
   marketCode = '',
   palletOnlyMode = false,
+  skipPackingStep = false,
   allowNoInboundPlan = false,
   inboundPlanMissing = false,
   onRetryInboundPlan,
@@ -3388,7 +3389,7 @@ export default function FbaStep1Inventory({
                     ? tr('waitingPlan')
                     : !hasUnits
                       ? tr('addUnits')
-                      : tr('continueToPacking')}
+                      : (skipPackingStep ? tr('continueToShipping') : tr('continueToPacking'))}
             </button>
           </div>
         </div>

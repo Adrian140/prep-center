@@ -844,6 +844,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return (palletPacking && hasUnitsPerBox) || groupsCasePacked;
   }, [isLtlFtl, plan?.skus, shipmentMode?.method, packGroups]);
 
+  const skipPackingStep = useMemo(() => {
+    if (palletOnlyMode) return true;
+    const skus = Array.isArray(plan?.skus) ? plan.skus : [];
+    const activeSkus = skus.filter((sku) => Number(sku?.units || sku?.quantity || 0) > 0);
+    if (!activeSkus.length) return false;
+    return activeSkus.every((sku) => {
+      const packingType = normalizePackingType(
+        sku?.packing || sku?.packingTemplateType || sku?.packing_template_type || null
+      );
+      const unitsPerBox = Number(sku?.unitsPerBox ?? sku?.units_per_box ?? 0) || 0;
+      return (packingType === 'case' || packingType === 'single_sku_pallet') && unitsPerBox > 0;
+    });
+  }, [palletOnlyMode, plan?.skus]);
+
   const derivedPalletSummary = useMemo(() => {
     if (!palletOnlyMode) return null;
     const market = String(currentMarket || '').toUpperCase();
@@ -897,8 +911,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   // Include Step 4 for both flows; pallet-only still skips Step 1b.
   const stepsOrder = useMemo(
-    () => (palletOnlyMode ? ['1', '2', '3', '4'] : ['1', '1b', '2', '3', '4']),
-    [palletOnlyMode]
+    () => (skipPackingStep ? ['1', '2', '3', '4'] : ['1', '1b', '2', '3', '4']),
+    [skipPackingStep]
   );
 
   const resolveInitialStep = useCallback(() => {
@@ -1735,6 +1749,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       setCurrentStep(saved);
     }
   }, [allowPersistence, stepStorageKey, stepsOrder]);
+
+  useEffect(() => {
+    setCompletedSteps((prev) => prev.filter((step) => stepsOrder.includes(step)));
+    if (!stepsOrder.includes(currentStep)) {
+      setCurrentStep(resolveInitialStep());
+    }
+  }, [currentStep, resolveInitialStep, stepsOrder]);
 
   useEffect(() => {
     if (!allowPersistence) return;
@@ -5847,7 +5868,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const goToStep = (stepKey) => {
     if (!stepsOrder.includes(stepKey)) return;
-    if (stepKey === '1b' && palletOnlyMode) {
+    if (stepKey === '1b' && skipPackingStep) {
       setCurrentStep('2');
       return;
     }
@@ -5969,7 +5990,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const fallbackGroups = buildFallbackPackGroups(plan?.skus || []);
         setPackGroups(fallbackGroups);
         setCompletedSteps((prev) => Array.from(new Set([...prev, '1'])));
-        setCurrentStep('1b');
+        setCurrentStep(skipPackingStep ? '2' : '1b');
         return;
       }
 
@@ -6069,6 +6090,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     refreshStep,
     resolveInboundPlanId,
     resolveRequestId,
+    skipPackingStep,
     snapshotServerUnits,
     wizardCopy
   ]);
@@ -6123,6 +6145,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onPersistServices={persistServicesToDb}
           inboundPlanCopy={wizardCopy}
           palletOnlyMode={palletOnlyMode}
+          skipPackingStep={skipPackingStep}
           onNext={persistStep1AndReloadPlan}
           operationProblems={operationProblems}
           onSubmitListingAttributes={submitListingAttributesForSku}
@@ -6199,7 +6222,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           confirming={shippingConfirming}
           amazonLikePalletStep2={palletOnlyMode}
           onNext={confirmShippingOptions}
-          onBack={() => goToStep(palletOnlyMode ? '1' : '1b')}
+          onBack={() => goToStep(skipPackingStep ? '1' : '1b')}
         />
       );
     }
