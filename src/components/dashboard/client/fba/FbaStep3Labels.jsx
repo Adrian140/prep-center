@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle, Printer } from 'lucide-react';
+import { useDashboardTranslation } from '@/translations';
 
 export default function FbaStep3Labels({
   shipments,
@@ -14,12 +15,19 @@ export default function FbaStep3Labels({
   onBack,
   onNext
 }) {
+  const { t, tp } = useDashboardTranslation();
+  const tt = (key, fallback) => {
+    const path = `Fba.step3.${key}`;
+    const value = t(path);
+    return value === path ? fallback : value;
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
-        <div className="font-semibold text-slate-900">Step 3 - Box labels printed</div>
-        <div className="text-sm text-slate-500">After printing, shipment becomes Ready to ship</div>
+        <div className="font-semibold text-slate-900">{tt('title', 'Step 3 - Box labels printed')}</div>
+        <div className="text-sm text-slate-500">{tt('subtitle', 'After printing, shipment becomes Ready to ship')}</div>
       </div>
 
       {error ? (
@@ -32,16 +40,16 @@ export default function FbaStep3Labels({
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <div className="font-semibold text-slate-900">{s.name}</div>
-                <div className="text-sm text-slate-600">Ship from: {s.from}</div>
-                <div className="text-sm text-slate-600">Ship to: {s.to}</div>
+                <div className="text-sm text-slate-600">{tp('Fba.step3.shipFrom', { value: s.from })}</div>
+                <div className="text-sm text-slate-600">{tp('Fba.step3.shipTo', { value: s.to })}</div>
               </div>
-              <div className="text-sm text-slate-600">Boxes: {s.boxes} · Units: {s.units}</div>
+              <div className="text-sm text-slate-600">{tp('Fba.step3.boxesUnits', { boxes: s.boxes, units: s.units })}</div>
             </div>
 
             <div className="px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div className="flex items-center gap-2 text-slate-700">
                 <Printer className="w-5 h-5" />
-                <span className="font-semibold">Print box labels</span>
+                <span className="font-semibold">{tt('printBoxLabels', 'Print box labels')}</span>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <select
@@ -58,7 +66,7 @@ export default function FbaStep3Labels({
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
                   disabled={printLoadingId === s.id}
                 >
-                  {printLoadingId === s.id ? 'Generating…' : 'Print'}
+                  {printLoadingId === s.id ? tt('generating', 'Generating…') : tt('print', 'Print')}
                 </button>
               </div>
             </div>
@@ -68,31 +76,31 @@ export default function FbaStep3Labels({
 
       <div className="px-6 pb-2">
         <label className="block text-sm font-semibold text-slate-700 mb-1">
-          FBA shipment ID (manual)
+          {tt('manualShipmentId', 'FBA shipment ID (manual)')}
         </label>
         <input
           className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-          placeholder="Ex: FBA123456789"
+          placeholder={tt('manualPlaceholder', 'Ex: FBA123456789')}
           value={manualFbaShipmentId || ''}
           onChange={(e) => onManualFbaShipmentIdChange?.(e.target.value)}
         />
         <div className="text-xs text-slate-500 mt-1">
-          Completează doar dacă Amazon nu a returnat automat ID-ul expedierii.
+          {tt('manualHelp', 'Fill this in only if Amazon did not return the shipment ID automatically.')}
         </div>
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-600">Apply the FBA box ID label to each box and carrier labels afterward.</div>
+        <div className="text-sm text-slate-600">{tt('footer', 'Apply the FBA box ID label to each box and carrier labels afterward.')}</div>
         <div className="flex gap-3 justify-end">
           <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
-            Back
+            {tt('back', 'Back')}
           </button>
           <button
             onClick={onNext}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-semibold shadow-sm"
             disabled={confirming}
           >
-            {confirming ? 'Finalizing…' : 'Continue to tracking'}
+            {confirming ? tt('finalizing', 'Finalizing…') : tt('continueTracking', 'Continue to tracking')}
           </button>
         </div>
       </div>

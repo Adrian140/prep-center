@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
+import { useDashboardTranslation } from '@/translations';
 
 export default function FbaStep4Tracking({
   tracking,
@@ -10,13 +11,19 @@ export default function FbaStep4Tracking({
   loading = false,
   trackingDisabled = false
 }) {
+  const { t } = useDashboardTranslation();
+  const tt = (key, fallback) => {
+    const path = `Fba.step4.${key}`;
+    const value = t(path);
+    return value === path ? fallback : value;
+  };
   const helperText = trackingDisabled
-    ? 'Amazon partnered shipments do not require manual tracking.'
-    : 'Provide carrier tracking IDs';
+    ? tt('helperPartnered', 'Amazon partnered shipments do not require manual tracking.')
+    : tt('helperManual', 'Provide carrier tracking IDs');
   const footerText = trackingDisabled
-    ? 'Tracking is handled by Amazon for partnered shipments.'
-    : 'Update tracking IDs after handing off boxes to the carrier.';
-  const actionLabel = loading ? 'Updating…' : 'Update tracking IDs';
+    ? tt('footerPartnered', 'Tracking is handled by Amazon for partnered shipments.')
+    : tt('footerManual', 'Update tracking IDs after handing off boxes to the carrier.');
+  const actionLabel = loading ? tt('updating', 'Updating…') : tt('updateTrackingIds', 'Update tracking IDs');
   const formatNumber = (value) => {
     const num = typeof value === 'number' ? value : Number.parseFloat(value);
     if (!Number.isFinite(num)) return null;
@@ -52,7 +59,7 @@ export default function FbaStep4Tracking({
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
-        <div className="font-semibold text-slate-900">Final step: Tracking details</div>
+        <div className="font-semibold text-slate-900">{tt('title', 'Final step: Tracking details')}</div>
         <div className="text-sm text-slate-500">{helperText}</div>
       </div>
 
@@ -68,12 +75,12 @@ export default function FbaStep4Tracking({
         <table className="min-w-full text-sm text-slate-700">
           <thead className="text-xs uppercase text-slate-500">
             <tr>
-              <th className="py-2 text-left">Box #</th>
-              <th className="py-2 text-left">FBA box label #</th>
-              <th className="py-2 text-left">Tracking ID #</th>
-              <th className="py-2 text-left">Status</th>
-              <th className="py-2 text-left">Weight (kg)</th>
-              <th className="py-2 text-left">Dimensions (cm)</th>
+              <th className="py-2 text-left">{tt('boxColumn', 'Box #')}</th>
+              <th className="py-2 text-left">{tt('fbaBoxLabelColumn', 'FBA box label #')}</th>
+              <th className="py-2 text-left">{tt('trackingIdColumn', 'Tracking ID #')}</th>
+              <th className="py-2 text-left">{tt('statusColumn', 'Status')}</th>
+              <th className="py-2 text-left">{tt('weightColumn', 'Weight (kg)')}</th>
+              <th className="py-2 text-left">{tt('dimensionsColumn', 'Dimensions (cm)')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
@@ -87,7 +94,7 @@ export default function FbaStep4Tracking({
                     value={row.trackingId}
                     onChange={(e) => onUpdateTracking(row.id, e.target.value)}
                     className="border rounded-md px-2 py-1 w-full min-w-[200px]"
-                    placeholder="Enter tracking ID"
+                    placeholder={tt('enterTrackingId', 'Enter tracking ID')}
                     disabled={loading || trackingDisabled}
                   />
                 </td>
@@ -104,7 +111,7 @@ export default function FbaStep4Tracking({
         <div className="text-sm text-slate-600">{footerText}</div>
         <div className="flex gap-3 justify-end">
           <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
-            Back
+            {tt('back', 'Back')}
           </button>
           {!trackingDisabled && (
             <button

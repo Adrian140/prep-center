@@ -33,7 +33,7 @@ export default function FbaStep2Shipping({
   error = '',
   readyWindowByShipment = {}
 }) {
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const tt = (key, fallback) => {
     const path = `Fba.step2.${key}`;
     const value = t(path);
@@ -63,8 +63,8 @@ export default function FbaStep2Shipping({
       if (carrierCodeLabels[upperName]) return carrierCodeLabels[upperName];
     }
     if (rawCode && carrierCodeLabels[rawCode]) return carrierCodeLabels[rawCode];
-    if (rawCode && looksLikeInternalCode(rawCode)) return 'Other carrier';
-    return rawName || rawCode || 'Carrier';
+    if (rawCode && looksLikeInternalCode(rawCode)) return tt('otherCarrier', 'Other carrier');
+    return rawName || rawCode || tt('carrierFallback', 'Carrier');
   };
   const {
     deliveryWindowStart = '',
@@ -390,23 +390,29 @@ export default function FbaStep2Shipping({
     return (
     <div key={shKey || s.id} className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-        <div className="font-semibold text-slate-900">Shipment #{displayShipmentId || '—'}</div>
+        <div className="font-semibold text-slate-900">
+          {tp('Fba.step2.shipmentTitle', { id: displayShipmentId || '—' })}
+        </div>
         <div className="text-sm text-slate-600">
-          Boxes: {s.boxes} · SKUs: {s.skuCount} · Units: {s.units} · Weight:{' '}
-          {Number.isFinite(toKg(s.weight, s.weight_unit)) && toKg(s.weight, s.weight_unit) > 0
-            ? `${toKg(s.weight, s.weight_unit).toFixed(2)} kg`
-            : '—'}
+          {tp('Fba.step2.shipmentSummary', {
+            boxes: s.boxes,
+            skus: s.skuCount,
+            units: s.units,
+            weight:
+              Number.isFinite(toKg(s.weight, s.weight_unit)) && toKg(s.weight, s.weight_unit) > 0
+                ? `${toKg(s.weight, s.weight_unit).toFixed(2)} kg`
+                : '—'
+          })}
         </div>
       </div>
       <div className="px-4 py-3 text-sm text-slate-700 space-y-1">
-        <div>Ship from: {s.from}</div>
+        <div>{tp('Fba.step2.shipFromLabel', { value: s.from })}</div>
         <div>
-          Ship to:{' '}
-          {/^A[A-Z0-9]{9,}$/i.test(String(s.to || '').trim())
-            ? '—'
-            : s.to || '—'}
+          {tp('Fba.step2.shipToLabel', {
+            value: /^A[A-Z0-9]{9,}$/i.test(String(s.to || '').trim()) ? '—' : s.to || '—'
+          })}
         </div>
-        <div>Fulfilment capability: {s.capability || 'Standard'}</div>
+        <div>{tp('Fba.step2.fulfilmentCapability', { value: s.capability || 'Standard' })}</div>
         {Array.isArray(s.boxesDetail) && s.boxesDetail.length > 0 && (
           <div className="text-xs text-slate-500">
             {s.boxesDetail.length} boxes with dimensions/weight captured from packing.
@@ -467,10 +473,10 @@ export default function FbaStep2Shipping({
 
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="border border-slate-200 rounded-lg p-3">
-            <div className="font-semibold text-slate-800 mb-2">Ready to ship</div>
+            <div className="font-semibold text-slate-800 mb-2">{tt('readyToShip', 'Ready to ship')}</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:items-end">
               <div>
-                <div className="text-xs text-slate-600 mb-1">Ready to ship — start *</div>
+                <div className="text-xs text-slate-600 mb-1">{tt('readyToShipStart', 'Ready to ship — start *')}</div>
                 <div className="flex items-center gap-2">
                   <input
                     type="date"
@@ -499,7 +505,7 @@ export default function FbaStep2Shipping({
                     }}
                     className="px-3 py-2 rounded-md text-xs font-semibold border border-amber-400 bg-amber-300 text-amber-900 hover:bg-amber-200"
                   >
-                    Same Day
+                    {tt('sameDay', 'Same Day')}
                   </button>
                   <button
                     type="button"
@@ -516,12 +522,12 @@ export default function FbaStep2Shipping({
                     }}
                     className="px-3 py-2 rounded-md text-xs font-semibold border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                   >
-                    Next Day
+                    {tt('nextDay', 'Next Day')}
                   </button>
                 </div>
               </div>
               <div className="flex flex-col gap-2">
-                <div className="text-xs text-slate-600">Ship date (Amazon folosește doar start)</div>
+                <div className="text-xs text-slate-600">{tt('shipDateHint', 'Ship date (Amazon uses start only)')}</div>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -554,39 +560,39 @@ export default function FbaStep2Shipping({
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div className="font-semibold text-slate-900">Available shipping options</div>
+            <div className="font-semibold text-slate-900">{tt('availableShippingOptions', 'Available shipping options')}</div>
           </div>
           {needsDeliveryWindow && (
             <div className="grid grid-cols-1 gap-3 text-sm">
               <div className="text-[11px] text-amber-700">
-                Opțiunea selectată cere delivery window confirmată (CONFIRMED_DELIVERY_WINDOW). Folosim automat data din Ready to ship.
+                {tt('deliveryWindowRequired', 'The selected option requires a confirmed delivery window (CONFIRMED_DELIVERY_WINDOW). We automatically use the Ready to ship date.')}
               </div>
             </div>
           )}
           {!optionsList.length && shippingConfirmed && (
             <div className="text-sm text-slate-700">
-              Shipping already confirmed. {selectedTransportationOptionId ? `Option: ${selectedTransportationOptionId}` : ''}
+              {tt('shippingAlreadyConfirmed', 'Shipping already confirmed.')} {selectedTransportationOptionId ? `${tt('optionLabel', 'Option')}: ${selectedTransportationOptionId}` : ''}
             </div>
           )}
           {!optionsList.length && !shippingConfirmed && (
             <div className="text-sm text-slate-600">
-              No shipping options available yet. Complete “Ready to ship”.
+              {tt('noShippingOptions', 'No shipping options available yet. Complete “Ready to ship”.')}
             </div>
           )}
           {partneredAvailableForAny && partneredAvailableForAll === false && (
             <div className="text-xs text-amber-700 border border-amber-200 bg-amber-50 rounded-md px-3 py-2">
-              Amazon partnered este disponibil doar pentru unele shipment-uri.
+              {tt('partneredOnlySomeShipments', 'Amazon partnered is available only for some shipments.')}
               {partneredMissingDetails.length
-                ? ` Lipsă pentru: ${partneredMissingDetails
+                ? ` ${tt('missingFor', 'Missing for')}: ${partneredMissingDetails
                     .map((d) => {
-                      const group = d?.packingGroupId ? `packGroup ${d.packingGroupId}` : null;
+                      const group = d?.packingGroupId ? tp('Fba.step2.packGroup', { id: d.packingGroupId }) : null;
                       const shipment = d?.shipmentName || d?.shipmentId || null;
                       return [group, shipment].filter(Boolean).join(' / ');
                     })
                     .filter(Boolean)
                     .join(', ')}.`
                 : partneredMissingShipments.length
-                  ? ` Lipsă pentru: ${partneredMissingShipments.join(', ')}.`
+                  ? ` ${tt('missingFor', 'Missing for')}: ${partneredMissingShipments.join(', ')}.`
                   : ''}
             </div>
           )}
@@ -595,12 +601,12 @@ export default function FbaStep2Shipping({
               {modeKeys.map((modeKey) => {
                 const label =
                   modeKey === 'SPD'
-                    ? 'Small parcel delivery (SPD)'
+                    ? tt('spdMode', 'Small parcel delivery (SPD)')
                     : modeKey === 'LTL'
-                      ? 'Less-than-truckload (LTL)'
+                      ? tt('ltlMode', 'Less-than-truckload (LTL)')
                       : modeKey === 'FTL'
-                        ? 'Full truckload (FTL)'
-                        : 'Other';
+                        ? tt('ftlMode', 'Full truckload (FTL)')
+                        : tt('otherMode', 'Other');
                 const active = selectedModeKey === modeKey;
                 return (
                   <button
@@ -619,7 +625,7 @@ export default function FbaStep2Shipping({
           )}
           {hasSpdOptions ? (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-600">Small parcel delivery (SPD)</div>
+              <div className="text-xs font-semibold text-slate-600">{tt('spdMode', 'Small parcel delivery (SPD)')}</div>
               <div className="flex flex-wrap gap-3">
                 {spdPartneredOptions.map((opt) => {
                   const carrierLabel = getCarrierLabel(opt);
@@ -648,18 +654,18 @@ export default function FbaStep2Shipping({
                       }}
                     >
                       <div className="font-semibold text-sm">{carrierLabel}</div>
-                      <div className="text-xs text-slate-500">Amazon partnered carrier</div>
+                      <div className="text-xs text-slate-500">{tt('amazonPartneredCarrier', 'Amazon partnered carrier')}</div>
                       <div className="text-[11px] text-slate-400">AMAZON_PARTNERED_CARRIER</div>
                       <div className="mt-1 text-2xl font-semibold text-slate-800">{chargeText}</div>
                       {shipmentIds.length > 1 && Number.isFinite(effectiveCharge) && (
-                        <div className="text-[11px] text-slate-500">Total for all shipments</div>
+                        <div className="text-[11px] text-slate-500">{tt('totalForAllShipments', 'Total for all shipments')}</div>
                       )}
                     </label>
                   );
                 })}
                 {spdNonPartneredOptions.length > 0 && (
                   <div className="w-full sm:w-[220px] md:w-[260px] border border-slate-300 rounded-md p-3 flex flex-col gap-2">
-                    <div className="font-semibold text-sm">Non Amazon partnered carrier</div>
+                    <div className="font-semibold text-sm">{tt('nonAmazonPartneredCarrier', 'Non Amazon partnered carrier')}</div>
                     <select
                       value={selectedOption?.partnered ? '' : (selectedTransportationOptionId || '')}
                       onChange={(e) => {
@@ -670,7 +676,7 @@ export default function FbaStep2Shipping({
                       }}
                       className="w-full border rounded-md px-3 py-2 text-sm"
                     >
-                      <option value="">Select carrier</option>
+                      <option value="">{tt('selectCarrierPlaceholder', 'Select carrier')}</option>
                       {spdNonPartneredOptions.map((opt) => {
                         const id = getOptionId(opt);
                         if (!id) return null;
@@ -694,20 +700,20 @@ export default function FbaStep2Shipping({
               if (!list.length) return null;
               const title =
                 modeKey === 'LTL'
-                  ? 'Less-than-truckload (LTL)'
+                  ? tt('ltlMode', 'Less-than-truckload (LTL)')
                   : modeKey === 'FTL'
-                    ? 'Full truckload (FTL)'
-                    : 'Other';
+                    ? tt('ftlMode', 'Full truckload (FTL)')
+                    : tt('otherMode', 'Other');
               return (
                 <div key={modeKey} className="space-y-2">
                   <div className="text-xs font-semibold text-slate-600">{title}</div>
                   <div className="space-y-2">
                     {list.map((opt) => {
-                      const carrierLabel = opt?.carrierName || 'Carrier';
+                      const carrierLabel = opt?.carrierName || tt('carrierFallback', 'Carrier');
                       const optionId = getOptionId(opt);
                       const solution = String(opt?.shippingSolution || opt?.raw?.shippingSolution || '').toUpperCase();
                       const chargeText = Number.isFinite(opt?.charge) ? `€${opt.charge.toFixed(2)}` : '—';
-                      const partneredLabel = opt?.partnered ? 'Amazon partnered' : 'Non Amazon partnered carrier';
+                      const partneredLabel = opt?.partnered ? tt('amazonPartneredShort', 'Amazon partnered') : tt('nonAmazonPartneredCarrier', 'Non Amazon partnered carrier');
                       const checked = Boolean(optionId) && optionId === selectedTransportationOptionId;
                       const partneredDisabled =
                         Boolean(opt?.partnered) &&
@@ -770,7 +776,7 @@ export default function FbaStep2Shipping({
               <div className="font-semibold text-slate-900">{tt('palletFreight', 'Freight details')}</div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Pallet quantity</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('palletQuantity', 'Pallet quantity')}</div>
                   <input
                     type="number"
                     min="1"
@@ -782,7 +788,7 @@ export default function FbaStep2Shipping({
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Pallet weight (kg)</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('palletWeight', 'Pallet weight (kg)')}</div>
                   <input
                     type="number"
                     min="0"
@@ -795,7 +801,7 @@ export default function FbaStep2Shipping({
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Stackability</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('stackabilityLabel', 'Stackability')}</div>
                   <select
                     id="pallet-stackability"
                     name="pallet-stackability"
@@ -808,7 +814,7 @@ export default function FbaStep2Shipping({
                   </select>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Freight class</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('freightClassLabel', 'Freight class')}</div>
                   <input
                     type="text"
                     id="freight-class"
@@ -819,7 +825,7 @@ export default function FbaStep2Shipping({
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Declared value</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('declaredValue', 'Declared value')}</div>
                   <input
                     type="number"
                     min="0"
@@ -832,7 +838,7 @@ export default function FbaStep2Shipping({
                   />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500 mb-1">Currency</div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('currency', 'Currency')}</div>
                   <input
                     type="text"
                     id="declared-currency"
@@ -853,12 +859,12 @@ export default function FbaStep2Shipping({
         )}
 
         <div className="space-y-3">
-        <div className="font-semibold text-slate-900 text-sm">Number of shipments: {shipmentCount}</div>
+        <div className="font-semibold text-slate-900 text-sm">{tp('Fba.step2.numberOfShipments', { count: shipmentCount })}</div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {shipmentList.map(renderShipmentCard)}
         </div>
         <div className="text-sm text-slate-700">
-            Boxes: {totalBoxes} · SKUs: {totalSkus} · Units: {totalUnits} · Weight: {totalWeight || '—'} kg
+            {tp('Fba.step2.totalsSummary', { boxes: totalBoxes, skus: totalSkus, units: totalUnits, weight: totalWeight || '—' })}
         </div>
       </div>
 
@@ -878,7 +884,7 @@ export default function FbaStep2Shipping({
                 className="mt-0.5"
               />
               <span>
-                I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.
+                {tt('acceptTerms', 'I agree to the Amazon Partnered Carrier Terms and Conditions and the Carrier Terms and Conditions.')}
               </span>
             </label>
           )}
@@ -888,7 +894,7 @@ export default function FbaStep2Shipping({
               onClick={onBack}
               className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md"
             >
-              Back
+              {tt('back', 'Back')}
             </button>
             <button
               type="button"
@@ -896,7 +902,7 @@ export default function FbaStep2Shipping({
               disabled={!canContinue || confirming}
               className={`px-4 py-2 rounded-md font-semibold shadow-sm ${canContinue && !confirming ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'}`}
             >
-              {confirming ? 'Confirming…' : 'Accept charges and confirm shipping'}
+              {confirming ? tt('confirming', 'Confirming…') : tt('confirmShipping', 'Accept charges and confirm shipping')}
             </button>
           </div>
         </div>

@@ -497,7 +497,7 @@ export default function FbaSendToAmazonWizard({
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
   const { currentMarket } = useMarket();
-  const { t } = useDashboardTranslation();
+  const { t, tp } = useDashboardTranslation();
   const tt = useCallback(
     (key, fallback) => {
       const val = t(`Wizard.${key}`);
@@ -4904,12 +4904,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setLabelsError('Missing inboundPlanId or requestId for labels.');
+      setLabelsError(tt('labelsMissingIdsError', 'Missing inboundPlanId or requestId for labels.'));
       return;
     }
     const shipmentId = shipment?.shipmentId || shipment?.id;
     if (!shipmentId) {
-      setLabelsError('Missing shipmentId for labels.');
+      setLabelsError(tt('labelsMissingShipmentIdError', 'Missing shipmentId for labels.'));
       return;
     }
     setLabelsLoadingId(shipment?.id || shipmentId);
@@ -4923,7 +4923,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         shipment?.shipmentConfirmationId ||
         null;
       if (!confirmationId) {
-        setLabelsError('Missing shipmentConfirmationId for labels. Try again after confirming shipping.');
+        setLabelsError(
+          tt(
+            'labelsMissingConfirmationIdError',
+            'Missing shipmentConfirmationId for labels. Try again after confirming shipping.'
+          )
+        );
         return;
       }
       // Persistăm ID-ul confirmat ca să nu se piardă până la pasul 4.
@@ -4961,10 +4966,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (url) {
         window.open(url, '_blank', 'noopener');
       } else {
-        setLabelsError('Amazon did not return a URL for labels.');
+        setLabelsError(tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.'));
       }
     } catch (e) {
-      setLabelsError(e?.message || 'Could not generate labels.');
+      setLabelsError(e?.message || tt('labelsErrorGenerateFailed', 'Could not generate labels.'));
     } finally {
       setLabelsLoadingId(null);
     }
@@ -5002,11 +5007,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (step3Confirming) return;
     const requestId = resolveRequestId();
     if (!requestId) {
-      setStep3Error('Missing requestId to confirm the request.');
+      setStep3Error(tt('step3ErrorMissingRequestId', 'Missing requestId to confirm the request.'));
       return;
     }
     if (!shippingConfirmed && !shippingSummary?.alreadyConfirmed) {
-      setStep3Error('Confirm shipping before finishing the request.');
+      setStep3Error(tt('step3ErrorConfirmShippingFirst', 'Confirm shipping before finishing the request.'));
       return;
     }
     const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
@@ -5014,7 +5019,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const manualId = normalizeManualFbaShipmentId(manualFbaShipmentId);
     const shipmentId = resolveFbaShipmentId() || manualId || existingFbaId;
     if (!shipmentId) {
-      setStep3Error('Could not find FBA shipment ID from Amazon. Please enter it manually.');
+      setStep3Error(
+        tt('step3ErrorMissingShipmentId', 'Could not find FBA shipment ID from Amazon. Please enter it manually.')
+      );
       return;
     }
     setStep3Confirming(true);
@@ -5040,7 +5047,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
       completeAndNext('3');
     } catch (e) {
-      setStep3Error(e?.message || 'Could not confirm request.');
+      setStep3Error(e?.message || tt('step3ErrorConfirmFailed', 'Could not confirm request.'));
     } finally {
       setStep3Confirming(false);
     }
@@ -5087,7 +5094,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           box: idx + 1,
           label,
           trackingId: existing?.trackingId || '',
-          status: existing?.status || 'Pending',
+          status: existing?.status || tt('trackingStatusPending', 'Pending'),
           weight: b?.weight?.value || b?.weight?.amount || null,
           dimensions: b?.dimensions
             ? `${b.dimensions.length || ''} x ${b.dimensions.width || ''} x ${b.dimensions.height || ''}`
@@ -5100,14 +5107,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           normalized = normalized.map((row, idx) => ({
             ...row,
             trackingId: row.trackingId || savedTracking[idx] || '',
-            status: savedTracking[idx] ? 'Confirmed' : row.status
+            status: savedTracking[idx] ? tt('trackingStatusConfirmed', 'Confirmed') : row.status
           }));
           trackingPrefillRef.current = true;
         }
       }
       setTracking(normalized);
     } catch (e) {
-      setTrackingError(e?.message || 'Could not load boxes.');
+      setTrackingError(e?.message || tt('trackingErrorLoadBoxes', 'Could not load boxes.'));
     } finally {
       setTrackingLoading(false);
     }
@@ -5136,7 +5143,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const requestId = resolveRequestId();
     const shipmentId = (Array.isArray(shipments) && shipments[0]?.shipmentId) || shipments?.[0]?.id || null;
     if (!inboundPlanId || !requestId || !shipmentId) {
-      setTrackingError('Missing inboundPlanId, requestId or shipmentId for tracking.');
+      setTrackingError(
+        tt('trackingErrorMissingIds', 'Missing inboundPlanId, requestId or shipmentId for tracking.')
+      );
       return;
     }
     const isPartnered = isPartneredShipment;
@@ -5153,7 +5162,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       .filter((t) => t.trackingId && t.boxId)
       .map((t) => ({ boxId: t.boxId, trackingId: t.trackingId }));
     if (!items.length) {
-      setTrackingError('Add tracking for at least one box.');
+      setTrackingError(tt('trackingErrorAddOne', 'Add tracking for at least one box.'));
       return;
     }
     setTrackingLoading(true);
@@ -5178,7 +5187,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       completeAndNext('4');
     } catch (e) {
-      setTrackingError(e?.message || 'Could not submit tracking.');
+      setTrackingError(e?.message || tt('trackingErrorSubmitFailed', 'Could not submit tracking.'));
     } finally {
       setTrackingLoading(false);
     }
@@ -5931,13 +5940,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         {renderStepRow({
           stepKey: '1',
           title: tt('step1Title', 'Step 1 - Confirmed inventory to send'),
-          subtitle: `SKUs: ${skuCount} · Units: ${unitCount} · Ship from: ${plan?.shipFrom?.name || plan?.shipFrom?.address || '—'}`,
-          summary: plan?.marketplace ? `Marketplace: ${plan.marketplace}` : null
+          subtitle: tp('Wizard.step1Subtitle', {
+            skus: skuCount,
+            units: unitCount,
+            shipFrom: plan?.shipFrom?.name || plan?.shipFrom?.address || '—'
+          }),
+          summary: plan?.marketplace ? tp('Wizard.step1SummaryMarketplace', { marketplace: plan.marketplace }) : null
         })}
         {renderStepRow({
           stepKey: '1b',
           title: tt('step1bTitle', 'Step 1b - Pack individual units'),
-          subtitle: `Pack groups: ${packGroups?.length || 0} · Units: ${packUnits} · Boxes: ${boxesCount}`,
+          subtitle: tp('Wizard.step1bSubtitle', {
+            groups: packGroups?.length || 0,
+            units: packUnits,
+            boxes: boxesCount
+          }),
           summary: packGroups?.length ? tt('packReady', 'You can start packing now') : tt('noPackGroups', 'No pack groups yet')
         })}
         {renderStepRow({
@@ -5945,14 +5962,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           title: tt('step2Title', 'Step 2 - Confirm shipping'),
           subtitle:
             step2Complete
-              ? `Destinations: ${shipmentSummary.dests} · Method: ${shipmentSummary.method} · Carrier: ${shipmentSummary.carrierName}`
+              ? tp('Wizard.step2SubtitleComplete', {
+                  destinations: shipmentSummary.dests,
+                  method: shipmentSummary.method,
+                  carrier: shipmentSummary.carrierName
+                })
               : tt('notStarted', 'Not started'),
           summary: null
         })}
         {renderStepRow({
           stepKey: '3',
           title: tt('step3Title', 'Step 3 - Box labels printed'),
-          subtitle: step3Complete ? `Shipments: ${shipments?.length || 0}` : tt('notStarted', 'Not started'),
+          subtitle: step3Complete ? tp('Wizard.step3SubtitleComplete', { shipments: shipments?.length || 0 }) : tt('notStarted', 'Not started'),
           summary: step3Complete ? `${tt('labelFormat', 'Label format')}: ${labelFormat}` : null
         })}
         {renderStepRow({
@@ -5960,7 +5981,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           title: tt('step4Title', 'Final step: Tracking details'),
           subtitle:
             step4Complete
-              ? `Boxes: ${trackingSummary.totalBoxes} · Tracking IDs: ${trackingSummary.tracked}`
+              ? tp('Wizard.step4SubtitleComplete', {
+                  boxes: trackingSummary.totalBoxes,
+                  tracking: trackingSummary.tracked
+                })
               : tt('notStarted', 'Not started'),
           summary: step4Complete ? tt('trackingCaptured', 'Tracking captured') : null
         })}
