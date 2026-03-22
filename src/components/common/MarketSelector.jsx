@@ -28,14 +28,14 @@ export default function MarketSelector() {
       Object.entries(markets).map(([code, meta]) => ({
         code,
         label: meta.name,
-        flag: meta.flag
+        flagSrc: meta.flagSrc || ''
       })),
     [markets]
   );
 
   const active =
     items.find((item) => item.code === currentMarket) ||
-    items[0] || { flag: '🏳️', label: currentMarket || '—' };
+    items[0] || { flagSrc: '', label: currentMarket || '—' };
 
   useEffect(() => {
     const onMarket = () => setOpen(false);
@@ -150,7 +150,7 @@ export default function MarketSelector() {
         >
           <span className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-gray-500" />
-            <span className="text-lg leading-none">{active.flag}</span>
+            {active.flagSrc ? <img src={active.flagSrc} alt="" className="w-5 h-5 rounded-sm" /> : null}
             <span className="text-sm font-medium">{active.label}</span>
           </span>
           <span className="ml-1 text-xs text-gray-500">▾</span>
@@ -171,7 +171,7 @@ export default function MarketSelector() {
                   item.code === currentMarket ? 'bg-gray-50 font-medium' : ''
                 }`}
               >
-                <span className="text-lg leading-none">{item.flag}</span>
+                {item.flagSrc ? <img src={item.flagSrc} alt="" className="w-5 h-5 rounded-sm" /> : null}
                 <span className="text-sm">{item.label}</span>
                 {item.code === currentMarket ? (
                   <span className="ml-auto text-primary">✓</span>

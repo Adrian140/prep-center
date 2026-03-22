@@ -4,9 +4,31 @@ import { normalizeMarketCode } from '@/utils/market';
 
 const MarketContext = createContext();
 
+function toDataUri(svg) {
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function flagFR() {
+  return toDataUri(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="24" viewBox="0 0 36 24">
+    <rect width="12" height="24" x="0" fill="#0055A4"/>
+    <rect width="12" height="24" x="12" fill="#FFFFFF"/>
+    <rect width="12" height="24" x="24" fill="#EF4135"/>
+  </svg>`);
+}
+
+function flagDE() {
+  return toDataUri(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="36" height="24" viewBox="0 0 36 24">
+    <rect width="36" height="8" y="0" fill="#000000"/>
+    <rect width="36" height="8" y="8" fill="#DD0000"/>
+    <rect width="36" height="8" y="16" fill="#FFCE00"/>
+  </svg>`);
+}
+
 export const MARKETS = {
-  FR: { name: 'France', flag: '🇫🇷' },
-  DE: { name: 'Germany', flag: '🇩🇪' }
+  FR: { name: 'France', flagSrc: flagFR() },
+  DE: { name: 'Germany', flagSrc: flagDE() }
 };
 
 const DEFAULT_MARKET = 'FR';
