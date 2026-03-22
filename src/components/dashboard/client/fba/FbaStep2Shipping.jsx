@@ -377,10 +377,10 @@ export default function FbaStep2Shipping({
     if (!selectedOption) return tt('selectCarrier', 'Select a carrier');
     const modeLabel =
       selectedMode === 'LTL'
-        ? 'Less-than-truckload (LTL)'
+        ? tt('lessThanTruckload', 'Less-than-truckload (LTL)')
         : selectedMode === 'FTL'
-          ? 'Full truckload (FTL)'
-          : 'Small parcel delivery (SPD)';
+          ? tt('fullTruckload', 'Full truckload (FTL)')
+          : tt('smallParcelDelivery', 'Small parcel delivery (SPD)');
     return `${carrierName} · ${modeLabel}`;
   }, [carrierName, selectedMode, selectedOption, tt]);
 
@@ -415,7 +415,7 @@ export default function FbaStep2Shipping({
         <div>{tp('Fba.step2.fulfilmentCapability', { value: s.capability || 'Standard' })}</div>
         {Array.isArray(s.boxesDetail) && s.boxesDetail.length > 0 && (
           <div className="text-xs text-slate-500">
-            {s.boxesDetail.length} boxes with dimensions/weight captured from packing.
+            {tp('Fba.step2.boxesCapturedFromPacking', { count: s.boxesDetail.length })}
           </div>
         )}
       </div>

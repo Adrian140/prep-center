@@ -4030,7 +4030,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     const requestId = resolveRequestId();
     if (!inboundPlanId || !requestId) {
-      setShippingError('Missing inboundPlanId or requestId; cannot request shipping options.');
+      setShippingError(tt('missingIdsError', 'Missing inboundPlanId or requestId; reload the plan.'));
       return;
     }
     const missingReady = (shipments || []).some((sh) => {
@@ -4044,18 +4044,32 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingError('');
         return;
       }
-      setShippingError('Completează “Ready to ship” (start) pentru toate expedierile înainte de a cere opțiuni de curier.');
+      setShippingError(
+        t('Fba.step2.deliveryWindowRequired') === 'Fba.step2.deliveryWindowRequired'
+          ? 'Complete “Ready to ship” (start) for all shipments before requesting carrier options.'
+          : t('Fba.step2.deliveryWindowRequired')
+      );
       return;
     }
 
     if (!Array.isArray(packGroups) || packGroups.length === 0) {
-      setShippingError('We do not have packing groups yet. Run Step 1b again to get packingOptions before shipping.');
+      setShippingError(
+        tt(
+          'step2MissingPackingGroups',
+          'We do not have packing groups yet. Run Step 1b again to get packing options before shipping.'
+        )
+      );
       return;
     }
 
     const missingPackingGroupId = (packGroups || []).some((g) => !g.packingGroupId || isFallbackId(g.packingGroupId) || isFallbackId(g.id));
     if (missingPackingGroupId) {
-      setShippingError('Packing groups do not have a valid packingGroupId from Amazon. Run Step 1b again to get packingOptions.');
+      setShippingError(
+        tt(
+          'step2MissingPackingGroupId',
+          'Packing groups do not have a valid packingGroupId from Amazon. Run Step 1b again to get packing options.'
+        )
+      );
       return;
     }
 
@@ -4094,7 +4108,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             boxWeight: g?.boxWeight ?? null
           })));
         }
-        setShippingError('Fill in weight and dimensions (L/W/H) for all boxes before requesting rates.');
+        setShippingError(
+          t('Fba.step2.fillDimensionsBeforeRates') === 'Fba.step2.fillDimensionsBeforeRates'
+            ? 'Fill in weight and dimensions (L/W/H) for all boxes before requesting rates.'
+            : t('Fba.step2.fillDimensionsBeforeRates')
+        );
         return;
       }
     }
@@ -4111,7 +4129,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return false;
     });
     if (missingReadyConfirm) {
-      setShippingError('Adaugă “Ready to ship” (start) pentru fiecare shipment înainte de confirmare.');
+      setShippingError(
+        t('Fba.step2.addReadyToShipBeforeConfirm') === 'Fba.step2.addReadyToShipBeforeConfirm'
+          ? 'Add “Ready to ship” (start) for each shipment before confirmation.'
+          : t('Fba.step2.addReadyToShipBeforeConfirm')
+      );
       return;
     }
     const contactInformation = resolveContactInformation();
@@ -4146,7 +4168,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (palletOnlyMode) {
         const shipDate = normalizeShipDate(shipmentMode?.deliveryDate) || globalReadyStart;
         if (!shipDate) {
-          setShippingError('Setează Ship date pentru a cere tarife LTL.');
+          setShippingError(tt('step2SetShipDateForLtl', 'Set Ship date before requesting LTL rates.'));
           setShippingLoading(false);
           shippingFetchLockRef.current.inFlight = false;
           return;
@@ -4228,14 +4250,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           const attempt = shippingRetryRef.current + 1;
           if (attempt <= maxRetries) {
             shippingRetryRef.current = attempt;
-            setShippingError(`Amazon is processing the request... attempt ${attempt}/${maxRetries}. Will retry automatically.`);
+            setShippingError(
+              tp('Wizard.step2AmazonProcessingRetry', { attempt, maxRetries })
+            );
             if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
             shippingRetryTimerRef.current = setTimeout(() => {
               fetchShippingOptions();
             }, nextDelay);
             return;
           }
-          setShippingError('Amazon is still processing options. Retry manually in a few seconds.');
+          setShippingError(
+            tt('step2AmazonProcessingManualRetry', 'Amazon is still processing options. Retry manually in a few seconds.')
+          );
           return;
         }
         setShippingError(json.error);
@@ -4308,10 +4334,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingOptions([]);
         setShippingSummary(null);
         setPlanLoaded(false); // trigger reload so UI syncs requestId/inboundPlanId
-        setShippingError('Inbound plan s-a schimbat pe server. Reîncarc planul, apoi încearcă din nou Step 2.');
+        setShippingError(
+          tt('step2InboundPlanChanged', 'Inbound plan changed on the server. Reloading the plan, then try Step 2 again.')
+        );
         return;
       }
-      const detail = parsed?.message || "Failed to load shipping options";
+      const detail = parsed?.message || tt('step2LoadOptionsFailed', 'Failed to load shipping options');
       console.error("fetchShippingOptions failed", e);
       setShippingError(detail);
     } finally {
@@ -4329,7 +4357,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     const opts = Array.isArray(shippingOptionsRef.current) ? shippingOptionsRef.current : [];
     if (!opts.length) {
-      setShippingError('Nu există opțiuni de curier încă. Completează datele și încearcă din nou.');
+      setShippingError(
+        tt('step2NoOptionsYet', 'There are no carrier options yet. Complete the required data and try again.')
+      );
       return false;
     }
     if (!selectedTransportationOptionId && opts.length === 1) {
@@ -4419,7 +4449,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const requestId = resolveRequestId();
     const placementOptId = placementOptionId || plan?.placementOptionId || plan?.placement_option_id || null;
     if (!inboundPlanId || !requestId) {
-      setShippingError('Missing inboundPlanId or requestId to confirm shipping.');
+      setShippingError(tt('step2ConfirmMissingIds', 'Missing inboundPlanId or requestId to confirm shipping.'));
       return;
     }
     await ensureOptionsAvailable();
@@ -4440,7 +4470,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
     }
     if (!selectedOpt) {
-      setShippingError('Selectează o opțiune de curier înainte de confirmare.');
+      setShippingError(
+        tt('step2SelectCarrierFirst', 'Select a carrier option before confirming.')
+      );
       return;
     }
     // Do not force PCP for every shipment just because the currently selected option is PCP.
