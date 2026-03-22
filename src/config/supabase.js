@@ -3652,6 +3652,14 @@ createReceivingItems: async (items) => {
 
   updateReceivingItem: async (itemId, updates) => {
     await ensureReceivingColumnSupport();
+    const { data: itemRow, error: itemLookupError } = await supabase
+      .from('receiving_items')
+      .select('shipment_id')
+      .eq('id', itemId)
+      .maybeSingle();
+    if (itemLookupError) throw itemLookupError;
+    const shipmentId = itemRow?.shipment_id || null;
+
     const executeUpdate = async (payload) => {
       const { error } = await supabase
         .from('receiving_items')
@@ -3672,6 +3680,18 @@ createReceivingItems: async (items) => {
         await executeUpdate(patch);
       } else {
         throw error;
+      }
+    }
+
+    if (shipmentId) {
+      const syncResult = await syncReceivingShipmentStatus(shipmentId);
+      if (syncResult?.error) throw syncResult.error;
+      try {
+        await supabase.functions.invoke('send_reception_emails', {
+          body: { shipment_id: shipmentId, force_send: true }
+        });
+      } catch (invokeError) {
+        console.error('send_reception_emails invoke failed after updateReceivingItem', invokeError);
       }
     }
   },
