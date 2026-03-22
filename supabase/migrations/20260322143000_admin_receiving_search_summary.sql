@@ -215,14 +215,8 @@ item_stats as (
     )::int as any_received_count,
     count(*) filter (
       where
-        greatest(
-          coalesce(ri.quantity_received, ri.units_requested, ri.qty, ri.quantity, ri.requested, 0),
-          0
-        ) <= 0
-        or greatest(coalesce(ri.received_units, 0), 0) >= greatest(
-          coalesce(ri.quantity_received, ri.units_requested, ri.qty, ri.quantity, ri.requested, 0),
-          0
-        )
+        greatest(coalesce(ri.quantity_received, 0), 0) <= 0
+        or greatest(coalesce(ri.received_units, 0), 0) >= greatest(coalesce(ri.quantity_received, 0), 0)
     )::int as fully_received_count,
     coalesce(bool_or(coalesce(ri.send_to_fba, false) or coalesce(ri.fba_qty, 0) > 0), false) as has_item_fba,
     max(ev.created_at) as latest_event_at
