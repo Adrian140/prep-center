@@ -1189,17 +1189,21 @@ function AdminReceiving() {
   };
   const [listState, setListState] = useSessionStorage('admin-receiving-list', listDefaults);
   const [shipments, setShipments] = useState([]);
+  const [totalFiltered, setTotalFiltered] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [selectedShipment, setSelectedShipment] = useState(null);
   const [message, setMessage] = useState('');
+  const listRequestRef = useRef(0);
+  const restoredShipmentRef = useRef(null);
 
   // Filters & Pagination
   const [statusFilter, setStatusFilter] = useState(listState.statusFilter ?? 'all');
   const [searchQuery, setSearchQuery] = useState(listState.searchQuery ?? '');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(listState.searchQuery ?? '');
   const [page, setPage] = useState(listState.page ?? 1);
   const [includeArchive, setIncludeArchive] = useState(listState.includeArchive ?? false);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [expandedHistoryIds, setExpandedHistoryIds] = useState(new Set());
   const [carrierOptions, setCarrierOptions] = useState(FALLBACK_CARRIERS);
   const formatTrackingValue = (value = '') =>
     !value ? '—' : value.length > 15 ? `${value.slice(0, 15)}…` : value;
@@ -1224,31 +1228,6 @@ function AdminReceiving() {
       year: 'numeric'
     });
   };
-  const toggleHistory = (id) => {
-    setExpandedHistoryIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const receivingEventsForShipment = (shipment) => {
-    const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
-    const events = items
-      .flatMap((it) =>
-        (Array.isArray(it?.receiving_item_events) ? it.receiving_item_events : [])
-          .filter((ev) => ev?.created_at)
-          .map((ev) => ({
-            label: it.product_name || it.sku || it.asin || 'Line',
-            qty: Number(ev.quantity_delta || 0),
-            total: Number(ev.quantity_after || 0),
-            date: new Date(ev.created_at)
-          }))
-      );
-    events.sort((a, b) => b.date - a.date);
-    return events;
-  };
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1278,25 +1257,35 @@ function AdminReceiving() {
   const pageSize = 50;
 
   useEffect(() => {
-    loadShipments(includeArchive);
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    loadShipments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentMarket, includeArchive]);
+  }, [currentMarket, includeArchive, statusFilter, debouncedSearchQuery, page]);
 
   useEffect(() => {
     const storedId = listState?.selectedShipmentId;
     if (!storedId) return;
     if (selectedShipment && selectedShipment.id === storedId) return;
-    const match = shipments.find((s) => s.id === storedId);
-    if (match) {
-      setSelectedShipment(match);
-    }
-  }, [shipments, listState?.selectedShipmentId]); 
+    if (restoredShipmentRef.current === storedId) return;
+    restoredShipmentRef.current = storedId;
+    openShipmentDetail(storedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listState?.selectedShipmentId, selectedShipment]); 
 
 const buildShipmentsList = (data = [], isArchive = false) =>
   (data || []).map((row) => ({
     ...row,
-    computed_status: computeShipmentStatus(row),
-    isArchive
+    computed_status: row.computed_status || computeShipmentStatus(row),
+    isArchive:
+      typeof row.isArchive === 'boolean'
+        ? row.isArchive
+        : isArchive || ARCHIVE_STATUSES.includes(row.computed_status || row.status)
   }));
 
 const sortShipments = (rows = []) =>
@@ -1315,111 +1304,41 @@ const sortShipments = (rows = []) =>
     return dateB - dateA;
   });
 
-const loadShipments = async (withArchive = false) => {
+const loadShipments = async () => {
+  const requestId = ++listRequestRef.current;
   setLoading(true);
   try {
-    const { data: activeData, error: activeError } = await supabaseHelpers.getAllReceivingShipments({
-      fetchAll: true,
-      maxRows: withArchive ? 800 : 400,
+    const { data, error, count } = await supabaseHelpers.searchAdminReceivingShipments({
       warehouseCountry: currentMarket,
-      statusIn: ACTIVE_STATUSES
+      includeArchive,
+      statusFilter,
+      searchQuery: debouncedSearchQuery,
+      page,
+      pageSize
     });
-    if (activeError) throw activeError;
+    if (requestId !== listRequestRef.current) return null;
+    if (error) throw error;
 
-    let combined = buildShipmentsList(activeData, false);
-
-    if (withArchive) {
-      const { data: archiveData, error: archiveError } = await supabaseHelpers.getAllReceivingShipments({
-        fetchAll: true,
-        maxRows: 800,
-        warehouseCountry: currentMarket,
-        statusIn: ARCHIVE_STATUSES
-      });
-      if (archiveError) throw archiveError;
-      combined = combined.concat(buildShipmentsList(archiveData, true));
-    }
-
-    const sorted = sortShipments(combined);
+    const built = buildShipmentsList(data, includeArchive);
+    const sorted = sortShipments(built);
     setShipments(sorted);
+    setTotalFiltered(Number(count || 0));
     return sorted;
   } catch (error) {
+    if (requestId !== listRequestRef.current) return null;
     setMessage(`Erreur de chargement: ${error.message}`);
     setShipments([]);
+    setTotalFiltered(0);
     return [];
   } finally {
-    setLoading(false);
+    if (requestId === listRequestRef.current) {
+      setLoading(false);
+    }
   }
 };
-
-const filteredShipments = useMemo(() => {
-  let base = shipments.map((shipment) => ({
-    ...shipment,
-    computed_status: shipment.computed_status || computeShipmentStatus(shipment),
-  }));
-
-  if (statusFilter !== 'all') {
-    base = base.filter(
-      (shipment) => (shipment.computed_status || shipment.status) === statusFilter
-    );
-  }
-
-  if (!searchQuery) return base;
-
-  const qRaw = String(searchQuery).toLowerCase();
-  const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
-  const cleanQ = q.replace(/\s+/g, '');
-
-  return base.filter((shipment) => {
-    const hasTracking = Array.isArray(shipment.tracking_ids)
-      ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(cleanQ))
-      : String(shipment.tracking_id || '').toLowerCase().includes(cleanQ);
-
-    const idLower = String(shipment.id || '').toLowerCase();
-    const idCompact = idLower.replace(/-/g, '');
-    const matchesReceptionId =
-      idLower.startsWith(cleanQ) ||
-      idCompact.startsWith(cleanQ) ||
-      idLower.includes(cleanQ) ||
-      idCompact.includes(cleanQ);
-
-    const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
-    const matchesItem = items.some((item) => {
-      const hay = [
-        item?.asin,
-        item?.sku,
-        item?.fnsku,
-        item?.product_name,
-        item?.ean_asin,
-        item?.ean,
-        item?.stock_item?.asin,
-        item?.stock_item?.sku,
-        item?.stock_item?.ean,
-        item?.stock_item?.fnsku
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      const hayCompact = hay.replace(/\s+/g, '');
-      return hay.includes(q) || hayCompact.includes(cleanQ);
-    });
-
-    return (
-      matchesReceptionId ||
-      hasTracking ||
-      String(shipment.client_name || '').toLowerCase().includes(q) ||
-      String(shipment.store_name || '').toLowerCase().includes(q) ||
-      String(shipment.prep_merchant_name || '').toLowerCase().includes(q) ||
-      String(shipment.user_email || '').toLowerCase().includes(q) ||
-      String(shipment.company_name || '').toLowerCase().includes(q) ||
-      matchesItem
-    );
-  });
-}, [shipments, statusFilter, searchQuery]);
-
-const totalFiltered = filteredShipments.length;
 const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
-const pageStart = (page - 1) * pageSize;
-const paginatedShipments = filteredShipments.slice(pageStart, pageStart + pageSize);
+const pageStart = totalFiltered > 0 ? (page - 1) * pageSize : 0;
+const paginatedShipments = shipments;
 
 useEffect(() => {
   if (page > totalPages) {
@@ -1430,6 +1349,25 @@ useEffect(() => {
 useEffect(() => {
   setPage(1);
 }, [statusFilter, searchQuery, includeArchive]);
+
+  const openShipmentDetail = async (shipmentId) => {
+    if (!shipmentId) return;
+    setDetailLoading(true);
+    setMessage('');
+    try {
+      const { data, error } = await supabaseHelpers.getReceivingShipmentById(shipmentId);
+      if (error) throw error;
+      if (!data) {
+        setMessage('Reception not found.');
+        return;
+      }
+      setSelectedShipment(data);
+    } catch (error) {
+      setMessage(`Erreur de chargement: ${error.message}`);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const handleBulkReceived = async () => {
     if (selectedIds.size === 0) {
@@ -1503,24 +1441,24 @@ useEffect(() => {
 
   const handleStayOnDetailRefresh = async (updatedId) => {
     const targetId = updatedId || selectedShipment?.id;
-    const data = await loadShipments(includeArchive);
+    await loadShipments();
     if (targetId) {
-      const match = (data || []).find((s) => s.id === targetId);
-      if (match) {
-        setSelectedShipment(match);
-        return;
-      }
-    }
-    // fallback: keep previous selection if still present in state
-    if (selectedShipment) {
-      const match = (shipments || []).find((s) => s.id === selectedShipment.id);
-      if (match) {
-        setSelectedShipment(match);
+      const { data, error } = await supabaseHelpers.getReceivingShipmentById(targetId);
+      if (!error && data) {
+        setSelectedShipment(data);
         return;
       }
     }
     setSelectedShipment(null);
   };
+
+  if (detailLoading && !selectedShipment) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 px-6 py-12 text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+      </div>
+    );
+  }
 
   if (selectedShipment) {
     return (
@@ -1553,7 +1491,7 @@ useEffect(() => {
             </button>
           )}
           <button
-            onClick={() => loadShipments(includeArchive)}
+            onClick={() => loadShipments()}
             className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <Package className="w-4 h-4 mr-2" />
@@ -1665,7 +1603,7 @@ useEffect(() => {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
                 </td>
               </tr>
-            ) : filteredShipments.length === 0 ? (
+            ) : paginatedShipments.length === 0 ? (
               <tr>
                 <td colSpan={10} className="px-4 py-12 text-center">
                   <Truck className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -1678,30 +1616,7 @@ useEffect(() => {
                 const showEmail = emailRaw.includes('@');
                 const isPrepBusinessShipment = isPrepBusinessSource(shipment);
                 const displayClientName = getClientDisplayName(shipment);
-                const hasFbaIntent =
-                  (shipment.fba_mode && shipment.fba_mode !== 'none') ||
-                  (shipment.receiving_items || []).some((item) => {
-                    const intent = resolveFbaIntent(item);
-                    return intent.hasIntent || intent.directFromAction;
-                  });
-                const totals = (shipment.receiving_items || []).reduce(
-                  (acc, item) => {
-                    const announced = Math.max(
-                      0,
-                      Number(
-                        item.quantity_received ??
-                          item.units_requested ??
-                          item.qty ??
-                          item.quantity ??
-                          item.requested ??
-                          0
-                      ) || 0
-                    );
-                    acc.announced += announced;
-                    return acc;
-                  },
-                  { announced: 0 }
-                );
+                const hasFbaIntent = Boolean(shipment.has_fba_intent);
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
                   : shipment.isArchive
@@ -1787,64 +1702,30 @@ useEffect(() => {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <span className="text-text-primary font-semibold">
-                      {shipment.receiving_items?.length || 0}
+                      {shipment.line_count || 0}
                     </span>
                     <p className="text-[11px] uppercase tracking-wide text-text-secondary">Lines</p>
                   </td>
                   <td className="px-4 py-3">
-                    {(() => {
-                      const events = receivingEventsForShipment(shipment);
-                      const latestReceived = events.length
-                        ? events[0].date
-                        : shipment.received_at
-                        ? new Date(shipment.received_at)
-                        : null;
-                      const isExpanded = expandedHistoryIds.has(shipment.id);
-                      return (
-                        <div className="text-sm text-text-secondary space-y-1">
-                          <div className="flex items-center text-text-secondary">
-                            <Clock className="w-4 h-4 mr-1" />
-                            <span className="text-text-primary font-semibold">
-                              {formatDateTime(shipment.created_at)}
-                            </span>
-                          </div>
-                          {latestReceived && (
-                            <div className="flex items-center text-emerald-700 text-xs">
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              <span>Received {formatDateTime(latestReceived)}</span>
-                            </div>
-                          )}
-                          {events.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => toggleHistory(shipment.id)}
-                              className="text-xs text-primary hover:underline"
-                            >
-                              {isExpanded ? 'Hide history' : 'See history'}
-                            </button>
-                          )}
-                          {isExpanded && (
-                            <div className="ml-5 space-y-1 text-[11px] text-text-secondary max-w-[240px]">
-                              {events.map((ev, idx) => (
-                                <div key={idx} className="flex items-center justify-between gap-2">
-                                  <span className="truncate">{ev.label}</span>
-                                  <span className="font-semibold text-text-primary">
-                                    {ev.qty > 0 ? `+${ev.qty}` : ev.qty}u
-                                  </span>
-                                  <span className="text-[10px] text-text-secondary">{ev.total} total</span>
-                                  <span className="whitespace-nowrap">{formatDateTime(ev.date)}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                    <div className="text-sm text-text-secondary space-y-1">
+                      <div className="flex items-center text-text-secondary">
+                        <Clock className="w-4 h-4 mr-1" />
+                        <span className="text-text-primary font-semibold">
+                          {formatDateTime(shipment.created_at)}
+                        </span>
+                      </div>
+                      {shipment.latest_received_at && (
+                        <div className="flex items-center text-emerald-700 text-xs">
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          <span>Received {formatDateTime(shipment.latest_received_at)}</span>
                         </div>
-                      );
-                    })()}
+                      )}
+                    </div>
                   </td>
            <td className="px-4 py-3 text-right">
             <div className="flex justify-end items-center gap-3">
               <button
-                onClick={() => setSelectedShipment(shipment)}
+                onClick={() => openShipmentDetail(shipment.id)}
                 className="text-primary hover:text-primary-dark font-medium"
                 title="View reception details"
               >

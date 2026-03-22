@@ -3748,6 +3748,7 @@ getAllReceivingShipments: async (options = {}) => {
   if (Array.isArray(options.statusIn) && options.statusIn.length > 0) {
     query = query.in('status', options.statusIn);
   }
+  if (options.shipmentId) query = query.eq('id', options.shipmentId);
   if (options.companyId) query = query.eq('company_id', options.companyId);
   const filterCountry = options.warehouseCountry || options.destinationCountry;
   if (filterCountry) {
@@ -3774,6 +3775,7 @@ getAllReceivingShipments: async (options = {}) => {
       retry = retry.range(from, to);
     }
     if (options.status) retry = retry.eq('status', options.status);
+    if (options.shipmentId) retry = retry.eq('id', options.shipmentId);
     if (options.companyId) retry = retry.eq('company_id', options.companyId);
     const retryRes = await retry;
     data = retryRes.data;
@@ -3974,6 +3976,135 @@ getAllReceivingShipments: async (options = {}) => {
 
   return { data: processed, error: null, count };
 },
+
+  searchAdminReceivingShipments: async (options = {}) => {
+    const page = Math.max(1, Number(options.page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number(options.pageSize || 50)));
+    const searchQuery = String(options.searchQuery || '').trim();
+    const statusFilter = String(options.statusFilter || 'all').trim().toLowerCase();
+    const warehouseCountry = options.warehouseCountry || options.destinationCountry || null;
+    const includeArchive = Boolean(options.includeArchive);
+
+    const { data, error } = await supabase.rpc('search_admin_receiving_shipments', {
+      p_warehouse_country: warehouseCountry,
+      p_include_archive: includeArchive,
+      p_status: statusFilter,
+      p_search: searchQuery || null,
+      p_page: page,
+      p_page_size: pageSize
+    });
+
+    if (!error) {
+      const rows = Array.isArray(data) ? data : [];
+      const count = Number(rows[0]?.total_count || 0);
+      return {
+        data: rows.map(({ total_count, ...row }) => row),
+        error: null,
+        count
+      };
+    }
+
+    const statusIn =
+      statusFilter !== 'all'
+        ? null
+        : includeArchive
+        ? ['draft', 'submitted', 'partial', 'received', 'processed', 'cancelled']
+        : ['submitted', 'partial'];
+
+    const legacyRes =
+      searchQuery.length > 0
+        ? await supabaseHelpers.getAllReceivingShipments({
+            fetchAll: true,
+            maxRows: includeArchive ? 1600 : 800,
+            warehouseCountry,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            statusIn: statusFilter === 'all' ? statusIn : undefined
+          })
+        : await supabaseHelpers.getAllReceivingShipments({
+            page,
+            pageSize,
+            warehouseCountry,
+            status: statusFilter !== 'all' ? statusFilter : undefined,
+            statusIn: statusFilter === 'all' ? statusIn : undefined
+          });
+
+    if (legacyRes.error) {
+      return { data: [], error: legacyRes.error, count: 0 };
+    }
+
+    let rows = Array.isArray(legacyRes.data) ? legacyRes.data : [];
+    if (searchQuery.length > 0) {
+      const qRaw = searchQuery.toLowerCase();
+      const q = qRaw.startsWith('#') ? qRaw.slice(1) : qRaw;
+      const cleanQ = q.replace(/\s+/g, '');
+      rows = rows.filter((shipment) => {
+        const hasTracking = Array.isArray(shipment.tracking_ids)
+          ? shipment.tracking_ids.some((id) => String(id || '').toLowerCase().includes(cleanQ))
+          : String(shipment.tracking_id || '').toLowerCase().includes(cleanQ);
+
+        const idLower = String(shipment.id || '').toLowerCase();
+        const idCompact = idLower.replace(/-/g, '');
+        const matchesReceptionId =
+          idLower.startsWith(cleanQ) ||
+          idCompact.startsWith(cleanQ) ||
+          idLower.includes(cleanQ) ||
+          idCompact.includes(cleanQ);
+
+        const items = Array.isArray(shipment.receiving_items) ? shipment.receiving_items : [];
+        const matchesItem = items.some((item) => {
+          const hay = [
+            item?.asin,
+            item?.sku,
+            item?.fnsku,
+            item?.product_name,
+            item?.ean_asin,
+            item?.ean,
+            item?.stock_item?.asin,
+            item?.stock_item?.sku,
+            item?.stock_item?.ean,
+            item?.stock_item?.fnsku
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          const hayCompact = hay.replace(/\s+/g, '');
+          return hay.includes(q) || hayCompact.includes(cleanQ);
+        });
+
+        return (
+          matchesReceptionId ||
+          hasTracking ||
+          String(shipment.client_name || '').toLowerCase().includes(q) ||
+          String(shipment.store_name || '').toLowerCase().includes(q) ||
+          String(shipment.prep_merchant_name || '').toLowerCase().includes(q) ||
+          String(shipment.user_email || '').toLowerCase().includes(q) ||
+          String(shipment.company_name || '').toLowerCase().includes(q) ||
+          matchesItem
+        );
+      });
+      const from = (page - 1) * pageSize;
+      return {
+        data: rows.slice(from, from + pageSize),
+        error: null,
+        count: rows.length
+      };
+    }
+
+    return {
+      data: rows,
+      error: null,
+      count: Number(legacyRes.count || rows.length)
+    };
+  },
+
+  getReceivingShipmentById: async (shipmentId) => {
+    const { data, error } = await supabaseHelpers.getAllReceivingShipments({
+      shipmentId,
+      fetchAll: true,
+      maxRows: 1
+    });
+    return { data: Array.isArray(data) ? data[0] || null : null, error };
+  },
 
   markReceivingItemsAsReceived: async (shipmentId, itemIds = [], receivedBy) =>
     await markItemsAsReceived(shipmentId, itemIds, receivedBy),
