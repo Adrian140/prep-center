@@ -269,7 +269,7 @@
         "subtitle": "Choose which emails you want to receive.",
         "prepShipments": "Prep-center shipments",
         "prepShipmentsDesc": "Email confirmation when prep requests are completed.",
-        "note": "Admin always receives shipment confirmations even if you disable this.",
+        "note": "Our team still receives shipment confirmations even if you disable this.",
         "updated": "Notification preferences updated.",
         "error": "Unable to update notification preferences."
       }
