@@ -2400,7 +2400,7 @@ serve(async (req) => {
           };
           const normalizedWeight = {
             value: weightUnit === "LB" ? lbToKg(weightValue) : round2(weightValue),
-            unitOfMeasurement: "KG"
+            unit: "KG"
           };
           return {
             dimensions: normalizedDims,
@@ -2438,7 +2438,7 @@ serve(async (req) => {
           };
           const normalizedWeight = {
             value: weightUnit === "LB" ? lbToKg(weightValue) : round2(weightValue),
-            unitOfMeasurement: "KG"
+            unit: "KG"
           };
           const stackability = (p?.stackability || "STACKABLE").toString().toUpperCase();
           return {
@@ -2479,7 +2479,7 @@ serve(async (req) => {
       };
       const normWeight = {
         value: weightUnit === "LB" ? lbToKg(Number(weightRaw?.value)) : round2(Number(weightRaw?.value)),
-        unitOfMeasurement: "KG"
+        unit: "KG"
       };
       return {
         quantity: boxes,
