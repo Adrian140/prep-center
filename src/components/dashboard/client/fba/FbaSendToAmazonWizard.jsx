@@ -900,14 +900,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPalletDetails((prev) => {
       const length = Number(prev.length || 0) || DEFAULT_EU_PALLET.length;
       const width = Number(prev.width || 0) || DEFAULT_EU_PALLET.width;
-      const height = Number(prev.height || 0) || prev.height || '';
+      const height = Number(prev.height || 0) || (derivedPalletSummary?.height || 120);
       const weight =
         Number(prev.weight || 0) ||
         (derivedWeightKg > 0 ? Number(derivedWeightKg.toFixed(2)) : 25); // fallback 25kg dacă nu avem greutate
       if (length === prev.length && width === prev.width && weight === prev.weight && height === prev.height) return prev;
       return { ...prev, length, width, weight, height };
     });
-  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, derivedWeightKg]);
+  }, [palletOnlyMode, currentMarket, DEFAULT_EU_PALLET, derivedPalletSummary?.height, derivedWeightKg]);
 
   // Include Step 4 for both flows; pallet-only still skips Step 1b.
   const stepsOrder = useMemo(
@@ -4995,24 +4995,33 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!shipmentMode?.method || shipmentMode.method === 'SPD') return null;
     const market = String(currentMarket || '').toUpperCase();
     const isEu = market === 'FR' || market === 'DE';
+    const defaultHeight = Number(derivedPalletSummary?.height || 120) || 120;
     const qty = Number(palletDetails.quantity || 0) || (derivedPalletSummary?.pallets || 1);
     const length = Number(palletDetails.length || 0) || (isEu ? DEFAULT_EU_PALLET.length : 0);
     const width = Number(palletDetails.width || 0) || (isEu ? DEFAULT_EU_PALLET.width : 0);
-    const height = Number(palletDetails.height || 0);
+    const height = Number(palletDetails.height || 0) || defaultHeight;
     const weight =
       Number(palletDetails.weight || 0) ||
       (derivedPalletSummary?.weightPerPallet || derivedWeightKg || 25);
     const declaredValue = Number(palletDetails.declaredValue || 0);
     const freightClass = String(palletDetails.freightClass || '').trim().toUpperCase();
-    if (isEu && (!palletDetails.length || !palletDetails.width)) {
+    if (isEu && (!palletDetails.length || !palletDetails.width || !palletDetails.height || !palletDetails.weight)) {
       setPalletDetails((prev) => ({
         ...prev,
+        quantity: qty,
         length,
-        width
+        width,
+        height,
+        weight,
+        declaredValue: declaredValue > 0 ? declaredValue : 1,
+        freightClass: freightClass || 'FC_XX',
+        stackability: ['STACKABLE', 'NON_STACKABLE'].includes(String(prev.stackability || '').toUpperCase())
+          ? prev.stackability
+          : 'STACKABLE'
       }));
     }
     if (!(qty > 0)) return 'Amazon nu a putut estima numărul de paleți pentru acest shipment.';
-    if (!(length > 0 && width > 0 && height > 0)) return 'Amazon nu a putut completa automat dimensiunile standard de europalet.';
+    if (!(length > 0 && width > 0 && height > 0)) return 'Nu am putut construi automat datele minime de palet pentru apelul Amazon LTL/FTL.';
     if (!(weight > 0)) return 'Amazon nu a putut estima greutatea totală pe palet.';
     if (palletLimits.maxWeightKg && weight > palletLimits.maxWeightKg) {
       return `Greutatea pe palet depășește limita Amazon de ${palletLimits.maxWeightKg} kg.`;
