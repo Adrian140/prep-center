@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../../config/supabase';
-import { fetchPalletOptions } from '@/api/fbaPalletTransport';
 import { CheckCircle2, Circle, Eye } from 'lucide-react';
 import FbaStep1Inventory from './FbaStep1Inventory';
 import FbaStep1bPacking from './FbaStep1bPacking';
@@ -165,6 +164,67 @@ const getTomorrowIsoDate = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
+};
+
+const splitIntegerProportionally = (total, weights = []) => {
+  const normalizedTotal = Math.max(0, Math.floor(Number(total) || 0));
+  const safeWeights = (Array.isArray(weights) ? weights : []).map((weight) => {
+    const num = Number(weight || 0);
+    return Number.isFinite(num) && num > 0 ? num : 0;
+  });
+  if (!safeWeights.length) return [];
+  if (normalizedTotal <= 0) return safeWeights.map(() => 0);
+  const positiveCount = safeWeights.filter((weight) => weight > 0).length;
+  const effectiveTotal = positiveCount > 0 ? Math.max(normalizedTotal, positiveCount) : normalizedTotal;
+  const totalWeight = safeWeights.reduce((sum, weight) => sum + weight, 0);
+  if (!(totalWeight > 0)) {
+    const base = Array.from({ length: safeWeights.length }, () => 0);
+    for (let i = 0; i < effectiveTotal; i += 1) {
+      base[i % safeWeights.length] += 1;
+    }
+    return base;
+  }
+  const floors = safeWeights.map((weight) => {
+    if (!(weight > 0)) return 0;
+    return Math.floor((weight / totalWeight) * effectiveTotal);
+  });
+  let assigned = floors.reduce((sum, value) => sum + value, 0);
+  safeWeights.forEach((weight, idx) => {
+    if (weight > 0 && floors[idx] === 0) {
+      floors[idx] = 1;
+      assigned += 1;
+    }
+  });
+  if (assigned > effectiveTotal) {
+    let overflow = assigned - effectiveTotal;
+    const ranked = floors
+      .map((value, idx) => ({ idx, value, weight: safeWeights[idx] }))
+      .filter((entry) => entry.value > 1)
+      .sort((a, b) => b.value - a.value || a.weight - b.weight);
+    for (const entry of ranked) {
+      if (overflow <= 0) break;
+      const reducible = Math.min(entry.value - 1, overflow);
+      floors[entry.idx] -= reducible;
+      overflow -= reducible;
+    }
+  } else if (assigned < effectiveTotal) {
+    const remainders = safeWeights
+      .map((weight, idx) => {
+        if (!(weight > 0)) return { idx, remainder: -1 };
+        const exact = (weight / totalWeight) * effectiveTotal;
+        return { idx, remainder: exact - floors[idx] };
+      })
+      .sort((a, b) => b.remainder - a.remainder);
+    let remaining = effectiveTotal - assigned;
+    let cursor = 0;
+    while (remaining > 0 && remainders.length) {
+      const target = remainders[cursor % remainders.length];
+      floors[target.idx] += 1;
+      remaining -= 1;
+      cursor += 1;
+    }
+  }
+  return floors;
 };
 
 // Packing helpers (duplicated locally to avoid cross-file imports)
@@ -3804,7 +3864,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (!Array.isArray(packGroups)) return [];
     const inboundPlanId = resolveInboundPlanId();
     if (allowNoInboundPlan && !inboundPlanId) return [];
-    const shipDateIso = normalizeShipDate(shipmentMode?.deliveryDate) || null;
     const windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart) || null;
     const windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd) || null;
     const usePallets = shipmentMode?.method && shipmentMode.method !== 'SPD';
@@ -3845,6 +3904,77 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (fromApi?.shipmentId || fromApi?.id) return fromApi.shipmentId || fromApi.id;
       return `s-${idx + 1}`;
     };
+
+    if (usePallets) {
+      const shipmentCandidates = Array.isArray(shipments) && shipments.length
+        ? shipments
+        : Array.from(
+            new Map(
+              packGroups.map((group, idx) => {
+                const shipmentId = shipmentIdForGroup(group, idx);
+                return [shipmentId, { shipmentId, id: shipmentId, units: Number(group?.units || 0) || 0 }];
+              })
+            ).values()
+          );
+      const normalizedShipments = shipmentCandidates
+        .map((shipment, idx) => {
+          const shipmentId = String(shipment?.shipmentId || shipment?.id || `s-${idx + 1}`).trim();
+          if (!shipmentId) return null;
+          const units = Number(shipment?.units || 0);
+          return {
+            shipmentId,
+            units: Number.isFinite(units) && units > 0 ? units : 0,
+            index: idx
+          };
+        })
+        .filter(Boolean);
+      if (!normalizedShipments.length) return [];
+      const totalPalletQty = Math.max(1, Number(palletDetails.quantity || footprint?.pallets || 1));
+      const palletCounts = splitIntegerProportionally(
+        totalPalletQty,
+        normalizedShipments.map((shipment) => shipment.units || 1)
+      );
+      return normalizedShipments.map((shipment, idx) => {
+        const shId = shipment.shipmentId;
+        const assignedPallets = Math.max(1, Number(palletCounts[idx] || 0));
+        const manualReady = readyWindowByShipment?.[shId] || {};
+        const manualStart = normalizeShipDate(manualReady.start) || null;
+        const manualEnd = normalizeShipDate(manualReady.end) || null;
+        return {
+          shipmentId: shId,
+          packages: [],
+          pallets: [
+            {
+              ...palletPayload?.[0],
+              quantity: assignedPallets
+            }
+          ],
+          freightInformation,
+          readyToShipWindow: manualStart || windowStart || windowEnd
+            ? {
+                start: manualStart
+                  ? normalizeReadyStartIso(manualStart)
+                  : windowStart
+                    ? normalizeReadyStartIso(windowStart)
+                    : null,
+                end: manualEnd
+                  ? normalizeReadyStartIso(manualEnd)
+                  : windowEnd
+                    ? normalizeReadyStartIso(windowEnd)
+                    : null
+              }
+            : null,
+          palletSummary: {
+            quantity: assignedPallets,
+            lengthCm: Number(palletDetails.length || footprint?.length || 120),
+            widthCm: Number(palletDetails.width || footprint?.width || 80),
+            heightCm: Number(palletDetails.height || footprint?.height || 120),
+            weightKg: Number(palletDetails.weight || footprint?.weightPerPallet || derivedWeightKg || 25),
+            stackability: palletDetails.stackability || footprint?.stackability || 'STACKABLE'
+          }
+        };
+      });
+    }
 
     const byShipment = new Map();
     packGroups.forEach((g, idx) => {
@@ -4137,6 +4267,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     const contactInformation = resolveContactInformation();
+    if (shipmentMode?.method && shipmentMode.method !== 'SPD' && !contactInformation) {
+      setShippingError('Contact information is required for pallet shipments. Complete ship-from contact name, phone and email first.');
+      return;
+    }
     const globalReadyStart =
       Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
     const globalReadyEnd =
@@ -4164,46 +4298,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setShippingLoading(true);
     setShippingError('');
     try {
-      // Branch: pallet-only LTL uses dedicated edge for options
-      if (palletOnlyMode) {
-        const shipDate = normalizeShipDate(shipmentMode?.deliveryDate) || globalReadyStart;
-        if (!shipDate) {
-          setShippingError(tt('step2SetShipDateForLtl', 'Set Ship date before requesting LTL rates.'));
-          setShippingLoading(false);
-          shippingFetchLockRef.current.inFlight = false;
-          return;
-        }
-        const firstShipmentId = shipments?.[0]?.id || shipments?.[0]?.shipmentId || (packGroups?.[0]?.packingGroupId) || 's-1';
-        const qty = Number(palletDetails.quantity || derivedPalletSummary?.pallets || 1);
-        const weightPerPallet = Number(palletDetails.weight || derivedPalletSummary?.weightPerPallet || 25);
-        const lengthCm = Number(palletDetails.length || derivedPalletSummary?.length || 120);
-        const widthCm = Number(palletDetails.width || derivedPalletSummary?.width || 80);
-        const heightCm = Number(palletDetails.height || derivedPalletSummary?.height || 120);
-        const palletsPayload = [
-          {
-            quantity: qty,
-            dimensions: { length: lengthCm / 2.54, width: widthCm / 2.54, height: heightCm / 2.54, unit: 'IN' },
-            weight: { value: weightPerPallet * 2.20462, unit: 'LB' },
-            stackability: palletDetails.stackability || 'STACKABLE'
-          }
-        ];
-        const { options, summary } = await fetchPalletOptions({
-          inboundPlanId,
-          placementOptionId: placementOptId,
-          shipmentId: firstShipmentId,
-          readyToShipDate: shipDate,
-          pallets: palletsPayload,
-          freightClass: palletDetails.freightClass || derivedPalletSummary?.freightClass || 'FC_XX',
-          declaredValue: Number(palletDetails.declaredValue || 1)
-        });
-        setShippingOptions(aggregateTransportationOptions(options || [], summary || null));
-        setShippingSummary(summary || null);
-        setShippingError('');
-        setShippingLoading(false);
-        shippingFetchLockRef.current.inFlight = false;
-        return;
-      }
-
       // log local pentru debug (nu trimite date sensibile)
       if (!import.meta.env.PROD) {
         console.log('Step2 invoke fba-step2-confirm-shipping', {
@@ -4282,6 +4376,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
+        const configByShipment = new Map(
+          (configs || []).map((cfg) => [String(cfg?.shipmentId || ''), cfg]).filter(([id]) => Boolean(id))
+        );
         const fallbackById = new Map();
         (fallbackShipments || []).forEach((sh, idx) => {
           const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
@@ -4302,6 +4399,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             ...s,
             units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
             weight: s.weight ?? fb.weight ?? null,
+            palletQuantity:
+              s?.palletQuantity ??
+              configByShipment.get(key)?.palletSummary?.quantity ??
+              fb?.palletQuantity ??
+              null,
+            palletSummary:
+              s?.palletSummary ||
+              configByShipment.get(key)?.palletSummary ||
+              fb?.palletSummary ||
+              null,
             source: "api"
           };
         })
@@ -4513,6 +4620,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       let windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart);
       let windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd);
       const contactInformation = resolveContactInformation();
+      if (shipmentMode?.method && shipmentMode.method !== 'SPD' && !contactInformation) {
+        setShippingConfirming(false);
+        setShippingError('Contact information is required for pallet shipments. Complete ship-from contact name, phone and email first.');
+        return;
+      }
       const globalReadyStart =
         Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
       const globalReadyEnd =
@@ -4571,6 +4683,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (Array.isArray(json.shipments) && json.shipments.length) {
         const fallbackShipments = deriveShipmentsFromPacking(shipments);
+        const configByShipment = new Map(
+          (configs || []).map((cfg) => [String(cfg?.shipmentId || ''), cfg]).filter(([id]) => Boolean(id))
+        );
         const fallbackById = new Map();
         (fallbackShipments || []).forEach((sh, idx) => {
           const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
@@ -4591,6 +4706,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
               ...s,
               units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
               weight: s.weight ?? fb.weight ?? null,
+              palletQuantity:
+                s?.palletQuantity ??
+                configByShipment.get(key)?.palletSummary?.quantity ??
+                fb?.palletQuantity ??
+                null,
+              palletSummary:
+                s?.palletSummary ||
+                configByShipment.get(key)?.palletSummary ||
+                fb?.palletSummary ||
+                null,
               source: "api"
             };
           })
@@ -4857,15 +4982,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       Number(palletDetails.weight || 0) ||
       (derivedPalletSummary?.weightPerPallet || derivedWeightKg || 25);
     const declaredValue = Number(palletDetails.declaredValue || 0);
-    if (!(qty > 0 && weight > 0)) {
-      setPalletDetails((prev) => ({
-        ...prev,
-        quantity: qty || 1,
-        weight
-      }));
-      return null;
-    }
-    // Autofill footprint if user nu a completat-o (EU standard).
+    const freightClass = String(palletDetails.freightClass || '').trim().toUpperCase();
     if (isEu && (!palletDetails.length || !palletDetails.width)) {
       setPalletDetails((prev) => ({
         ...prev,
@@ -4873,15 +4990,44 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         width
       }));
     }
-    if (!(declaredValue > 0) || !palletDetails.freightClass) {
-      // auto-default declared value la 1 dacă lipsește; freightClass fallback FC_XX
-      setPalletDetails((prev) => ({
-        ...prev,
-        declaredValue: declaredValue || 1,
-        freightClass: prev.freightClass || 'FC_XX'
-      }));
-      return null;
+    if (!(qty > 0)) return 'Completează numărul total de paleți.';
+    if (!(length > 0 && width > 0 && height > 0)) return 'Completează lungimea, lățimea și înălțimea fiecărui palet.';
+    if (!(weight > 0)) return 'Completează greutatea pe palet.';
+    if (!(declaredValue > 0)) return 'Completează valoarea declarată pentru transportul pe paleți.';
+    if (!freightClass || freightClass === 'FC_XX') return 'Completează un freight class valid pentru LTL/FTL.';
+    if (!['STACKABLE', 'NON_STACKABLE'].includes(String(palletDetails.stackability || '').toUpperCase())) {
+      return 'Selectează stackability pentru paleți.';
     }
+    if (palletLimits.maxWeightKg && weight > palletLimits.maxWeightKg) {
+      return `Greutatea pe palet depășește limita Amazon de ${palletLimits.maxWeightKg} kg.`;
+    }
+    if (palletLimits.maxHeightCm && height > palletLimits.maxHeightCm) {
+      return `Înălțimea paletului depășește limita Amazon de ${palletLimits.maxHeightCm} cm.`;
+    }
+    setPalletDetails((prev) => {
+      const next = {
+        ...prev,
+        quantity: qty,
+        length,
+        width,
+        height,
+        weight,
+        declaredValue,
+        freightClass
+      };
+      if (
+        next.quantity === prev.quantity &&
+        next.length === prev.length &&
+        next.width === prev.width &&
+        next.height === prev.height &&
+        next.weight === prev.weight &&
+        next.declaredValue === prev.declaredValue &&
+        next.freightClass === prev.freightClass
+      ) {
+        return prev;
+      }
+      return next;
+    });
     return null;
   };
 
@@ -4932,6 +5078,34 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return data?.data || null;
   };
 
+  const fetchShipmentPallets = async (shipmentId, inboundPlanId, requestId) => {
+    const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+      body: {
+        action: 'list_shipment_pallets',
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId,
+        shipment_id: shipmentId
+      }
+    });
+    if (error) throw error;
+    return data?.data || null;
+  };
+
+  const openAmazonDocumentUrl = (payload) => {
+    const url =
+      payload?.payload?.DownloadURL ||
+      payload?.payload?.downloadUrl ||
+      payload?.DownloadURL ||
+      payload?.downloadUrl ||
+      payload?.url ||
+      null;
+    if (url) {
+      window.open(url, '_blank', 'noopener');
+      return true;
+    }
+    return false;
+  };
+
   const handlePrintLabels = async (shipment) => {
     const inboundPlanId = resolveInboundPlanId();
     const requestId = resolveRequestId();
@@ -4980,8 +5154,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         };
       });
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
+      const isPalletShipment = Boolean(shipmentMode?.method && shipmentMode.method !== 'SPD');
+      let palletCount = Number(shipment?.palletQuantity || shipment?.palletSummary?.quantity || 0) || 0;
+      if (isPalletShipment && !palletCount) {
+        try {
+          const palletData = await fetchShipmentPallets(shipmentId, inboundPlanId, requestId);
+          const palletList =
+            palletData?.payload?.pallets ||
+            palletData?.pallets ||
+            [];
+          if (Array.isArray(palletList) && palletList.length) {
+            palletCount = palletList.reduce((sum, pallet) => sum + (Number(pallet?.quantity || 0) || 1), 0);
+          }
+        } catch (_err) {
+          // fallback on locally persisted quantity below
+        }
+      }
       const packageCount = Number(shipment?.boxes || 0) || 1;
-      const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
+      const needsPageParams = !partnered || isPalletShipment;
       const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
         body: {
           action: 'get_labels_v0',
@@ -4989,27 +5179,67 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           shipment_id: confirmationId,
           page_type: formatToPageType(labelFormat, partnered),
           label_type: 'BARCODE_2D',
-          number_of_packages: packageCount || undefined,
+          ...(isPalletShipment
+            ? { number_of_pallets: palletCount || Number(palletDetails.quantity || 0) || undefined }
+            : { number_of_packages: packageCount || undefined }),
           ...(needsPageParams
-            ? { page_size: Math.min(1000, packageCount), page_start_index: 0 }
+            ? {
+                page_size: Math.min(1000, isPalletShipment ? (palletCount || Number(palletDetails.quantity || 1)) : packageCount),
+                page_start_index: 0
+              }
             : {})
         }
       });
       if (error) throw error;
-      const url =
-        data?.data?.payload?.DownloadURL ||
-        data?.data?.payload?.downloadUrl ||
-        data?.data?.DownloadURL ||
-        null;
-      if (url) {
-        window.open(url, '_blank', 'noopener');
-      } else {
+      if (!openAmazonDocumentUrl(data?.data)) {
         setLabelsError(tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.'));
       }
     } catch (e) {
       setLabelsError(e?.message || tt('labelsErrorGenerateFailed', 'Could not generate labels.'));
     } finally {
       setLabelsLoadingId(null);
+    }
+  };
+
+  const [billOfLadingLoadingId, setBillOfLadingLoadingId] = useState(null);
+
+  const handlePrintBillOfLading = async (shipment) => {
+    const inboundPlanId = resolveInboundPlanId();
+    const requestId = resolveRequestId();
+    const shipmentId = shipment?.shipmentId || shipment?.id;
+    if (!inboundPlanId || !requestId || !shipmentId) {
+      setLabelsError('Missing inboundPlanId, requestId or shipmentId for bill of lading.');
+      return;
+    }
+    setBillOfLadingLoadingId(shipment?.id || shipmentId);
+    setLabelsError('');
+    try {
+      const details = await fetchShipmentDetails(shipmentId, inboundPlanId, requestId);
+      const confirmationId =
+        details?.shipmentConfirmationId ||
+        details?.shipmentConfirmedId ||
+        details?.shipmentConfirmationID ||
+        shipment?.shipmentConfirmationId ||
+        shipment?.amazonShipmentId ||
+        null;
+      if (!confirmationId) {
+        throw new Error('Missing shipmentConfirmationId for bill of lading.');
+      }
+      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+        body: {
+          action: 'get_bill_of_lading',
+          request_id: requestId,
+          shipment_id: confirmationId
+        }
+      });
+      if (error) throw error;
+      if (!openAmazonDocumentUrl(data?.data)) {
+        throw new Error('Amazon did not return a URL for bill of lading.');
+      }
+    } catch (e) {
+      setLabelsError(e?.message || 'Could not generate bill of lading.');
+    } finally {
+      setBillOfLadingLoadingId(null);
     }
   };
 
@@ -5168,6 +5398,65 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setTrackingLoading(true);
     setTrackingError('');
     try {
+      if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
+        const existingByShipment = new Map(
+          (Array.isArray(tracking) ? tracking : [])
+            .map((row) => [String(row?.shipmentId || ''), row])
+            .filter(([shipmentKey]) => Boolean(shipmentKey))
+        );
+        const shipmentRows = await Promise.all(
+          (Array.isArray(shipments) ? shipments : []).map(async (shipment, idx) => {
+            const shipmentId = shipment?.shipmentId || shipment?.id || `shipment-${idx + 1}`;
+            const existing = existingByShipment.get(String(shipmentId)) || null;
+            let palletCount = Number(shipment?.palletQuantity || shipment?.palletSummary?.quantity || 0) || 0;
+            let detailsText = '';
+            try {
+              const palletData = await fetchShipmentPallets(shipmentId, inboundPlanId, requestId);
+              const palletList =
+                palletData?.payload?.pallets ||
+                palletData?.pallets ||
+                [];
+              if (Array.isArray(palletList) && palletList.length) {
+                palletCount = palletList.reduce((sum, pallet) => sum + (Number(pallet?.quantity || 0) || 1), 0);
+              }
+            } catch (_err) {
+              // fallback to locally stored pallet summary
+            }
+            const palletSummary = shipment?.palletSummary || null;
+            if (palletSummary) {
+              detailsText = [
+                palletCount ? `${palletCount} pallets` : null,
+                palletSummary.lengthCm && palletSummary.widthCm && palletSummary.heightCm
+                  ? `${palletSummary.lengthCm} x ${palletSummary.widthCm} x ${palletSummary.heightCm} cm`
+                  : null,
+                palletSummary.stackability || null
+              ].filter(Boolean).join(' · ');
+            } else if (palletCount) {
+              detailsText = `${palletCount} pallets`;
+            }
+            return {
+              id: `shipment-${shipmentId}`,
+              shipmentId,
+              shipment: shipment?.amazonShipmentId || shipment?.shipmentConfirmationId || shipmentId,
+              label:
+                shipment?.shipmentConfirmationId ||
+                shipment?.amazonShipmentId ||
+                shipment?.name ||
+                shipmentId,
+              trackingId: existing?.trackingId || '',
+              status: existing?.status || tt('trackingStatusPending', 'Pending'),
+              weight:
+                shipment?.weight ||
+                palletSummary?.weightKg ||
+                null,
+              details: detailsText || 'Pallet shipment',
+              palletCount
+            };
+          })
+        );
+        setTracking(shipmentRows);
+        return;
+      }
       const existingRows = Array.isArray(tracking) ? tracking : [];
       const existingByBoxId = new Map();
       const existingByLabel = new Map();
@@ -5264,6 +5553,40 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       setTrackingError('');
       completeAndNext('4');
+      return;
+    }
+    if (shipmentMode?.method && shipmentMode.method !== 'SPD') {
+      const rows = (tracking || []).filter((row) => row?.shipmentId && String(row?.trackingId || '').trim());
+      if (!rows.length) {
+        setTrackingError('Adaugă cel puțin un freight bill number pentru shipment-urile pe paleți.');
+        return;
+      }
+      setTrackingLoading(true);
+      setTrackingError('');
+      try {
+        for (const row of rows) {
+          // eslint-disable-next-line no-await-in-loop
+          const { error } = await supabase.functions.invoke('fba-inbound-actions', {
+            body: {
+              action: 'update_shipment_tracking_details',
+              request_id: requestId,
+              inbound_plan_id: inboundPlanId,
+              shipment_id: row.shipmentId,
+              tracking_details: {
+                ltlTrackingDetail: {
+                  freightBillNumber: [String(row.trackingId).trim()]
+                }
+              }
+            }
+          });
+          if (error) throw error;
+        }
+        completeAndNext('4');
+      } catch (e) {
+        setTrackingError(e?.message || 'Could not submit pallet tracking.');
+      } finally {
+        setTrackingLoading(false);
+      }
       return;
     }
     const items = (tracking || [])
@@ -5888,11 +6211,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           labelFormat={labelFormat}
           onFormatChange={setLabelFormat}
           onPrint={handlePrintLabels}
+          onPrintBillOfLading={handlePrintBillOfLading}
           printLoadingId={labelsLoadingId}
+          billOfLadingLoadingId={billOfLadingLoadingId}
           confirming={step3Confirming}
           error={step3Error || labelsError}
           manualFbaShipmentIds={manualFbaShipmentIds}
           onManualFbaShipmentIdChange={handleManualShipmentIdChange}
+          isPalletFlow={Boolean(shipmentMode?.method && shipmentMode.method !== 'SPD')}
+          isPartneredPalletFlow={Boolean(isPartneredShipment && shipmentMode?.method && shipmentMode.method !== 'SPD')}
           onBack={() => goToStep('2')}
           onNext={finalizeStep3}
         />
@@ -5907,6 +6234,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         error={trackingError}
         loading={trackingLoading}
         trackingDisabled={isPartneredShipment}
+        trackingMode={shipmentMode?.method && shipmentMode.method !== 'SPD' ? 'pallet' : 'box'}
       />
     );
   };
@@ -5965,12 +6293,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   }, [shipments, shipmentMode]);
 
   const trackingSummary = useMemo(() => {
+    const palletFlow = Boolean(shipmentMode?.method && shipmentMode.method !== 'SPD');
     const totalBoxes = Array.isArray(shipments)
-      ? shipments.reduce((s, sh) => s + (Number(sh.boxes) || 0), 0)
+      ? shipments.reduce((s, sh) => {
+          if (palletFlow) return s + (Number(sh.palletQuantity || sh?.palletSummary?.quantity || 0) || 1);
+          return s + (Number(sh.boxes) || 0);
+        }, 0)
       : 0;
     const tracked = Array.isArray(tracking) ? tracking.filter((t) => t.trackingId).length : 0;
     return { totalBoxes, tracked };
-  }, [shipments, tracking]);
+  }, [shipments, tracking, shipmentMode?.method]);
   const shipmentFallbackTotals = useMemo(() => {
     const skuCountFallback = Array.isArray(plan?.skus) ? plan.skus.length : 0;
     const unitsFallback = packUnits || unitCount || 0;
@@ -6080,13 +6412,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         })}
         {renderStepRow({
           stepKey: '3',
-          title: tt('step3Title', 'Step 3 - Box labels printed'),
+          title: shipmentMode?.method && shipmentMode.method !== 'SPD'
+            ? tt('step3TitlePallet', 'Step 3 - Pallet labels printed')
+            : tt('step3Title', 'Step 3 - Box labels printed'),
           subtitle: step3Complete ? tp('Wizard.step3SubtitleComplete', { shipments: shipments?.length || 0 }) : tt('notStarted', 'Not started'),
           summary: step3Complete ? `${tt('labelFormat', 'Label format')}: ${labelFormat}` : null
         })}
         {renderStepRow({
           stepKey: '4',
-          title: tt('step4Title', 'Final step: Tracking details'),
+          title: shipmentMode?.method && shipmentMode.method !== 'SPD'
+            ? tt('step4TitlePallet', 'Final step: Pallet tracking details')
+            : tt('step4Title', 'Final step: Tracking details'),
           subtitle:
             step4Complete
               ? tp('Wizard.step4SubtitleComplete', {

@@ -857,6 +857,32 @@ serve(async (req) => {
         payload = "";
         break;
       }
+      case "list_inbound_plan_pallets": {
+        if (!inboundPlanId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id este necesar", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/pallets`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "list_shipment_pallets": {
+        if (!inboundPlanId || !shipmentId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}/pallets`;
+        query = "";
+        payload = "";
+        break;
+      }
       case "list_shipment_items": {
         if (!inboundPlanId || !shipmentId) {
           return new Response(JSON.stringify({ error: "inbound_plan_id și shipment_id sunt necesare", traceId }), {
@@ -879,6 +905,19 @@ serve(async (req) => {
         }
         method = "GET";
         path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/shipments/${encodeURIComponent(String(shipmentId))}`;
+        query = "";
+        payload = "";
+        break;
+      }
+      case "get_bill_of_lading": {
+        if (!shipmentId) {
+          return new Response(JSON.stringify({ error: "shipment_id este necesar pentru get_bill_of_lading", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "GET";
+        path = `/fba/inbound/v0/shipments/${encodeURIComponent(String(shipmentId))}/billOfLading`;
         query = "";
         payload = "";
         break;

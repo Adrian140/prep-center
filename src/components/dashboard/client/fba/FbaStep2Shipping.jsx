@@ -801,6 +801,45 @@ export default function FbaStep2Shipping({
                   />
                 </div>
                 <div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('palletLength', 'Pallet length (cm)')}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    id="pallet-length"
+                    name="pallet-length"
+                    value={safePalletDetails.length ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, length: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('palletWidth', 'Pallet width (cm)')}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    id="pallet-width"
+                    name="pallet-width"
+                    value={safePalletDetails.width ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, width: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-slate-500 mb-1">{tt('palletHeight', 'Pallet height (cm)')}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    id="pallet-height"
+                    name="pallet-height"
+                    value={safePalletDetails.height ?? ''}
+                    onChange={(e) => onPalletDetailsChange?.({ ...safePalletDetails, height: e.target.value })}
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
                   <div className="text-xs text-slate-500 mb-1">{tt('stackabilityLabel', 'Stackability')}</div>
                   <select
                     id="pallet-stackability"

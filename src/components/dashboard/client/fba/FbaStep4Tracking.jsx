@@ -9,7 +9,8 @@ export default function FbaStep4Tracking({
   onFinish,
   error = '',
   loading = false,
-  trackingDisabled = false
+  trackingDisabled = false,
+  trackingMode = 'box'
 }) {
   const { t } = useDashboardTranslation();
   const tt = (key, fallback) => {
@@ -17,13 +18,22 @@ export default function FbaStep4Tracking({
     const value = t(path);
     return value === path ? fallback : value;
   };
+  const isPalletMode = trackingMode === 'pallet';
   const helperText = trackingDisabled
     ? tt('helperPartnered', 'Amazon partnered shipments do not require manual tracking.')
-    : tt('helperManual', 'Provide carrier tracking IDs');
+    : isPalletMode
+      ? tt('helperManualPallet', 'Provide the freight bill / PRO number for each shipment.')
+      : tt('helperManual', 'Provide carrier tracking IDs');
   const footerText = trackingDisabled
     ? tt('footerPartnered', 'Tracking is handled by Amazon for partnered shipments.')
-    : tt('footerManual', 'Update tracking IDs after handing off boxes to the carrier.');
-  const actionLabel = loading ? tt('updating', 'Updating…') : tt('updateTrackingIds', 'Update tracking IDs');
+    : isPalletMode
+      ? tt('footerManualPallet', 'Update the freight bill number after handing off the pallets to the carrier.')
+      : tt('footerManual', 'Update tracking IDs after handing off boxes to the carrier.');
+  const actionLabel = loading
+    ? tt('updating', 'Updating…')
+    : isPalletMode
+      ? tt('updateFreightBillNumbers', 'Update freight bill numbers')
+      : tt('updateTrackingIds', 'Update tracking IDs');
   const formatNumber = (value) => {
     const num = typeof value === 'number' ? value : Number.parseFloat(value);
     if (!Number.isFinite(num)) return null;
@@ -75,18 +85,26 @@ export default function FbaStep4Tracking({
         <table className="min-w-full text-sm text-slate-700">
           <thead className="text-xs uppercase text-slate-500">
             <tr>
-              <th className="py-2 text-left">{tt('boxColumn', 'Box #')}</th>
-              <th className="py-2 text-left">{tt('fbaBoxLabelColumn', 'FBA box label #')}</th>
-              <th className="py-2 text-left">{tt('trackingIdColumn', 'Tracking ID #')}</th>
+              <th className="py-2 text-left">
+                {isPalletMode ? tt('shipmentColumn', 'Shipment #') : tt('boxColumn', 'Box #')}
+              </th>
+              <th className="py-2 text-left">
+                {isPalletMode ? tt('shipmentRefColumn', 'Shipment reference #') : tt('fbaBoxLabelColumn', 'FBA box label #')}
+              </th>
+              <th className="py-2 text-left">
+                {isPalletMode ? tt('freightBillColumn', 'Freight bill / PRO #') : tt('trackingIdColumn', 'Tracking ID #')}
+              </th>
               <th className="py-2 text-left">{tt('statusColumn', 'Status')}</th>
               <th className="py-2 text-left">{tt('weightColumn', 'Weight (kg)')}</th>
-              <th className="py-2 text-left">{tt('dimensionsColumn', 'Dimensions (cm)')}</th>
+              <th className="py-2 text-left">
+                {isPalletMode ? tt('detailsColumn', 'Pallet details') : tt('dimensionsColumn', 'Dimensions (cm)')}
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {tracking.map((row) => (
               <tr key={row.id} className="align-middle">
-                <td className="py-3">{row.box}</td>
+                <td className="py-3">{isPalletMode ? row.shipment || row.box : row.box}</td>
                 <td className="py-3 text-slate-800 font-semibold">{row.label}</td>
                 <td className="py-3">
                   <input
@@ -94,13 +112,17 @@ export default function FbaStep4Tracking({
                     value={row.trackingId}
                     onChange={(e) => onUpdateTracking(row.id, e.target.value)}
                     className="border rounded-md px-2 py-1 w-full min-w-[200px]"
-                    placeholder={tt('enterTrackingId', 'Enter tracking ID')}
+                    placeholder={
+                      isPalletMode
+                        ? tt('enterFreightBill', 'Enter freight bill number')
+                        : tt('enterTrackingId', 'Enter tracking ID')
+                    }
                     disabled={loading || trackingDisabled}
                   />
                 </td>
                 <td className="py-3 text-emerald-700 font-semibold">{row.status}</td>
                 <td className="py-3">{formatWeight(row.weight)}</td>
-                <td className="py-3">{formatDimensions(row.dimensions)}</td>
+                <td className="py-3">{isPalletMode ? (row.details || formatDimensions(row.dimensions)) : formatDimensions(row.dimensions)}</td>
               </tr>
             ))}
           </tbody>

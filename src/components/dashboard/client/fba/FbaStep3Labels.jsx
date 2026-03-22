@@ -7,11 +7,15 @@ export default function FbaStep3Labels({
   labelFormat,
   onFormatChange,
   onPrint,
+  onPrintBillOfLading,
   printLoadingId,
+  billOfLadingLoadingId,
   confirming,
   error,
   manualFbaShipmentIds,
   onManualFbaShipmentIdChange,
+  isPalletFlow = false,
+  isPartneredPalletFlow = false,
   onBack,
   onNext
 }) {
@@ -26,8 +30,14 @@ export default function FbaStep3Labels({
     <div className="bg-white rounded-xl shadow-sm border border-slate-200">
       <div className="px-6 py-4 border-b border-slate-200 flex items-center gap-3">
         <CheckCircle className="w-5 h-5 text-emerald-600" />
-        <div className="font-semibold text-slate-900">{tt('title', 'Step 3 - Box labels printed')}</div>
-        <div className="text-sm text-slate-500">{tt('subtitle', 'After printing, shipment becomes Ready to ship')}</div>
+        <div className="font-semibold text-slate-900">
+          {isPalletFlow ? tt('titlePallet', 'Step 3 - Pallet labels printed') : tt('title', 'Step 3 - Box labels printed')}
+        </div>
+        <div className="text-sm text-slate-500">
+          {isPalletFlow
+            ? tt('subtitlePallet', 'After printing pallet labels, shipment becomes Ready to ship')
+            : tt('subtitle', 'After printing, shipment becomes Ready to ship')}
+        </div>
       </div>
 
       {error ? (
@@ -50,7 +60,9 @@ export default function FbaStep3Labels({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-slate-700">
                   <Printer className="w-5 h-5" />
-                  <span className="font-semibold">{tt('printBoxLabels', 'Print box labels')}</span>
+                  <span className="font-semibold">
+                    {isPalletFlow ? tt('printPalletLabels', 'Print pallet labels') : tt('printBoxLabels', 'Print box labels')}
+                  </span>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1">
@@ -84,6 +96,17 @@ export default function FbaStep3Labels({
                 >
                   {printLoadingId === s.id ? tt('generating', 'Generating…') : tt('print', 'Print')}
                 </button>
+                {isPartneredPalletFlow && (
+                  <button
+                    onClick={() => onPrintBillOfLading?.(s)}
+                    className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md font-semibold shadow-sm hover:bg-slate-50"
+                    disabled={billOfLadingLoadingId === s.id}
+                  >
+                    {billOfLadingLoadingId === s.id
+                      ? tt('generatingBol', 'Generating BOL…')
+                      : tt('printBol', 'Print bill of lading')}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -91,7 +114,11 @@ export default function FbaStep3Labels({
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="text-sm text-slate-600">{tt('footer', 'Apply the FBA box ID label to each box and carrier labels afterward.')}</div>
+        <div className="text-sm text-slate-600">
+          {isPalletFlow
+            ? tt('footerPallet', 'Apply the FBA pallet labels to each pallet. For partnered LTL/FTL also print the bill of lading.')
+            : tt('footer', 'Apply the FBA box ID label to each box and carrier labels afterward.')}
+        </div>
         <div className="flex gap-3 justify-end">
           <button onClick={onBack} className="border border-slate-300 text-slate-700 px-4 py-2 rounded-md">
             {tt('back', 'Back')}
