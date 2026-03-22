@@ -1561,11 +1561,10 @@ useEffect(() => {
                 ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100'
                 : 'border-gray-300 bg-white text-text-primary hover:bg-gray-50'
             }`}
-            title="Toggle searching in archive statuses (Received/Processed/Cancelled/Draft)"
+            title="Toggle archived receptions"
           >
-            {includeArchive ? 'Archive on (slower)' : 'Archive off (faster)'}
+            {includeArchive ? 'Hide archive' : 'Show archive'}
           </button>
-          <span className="text-xs text-text-secondary">Active = Submitted + Partial</span>
         </div>
       </div>
 
