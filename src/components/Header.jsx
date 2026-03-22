@@ -165,8 +165,13 @@ function Header() {
   }, [showAddress]);
 
   return (
-    <header className="bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
-      <div className="w-full px-2 sm:px-3 lg:px-4">
+    <header className="relative overflow-hidden bg-white shadow-lg sticky top-0 z-50 border-b border-gray-100">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-y-0 left-[-18%] w-[34%] bg-gradient-to-r from-transparent via-sky-300/25 to-transparent blur-2xl animate-header-wave" />
+        <div className="absolute inset-y-0 right-[-22%] w-[38%] bg-gradient-to-l from-transparent via-cyan-200/30 to-transparent blur-3xl animate-header-wave-slow" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-400/45 to-transparent" />
+      </div>
+      <div className="relative w-full px-2 sm:px-3 lg:px-4">
         <div className="flex flex-wrap md:flex-nowrap items-center justify-between gap-2 md:gap-2.5 min-h-[74px]">
           {/* Logo */}
           <Link
