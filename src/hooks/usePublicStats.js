@@ -1,29 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/config/supabase';
-import { normalizeMarketCode } from '@/utils/market';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const EXPERIENCE_START_YEAR = 2022;
 const EXPERIENCE_START_MONTH_INDEX = 2; // March
-const COUNTED_MARKETS = ['FR', 'DE'];
-
-const countClientEntries = (rows = []) =>
-  (rows || []).reduce((total, row) => {
-    const accountType = String(row?.account_type || '').trim().toLowerCase();
-    if (accountType === 'admin') return total;
-
-    const allowedMarkets = Array.isArray(row?.allowed_markets)
-      ? row.allowed_markets.map((value) => normalizeMarketCode(value)).filter(Boolean)
-      : [];
-    const country = normalizeMarketCode(row?.country);
-
-    return total + COUNTED_MARKETS.reduce((sum, marketCode) => {
-      if (allowedMarkets.includes(marketCode)) return sum + 1;
-      if (allowedMarkets.length === 0 && country === marketCode) return sum + 1;
-      return sum;
-    }, 0);
-  }, 0);
-
 const getExperienceParts = () => {
   const now = new Date();
   const totalMonths =
@@ -63,9 +43,7 @@ export const usePublicStats = () => {
     let active = true;
 
     const loadClientTotal = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, account_type, allowed_markets, country');
+      const { data, error } = await supabase.rpc('get_public_site_stats');
 
       if (!active) return;
       if (error) {
@@ -73,25 +51,16 @@ export const usePublicStats = () => {
         return;
       }
 
-      setHappyClientsTotal(countClientEntries(data || []));
+      const row = Array.isArray(data) ? data[0] : data;
+      setHappyClientsTotal(Number(row?.happy_clients_total || 0));
     };
 
     loadClientTotal();
-
-    const channel = supabase
-      .channel('public-stats-profiles')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        () => {
-          loadClientTotal();
-        }
-      )
-      .subscribe();
+    const intervalId = window.setInterval(loadClientTotal, 5 * 60 * 1000);
 
     return () => {
       active = false;
-      supabase.removeChannel(channel);
+      window.clearInterval(intervalId);
     };
   }, []);
 
