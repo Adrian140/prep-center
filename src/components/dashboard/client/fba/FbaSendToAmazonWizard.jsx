@@ -3435,6 +3435,99 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
     return packageGroupings;
   }, [step1BoxPlanForMarket?.groups]);
+  const buildPackageGroupingsFromSkuTemplates = useCallback(() => {
+    if (palletOnlyMode) return [];
+
+    const skuList = Array.isArray(plan?.skus) ? plan.skus : [];
+    const groups = Array.isArray(packGroupsDecorated) ? packGroupsDecorated : [];
+    if (!skuList.length || !groups.length) return [];
+
+    const skuMap = new Map(
+      skuList.map((sku) => [
+        String(sku?.sku || sku?.msku || sku?.SellerSKU || '').trim().toUpperCase(),
+        sku
+      ])
+    );
+
+    return groups
+      .map((group) => {
+        const packingGroupId =
+          group?.packingGroupId ||
+          group?.step1PlanGroupKey ||
+          group?.id ||
+          null;
+        if (!packingGroupId) return null;
+
+        const normalizedItems = normalizeGroupItemsForUnits(group?.items || []);
+        if (!normalizedItems.length) return null;
+
+        const fallbackBoxCount = Number(group?.boxes || 0) || null;
+        let resolvedBoxCount = fallbackBoxCount;
+        const perBoxItems = [];
+        let dims = getSafeDims(group?.boxDimensions);
+        let weight = getPositiveNumber(group?.boxWeight);
+
+        for (const item of normalizedItems) {
+          const skuKey = String(item?.sku || item?.msku || item?.SellerSKU || '').trim().toUpperCase();
+          if (!skuKey) return null;
+
+          const matchedSku = skuMap.get(skuKey);
+          if (!matchedSku) return null;
+
+          const unitsPerBox = Number(matchedSku?.unitsPerBox ?? matchedSku?.units_per_box ?? 0) || 0;
+          const totalUnits = Number(item?.quantity || 0) || 0;
+          if (!(unitsPerBox > 0) || !(totalUnits > 0) || totalUnits % unitsPerBox !== 0) return null;
+
+          const itemBoxCount = totalUnits / unitsPerBox;
+          if (!(itemBoxCount > 0)) return null;
+          if (!resolvedBoxCount) {
+            resolvedBoxCount = itemBoxCount;
+          } else if (resolvedBoxCount !== itemBoxCount) {
+            return null;
+          }
+
+          const skuDims =
+            getSafeDims({
+              length: matchedSku?.boxLengthCm ?? matchedSku?.box_length_cm ?? null,
+              width: matchedSku?.boxWidthCm ?? matchedSku?.box_width_cm ?? null,
+              height: matchedSku?.boxHeightCm ?? matchedSku?.box_height_cm ?? null
+            }) || null;
+          const skuWeight = getPositiveNumber(matchedSku?.boxWeightKg ?? matchedSku?.box_weight_kg ?? null);
+
+          if (!dims && skuDims) dims = skuDims;
+          if (!weight && skuWeight) weight = skuWeight;
+
+          perBoxItems.push({
+            msku: matchedSku?.sku || matchedSku?.msku || matchedSku?.SellerSKU || skuKey,
+            quantity: unitsPerBox
+          });
+        }
+
+        if (!resolvedBoxCount || !dims || !weight || !perBoxItems.length) return null;
+
+        return {
+          packingGroupId,
+          boxes: [
+            {
+              quantity: resolvedBoxCount,
+              dimensions: {
+                length: Number(dims.length),
+                width: Number(dims.width),
+                height: Number(dims.height),
+                unitOfMeasurement: 'CM'
+              },
+              weight: {
+                value: Number(weight),
+                unit: 'KG'
+              },
+              items: perBoxItems,
+              contentInformationSource: 'BOX_CONTENT_PROVIDED'
+            }
+          ]
+        };
+      })
+      .filter(Boolean);
+  }, [getSafeDims, normalizeGroupItemsForUnits, packGroupsDecorated, palletOnlyMode, plan?.skus]);
 
   const submitPackingInformation = async (payload = {}) => {
     const skipRefresh = Boolean(payload?.skipRefresh);
@@ -3451,6 +3544,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
     const derivedPayload = buildPackingPayload();
     const packageGroupingsFallback = buildPackageGroupingsFromBoxPlan();
+    const packageGroupingsFromSkuTemplates = buildPackageGroupingsFromSkuTemplates();
     let packingGroupsPayload =
       Array.isArray(payload.packingGroups) && payload.packingGroups.length ? payload.packingGroups : derivedPayload.packingGroups;
 
@@ -3476,12 +3570,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const isFallback = (v) => typeof v === "string" && v.toLowerCase().startsWith("fallback-");
     const hasFallback = packingGroupsPayload.some((g) => isFallback(g.packingGroupId));
     const missingGroupId = derivedPayload.missingGroupId || packingGroupsPayload.some((g) => !g.packingGroupId);
-    if ((missingGroupId || hasFallback) && !packageGroupingsFallback.length) {
+    if ((missingGroupId || hasFallback) && !packageGroupingsFallback.length && !packageGroupingsFromSkuTemplates.length) {
       setPackingSubmitError('Amazon nu a returnat packingGroupId pentru cutii (packingOptions). Încearcă din nou Step 1b sau setează manual cutiile.');
       return false;
     }
 
-    if (!packingGroupsPayload.length && !packageGroupingsFallback.length) {
+    if (!packingGroupsPayload.length && !packageGroupingsFallback.length && !packageGroupingsFromSkuTemplates.length) {
       setPackingSubmitError(
         allowPalletRelax
           ? 'Completează packing groups înainte de a continua.'
@@ -3584,7 +3678,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         console.warn('Proceeding with existing packing groups because Amazon refresh not ready', refreshRes);
       }
 
-      const packageGroupings = packageGroupingsFallback.length ? packageGroupingsFallback : null;
+      const packageGroupings = packageGroupingsFallback.length
+        ? packageGroupingsFallback
+        : packageGroupingsFromSkuTemplates.length
+        ? packageGroupingsFromSkuTemplates
+        : null;
       const invokeBody = {
         request_id: requestId,
         inbound_plan_id: inboundPlanId,
