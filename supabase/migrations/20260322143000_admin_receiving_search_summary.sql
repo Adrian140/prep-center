@@ -278,7 +278,17 @@ ranked as (
       when combined.computed_status = 'submitted' then 0
       when combined.computed_status = 'partial' then 1
       else 2
-    end as sort_priority
+    end as sort_priority,
+    row_number() over (
+      order by
+        case
+          when combined.computed_status = 'submitted' then 0
+          when combined.computed_status = 'partial' then 1
+          else 2
+        end asc,
+        combined.latest_received_at desc,
+        combined.created_at desc
+    ) as row_num
   from combined
 )
 select
@@ -309,7 +319,7 @@ select
   ranked.total_count
 from ranked
 cross join params prm
-order by ranked.sort_priority asc, ranked.latest_received_at desc, ranked.created_at desc
-offset ((prm.page_number - 1) * prm.page_size)
-limit prm.page_size;
+where ranked.row_num > ((prm.page_number - 1) * prm.page_size)
+  and ranked.row_num <= (prm.page_number * prm.page_size)
+order by ranked.row_num asc;
 $$;
