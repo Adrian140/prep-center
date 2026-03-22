@@ -453,6 +453,84 @@ function buildPackageGroupingsFromPackingGroups(groups: any[]) {
   return out;
 }
 
+function hydratePackingGroupsFromDbItems(groups: any[], dbItems: any[]) {
+  const list = Array.isArray(groups) ? groups : [];
+  const rows = Array.isArray(dbItems) ? dbItems : [];
+  if (!list.length || !rows.length) return list;
+
+  const skuMeta = new Map<string, any>();
+  rows.forEach((row: any) => {
+    const key = normalizeSkuKey(row?.sku || "");
+    if (!key) return;
+    skuMeta.set(key, row);
+  });
+
+  return list.map((g: any) => {
+    const expectedItems = Array.isArray(g?.expectedItems) ? g.expectedItems : Array.isArray(g?.expected_items) ? g.expected_items : [];
+    const dimsAlready = normalizeDimensions(g?.dimensions || g?.boxDimensions);
+    const weightAlready = normalizeWeight(g?.weight || g?.boxWeight);
+    const itemsForInference = expectedItems.length
+      ? expectedItems
+      : Array.isArray(g?.items) && g.items.length
+      ? g.items
+      : [];
+
+    let inferredDims = dimsAlready;
+    let inferredWeight = weightAlready;
+    let inferredBoxes = Number(g?.boxes || g?.boxCount || 0) || 0;
+
+    for (const item of itemsForInference) {
+      const key = normalizeSkuKey(item?.msku || item?.sku || item?.sellerSku || item?.MSKU || "");
+      if (!key) continue;
+      const meta = skuMeta.get(key);
+      if (!meta) continue;
+
+      const rowDims = normalizeDimensions({
+        length: meta?.box_length_cm,
+        width: meta?.box_width_cm,
+        height: meta?.box_height_cm,
+        unit: "CM"
+      });
+      const rowWeight = normalizeWeight({
+        value: meta?.box_weight_kg,
+        unit: "KG"
+      });
+      const unitsPerBox = Number(meta?.units_per_box || 0) || 0;
+      const totalQty = Number(item?.quantity || 0) || 0;
+      const rowBoxes = unitsPerBox > 0 && totalQty > 0 ? totalQty / unitsPerBox : 0;
+
+      if (!inferredDims && rowDims) {
+        inferredDims = rowDims;
+      }
+      if (!inferredWeight && rowWeight) {
+        inferredWeight = rowWeight;
+      }
+      if (!inferredBoxes && rowBoxes > 0 && Number.isInteger(rowBoxes)) {
+        inferredBoxes = rowBoxes;
+      }
+    }
+
+    return {
+      ...g,
+      dimensions: g?.dimensions || (inferredDims
+        ? {
+            length: inferredDims.length,
+            width: inferredDims.width,
+            height: inferredDims.height,
+            unit: inferredDims.unitOfMeasurement
+          }
+        : null),
+      weight: g?.weight || (inferredWeight
+        ? {
+            value: inferredWeight.value,
+            unit: inferredWeight.unit
+          }
+        : null),
+      boxes: Number(g?.boxes || g?.boxCount || 0) > 0 ? g.boxes || g.boxCount : inferredBoxes || g?.boxes || g?.boxCount || 1
+    };
+  });
+}
+
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -1067,6 +1145,11 @@ serve(async (req) => {
       (reqData as any)?.amazon_snapshot?.fba_inbound?.packingGroups ||
       (reqData as any)?.amazon_snapshot?.packingGroups ||
       [];
+    const { data: dbPackingItems, error: dbPackingItemsErr } = await supabase
+      .from("prep_request_items")
+      .select("sku, units_sent, units_requested, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg")
+      .eq("prep_request_id", requestId);
+    if (dbPackingItemsErr) throw dbPackingItemsErr;
     const mergePackingGroups = (primary: any[], fallback: any[]) => {
       const primaryList = Array.isArray(primary) ? primary : [];
       const fallbackList = Array.isArray(fallback) ? fallback : [];
@@ -1346,7 +1429,8 @@ serve(async (req) => {
           marketplaceId,
           sellerId
         });
-        packageGroupings = buildPackageGroupingsFromPackingGroups(hydratedGroups);
+        const dbHydratedGroups = hydratePackingGroupsFromDbItems(hydratedGroups, dbPackingItems || []);
+        packageGroupings = buildPackageGroupingsFromPackingGroups(dbHydratedGroups);
       } catch (err) {
         console.error("fetch packing group items failed", { traceId, error: err });
         return new Response(
