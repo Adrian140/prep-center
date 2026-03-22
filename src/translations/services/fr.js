@@ -1,7 +1,7 @@
 export const servicesFr = {
   // Page Header
-  pageTitle: 'Services et Tarifs Amazon FBA en France',
-  pageSubtitle:  'Services professionnels Amazon FBA et fulfillment FBM en France et en Europe. Réception rapide, étiquetage et stockage avec prix transparents et délai de 24h. Idéal pour les vendeurs qui expédient vers les centres Amazon UE ou gèrent des commandes FBM directes.',
+  pageTitle: 'Services et Tarifs Amazon FBA – hubs en France et en Allemagne',
+  pageSubtitle:  'Services professionnels Amazon FBA et fulfillment FBM depuis nos entrepôts en France et en Allemagne. Réception rapide, étiquetage et stockage avec prix transparents et délai de 24h. Idéal pour les vendeurs qui expédient vers les centres Amazon UE ou gèrent des commandes FBM directes.',
   
   pricingSection: {
     title: 'Tarifs mis à jour en temps réel',
@@ -47,8 +47,8 @@ export const servicesFr = {
 
   publicSection: {
     pageTitle: 'Services & Solutions',
-    pageSubtitle: 'Préparation, fulfillment et stockage adaptés à vos produits, volumes et délais.',
-    heroBadge: 'Hub de fulfillment en France',
+    pageSubtitle: 'Préparation, fulfillment et stockage depuis la France et l’Allemagne pour les vendeurs UE, avec réception rapide, étiquetage, contrôles de conformité, gestion des commandes et stockage sécurisé adaptés à vos volumes.',
+    heroBadge: 'Hubs de fulfillment en France et en Allemagne',
     highlights: [
       'Réception rapide',
       'Conformité UE',

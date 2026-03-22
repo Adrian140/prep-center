@@ -1,7 +1,7 @@
 export const servicesDe = {
   // Page Header
-  pageTitle: 'Amazon FBA Services & Preise in Frankreich',
-  pageSubtitle:  'Professionelle Amazon-FBA-Services und FBM-Fulfillment in Frankreich und ganz Europa. Schnelle Annahme, Etikettierung und Lagerung mit transparenten Preisen und 24-Stunden-Durchlaufzeit. Ideal für Verkäufer mit Versand an EU-Amazon-Fulfillment oder direktem FBM.',
+  pageTitle: 'Amazon FBA Services & Preise – Hubs in Frankreich und Deutschland',
+  pageSubtitle:  'Professionelle Amazon-FBA-Services und FBM-Fulfillment aus unseren Lagern in Frankreich und Deutschland. Schnelle Annahme, Etikettierung und Lagerung mit transparenten Preisen und 24-Stunden-Durchlaufzeit. Ideal für Verkäufer mit Versand an EU-Amazon-Fulfillment oder direktem FBM.',
   
   pricingSection: {
     title: 'Live-Preise in Echtzeit',
@@ -47,8 +47,8 @@ export const servicesDe = {
 
   publicSection: {
     pageTitle: 'Services & Lösungen',
-    pageSubtitle: 'Prep, Fulfillment und Lagerung abgestimmt auf Produkte, Volumen und Zeitpläne.',
-    heroBadge: 'Fulfillment-Hub in Frankreich',
+    pageSubtitle: 'Prep, Fulfillment und Lagerung aus Frankreich und Deutschland für EU-Verkäufer, mit schneller Annahme, Etikettierung, Compliance-Prüfungen, Auftragsabwicklung und sicherer Lagerung passend zu Ihren Volumen.',
+    heroBadge: 'Fulfillment-Hubs in Frankreich und Deutschland',
     highlights: [
       'Schnelle Annahme',
       'EU-konforme Abwicklung',
