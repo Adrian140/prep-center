@@ -14,8 +14,9 @@ import DestinationBadge from '@/components/common/DestinationBadge';
 import { useSupabaseAuth } from "../../contexts/SupabaseAuthContext";
 import { supabase, supabaseHelpers } from "../../config/supabase";
 import FbaSendToAmazonWizard from '@/components/dashboard/client/fba/FbaSendToAmazonWizard';
+import { useAdminPrepRequestsTranslation } from '@/i18n/useAdminPrepRequestsTranslation';
 
-const StatusPill = ({ s }) => {
+const StatusPill = ({ s, label }) => {
   const map = {
     pending: "bg-yellow-100 text-yellow-800",
     confirmed: "bg-green-100 text-green-800",
@@ -23,7 +24,7 @@ const StatusPill = ({ s }) => {
   };
   return (
     <span className={`px-2 py-1 rounded text-xs ${map[s] || "bg-gray-100 text-gray-700"}`}>
-      {s}
+      {label || s}
     </span>
   );
 };
@@ -67,6 +68,7 @@ const serializeHeaderNotes = ({ clientNote, adminNote }) => {
 
 export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, openWizard = false }) {
   const { profile, session } = useSupabaseAuth();
+  const { t, tp, locale } = useAdminPrepRequestsTranslation();
 
   const [row, setRow] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -250,7 +252,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     const activeSession = freshSession || session;
 
     if (!activeSession?.access_token) {
-      const err = new Error('You must be signed in to load the Amazon plan. Please refresh and sign in again.');
+      const err = new Error(t('detail.planMissingSession'));
       setFlash(err.message);
       throw err;
     }
@@ -263,7 +265,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     });
     if (error) {
       if (error?.status === 401) {
-        const err = new Error('Session expired while loading Amazon plan. Please sign in again.');
+        const err = new Error(t('detail.planSessionExpired'));
         setFlash(err.message);
         throw err;
       }
@@ -274,7 +276,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
 
     // Dacă planul nu are inboundPlanId, nu are sens să cerem step1b (packing groups)
     if (!plan.inboundPlanId) {
-      setFlash('Amazon plan loaded, but inboundPlanId is missing. Please retry Step 1.');
+      setFlash(t('detail.planMissingInbound'));
       return {
         ...plan,
         prepRequestId: row.id,
@@ -351,17 +353,17 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
 
   const wizardTrackingList = useMemo(
     () =>
-      (row?.prep_request_tracking || []).map((t, idx) => ({
-        id: t?.id || `trk-${idx + 1}`,
+      (row?.prep_request_tracking || []).map((tracking, idx) => ({
+        id: tracking?.id || `trk-${idx + 1}`,
         box: idx + 1,
-        label: t?.box_label || `BOX-${idx + 1}`,
-        trackingId: t?.tracking_id || '',
-        status: t?.tracking_id ? 'Confirmed' : 'Pending',
+        label: tracking?.box_label || `BOX-${idx + 1}`,
+        trackingId: tracking?.tracking_id || '',
+        status: tracking?.tracking_id ? t('status.confirmed') : t('status.pending'),
         weight: null,
         dimensions: '',
-        boxId: t?.box_id || null
+        boxId: tracking?.box_id || null
       })),
-    [row]
+    [row, t]
   );
   const wizardTrackingIds = useMemo(
     () => (row?.prep_request_tracking || []).map((t) => t?.tracking_id).filter(Boolean),
@@ -581,7 +583,7 @@ const mapBoxRows = (rows = []) => {
       delete boxSaveTimers.current[itemId];
       const err = await persistBoxesForItem(itemId);
       if (err) {
-        setFlash(`Box save failed: ${err.message || err}`);
+        setFlash(tp('detail.products.boxSaveFailed', { error: err.message || err }));
       }
     }, 700);
   }, [persistBoxesForItem]);
@@ -671,7 +673,7 @@ const mapBoxRows = (rows = []) => {
 
     if (error) {
       setRow(null);
-      setFlash(error.message || "Failed to load request");
+      setFlash(error.message || t('detail.loadError'));
     } else {
       setRow(data);
       setShipmentId(
@@ -763,13 +765,13 @@ const mapBoxRows = (rows = []) => {
         const deduped = Array.from(new Map(merged.map((it) => [it.id, it])).values());
         setInventory(deduped);
         if (errorMessage && deduped.length === 0) {
-          setFlash(errorMessage || 'Failed to load inventory.');
+          setFlash(errorMessage || t('detail.inventory.loadError'));
         }
       } catch (err) {
         if (!cancelled) {
           console.error('Inventory load failed', err);
           setInventory([]);
-          setFlash(err.message || 'Failed to load inventory.');
+          setFlash(err.message || t('detail.inventory.loadError'));
         }
       } finally {
         if (!cancelled) setInventoryLoading(false);
@@ -887,13 +889,13 @@ const mapBoxRows = (rows = []) => {
       };
       const { error } = await supabaseHelpers.createPrepItem(requestId, payload);
       if (error) throw error;
-      setFlash("Product added from inventory.");
+      setFlash(t('detail.inventory.productAdded'));
       setInventoryDraftQty((prev) => ({ ...prev, [stockItem.id]: "" }));
       await load();
       onChanged?.();
     } catch (error) {
       console.error('Add inventory item failed', error);
-      setFlash(error.message || "Failed to add product.");
+      setFlash(error.message || t('detail.inventory.addFailed'));
     } finally {
       setSaving(false);
     }
@@ -905,7 +907,7 @@ const mapBoxRows = (rows = []) => {
     const { error } = await supabaseHelpers.setFbaShipmentId(requestId, shipmentId || null);
     setSaving(false);
     if (error) return setFlash(error.message);
-    setFlash("Shipment ID saved.");
+    setFlash(t('detail.shipmentId.saved'));
     await load();
     onChanged?.();
   }
@@ -919,7 +921,7 @@ const mapBoxRows = (rows = []) => {
     const { error } = await supabaseHelpers.updatePrepHeader(requestId, { obs_admin: obsAdmin || null });
     setSaving(false);
     if (error) return setFlash(error.message);
-    setFlash("Admin note saved.");
+    setFlash(t('detail.headerNote.saved'));
     await load();
     onChanged?.();
   }
@@ -935,7 +937,7 @@ const mapBoxRows = (rows = []) => {
   }
 
   async function removeTracking(id) {
-    if (!confirm("Delete this tracking ID?")) return;
+    if (!confirm(t('detail.tracking.deleteConfirm'))) return;
     const { error } = await supabaseHelpers.removeTrackingId(id);
     if (error) return setFlash(error.message);
     await load();
@@ -985,7 +987,7 @@ const mapBoxRows = (rows = []) => {
       setFlash(`Item saved but boxes failed: ${boxError.message || boxError}`);
       return;
     }
-    setFlash("Item & boxes saved.");
+    setFlash(t('detail.products.saveItemBoxes'));
     await load();
     onChanged?.();
   }
@@ -1024,12 +1026,12 @@ const mapBoxRows = (rows = []) => {
       const { error } = await supabaseHelpers.setPrepStatus(requestId, "pending");
       if (error) throw error;
       setRow((prev) => (prev ? { ...prev, status: "pending" } : prev));
-      setFlash("Request unlocked. Update the lines and confirm again when ready.");
+      setFlash(t('detail.flash.reopenSuccess'));
       await load();
       onChanged?.();
     } catch (e) {
       console.error("Failed to reopen request:", e);
-      setFlash(e?.message || "Unable to reopen request.");
+      setFlash(e?.message || t('detail.flash.reopenFailed'));
     } finally {
       setSaving(false);
     }
@@ -1037,13 +1039,13 @@ const mapBoxRows = (rows = []) => {
 
 async function confirmRequest() {
   if (row?.status !== "pending") {
-    return setFlash("Only pending requests can be confirmed.");
+    return setFlash(t('detail.flash.onlyPending'));
   }
 
   // 1) fiecare produs are ASIN sau SKU
   const missingCode = (row.prep_request_items || []).find((it) => !codeOf(it));
   if (missingCode) {
-    return setFlash("Fiecare produs trebuie să aibă completat ASIN sau SKU înainte de confirmare.");
+    return setFlash(t('detail.flash.missingCode'));
   }
 
   // 2) validare locală units_sent (pe state-ul curent)
@@ -1052,9 +1054,9 @@ async function confirmRequest() {
     const snd = Number(it.units_sent ?? 0);
     return !Number.isFinite(snd) || snd < 0 || snd > req;
   });
-  if (bad) return setFlash("Please fix Units to send values first.");
+  if (bad) return setFlash(t('detail.flash.fixUnits'));
 
-  if (!confirm("Confirm this request? Stock will be adjusted accordingly.")) return;
+  if (!confirm(t('detail.confirmPrompt'))) return;
 
   setSaving(true);
   setFlash("");
@@ -1065,7 +1067,7 @@ async function confirmRequest() {
 
     // 4) reîncarcă pentru a fi sigur că RPC vede valorile curente din DB
     const freshRow = await load();
-    if (!freshRow) throw new Error("Failed to reload request after saving items.");
+    if (!freshRow) throw new Error(t('detail.flash.reloadFailed'));
 
 // 5) RPC de confirmare
 console.log('[CONFIRM] calling RPC confirm_prep_request_v2 with:', {
@@ -1126,9 +1128,9 @@ const mailPayload = {
 // 6) Trimite email
 const { error: mailErr } = await supabaseHelpers.sendPrepConfirmationEmail(mailPayload);
 if (mailErr) {
-  setFlash(`Request confirmed (status updated). Email failed: ${mailErr.message || 'unknown'}`);
+  setFlash(tp('detail.flash.emailFailed', { error: mailErr.message || 'unknown' }));
 } else {
-  setFlash('Request confirmed (status updated) and client notified by email.');
+  setFlash(t('detail.flash.emailSuccess'));
 }
 
 // reîncarcă detail + informează lista
@@ -1137,7 +1139,7 @@ onChanged?.();
 
   } catch (e) {
     console.error('[CONFIRM] failed:', e);
-    setFlash(e?.message || "Confirmation failed.");
+    setFlash(e?.message || t('detail.flash.confirmFailed'));
   } finally {
     setSaving(false);
   }
@@ -1203,7 +1205,7 @@ onChanged?.();
       if (err) lastError = err;
     }
     if (lastError) {
-      setFlash(`Box save failed: ${lastError.message || lastError}`);
+      setFlash(tp('detail.products.boxSaveFailed', { error: lastError.message || lastError }));
     } else {
       setFlash('Box data saved.');
     }
@@ -1237,14 +1239,14 @@ onChanged?.();
     });
   };
 
-  if (loading) return <div>Loading…</div>;
+  if (loading) return <div>{t('common.loading')}</div>;
   if (!row)
     return (
       <div>
         <button onClick={onBack} className="inline-flex items-center text-sm mb-4">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
+          <ArrowLeft className="w-4 h-4 mr-1" /> {t('common.back')}
         </button>
-        <div>Request not found.</div>
+        <div>{t('detail.requestNotFound')}</div>
       </div>
     );
 
@@ -1254,7 +1256,7 @@ onChanged?.();
         <div className="flex items-center justify-between">
           <span />
           <button onClick={onBack} className="text-sm text-blue-700 hover:underline">
-            Înapoi la listă
+            {t('common.backToList')}
           </button>
         </div>
         <FbaSendToAmazonWizard
@@ -1292,7 +1294,7 @@ onChanged?.();
         }
       `}</style>
       <button onClick={onBack} className="inline-flex items-center text-sm">
-        <ArrowLeft className="w-4 h-4 mr-1" /> Back to list
+        <ArrowLeft className="w-4 h-4 mr-1" /> {t('common.backToList')}
       </button>
 
       <div className="bg-white rounded-xl p-6 shadow-sm">
@@ -1301,17 +1303,17 @@ onChanged?.();
           <div>
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Package className="w-5 h-5" />
-              Request #{row.id.slice(0, 8)}
+              {tp('detail.requestLabel', { id: row.id.slice(0, 8) })}
             </h2>
             <div className="text-sm text-text-secondary">
-              {new Date(row.created_at).toLocaleString()} ·{" "}
-              {row.client_name ? <b>{row.client_name}</b> : "—"} ({row.user_email || "—"}) ·
-              Company: <b>{row.company_name || "—"}</b>
+              {new Date(row.created_at).toLocaleString(locale)} ·{" "}
+              {row.client_name ? <b>{row.client_name}</b> : t('common.none')} ({row.user_email || t('common.none')}) ·
+              {tp('detail.companyLabel', { company: row.company_name || t('common.none') })}
             </div>
             <div className="mt-1 text-sm flex flex-wrap items-center gap-2">
               <DestinationBadge code={row.destination_country || 'FR'} variant="loud" />
               <span className="text-text-secondary flex items-center gap-1">
-                Status: <StatusPill s={row.status} />
+                {t('detail.statusLabel')} <StatusPill s={row.status} label={t(`status.${String(row.status || '').toLowerCase()}`)} />
               </span>
             </div>
           </div>
@@ -1323,7 +1325,7 @@ onChanged?.();
               type="button"
             >
               <Boxes className="w-4 h-4" />
-              Box summary
+              {t('detail.boxSummary.title')}
             </button>
             {row.status === "confirmed" && (
               <button
@@ -1331,20 +1333,20 @@ onChanged?.();
                 disabled={saving}
                 className="px-4 py-2 border border-amber-500 text-amber-700 rounded inline-flex items-center gap-2 disabled:opacity-50"
                 type="button"
-                title="Move back to pending so you can edit and confirm again"
+                title={t('detail.actions.reopenTitle')}
               >
                 <Unlock className="w-4 h-4" />
-                Reopen for edits
+                {t('detail.actions.reopen')}
               </button>
             )}
             <button
               onClick={confirmRequest}
               disabled={row.status !== "pending" || saving}
               className="px-4 py-2 bg-green-600 text-white rounded disabled:opacity-50 inline-flex items-center gap-2"
-              title="Confirm (will subtract stock)"
+              title={t('detail.actions.confirmTitle')}
             >
               <CheckCircle2 className="w-4 h-4" />
-              Confirm
+              {t('detail.actions.confirm')}
             </button>
           </div>
         </div>
@@ -1358,11 +1360,11 @@ onChanged?.();
         {/* Shipment & Tracking */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border rounded-lg p-4">
-            <h4 className="font-semibold mb-3">FBA Shipment ID</h4>
+            <h4 className="font-semibold mb-3">{t('detail.shipmentId.title')}</h4>
             <div className="flex items-center gap-2">
               <input
                 className="border rounded px-3 py-2 w-full"
-                placeholder="ex: FBA15KXYZ…"
+                placeholder={t('detail.shipmentId.placeholder')}
                 value={shipmentId}
                 onChange={(e) => setShipmentId(e.target.value)}
               />
@@ -1371,30 +1373,30 @@ onChanged?.();
                 disabled={saving}
                 className="px-3 py-2 bg-primary text-white rounded inline-flex items-center gap-1"
               >
-                <Save className="w-4 h-4" /> Save
+                <Save className="w-4 h-4" /> {t('common.save')}
               </button>
             </div>
             <p className="text-xs text-text-secondary mt-2">
-              We store this ID so you can quickly find the shipment in Amazon.
+              {t('detail.shipmentId.help')}
             </p>
           </div>
 
           <div className="border rounded-lg p-4">
-            <h4 className="font-semibold mb-3">Tracking IDs</h4>
+            <h4 className="font-semibold mb-3">{t('detail.tracking.title')}</h4>
             <div className="flex items-center gap-2 mb-3">
               <input
                 className="border rounded px-3 py-2 w-full"
-                placeholder="Add a tracking ID (you can add multiple)"
+                placeholder={t('detail.tracking.placeholder')}
                 value={newTracking}
                 onChange={(e) => setNewTracking(e.target.value)}
               />
               <button onClick={addTracking} className="px-3 py-2 border rounded inline-flex items-center gap-1">
-                <Plus className="w-4 h-4" /> Add
+                <Plus className="w-4 h-4" /> {t('common.add')}
               </button>
             </div>
             <ul className="space-y-2">
               {(row.prep_request_tracking || []).length === 0 ? (
-                <li className="text-sm text-text-secondary">— none</li>
+                <li className="text-sm text-text-secondary">{t('detail.tracking.empty')}</li>
               ) : (
                 row.prep_request_tracking.map((t) => (
                   <li key={t.id} className="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
@@ -1402,7 +1404,7 @@ onChanged?.();
                       {t.tracking_id}
                       {t.created_at ? (
                         <span className="ml-2 text-xs text-text-secondary">
-                          · {new Date(t.created_at).toLocaleString()}
+                          · {new Date(t.created_at).toLocaleString(locale)}
                         </span>
                       ) : null}
                     </span>
@@ -1410,7 +1412,7 @@ onChanged?.();
                       onClick={() => removeTracking(t.id)}
                       className="text-red-600 inline-flex items-center gap-1"
                     >
-                      <Trash2 className="w-4 h-4" /> Delete
+                      <Trash2 className="w-4 h-4" /> {t('common.delete')}
                     </button>
                   </li>
                 ))
@@ -1422,19 +1424,19 @@ onChanged?.();
         {/* Admin note (header) */}
         <div className="mt-6 border rounded-lg p-4">
           <div className="flex items-center justify-between">
-            <h4 className="font-semibold">Admin note (header)</h4>
+            <h4 className="font-semibold">{t('detail.headerNote.title')}</h4>
             <button
               type="button"
               onClick={() => setShowHeaderNote((prev) => !prev)}
               className="text-sm text-primary hover:underline"
             >
-              {showHeaderNote ? "Hide note" : headerNote ? "Edit note" : "Add note"}
+              {showHeaderNote ? t('detail.headerNote.hide') : headerNote ? t('detail.headerNote.edit') : t('detail.headerNote.add')}
             </button>
           </div>
 
           {clientNote && (
             <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              <span className="font-semibold">Noted by client:</span>{' '}
+              <span className="font-semibold">{t('detail.headerNote.clientNoted')}</span>{' '}
               <span className="whitespace-pre-line">{clientNote}</span>
             </div>
           )}
@@ -1443,7 +1445,7 @@ onChanged?.();
             <>
               <textarea
                 className="mt-3 w-full border rounded p-2 min-h-[80px]"
-                placeholder="Explain why some units were removed / any packaging notes…"
+                placeholder={t('detail.headerNote.placeholder')}
                 value={headerNote}
                 onChange={(e) => setHeaderNote(e.target.value)}
               />
@@ -1453,7 +1455,7 @@ onChanged?.();
                   disabled={saving}
                   className="px-3 py-2 bg-primary text-white rounded inline-flex items-center gap-1"
                 >
-                  <Save className="w-4 h-4" /> Save note
+                  <Save className="w-4 h-4" /> {t('detail.headerNote.save')}
                 </button>
               </div>
             </>
@@ -1463,25 +1465,25 @@ onChanged?.();
         {/* Items editable */}
         <div className="mt-6">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-semibold">Products</h4>
+            <h4 className="font-semibold">{t('detail.products.title')}</h4>
             <div className="flex items-center gap-2">
               <button onClick={setAllToRequested} className="px-3 py-1 border rounded">
-                Set all “Units to send” = Requested
+                {t('detail.products.setAllRequested')}
               </button>
               <button onClick={setAllToZero} className="px-3 py-1 border rounded">
-                Set all = 0
+                {t('detail.products.setAllZero')}
               </button>
               <button
                 onClick={() => setInventoryOpen((prev) => !prev)}
                 className="inline-flex items-center gap-2 px-3 py-1 border rounded text-primary border-primary hover:bg-primary hover:text-white"
               >
                 <Plus className="w-4 h-4" />
-                {inventoryOpen ? "Hide inventory" : "Add from inventory"}
+                {inventoryOpen ? t('detail.products.hideInventory') : t('detail.products.addInventory')}
               </button>
             </div>
           </div>
           <p className="text-xs text-text-secondary mb-3">
-            Box assignments are saved when you click “Save” on each product row.
+            {t('detail.products.boxSaveHint')}
           </p>
 
           {inventoryOpen && (
@@ -1490,19 +1492,19 @@ onChanged?.();
                 <input
                   type="text"
                   className="w-full border rounded px-3 py-2"
-                  placeholder="Search inventory by name / SKU / ASIN / EAN"
+                  placeholder={t('detail.inventory.searchPlaceholder')}
                   value={inventorySearch}
                   onChange={(e) => setInventorySearch(e.target.value)}
                 />
                 <span className="text-sm text-text-secondary">
-                  Showing {filteredInventory.length} item(s)
+                  {tp('detail.inventory.showing', { count: filteredInventory.length })}
                 </span>
               </div>
               {inventoryLoading ? (
-                <div className="py-6 text-center text-text-secondary text-sm">Loading inventory…</div>
+                <div className="py-6 text-center text-text-secondary text-sm">{t('detail.inventory.loading')}</div>
               ) : filteredInventory.length === 0 ? (
                 <div className="py-6 text-center text-text-secondary text-sm">
-                  No inventory items match this search.
+                  {t('detail.inventory.empty')}
                 </div>
               ) : (
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1517,17 +1519,17 @@ onChanged?.();
                           />
                         ) : (
                           <div className="w-12 h-12 rounded border bg-gray-100 text-[10px] text-text-secondary flex items-center justify-center">
-                            No Img
+                            {t('detail.inventory.noImage')}
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-text-primary truncate">
-                            {item.name || item.sku || item.asin || '—'}
+                            {item.name || item.sku || item.asin || t('common.none')}
                           </p>
                           <p className="text-xs text-text-secondary">
-                            ASIN: {item.asin || '—'} · SKU: {item.sku || '—'}
+                            ASIN: {item.asin || t('common.none')} · SKU: {item.sku || t('common.none')}
                           </p>
-                          <p className="text-xs text-text-secondary">In stock: {item.qty ?? 0}</p>
+                          <p className="text-xs text-text-secondary">{tp('detail.inventory.inStock', { qty: item.qty ?? 0 })}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1536,7 +1538,7 @@ onChanged?.();
                           min={1}
                           className="w-28 border rounded px-2 py-1 text-sm"
                           value={inventoryDraftQty[item.id] ?? ""}
-                          placeholder="Qty"
+                          placeholder={t('detail.inventory.qtyPlaceholder')}
                           onChange={(e) => handleInventoryQtyChange(item.id, e.target.value)}
                         />
                         <button
@@ -1545,7 +1547,7 @@ onChanged?.();
                           className="px-3 py-1 bg-primary text-white rounded text-sm disabled:opacity-50"
                           disabled={saving}
                         >
-                          Add
+                          {t('detail.inventory.addButton')}
                         </button>
                       </div>
                     </div>
@@ -1559,22 +1561,22 @@ onChanged?.();
             <table className="min-w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left">Photo</th>
-                  <th className="px-3 py-2 text-left">ASIN / SKU</th>
-                  <th className="px-3 py-2 text-left">Product name</th>
-                  <th className="px-3 py-2 text-right">Units requested</th>
-                  <th className="px-3 py-2 text-right">Units to send</th>
-                  <th className="px-3 py-2 text-right">Units removed</th>
-                  <th className="px-3 py-2 text-left">Boxes</th>
-                  <th className="px-3 py-2 text-left">Admin note</th>
-                  <th className="px-3 py-2 text-right">Actions</th>
+                  <th className="px-3 py-2 text-left">{t('detail.products.columns.photo')}</th>
+                  <th className="px-3 py-2 text-left">{t('detail.products.columns.asinSku')}</th>
+                  <th className="px-3 py-2 text-left">{t('detail.products.columns.productName')}</th>
+                  <th className="px-3 py-2 text-right">{t('detail.products.columns.unitsRequested')}</th>
+                  <th className="px-3 py-2 text-right">{t('detail.products.columns.unitsToSend')}</th>
+                  <th className="px-3 py-2 text-right">{t('detail.products.columns.unitsRemoved')}</th>
+                  <th className="px-3 py-2 text-left">{t('detail.products.columns.boxes')}</th>
+                  <th className="px-3 py-2 text-left">{t('detail.products.columns.adminNote')}</th>
+                  <th className="px-3 py-2 text-right">{t('detail.products.columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
                 {(row.prep_request_items || []).length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-3 py-4 text-center text-text-secondary">
-                      —
+                      {t('detail.products.empty')}
                     </td>
                   </tr>
                 ) : (
@@ -1601,12 +1603,12 @@ onChanged?.();
                             />
                           ) : (
                             <div className="w-12 h-12 rounded border bg-gray-50 text-[10px] text-text-secondary flex items-center justify-center">
-                              No Img
+                              {t('detail.inventory.noImage')}
                             </div>
                           )}
                         </td>
                         <td className="px-3 py-2 font-mono" title={nameOf(it)}>
-                          {codeOf(it) || "—"}
+                          {codeOf(it) || t('common.none')}
                         </td>
                         <td className="px-3 py-2">
                           {nameOf(it)}
@@ -1643,7 +1645,7 @@ onChanged?.();
                                     updateBoxValue(it.id, box.id, "boxNumber", e.target.value)
                                   }
                                 />
-                                <span className="text-text-secondary">Units</span>
+                                <span className="text-text-secondary">{t('detail.products.units')}</span>
                                 <input
                                   type="number"
                                   min={0}
@@ -1667,14 +1669,14 @@ onChanged?.();
                               className="text-xs text-primary hover:underline"
                               onClick={() => addBoxForItem(it.id)}
                             >
-                              + Add box
+                              {t('detail.products.addBox')}
                             </button>
                             <div
                               className={`text-[11px] ${
                                 assigned > clamped ? "text-red-600" : "text-text-secondary"
                               }`}
                             >
-                              Assigned: {assigned || 0} / {clamped || 0}
+                              {tp('detail.products.assigned', { assigned: assigned || 0, total: clamped || 0 })}
                             </div>
                           </div>
                         </td>
@@ -1682,7 +1684,7 @@ onChanged?.();
                         <td className="px-3 py-2">
                           <textarea
                             className="w-full border rounded p-1 min-h-[40px]"
-                            placeholder="Explain what was removed (weight limit, out of stock, etc.)"
+                            placeholder={t('detail.products.removedPlaceholder')}
                             value={it.obs_admin || ""}
                             onChange={(e) => onItemFieldChange(it.id, "obs_admin", e.target.value)}
                           />
@@ -1693,7 +1695,7 @@ onChanged?.();
                             onClick={() => saveItem(it)}
                             className="px-3 py-1 border rounded inline-flex items-center gap-1"
                           >
-                            <Save className="w-4 h-4" /> Save
+                            <Save className="w-4 h-4" /> {t('common.save')}
                           </button>
                         </td>
                       </tr>
@@ -1712,13 +1714,13 @@ onChanged?.();
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <DestinationBadge code={row.destination_country || 'FR'} variant="loud" />
-                <h3 className="text-lg font-semibold">Box shipping summary</h3>
+                <h3 className="text-lg font-semibold">{t('detail.boxSummary.title')}</h3>
               </div>
               <button
                 className="text-sm text-text-secondary hover:text-primary"
                 onClick={() => setShowBoxSummary(false)}
               >
-                Close
+                {t('common.close')}
               </button>
             </div>
             <div className="flex items-center gap-3">
@@ -1728,12 +1730,12 @@ onChanged?.();
                 disabled={saving}
               >
                 <Save className="w-4 h-4" />
-                {saving ? 'Saving…' : 'Save boxes'}
+                {saving ? t('detail.boxSummary.saving') : t('detail.boxSummary.saveBoxes')}
               </button>
               {flash && <span className="text-xs text-text-secondary">{flash}</span>}
             </div>
             {boxSummary.length === 0 ? (
-              <p className="text-sm text-text-secondary">No boxes added yet.</p>
+              <p className="text-sm text-text-secondary">{t('detail.boxSummary.empty')}</p>
             ) : (
               <div className="flex flex-wrap gap-3 text-sm">
                 {boxSummary.map((box) => (

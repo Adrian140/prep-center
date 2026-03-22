@@ -5,6 +5,7 @@ import AdminPrepRequestDetail from './AdminPrepRequestDetail';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import DestinationBadge from '@/components/common/DestinationBadge';
 import { useMarket } from '@/contexts/MarketContext';
+import { useAdminPrepRequestsTranslation } from '@/i18n/useAdminPrepRequestsTranslation';
 
 const STORAGE_KEY = 'admin-prep-requests-state';
 const ASIN_QUERY_RE = /^[A-Z0-9]{10}$/;
@@ -36,17 +37,18 @@ const getPendingItemsSummary = (row) => {
   return { skuCount: uniqueSkus.size, unitsTotal };
 };
 
-const StatusPill = ({ s }) => {
+const StatusPill = ({ s, label }) => {
   const map = {
     pending: 'bg-yellow-100 text-yellow-800',
     confirmed: 'bg-green-100 text-green-800',
     cancelled: 'bg-gray-100 text-gray-800',
   };
-  return <span className={`px-2 py-1 rounded text-xs ${map[s] || 'bg-gray-100 text-gray-700'}`}>{s}</span>;
+  return <span className={`px-2 py-1 rounded text-xs ${map[s] || 'bg-gray-100 text-gray-700'}`}>{label || s}</span>;
 };
 
 export default function AdminPrepRequests() {
   const { currentMarket } = useMarket();
+  const { t, tp, locale } = useAdminPrepRequestsTranslation();
   const persistedRef = useRef(null);
   if (persistedRef.current === null) {
     persistedRef.current = readJSON(tabSessionStorage, STORAGE_KEY, {});
@@ -74,16 +76,16 @@ export default function AdminPrepRequests() {
     [row.client_company_name, row.client_name, row.company_name].filter(Boolean).join(' / ') ||
     row.user_email ||
     'client';
-  const basePrompt = `Sigur dorești să ștergi recepția clientului ${clientLabel}?`;
+  const basePrompt = tp('list.deleteConfirm.base', { clientLabel });
   const firstPrompt =
     row.status === 'confirmed'
-      ? `${basePrompt}\nRequest ${shortId} este CONFIRMED.\nȘtergerea va elimina DEFINITIV și liniile + tracking.`
-      : `${basePrompt}\nRequest ${shortId} va fi șters definitiv.`;
+      ? tp('list.deleteConfirm.confirmed', { base: basePrompt, shortId })
+      : tp('list.deleteConfirm.normal', { base: basePrompt, shortId });
 
   if (!confirm(firstPrompt)) return;
 
   if (row.status === 'confirmed') {
-    const secondPrompt = `Confirmare suplimentară:\nRequest ${shortId} este CONFIRMED și va dispărea definitiv din istoric.\nApasă OK doar dacă ești 100% sigur.`;
+    const secondPrompt = tp('list.deleteConfirm.confirmedSecond', { shortId });
     if (!confirm(secondPrompt)) return;
   }
 
@@ -92,9 +94,9 @@ export default function AdminPrepRequests() {
     const { error } = await supabaseHelpers.deletePrepRequest(row.id);
     if (error) throw error;
     await load(1); // sau load(page) dacă preferi să rămâi pe pagină
-    setFlash('Request deleted.');
+    setFlash(t('list.flash.requestDeleted'));
   } catch (e) {
-    setFlash(e?.message || 'Delete failed.');
+    setFlash(e?.message || t('list.flash.deleteFailed'));
   }
 };
 
@@ -114,7 +116,7 @@ export default function AdminPrepRequests() {
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
-    setFlash(e?.message || 'Eroare la încărcare.');
+    setFlash(e?.message || t('list.flash.loadError'));
   } finally {
     setLoading(false);
   }
@@ -249,7 +251,7 @@ export default function AdminPrepRequests() {
 
   if (selectedId) {
     return (
-      <AdminPrepRequestDetail
+        <AdminPrepRequestDetail
         requestId={selectedId}
         onBack={() => setSelectedId(null)}
         onChanged={() => load(page)}
@@ -261,9 +263,9 @@ export default function AdminPrepRequests() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Prep Requests</h2>
+        <h2 className="text-xl font-semibold">{t('list.title')}</h2>
         <button onClick={() => load(page)} className="inline-flex items-center gap-2 px-3 py-2 border rounded">
-          <RefreshCw className="w-4 h-4" /> Refresh
+          <RefreshCw className="w-4 h-4" /> {t('list.refresh')}
         </button>
       </div>
 
@@ -273,7 +275,7 @@ export default function AdminPrepRequests() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Caută în ID / FBA ID / ASIN / SKU / nume / email / companie / store / status / țară…"
+            placeholder={t('list.searchPlaceholder')}
             className="pl-9 pr-9 py-2 w-80 border rounded-lg"
           />
           {q && (
@@ -281,8 +283,8 @@ export default function AdminPrepRequests() {
               type="button"
               onClick={() => setQ('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary"
-              aria-label="Clear search"
-              title="Clear search"
+              aria-label={t('list.clearSearch')}
+              title={t('list.clearSearch')}
             >
               <X className="w-4 h-4" />
             </button>
@@ -296,10 +298,10 @@ export default function AdminPrepRequests() {
             onChange={(e) => setStatus(e.target.value)}
             className="border rounded px-2 py-2"
           >
-            <option value="all">Toate</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{t('list.filters.all')}</option>
+            <option value="pending">{t('status.pending')}</option>
+            <option value="confirmed">{t('status.confirmed')}</option>
+            <option value="cancelled">{t('status.cancelled')}</option>
           </select>
         </div>
       </div>
@@ -312,70 +314,70 @@ export default function AdminPrepRequests() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50 text-text-secondary">
             <tr>
-              <th className="px-4 py-3 text-left">Creat la</th>
-              <th className="px-4 py-3 text-left">Finalizat la</th>
-              <th className="px-4 py-3 text-left">Client</th>
-              <th className="px-4 py-3 text-left">Store</th>
-              <th className="px-4 py-3 text-left">Țara</th>
-              <th className="px-4 py-3 text-left">Status</th>
-              <th className="px-4 py-3 text-right">Acțiuni</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.createdAt')}</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.completedAt')}</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.client')}</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.store')}</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.country')}</th>
+              <th className="px-4 py-3 text-left">{t('list.columns.status')}</th>
+              <th className="px-4 py-3 text-right">{t('list.columns.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
-                  Se încarcă…
+                  {t('list.loading')}
                 </td>
               </tr>
             ) : displayRows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-text-secondary">
-                  Nimic de afișat.
+                  {t('list.empty')}
                 </td>
               </tr>
             ) : (
               displayRows.map((r) => (
                 <tr key={r.id} className="border-t align-top">
-                  <td className="px-4 py-3">{new Date(r.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-3">{new Date(r.created_at).toLocaleString(locale)}</td>
                   <td className="px-4 py-3">
                     {r.completed_at || r.step4_confirmed_at || r.confirmed_at
-                      ? new Date(r.completed_at || r.step4_confirmed_at || r.confirmed_at).toLocaleString()
-                      : '—'}
+                      ? new Date(r.completed_at || r.step4_confirmed_at || r.confirmed_at).toLocaleString(locale)
+                      : t('common.none')}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-semibold">
-                      {r.client_company_name || r.company_name || r.client_name || '—'}
+                      {r.client_company_name || r.company_name || r.client_name || t('common.none')}
                     </div>
                     {r.client_name && r.client_name !== r.client_company_name && (
                       <div className="text-xs text-text-secondary">{r.client_name}</div>
                     )}
-                    <div className="text-xs text-text-secondary">{r.user_email || '—'}</div>
+                    <div className="text-xs text-text-secondary">{r.user_email || t('common.none')}</div>
                   </td>
-                  <td className="px-4 py-3">{r.company_name || r.store_name || '—'}</td>
+                  <td className="px-4 py-3">{r.company_name || r.store_name || t('common.none')}</td>
                   <td className="px-4 py-3">
                     <DestinationBadge code={r.destination_country || 'FR'} variant="subtle" />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1">
-                      <StatusPill s={r.status} />
+                      <StatusPill s={r.status} label={t(`status.${String(r.status || '').toLowerCase()}`)} />
                       {String(r.status || '').toLowerCase() === 'pending' && (() => {
                         const pendingSummary = getPendingItemsSummary(r);
                         if (!pendingSummary.skuCount && !pendingSummary.unitsTotal) return null;
                         return (
                           <span className="px-2 py-0.5 rounded text-[10px] bg-yellow-50 text-yellow-700 w-fit">
-                            SKU {pendingSummary.skuCount} • Units {pendingSummary.unitsTotal}
+                            {tp('list.pendingSummary', pendingSummary)}
                           </span>
                         );
                       })()}
                       {r.step2_confirmed_at && (
                         <span className="px-2 py-0.5 rounded text-[10px] bg-blue-100 text-blue-800 w-fit">
-                          Shipping confirmed
+                          {t('list.shippingConfirmed')}
                         </span>
                       )}
                       {r.step4_confirmed_at && (
                         <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 w-fit">
-                          Tracking confirmed
+                          {t('list.trackingConfirmed')}
                         </span>
                       )}
                     </div>
@@ -388,7 +390,7 @@ export default function AdminPrepRequests() {
                       }}
                       className="px-3 py-1 bg-primary text-white rounded"
                     >
-                      Deschide
+                      {t('list.open')}
                     </button>
                     <button
                       onClick={() => {
@@ -397,15 +399,15 @@ export default function AdminPrepRequests() {
                       }}
                       className="ml-2 px-3 py-1 bg-slate-700 text-white rounded"
                     >
-                      View shipping
+                      {t('list.viewShipping')}
                     </button>
                      <button
                       onClick={() => handleDelete(r)}
                       className="ml-2 px-3 py-1 bg-red-600 text-white rounded inline-flex items-center gap-1"
-                      title={`Delete request (${r.status})`}
+                      title={tp('list.deleteTitle', { status: t(`status.${String(r.status || '').toLowerCase()}`) })}
                     >
                       <Trash2 className="w-4 h-4" />
-                      Delete
+                      {t('common.delete')}
                     </button>
                   </td>
                 </tr>
@@ -421,18 +423,18 @@ export default function AdminPrepRequests() {
           className="px-2 py-1 border rounded disabled:opacity-50"
           onClick={() => handlePageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
-          title="Pagina anterioară"
+          title={t('list.previousPage')}
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="text-sm text-text-secondary">
-          Pagina {page} / {totalPages}
+          {tp('list.page', { page, totalPages })}
         </span>
         <button
           className="px-2 py-1 border rounded disabled:opacity-50"
           onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
-          title="Pagina următoare"
+          title={t('list.nextPage')}
         >
           <ChevronRight className="w-4 h-4" />
         </button>

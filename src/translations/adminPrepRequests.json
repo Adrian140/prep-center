@@ -1,0 +1,482 @@
+{
+  "en": {
+    "common": {
+      "back": "Back",
+      "backToList": "Back to list",
+      "save": "Save",
+      "delete": "Delete",
+      "close": "Close",
+      "add": "Add",
+      "loading": "Loading…",
+      "none": "—"
+    },
+    "status": {
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "cancelled": "Cancelled"
+    },
+    "list": {
+      "title": "Prep Requests",
+      "refresh": "Refresh",
+      "searchPlaceholder": "Search in ID / FBA ID / ASIN / SKU / name / email / company / store / status / country…",
+      "clearSearch": "Clear search",
+      "filters": {
+        "all": "All"
+      },
+      "columns": {
+        "createdAt": "Created at",
+        "completedAt": "Completed at",
+        "client": "Client",
+        "store": "Store",
+        "country": "Country",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "loading": "Loading…",
+      "empty": "Nothing to display.",
+      "pendingSummary": "SKU {skuCount} • Units {unitsTotal}",
+      "shippingConfirmed": "Shipping confirmed",
+      "trackingConfirmed": "Tracking confirmed",
+      "open": "Open",
+      "viewShipping": "View shipping",
+      "deleteTitle": "Delete request ({status})",
+      "page": "Page {page} / {totalPages}",
+      "previousPage": "Previous page",
+      "nextPage": "Next page",
+      "flash": {
+        "requestDeleted": "Request deleted.",
+        "deleteFailed": "Delete failed.",
+        "loadError": "Load failed."
+      },
+      "deleteConfirm": {
+        "base": "Are you sure you want to delete prep request for client {clientLabel}?",
+        "confirmed": "{base}\nRequest {shortId} is CONFIRMED.\nDeletion will permanently remove lines and tracking too.",
+        "normal": "{base}\nRequest {shortId} will be permanently deleted.",
+        "confirmedSecond": "Extra confirmation:\nRequest {shortId} is CONFIRMED and will permanently disappear from history.\nPress OK only if you are 100% sure."
+      }
+    },
+    "detail": {
+      "loadError": "Failed to load request",
+      "planMissingSession": "You must be signed in to load the Amazon plan. Please refresh and sign in again.",
+      "planSessionExpired": "Session expired while loading Amazon plan. Please sign in again.",
+      "planMissingInbound": "Amazon plan loaded, but inboundPlanId is missing. Please retry Step 1.",
+      "inventory": {
+        "loadError": "Failed to load inventory.",
+        "enterQuantity": "Enter a quantity before adding the product.",
+        "requestNotReady": "Request not ready yet.",
+        "productAdded": "Product added from inventory.",
+        "addFailed": "Failed to add product.",
+        "searchPlaceholder": "Search inventory by name / SKU / ASIN / EAN",
+        "showing": "Showing {count} item(s)",
+        "loading": "Loading inventory…",
+        "empty": "No inventory items match this search.",
+        "noImage": "No Img",
+        "inStock": "In stock: {qty}",
+        "qtyPlaceholder": "Qty",
+        "addButton": "Add"
+      },
+      "shipmentId": {
+        "title": "FBA Shipment ID",
+        "placeholder": "e.g. FBA15KXYZ…",
+        "saved": "Shipment ID saved.",
+        "help": "We store this ID so you can quickly find the shipment in Amazon."
+      },
+      "tracking": {
+        "title": "Tracking IDs",
+        "placeholder": "Add a tracking ID (you can add multiple)",
+        "empty": "— none",
+        "deleteConfirm": "Delete this tracking ID?"
+      },
+      "headerNote": {
+        "title": "Admin note (header)",
+        "hide": "Hide note",
+        "edit": "Edit note",
+        "add": "Add note",
+        "clientNoted": "Noted by client:",
+        "placeholder": "Explain why some units were removed / any packaging notes…",
+        "save": "Save note",
+        "saved": "Admin note saved."
+      },
+      "products": {
+        "title": "Products",
+        "setAllRequested": "Set all “Units to send” = Requested",
+        "setAllZero": "Set all = 0",
+        "hideInventory": "Hide inventory",
+        "addInventory": "Add from inventory",
+        "boxSaveHint": "Box assignments are saved when you click “Save” on each product row.",
+        "columns": {
+          "photo": "Photo",
+          "asinSku": "ASIN / SKU",
+          "productName": "Product name",
+          "unitsRequested": "Units requested",
+          "unitsToSend": "Units to send",
+          "unitsRemoved": "Units removed",
+          "boxes": "Boxes",
+          "adminNote": "Admin note",
+          "actions": "Actions"
+        },
+        "empty": "—",
+        "assigned": "Assigned: {assigned} / {total}",
+        "box": "Box",
+        "units": "Units",
+        "addBox": "+ Add box",
+        "removedPlaceholder": "Explain what was removed (weight limit, out of stock, etc.)",
+        "saveItemBoxes": "Item & boxes saved.",
+        "saveItemBoxesFailed": "Item saved but boxes failed: {error}",
+        "boxSaveFailed": "Box save failed: {error}",
+        "boxDataSaved": "Box data saved."
+      },
+      "boxSummary": {
+        "title": "Box shipping summary",
+        "saveBoxes": "Save boxes",
+        "saving": "Saving…",
+        "empty": "No boxes added yet.",
+        "box": "Box",
+        "item": "Item"
+      },
+      "actions": {
+        "reopenTitle": "Move back to pending so you can edit and confirm again",
+        "reopen": "Reopen for edits",
+        "confirmTitle": "Confirm (will subtract stock)",
+        "confirm": "Confirm"
+      },
+      "flash": {
+        "onlyPending": "Only pending requests can be confirmed.",
+        "missingCode": "Each product must have ASIN or SKU filled in before confirmation.",
+        "fixUnits": "Please fix Units to send values first.",
+        "reloadFailed": "Failed to reload request after saving items.",
+        "confirmFailed": "Confirmation failed.",
+        "emailFailed": "Request confirmed (status updated). Email failed: {error}",
+        "emailSuccess": "Request confirmed (status updated) and client notified by email.",
+        "reopenSuccess": "Request unlocked. Update the lines and confirm again when ready.",
+        "reopenFailed": "Unable to reopen request."
+      },
+      "confirmPrompt": "Confirm this request? Stock will be adjusted accordingly.",
+      "reopenPrompt": "This will move the request back to Pending so you can edit it. Make sure to adjust stock manually if needed. Continue?",
+      "requestNotFound": "Request not found.",
+      "requestLabel": "Request #{id}",
+      "companyLabel": "Company: {company}",
+      "statusLabel": "Status:"
+    }
+  },
+  "fr": {
+    "common": {
+      "back": "Retour",
+      "backToList": "Retour à la liste",
+      "save": "Enregistrer",
+      "delete": "Supprimer",
+      "close": "Fermer",
+      "add": "Ajouter",
+      "loading": "Chargement…",
+      "none": "—"
+    },
+    "status": {
+      "pending": "En attente",
+      "confirmed": "Confirmé",
+      "cancelled": "Annulé"
+    },
+    "list": {
+      "title": "Demandes prep",
+      "refresh": "Actualiser",
+      "searchPlaceholder": "Rechercher dans ID / ID FBA / ASIN / SKU / nom / email / société / boutique / statut / pays…",
+      "clearSearch": "Effacer la recherche",
+      "filters": {
+        "all": "Toutes"
+      },
+      "columns": {
+        "createdAt": "Créé le",
+        "completedAt": "Finalisé le",
+        "client": "Client",
+        "store": "Boutique",
+        "country": "Pays",
+        "status": "Statut",
+        "actions": "Actions"
+      },
+      "loading": "Chargement…",
+      "empty": "Rien à afficher.",
+      "pendingSummary": "SKU {skuCount} • Unités {unitsTotal}",
+      "shippingConfirmed": "Expédition confirmée",
+      "trackingConfirmed": "Tracking confirmé",
+      "open": "Ouvrir",
+      "viewShipping": "Voir l'expédition",
+      "deleteTitle": "Supprimer la demande ({status})",
+      "page": "Page {page} / {totalPages}",
+      "previousPage": "Page précédente",
+      "nextPage": "Page suivante",
+      "flash": {
+        "requestDeleted": "Demande supprimée.",
+        "deleteFailed": "La suppression a échoué.",
+        "loadError": "Échec du chargement."
+      },
+      "deleteConfirm": {
+        "base": "Voulez-vous vraiment supprimer la demande prep du client {clientLabel} ?",
+        "confirmed": "{base}\nLa demande {shortId} est CONFIRMÉE.\nLa suppression effacera définitivement les lignes et le tracking.",
+        "normal": "{base}\nLa demande {shortId} sera supprimée définitivement.",
+        "confirmedSecond": "Confirmation supplémentaire :\nLa demande {shortId} est CONFIRMÉE et disparaîtra définitivement de l'historique.\nAppuyez sur OK seulement si vous êtes certain à 100 %."
+      }
+    },
+    "detail": {
+      "loadError": "Impossible de charger la demande",
+      "planMissingSession": "Vous devez être connecté pour charger le plan Amazon. Actualisez la page puis reconnectez-vous.",
+      "planSessionExpired": "La session a expiré pendant le chargement du plan Amazon. Veuillez vous reconnecter.",
+      "planMissingInbound": "Le plan Amazon a été chargé, mais inboundPlanId est manquant. Veuillez relancer l'étape 1.",
+      "inventory": {
+        "loadError": "Impossible de charger l'inventaire.",
+        "enterQuantity": "Saisissez une quantité avant d'ajouter le produit.",
+        "requestNotReady": "La demande n'est pas encore prête.",
+        "productAdded": "Produit ajouté depuis l'inventaire.",
+        "addFailed": "Impossible d'ajouter le produit.",
+        "searchPlaceholder": "Rechercher dans l'inventaire par nom / SKU / ASIN / EAN",
+        "showing": "{count} article(s) affiché(s)",
+        "loading": "Chargement de l'inventaire…",
+        "empty": "Aucun article d'inventaire ne correspond à cette recherche.",
+        "noImage": "Pas d'image",
+        "inStock": "En stock : {qty}",
+        "qtyPlaceholder": "Qté",
+        "addButton": "Ajouter"
+      },
+      "shipmentId": {
+        "title": "ID d'expédition FBA",
+        "placeholder": "ex : FBA15KXYZ…",
+        "saved": "ID d'expédition enregistré.",
+        "help": "Nous enregistrons cet ID pour que vous retrouviez rapidement l'expédition dans Amazon."
+      },
+      "tracking": {
+        "title": "Tracking IDs",
+        "placeholder": "Ajouter un tracking ID (vous pouvez en ajouter plusieurs)",
+        "empty": "— aucun",
+        "deleteConfirm": "Supprimer ce tracking ID ?"
+      },
+      "headerNote": {
+        "title": "Note admin (en-tête)",
+        "hide": "Masquer la note",
+        "edit": "Modifier la note",
+        "add": "Ajouter une note",
+        "clientNoted": "Noté par le client :",
+        "placeholder": "Expliquez pourquoi certaines unités ont été retirées / notes d'emballage…",
+        "save": "Enregistrer la note",
+        "saved": "Note admin enregistrée."
+      },
+      "products": {
+        "title": "Produits",
+        "setAllRequested": "Mettre tous les « Units to send » = Requested",
+        "setAllZero": "Tout mettre à 0",
+        "hideInventory": "Masquer l'inventaire",
+        "addInventory": "Ajouter depuis l'inventaire",
+        "boxSaveHint": "Les affectations de cartons sont enregistrées lorsque vous cliquez sur « Enregistrer » sur chaque ligne produit.",
+        "columns": {
+          "photo": "Photo",
+          "asinSku": "ASIN / SKU",
+          "productName": "Nom du produit",
+          "unitsRequested": "Unités demandées",
+          "unitsToSend": "Unités à envoyer",
+          "unitsRemoved": "Unités retirées",
+          "boxes": "Cartons",
+          "adminNote": "Note admin",
+          "actions": "Actions"
+        },
+        "empty": "—",
+        "assigned": "Affecté : {assigned} / {total}",
+        "box": "Carton",
+        "units": "Unités",
+        "addBox": "+ Ajouter un carton",
+        "removedPlaceholder": "Expliquez ce qui a été retiré (limite de poids, rupture de stock, etc.)",
+        "saveItemBoxes": "Produit et cartons enregistrés.",
+        "saveItemBoxesFailed": "Produit enregistré mais échec pour les cartons : {error}",
+        "boxSaveFailed": "Échec de l'enregistrement des cartons : {error}",
+        "boxDataSaved": "Données des cartons enregistrées."
+      },
+      "boxSummary": {
+        "title": "Résumé d'expédition des cartons",
+        "saveBoxes": "Enregistrer les cartons",
+        "saving": "Enregistrement…",
+        "empty": "Aucun carton ajouté pour le moment.",
+        "box": "Carton",
+        "item": "Article"
+      },
+      "actions": {
+        "reopenTitle": "Remettre en attente pour modifier et confirmer à nouveau",
+        "reopen": "Rouvrir pour modifier",
+        "confirmTitle": "Confirmer (le stock sera déduit)",
+        "confirm": "Confirmer"
+      },
+      "flash": {
+        "onlyPending": "Seules les demandes en attente peuvent être confirmées.",
+        "missingCode": "Chaque produit doit avoir un ASIN ou un SKU renseigné avant confirmation.",
+        "fixUnits": "Veuillez d'abord corriger les valeurs des unités à envoyer.",
+        "reloadFailed": "Impossible de recharger la demande après l'enregistrement des lignes.",
+        "confirmFailed": "La confirmation a échoué.",
+        "emailFailed": "Demande confirmée (statut mis à jour). Échec de l'email : {error}",
+        "emailSuccess": "Demande confirmée (statut mis à jour) et client notifié par email.",
+        "reopenSuccess": "Demande déverrouillée. Mettez à jour les lignes puis confirmez de nouveau lorsqu'elle sera prête.",
+        "reopenFailed": "Impossible de rouvrir la demande."
+      },
+      "confirmPrompt": "Confirmer cette demande ? Le stock sera ajusté en conséquence.",
+      "reopenPrompt": "Cela remettra la demande en attente afin que vous puissiez la modifier. Vérifiez le stock manuellement si nécessaire. Continuer ?",
+      "requestNotFound": "Demande introuvable.",
+      "requestLabel": "Demande #{id}",
+      "companyLabel": "Société : {company}",
+      "statusLabel": "Statut :"
+    }
+  },
+  "ro": {
+    "common": {
+      "back": "Înapoi",
+      "backToList": "Înapoi la listă",
+      "save": "Salvează",
+      "delete": "Șterge",
+      "close": "Închide",
+      "add": "Adaugă",
+      "loading": "Se încarcă…",
+      "none": "—"
+    },
+    "status": {
+      "pending": "În așteptare",
+      "confirmed": "Confirmat",
+      "cancelled": "Anulat"
+    },
+    "list": {
+      "title": "Cereri prep",
+      "refresh": "Reîmprospătează",
+      "searchPlaceholder": "Caută în ID / FBA ID / ASIN / SKU / nume / email / companie / store / status / țară…",
+      "clearSearch": "Șterge căutarea",
+      "filters": {
+        "all": "Toate"
+      },
+      "columns": {
+        "createdAt": "Creat la",
+        "completedAt": "Finalizat la",
+        "client": "Client",
+        "store": "Store",
+        "country": "Țara",
+        "status": "Status",
+        "actions": "Acțiuni"
+      },
+      "loading": "Se încarcă…",
+      "empty": "Nimic de afișat.",
+      "pendingSummary": "SKU {skuCount} • Unități {unitsTotal}",
+      "shippingConfirmed": "Expediere confirmată",
+      "trackingConfirmed": "Tracking confirmat",
+      "open": "Deschide",
+      "viewShipping": "Vezi expedierea",
+      "deleteTitle": "Șterge cererea ({status})",
+      "page": "Pagina {page} / {totalPages}",
+      "previousPage": "Pagina anterioară",
+      "nextPage": "Pagina următoare",
+      "flash": {
+        "requestDeleted": "Cerere ștearsă.",
+        "deleteFailed": "Ștergerea a eșuat.",
+        "loadError": "Eroare la încărcare."
+      },
+      "deleteConfirm": {
+        "base": "Sigur dorești să ștergi cererea prep a clientului {clientLabel}?",
+        "confirmed": "{base}\nCererea {shortId} este CONFIRMED.\nȘtergerea va elimina definitiv și liniile + tracking.",
+        "normal": "{base}\nCererea {shortId} va fi ștearsă definitiv.",
+        "confirmedSecond": "Confirmare suplimentară:\nCererea {shortId} este CONFIRMED și va dispărea definitiv din istoric.\nApasă OK doar dacă ești 100% sigur."
+      }
+    },
+    "detail": {
+      "loadError": "Nu am putut încărca cererea",
+      "planMissingSession": "Trebuie să fii autentificat pentru a încărca planul Amazon. Reîmprospătează pagina și autentifică-te din nou.",
+      "planSessionExpired": "Sesiunea a expirat în timp ce se încărca planul Amazon. Te rugăm să te autentifici din nou.",
+      "planMissingInbound": "Planul Amazon a fost încărcat, dar lipsește inboundPlanId. Reîncearcă pasul 1.",
+      "inventory": {
+        "loadError": "Nu am putut încărca inventarul.",
+        "enterQuantity": "Introdu o cantitate înainte de a adăuga produsul.",
+        "requestNotReady": "Cererea nu este încă pregătită.",
+        "productAdded": "Produs adăugat din inventar.",
+        "addFailed": "Nu am putut adăuga produsul.",
+        "searchPlaceholder": "Caută în inventar după nume / SKU / ASIN / EAN",
+        "showing": "Se afișează {count} articol(e)",
+        "loading": "Se încarcă inventarul…",
+        "empty": "Niciun articol din inventar nu corespunde acestei căutări.",
+        "noImage": "Fără poză",
+        "inStock": "În stoc: {qty}",
+        "qtyPlaceholder": "Cant.",
+        "addButton": "Adaugă"
+      },
+      "shipmentId": {
+        "title": "ID expediere FBA",
+        "placeholder": "ex: FBA15KXYZ…",
+        "saved": "ID-ul expediției a fost salvat.",
+        "help": "Stocăm acest ID ca să găsești rapid expediția în Amazon."
+      },
+      "tracking": {
+        "title": "Tracking IDs",
+        "placeholder": "Adaugă un tracking ID (poți adăuga mai multe)",
+        "empty": "— niciunul",
+        "deleteConfirm": "Ștergi acest tracking ID?"
+      },
+      "headerNote": {
+        "title": "Notă admin (header)",
+        "hide": "Ascunde nota",
+        "edit": "Editează nota",
+        "add": "Adaugă notă",
+        "clientNoted": "Notat de client:",
+        "placeholder": "Explică de ce au fost eliminate unele unități / note de ambalare…",
+        "save": "Salvează nota",
+        "saved": "Nota admin a fost salvată."
+      },
+      "products": {
+        "title": "Produse",
+        "setAllRequested": "Setează toate „Units to send” = Requested",
+        "setAllZero": "Setează tot = 0",
+        "hideInventory": "Ascunde inventarul",
+        "addInventory": "Adaugă din inventar",
+        "boxSaveHint": "Alocările pe cutii se salvează când apeși „Salvează” pe fiecare rând de produs.",
+        "columns": {
+          "photo": "Poză",
+          "asinSku": "ASIN / SKU",
+          "productName": "Nume produs",
+          "unitsRequested": "Unități cerute",
+          "unitsToSend": "Unități de trimis",
+          "unitsRemoved": "Unități eliminate",
+          "boxes": "Cutii",
+          "adminNote": "Notă admin",
+          "actions": "Acțiuni"
+        },
+        "empty": "—",
+        "assigned": "Alocate: {assigned} / {total}",
+        "box": "Cutie",
+        "units": "Unități",
+        "addBox": "+ Adaugă cutie",
+        "removedPlaceholder": "Explică ce a fost eliminat (limită de greutate, lipsă stoc etc.)",
+        "saveItemBoxes": "Produsul și cutiile au fost salvate.",
+        "saveItemBoxesFailed": "Produs salvat, dar cutiile au eșuat: {error}",
+        "boxSaveFailed": "Salvarea cutiilor a eșuat: {error}",
+        "boxDataSaved": "Datele cutiilor au fost salvate."
+      },
+      "boxSummary": {
+        "title": "Rezumat expediere cutii",
+        "saveBoxes": "Salvează cutiile",
+        "saving": "Se salvează…",
+        "empty": "Nu există încă nicio cutie adăugată.",
+        "box": "Cutie",
+        "item": "Articol"
+      },
+      "actions": {
+        "reopenTitle": "Mută înapoi pe pending ca să poți edita și confirma din nou",
+        "reopen": "Redeschide pentru editare",
+        "confirmTitle": "Confirmă (va scădea stocul)",
+        "confirm": "Confirmă"
+      },
+      "flash": {
+        "onlyPending": "Doar cererile pending pot fi confirmate.",
+        "missingCode": "Fiecare produs trebuie să aibă completat ASIN sau SKU înainte de confirmare.",
+        "fixUnits": "Te rugăm să corectezi mai întâi valorile pentru Units to send.",
+        "reloadFailed": "Nu am putut reîncărca cererea după salvarea liniilor.",
+        "confirmFailed": "Confirmarea a eșuat.",
+        "emailFailed": "Cererea a fost confirmată (status actualizat). Emailul a eșuat: {error}",
+        "emailSuccess": "Cererea a fost confirmată (status actualizat) și clientul a fost notificat pe email.",
+        "reopenSuccess": "Cererea a fost deblocată. Actualizează liniile și confirmă din nou când este gata.",
+        "reopenFailed": "Nu am putut redeschide cererea."
+      },
+      "confirmPrompt": "Confirmi această cerere? Stocul va fi ajustat corespunzător.",
+      "reopenPrompt": "Asta va muta cererea înapoi pe Pending ca să o poți edita. Verifică manual stocul dacă este nevoie. Continui?",
+      "requestNotFound": "Cererea nu a fost găsită.",
+      "requestLabel": "Cerere #{id}",
+      "companyLabel": "Companie: {company}",
+      "statusLabel": "Status:"
+    }
+  }
+}
