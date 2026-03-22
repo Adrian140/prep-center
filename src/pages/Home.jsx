@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "../translations";
 import { supabaseHelpers } from "../config/supabase";
+import { usePublicStats } from "@/hooks/usePublicStats";
 
 function AnimatedCounter({ target, suffix = "", duration = 2000 }) {
   const [count, setCount] = useState(0);
@@ -67,6 +68,7 @@ function FadeInSection({ children, className = "", delay = 0 }) {
 
 function Home() {
   const { t } = useTranslation();
+  const { happyClientsTotal, experienceDisplay } = usePublicStats();
   const [reviews, setReviews] = useState([]);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
@@ -140,9 +142,9 @@ function Home() {
   ];
 
   const stats = [
-    { number: "5+", label: t("yearsExperience"), icon: Clock },
+    { number: experienceDisplay, label: t("yearsExperience"), icon: Clock, animated: false },
     { number: "700K+", label: t("ordersProcessed"), icon: Package },
-    { number: "150+", label: t("happyClients"), icon: Users },
+    { number: String(happyClientsTotal), label: t("happyClients"), icon: Users },
     { number: "24h", label: t("averageTurnaround"), icon: Zap }
   ];
 
@@ -179,7 +181,7 @@ function Home() {
                     <Star key={i} className="w-4 h-4 text-amber-400 fill-amber-400" />
                   ))}
                 </div>
-                <span className="text-lg text-white/60 font-medium">150+ Happy Clients</span>
+                <span className="text-lg text-white/60 font-medium">{happyClientsTotal} {t("happyClients")}</span>
               </div>
 
               <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-semibold text-white mb-8 leading-[1.08] tracking-tight" style={{ textWrap: "balance" }}>
@@ -220,7 +222,7 @@ function Home() {
                       </div>
                       <div>
                         <div className="text-3xl font-bold text-white">
-                          <AnimatedCounter target={stat.number} />
+                          {stat.animated === false ? stat.number : <AnimatedCounter target={stat.number} />}
                         </div>
                         <div className="text-lg text-white/40 font-light">{stat.label}</div>
                       </div>
@@ -243,7 +245,7 @@ function Home() {
               <FadeInSection key={i} delay={i * 100}>
                 <div className="text-center p-5 bg-gray-50 rounded-md">
                   <div className="text-3xl font-bold text-text-primary mb-1">
-                    <AnimatedCounter target={stat.number} />
+                    {stat.animated === false ? stat.number : <AnimatedCounter target={stat.number} />}
                   </div>
                   <div className="text-lg text-text-secondary font-light">{stat.label}</div>
                 </div>

@@ -5,6 +5,7 @@ import {
   Users, Clock, Shield, MapPin, ArrowRight, ChevronLeft, ChevronRight,
   Building2, Globe, Zap, CheckCircle, Package
 } from "lucide-react";
+import { usePublicStats } from "@/hooks/usePublicStats";
 
 function FadeIn({ children, className = "", delay = 0 }) {
   const [visible, setVisible] = useState(false);
@@ -82,6 +83,7 @@ const IMAGES = [
 function About() {
   const { currentLanguage } = useLanguage();
   const { t } = useAboutTranslation(currentLanguage);
+  const { happyClientsTotal, experienceDisplay } = usePublicStats();
 
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imgFade, setImgFade] = useState(true);
@@ -114,9 +116,9 @@ function About() {
   };
 
   const stats = [
-    { number: "5+", label: t("yearsExperience"), icon: Clock },
+    { number: experienceDisplay, label: t("yearsExperience"), icon: Clock, animated: false },
     { number: "700K+", label: t("ordersProcessed"), icon: Package },
-    { number: "150+", label: t("happyClients"), icon: Users },
+    { number: String(happyClientsTotal), label: t("happyClients"), icon: Users },
     { number: "24h", label: t("averageTurnaround"), icon: Zap }
   ];
 
@@ -195,7 +197,7 @@ function About() {
               <FadeIn key={i} delay={i * 100}>
                 <div className="text-center p-5 bg-gray-50 rounded-md">
                   <div className="text-3xl font-bold text-text-primary mb-1">
-                    <AnimatedCounter target={stat.number} />
+                    {stat.animated === false ? stat.number : <AnimatedCounter target={stat.number} />}
                   </div>
                   <div className="text-lg text-text-secondary font-light">{stat.label}</div>
                 </div>
