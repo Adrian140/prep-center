@@ -663,7 +663,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const [labelsError, setLabelsError] = useState('');
   const [step3Confirming, setStep3Confirming] = useState(false);
   const [step3Error, setStep3Error] = useState('');
-  const [manualFbaShipmentId, setManualFbaShipmentId] = useState('');
+  const [manualFbaShipmentIds, setManualFbaShipmentIds] = useState({});
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState('');
   const [loadingPlan, setLoadingPlan] = useState(false);
@@ -4965,14 +4965,20 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       // Persistăm ID-ul confirmat ca să nu se piardă până la pasul 4.
       const normalizedConfirmationId = String(confirmationId).trim().toUpperCase();
-      setManualFbaShipmentId((prev) => prev || normalizedConfirmationId);
-      if (!plan?.fba_shipment_id || String(plan.fba_shipment_id).trim().toUpperCase() !== normalizedConfirmationId) {
-        await supabase
-          .from('prep_requests')
-          .update({ fba_shipment_id: normalizedConfirmationId })
-          .eq('id', requestId);
-        setPlan((prev) => ({ ...prev, fba_shipment_id: normalizedConfirmationId }));
-      }
+      const shipmentKey = getShipmentKey(shipment);
+      setManualFbaShipmentIds((prev) => ({
+        ...prev,
+        ...(shipmentKey ? { [shipmentKey]: normalizedConfirmationId } : {})
+      }));
+      await updateShipmentAmazonIds((current) => {
+        const currentKey = getShipmentKey(current);
+        if (currentKey !== shipmentKey) return current;
+        return {
+          ...current,
+          amazonShipmentId: normalizedConfirmationId,
+          shipmentConfirmationId: normalizedConfirmationId
+        };
+      });
       const partnered = Boolean(shipmentMode?.carrier?.partnered);
       const packageCount = Number(shipment?.boxes || 0) || 1;
       const needsPageParams = !partnered || (shipmentMode?.method && shipmentMode.method !== 'SPD');
@@ -5012,6 +5018,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return /^FBA[0-9A-Z]+$/i.test(normalized);
   };
 
+  const getShipmentKey = (shipment, fallbackIndex = null) =>
+    String(
+      shipment?.shipmentId ||
+        shipment?.id ||
+        shipment?.packingGroupId ||
+        (Number.isInteger(fallbackIndex) ? `shipment-${fallbackIndex}` : '')
+    );
+
   const resolveFbaShipmentIdFromList = (inputList) => {
     const list = Array.isArray(inputList) ? inputList : [];
     const candidates = list.flatMap((s) => [
@@ -5023,17 +5037,58 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return picked ? String(picked).trim().toUpperCase() : null;
   };
 
-  const resolveFbaShipmentId = () => resolveFbaShipmentIdFromList(shipments);
   const normalizeManualFbaShipmentId = (value) => {
     const str = String(value || '').trim().toUpperCase();
     return isFbaShipmentId(str) ? str : null;
   };
 
+  const buildManualFbaShipmentIds = (shipmentList, fallbackValue = null) => {
+    const next = {};
+    (Array.isArray(shipmentList) ? shipmentList : []).forEach((shipment, idx) => {
+      const key = getShipmentKey(shipment, idx);
+      if (!key) return;
+      const resolved =
+        normalizeManualFbaShipmentId(shipment?.amazonShipmentId) ||
+        normalizeManualFbaShipmentId(shipment?.shipmentConfirmationId) ||
+        (idx === 0 ? normalizeManualFbaShipmentId(fallbackValue) : null);
+      if (resolved) next[key] = resolved;
+    });
+    return next;
+  };
+
+  const updateShipmentAmazonIds = async (updater) => {
+    const requestId = resolveRequestId();
+    let nextShipments = [];
+    setShipments((prev) => {
+      nextShipments = (Array.isArray(prev) ? prev : []).map(updater);
+      return nextShipments;
+    });
+    const nextManualIds = buildManualFbaShipmentIds(
+      nextShipments,
+      plan?.fba_shipment_id || plan?.fba_shipmentId || null
+    );
+    setManualFbaShipmentIds(nextManualIds);
+    if (!requestId) return;
+    const firstResolvedId =
+      resolveFbaShipmentIdFromList(nextShipments) ||
+      Object.values(nextManualIds).find((value) => normalizeManualFbaShipmentId(value)) ||
+      null;
+    const payload = {
+      step2_shipments: nextShipments,
+      ...(firstResolvedId ? { fba_shipment_id: firstResolvedId } : {})
+    };
+    const { error: updateErr } = await supabase
+      .from('prep_requests')
+      .update(payload)
+      .eq('id', requestId);
+    if (updateErr) throw updateErr;
+    setPlan((prev) => ({ ...prev, ...payload }));
+  };
+
   useEffect(() => {
     const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
-    const normalized = normalizeManualFbaShipmentId(existingIdRaw);
-    if (normalized) setManualFbaShipmentId(normalized);
-  }, [plan?.fba_shipment_id, plan?.fba_shipmentId]);
+    setManualFbaShipmentIds(buildManualFbaShipmentIds(shipments, existingIdRaw));
+  }, [shipments, plan?.fba_shipment_id, plan?.fba_shipmentId]);
 
   const finalizeStep3 = async () => {
     if (step3Confirming) return;
@@ -5048,11 +5103,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     }
     const existingIdRaw = plan?.fba_shipment_id || plan?.fba_shipmentId || null;
     const existingFbaId = isFbaShipmentId(existingIdRaw) ? String(existingIdRaw).trim().toUpperCase() : null;
-    const manualId = normalizeManualFbaShipmentId(manualFbaShipmentId);
-    const shipmentId = resolveFbaShipmentId() || manualId || existingFbaId;
-    if (!shipmentId) {
+    const nextShipments = (Array.isArray(shipments) ? shipments : []).map((shipment, idx) => {
+      const manualId = normalizeManualFbaShipmentId(manualFbaShipmentIds?.[getShipmentKey(shipment, idx)]);
+      const resolvedId =
+        normalizeManualFbaShipmentId(shipment?.amazonShipmentId) ||
+        normalizeManualFbaShipmentId(shipment?.shipmentConfirmationId) ||
+        manualId ||
+        (idx === 0 ? existingFbaId : null);
+      return resolvedId ? { ...shipment, amazonShipmentId: resolvedId } : shipment;
+    });
+    const missingShipment = nextShipments.find((shipment) => !normalizeManualFbaShipmentId(shipment?.amazonShipmentId));
+    const shipmentId = resolveFbaShipmentIdFromList(nextShipments) || existingFbaId;
+    if (missingShipment || !shipmentId) {
       setStep3Error(
-        tt('step3ErrorMissingShipmentId', 'Could not find FBA shipment ID from Amazon. Please enter it manually.')
+        missingShipment
+          ? `Missing FBA shipment ID for ${missingShipment?.name || missingShipment?.shipmentId || missingShipment?.packingGroupId || 'shipment'}.`
+          : tt('step3ErrorMissingShipmentId', 'Could not find FBA shipment ID from Amazon. Please enter it manually.')
       );
       return;
     }
@@ -5064,6 +5130,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (!existingFbaId || String(existingFbaId) !== String(shipmentId)) {
         updatePayload.fba_shipment_id = shipmentId;
       }
+      updatePayload.step2_shipments = nextShipments;
       if (Object.keys(updatePayload).length) {
         const { error: updateErr } = await supabase
           .from('prep_requests')
@@ -5083,6 +5150,15 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     } finally {
       setStep3Confirming(false);
     }
+  };
+
+  const handleManualShipmentIdChange = (shipment, value) => {
+    const key = getShipmentKey(shipment);
+    if (!key) return;
+    setManualFbaShipmentIds((prev) => ({
+      ...prev,
+      [key]: String(value || '').toUpperCase()
+    }));
   };
 
   const loadInboundPlanBoxes = async () => {
@@ -5815,8 +5891,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           printLoadingId={labelsLoadingId}
           confirming={step3Confirming}
           error={step3Error || labelsError}
-          manualFbaShipmentId={manualFbaShipmentId}
-          onManualFbaShipmentIdChange={setManualFbaShipmentId}
+          manualFbaShipmentIds={manualFbaShipmentIds}
+          onManualFbaShipmentIdChange={handleManualShipmentIdChange}
           onBack={() => goToStep('2')}
           onNext={finalizeStep3}
         />

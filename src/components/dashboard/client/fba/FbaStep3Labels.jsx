@@ -10,7 +10,7 @@ export default function FbaStep3Labels({
   printLoadingId,
   confirming,
   error,
-  manualFbaShipmentId,
+  manualFbaShipmentIds,
   onManualFbaShipmentIdChange,
   onBack,
   onNext
@@ -47,9 +47,25 @@ export default function FbaStep3Labels({
             </div>
 
             <div className="px-4 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div className="flex items-center gap-2 text-slate-700">
-                <Printer className="w-5 h-5" />
-                <span className="font-semibold">{tt('printBoxLabels', 'Print box labels')}</span>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Printer className="w-5 h-5" />
+                  <span className="font-semibold">{tt('printBoxLabels', 'Print box labels')}</span>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1">
+                    {tt('manualShipmentId', 'FBA shipment ID (manual)')}
+                  </label>
+                  <input
+                    className="w-full md:w-[320px] border border-slate-300 rounded-md px-3 py-2 text-sm"
+                    placeholder={tt('manualPlaceholder', 'Ex: FBA123456789')}
+                    value={manualFbaShipmentIds?.[s.shipmentId || s.id] || ''}
+                    onChange={(e) => onManualFbaShipmentIdChange?.(s, e.target.value)}
+                  />
+                  <div className="text-xs text-slate-500 mt-1">
+                    {tt('manualHelp', 'Fill this in only if Amazon did not return the shipment ID automatically.')}
+                  </div>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <select
@@ -72,21 +88,6 @@ export default function FbaStep3Labels({
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="px-6 pb-2">
-        <label className="block text-sm font-semibold text-slate-700 mb-1">
-          {tt('manualShipmentId', 'FBA shipment ID (manual)')}
-        </label>
-        <input
-          className="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"
-          placeholder={tt('manualPlaceholder', 'Ex: FBA123456789')}
-          value={manualFbaShipmentId || ''}
-          onChange={(e) => onManualFbaShipmentIdChange?.(e.target.value)}
-        />
-        <div className="text-xs text-slate-500 mt-1">
-          {tt('manualHelp', 'Fill this in only if Amazon did not return the shipment ID automatically.')}
-        </div>
       </div>
 
       <div className="px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
