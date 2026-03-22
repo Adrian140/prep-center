@@ -4288,10 +4288,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return;
     }
     const contactInformation = resolveContactInformation();
-    if (shipmentMode?.method && shipmentMode.method !== 'SPD' && !contactInformation) {
-      setShippingError('Contact information is required for pallet shipments. Complete ship-from contact name, phone and email first.');
-      return;
-    }
     const globalReadyStart =
       Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
     const globalReadyEnd =
@@ -4641,11 +4637,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       let windowStart = normalizeShipDate(shipmentMode?.deliveryWindowStart);
       let windowEnd = normalizeShipDate(shipmentMode?.deliveryWindowEnd);
       const contactInformation = resolveContactInformation();
-      if (shipmentMode?.method && shipmentMode.method !== 'SPD' && !contactInformation) {
-        setShippingConfirming(false);
-        setShippingError('Contact information is required for pallet shipments. Complete ship-from contact name, phone and email first.');
-        return;
-      }
       const globalReadyStart =
         Object.values(readyWindowByShipment || {}).find((w) => w?.start)?.start || null;
       const globalReadyEnd =
