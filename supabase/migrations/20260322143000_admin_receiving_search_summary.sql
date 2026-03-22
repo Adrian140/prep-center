@@ -1,4 +1,5 @@
-create extension if not exists pg_trgm;
+create schema if not exists extensions;
+create extension if not exists pg_trgm with schema extensions;
 
 create index if not exists idx_receiving_shipments_admin_market_status_created
   on public.receiving_shipments (warehouse_country, status, created_at desc);
@@ -13,37 +14,37 @@ create index if not exists idx_receiving_item_events_receiving_item_created
   on public.receiving_item_events (receiving_item_id, created_at desc);
 
 create index if not exists idx_receiving_shipments_tracking_trgm
-  on public.receiving_shipments using gin (lower(coalesce(tracking_id, '')) gin_trgm_ops);
+  on public.receiving_shipments using gin (lower(coalesce(tracking_id, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_profiles_store_name_trgm
-  on public.profiles using gin (lower(coalesce(store_name, '')) gin_trgm_ops);
+  on public.profiles using gin (lower(coalesce(store_name, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_profiles_email_trgm
-  on public.profiles using gin (lower(coalesce(email, '')) gin_trgm_ops);
+  on public.profiles using gin (lower(coalesce(email, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_companies_name_trgm
-  on public.companies using gin (lower(coalesce(name, '')) gin_trgm_ops);
+  on public.companies using gin (lower(coalesce(name, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_items_sku_trgm
-  on public.receiving_items using gin (lower(coalesce(sku, '')) gin_trgm_ops);
+  on public.receiving_items using gin (lower(coalesce(sku, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_items_product_name_trgm
-  on public.receiving_items using gin (lower(coalesce(product_name, '')) gin_trgm_ops);
+  on public.receiving_items using gin (lower(coalesce(product_name, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_items_ean_asin_trgm
-  on public.receiving_items using gin (lower(coalesce(ean_asin, '')) gin_trgm_ops);
+  on public.receiving_items using gin (lower(coalesce(ean_asin, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_shipment_items_asin_trgm
-  on public.receiving_shipment_items using gin (lower(coalesce(asin, '')) gin_trgm_ops);
+  on public.receiving_shipment_items using gin (lower(coalesce(asin, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_shipment_items_sku_trgm
-  on public.receiving_shipment_items using gin (lower(coalesce(sku, '')) gin_trgm_ops);
+  on public.receiving_shipment_items using gin (lower(coalesce(sku, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_shipment_items_product_name_trgm
-  on public.receiving_shipment_items using gin (lower(coalesce(product_name, '')) gin_trgm_ops);
+  on public.receiving_shipment_items using gin (lower(coalesce(product_name, '')) extensions.gin_trgm_ops);
 
 create index if not exists idx_receiving_shipment_items_ean_trgm
-  on public.receiving_shipment_items using gin (lower(coalesce(ean, '')) gin_trgm_ops);
+  on public.receiving_shipment_items using gin (lower(coalesce(ean, '')) extensions.gin_trgm_ops);
 
 create or replace function public.search_admin_receiving_shipments(
   p_warehouse_country text default null,
