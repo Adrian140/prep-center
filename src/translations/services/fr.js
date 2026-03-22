@@ -246,8 +246,8 @@ export const servicesFr = {
     domesticSubtitle: 'Expéditions domestiques – France (estimations Packlink)',
     domesticDisclaimer: 'Estimations Packlink indicatives uniquement. Pour des tarifs exacts, contactez-nous.',
     internationalTitle: 'Tarifs d’expédition internationaux',
-    internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs (estimations Packlink)',
-    internationalDisclaimer: 'Estimations Packlink indicatives uniquement. Pour des tarifs exacts, contactez-nous.',
+    internationalSubtitle: 'Choisissez la destination pour comparer les transporteurs pour des expéditions envoyées depuis la France (estimations Packlink)',
+    internationalDisclaimer: 'Estimations Packlink indicatives pour des expéditions envoyées depuis la France vers la destination sélectionnée. Pour des tarifs exacts, contactez-nous.',
     dropdownLabel: 'Sélectionnez la destination',
     table: {
       transporter: 'Transporteur',

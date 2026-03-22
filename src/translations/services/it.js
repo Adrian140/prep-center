@@ -246,8 +246,8 @@ export const servicesIt = {
     domesticSubtitle: 'Spedizioni nazionali – Francia (stime Packlink)',
     domesticDisclaimer: 'Solo stime Packlink indicative. Per tariffe esatte contattaci.',
     internationalTitle: 'Tariffe di spedizione internazionali',
-    internationalSubtitle: 'Scegli la destinazione per confrontare i vettori (stime Packlink)',
-    internationalDisclaimer: 'Solo stime Packlink indicative. Per tariffe esatte contattaci.',
+    internationalSubtitle: 'Scegli la destinazione per confrontare i corrieri per spedizioni inviate dalla Francia (stime Packlink)',
+    internationalDisclaimer: 'Stime Packlink indicative per spedizioni inviate dalla Francia verso la destinazione selezionata. Per tariffe esatte contattaci.',
     dropdownLabel: 'Seleziona destinazione',
     table: {
       transporter: 'Vettore',

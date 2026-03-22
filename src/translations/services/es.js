@@ -246,8 +246,8 @@ export const servicesEs = {
     domesticSubtitle: 'Envíos nacionales – Francia (estimaciones Packlink)',
     domesticDisclaimer: 'Solo estimaciones Packlink orientativas. Para tarifas exactas, contáctanos.',
     internationalTitle: 'Tarifas de envío internacionales',
-    internationalSubtitle: 'Elige el destino para comparar transportistas (estimaciones Packlink)',
-    internationalDisclaimer: 'Solo estimaciones Packlink orientativas. Para tarifas exactas, contáctanos.',
+    internationalSubtitle: 'Elige el destino para comparar transportistas para envíos enviados desde Francia (estimaciones Packlink)',
+    internationalDisclaimer: 'Estimaciones Packlink orientativas para envíos enviados desde Francia al destino seleccionado. Para tarifas exactas, contáctanos.',
     dropdownLabel: 'Selecciona destino',
     table: {
       transporter: 'Transportista',

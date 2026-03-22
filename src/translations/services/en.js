@@ -246,8 +246,8 @@ export const servicesEn = {
     domesticSubtitle: 'Domestic shipping – France (Packlink estimates)',
     domesticDisclaimer: 'Indicative Packlink estimates only. For exact shipping rates, please contact us.',
     internationalTitle: 'International Shipping Rates',
-    internationalSubtitle: 'Choose destination to compare transporters (Packlink estimates)',
-    internationalDisclaimer: 'Indicative Packlink estimates only. For exact rates, please contact us.',
+    internationalSubtitle: 'Choose destination to compare transporters for shipments sent from France (Packlink estimates)',
+    internationalDisclaimer: 'Indicative Packlink estimates for shipments sent from France to the selected destination. For exact rates, please contact us.',
     dropdownLabel: 'Select destination',
     table: {
       transporter: 'Transporter',

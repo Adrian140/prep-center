@@ -245,8 +245,8 @@ export const servicesRo = {
     domesticSubtitle: 'Expediere internă – Franța (estimări Packlink)',
     domesticDisclaimer: 'Estimări Packlink orientative. Pentru tarife exacte, contactează-ne.',
     internationalTitle: 'Tarife de expediere internaționale',
-    internationalSubtitle: 'Alege destinația pentru a compara transportatorii (estimări Packlink)',
-    internationalDisclaimer: 'Estimări Packlink orientative. Pentru tarife exacte, contactează-ne.',
+    internationalSubtitle: 'Alege destinația pentru a compara transportatorii pentru expedieri trimise din Franța (estimări Packlink)',
+    internationalDisclaimer: 'Estimări Packlink orientative pentru expedieri trimise din Franța către destinația selectată. Pentru tarife exacte, contactează-ne.',
     dropdownLabel: 'Selectează destinația',
     table: {
       transporter: 'Transportator',

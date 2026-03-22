@@ -246,8 +246,8 @@ export const servicesDe = {
     domesticSubtitle: 'Lieferungen innerhalb Frankreichs (Packlink-Schätzungen)',
     domesticDisclaimer: 'Nur indikative Packlink-Schätzungen. Für exakte Tarife kontaktieren Sie uns bitte.',
     internationalTitle: 'Paketversandtarife – International',
-    internationalSubtitle: 'Ziel auswählen und Spediteure vergleichen (Packlink-Schätzungen)',
-    internationalDisclaimer: 'Nur indikative Packlink-Schätzungen. Für exakte Tarife kontaktieren Sie uns bitte.',
+    internationalSubtitle: 'Wählen Sie das Zielland, um Transportdienstleister für Sendungen aus Frankreich zu vergleichen (Packlink-Schätzungen)',
+    internationalDisclaimer: 'Unverbindliche Packlink-Schätzungen für Sendungen aus Frankreich an das ausgewählte Zielland. Für genaue Tarife kontaktieren Sie uns bitte.',
     dropdownLabel: 'Ziel auswählen',
     table: {
       transporter: 'Transporteur',
