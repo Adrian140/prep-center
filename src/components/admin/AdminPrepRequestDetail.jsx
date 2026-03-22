@@ -139,7 +139,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
         return {
           id: pg?.id || pg?.packingGroupId || `pg-${idx + 1}`,
           packingGroupId: pg?.packingGroupId || pg?.id || `pg-${idx + 1}`,
-          title: pg?.title || pg?.destLabel || `Pack group ${idx + 1}`,
+          title: pg?.title || pg?.destLabel || tp('detail.wizard.packGroup', { index: idx + 1 }),
           items,
           skuCount: Number(pg?.skuCount) || items.length || 0,
           units: units || 0,
@@ -160,7 +160,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     const items = Array.isArray(row.prep_request_items) ? row.prep_request_items : [];
     return items.map((it, idx) => ({
       id: it.id || `pack-${idx}`,
-      title: `Pack group ${idx + 1}`,
+      title: tp('detail.wizard.packGroup', { index: idx + 1 }),
       skuCount: 1,
       units: Number(it.units_sent ?? it.units_requested ?? 0),
       boxes: 1,
@@ -200,7 +200,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       const snap = (key && skuMap.get(key)) || {};
       return {
         id: it.id || `sku-${idx}`,
-        title: it.product_name || snap?.title || snap?.name || it.stock_item?.name || `SKU ${idx + 1}`,
+        title: it.product_name || snap?.title || snap?.name || it.stock_item?.name || tp('detail.wizard.skuFallback', { index: idx + 1 }),
         sku: it.sku || snap?.sku || snap?.msku || it.stock_item?.sku || '—',
         asin: it.asin || snap?.asin || it.stock_item?.asin || '—',
         storageType: snap?.storageType || 'Standard-size',
@@ -230,8 +230,8 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       step1BoxPlan: row?.step1_box_plan || wizardInboundSnapshot?.step1BoxPlan || wizardInboundSnapshot?.step1_box_plan || {},
       step1_box_plan: row?.step1_box_plan || wizardInboundSnapshot?.step1BoxPlan || wizardInboundSnapshot?.step1_box_plan || {},
       shipFrom: {
-        name: row.client_name || sourceAddress?.name || sourceAddress?.companyName || 'Prep Center',
-        address: rawShipFrom || row.destination_country || '—'
+        name: row.client_name || sourceAddress?.name || sourceAddress?.companyName || t('detail.wizard.prepCenter'),
+        address: rawShipFrom || row.destination_country || t('common.none')
       },
       sourceAddress,
       marketplace: MARKETPLACE_ID[row.destination_country] || row.destination_country || 'FR',
@@ -341,7 +341,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
     return [
       {
         id: row.id?.slice(0, 6) || '1',
-        name: `Shipment #${row.id?.slice(0, 6) || 1}`,
+        name: tp('detail.wizard.shipmentLabel', { id: row.id?.slice(0, 6) || 1 }),
         from: row.destination_country || 'FR',
         to: row.destination_country || 'FR',
         boxes: Math.max(1, (row.prep_request_items || []).length),
@@ -389,7 +389,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       {
         id: wizardSelectedOptionId,
         partnered: Boolean(wizardSelectedPartnered),
-        carrierName: wizardSelectedCarrier || 'Carrier',
+        carrierName: wizardSelectedCarrier || t('detail.wizard.carrierFallback'),
         charge: Number.isFinite(wizardSelectedCharge) ? wizardSelectedCharge : null,
         mode: wizardSelectedMode || 'GROUND_SMALL_PARCEL',
         shippingSolution: wizardSelectedSolution
@@ -417,7 +417,7 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       deliveryDate: wizardStep2Summary?.shipDate || (row?.created_at ? new Date(row.created_at).toISOString().slice(0, 10) : ''),
       carrier: {
         partnered: Boolean(wizardSelectedPartnered),
-        name: wizardSelectedCarrier || (wizardSelectedPartnered ? 'Amazon partnered carrier' : 'Non Amazon partnered carrier')
+        name: wizardSelectedCarrier || (wizardSelectedPartnered ? t('detail.wizard.amazonPartneredCarrier') : t('detail.wizard.nonAmazonPartneredCarrier'))
       }
     };
   }, [row, wizardSelectedCarrier, wizardSelectedMode, wizardSelectedPartnered, wizardStep2Summary]);
@@ -870,11 +870,11 @@ const mapBoxRows = (rows = []) => {
     const raw = inventoryDraftQty[stockItem.id];
     const qty = Math.max(1, Number(raw) || 0);
     if (!qty) {
-      setFlash("Enter a quantity before adding the product.");
+      setFlash(t('detail.inventory.enterQuantity'));
       return;
     }
     if (!requestId) {
-      setFlash("Request not ready yet.");
+      setFlash(t('detail.inventory.requestNotReady'));
       return;
     }
     setSaving(true);
@@ -984,7 +984,7 @@ const mapBoxRows = (rows = []) => {
     if (error) return setFlash(error.message);
     const boxError = await persistBoxesForItem(item.id);
     if (boxError) {
-      setFlash(`Item saved but boxes failed: ${boxError.message || boxError}`);
+      setFlash(tp('detail.products.saveItemBoxesFailed', { error: boxError.message || boxError }));
       return;
     }
     setFlash(t('detail.products.saveItemBoxes'));
@@ -1015,9 +1015,7 @@ const mapBoxRows = (rows = []) => {
   async function reopenRequest() {
     if (row?.status !== "confirmed") return;
     if (
-      !confirm(
-        "This will move the request back to Pending so you can edit it. Make sure to adjust stock manually if needed. Continue?"
-      )
+      !confirm(t('detail.reopenPrompt'))
     )
       return;
     setSaving(true);
@@ -1128,7 +1126,7 @@ const mailPayload = {
 // 6) Trimite email
 const { error: mailErr } = await supabaseHelpers.sendPrepConfirmationEmail(mailPayload);
 if (mailErr) {
-  setFlash(tp('detail.flash.emailFailed', { error: mailErr.message || 'unknown' }));
+      setFlash(tp('detail.flash.emailFailed', { error: mailErr.message || t('detail.flash.unknownError') }));
 } else {
   setFlash(t('detail.flash.emailSuccess'));
 }
@@ -1207,7 +1205,7 @@ onChanged?.();
     if (lastError) {
       setFlash(tp('detail.products.boxSaveFailed', { error: lastError.message || lastError }));
     } else {
-      setFlash('Box data saved.');
+      setFlash(t('detail.products.boxDataSaved'));
     }
     setSaving(false);
   };
@@ -1514,7 +1512,7 @@ onChanged?.();
                         {item.image_url ? (
                           <img
                             src={item.image_url}
-                            alt={item.name || item.sku || item.asin || 'Product'}
+                            alt={item.name || item.sku || item.asin || t('detail.products.columns.productName')}
                             className="w-12 h-12 rounded border object-cover"
                           />
                         ) : (
@@ -1623,7 +1621,7 @@ onChanged?.();
                             min={0}
                             max={req}
                             value={Number.isFinite(it.units_sent) ? it.units_sent : ""}
-                            placeholder="0"
+                            placeholder={t('detail.products.zeroPlaceholder')}
                             onChange={(e) => handleUnitsSentChange(it.id, e.target.value, req)}
                             onBlur={() => handleUnitsSentBlur(it)}
                           />
@@ -1635,7 +1633,7 @@ onChanged?.();
                           <div className="space-y-2">
                             {itemBoxes.map((box) => (
                               <div key={box.id} className="flex items-center gap-2 text-xs whitespace-nowrap">
-                                <span className="text-text-secondary">Box</span>
+                                <span className="text-text-secondary">{t('detail.products.box')}</span>
                                 <input
                                   type="number"
                                   min={1}
@@ -1745,12 +1743,12 @@ onChanged?.();
                   >
                     <div className="flex items-start gap-3">
                       <div className="flex flex-col items-start min-w-[52px]">
-                        <div className="text-xs uppercase tracking-wide text-text-secondary leading-tight">Box</div>
+                        <div className="text-xs uppercase tracking-wide text-text-secondary leading-tight">{t('detail.boxSummary.box')}</div>
                         <div className="text-2xl font-semibold text-text-primary leading-none">{box.boxNumber}</div>
                       </div>
                       <div className="flex-1 flex items-center gap-2 text-[11px] text-text-secondary">
                         <label className="flex items-center gap-1">
-                          <span>Kg</span>
+                          <span>{t('detail.boxSummary.kg')}</span>
                           <input
                             type="number"
                             min={0}
@@ -1766,8 +1764,8 @@ onChanged?.();
                           min={0}
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="L"
-                          aria-label="Length"
+                          placeholder={t('detail.boxSummary.lengthShort')}
+                          aria-label={t('detail.boxSummary.length')}
                           className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
                           value={box.meta?.lengthCm ?? ''}
                           onChange={(e) => updateSummaryBoxValue(box.targets, 'lengthCm', e.target.value)}
@@ -1777,8 +1775,8 @@ onChanged?.();
                           min={0}
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="W"
-                          aria-label="Width"
+                          placeholder={t('detail.boxSummary.widthShort')}
+                          aria-label={t('detail.boxSummary.width')}
                           className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
                           value={box.meta?.widthCm ?? ''}
                           onChange={(e) => updateSummaryBoxValue(box.targets, 'widthCm', e.target.value)}
@@ -1788,8 +1786,8 @@ onChanged?.();
                           min={0}
                           step="0.1"
                           inputMode="decimal"
-                          placeholder="H"
-                          aria-label="Height"
+                          placeholder={t('detail.boxSummary.heightShort')}
+                          aria-label={t('detail.boxSummary.height')}
                           className="no-spin w-12 h-8 border rounded px-2 text-right text-xs appearance-none [appearance:textfield] [-moz-appearance:textfield]"
                           value={box.meta?.heightCm ?? ''}
                           onChange={(e) => updateSummaryBoxValue(box.targets, 'heightCm', e.target.value)}
@@ -1800,9 +1798,9 @@ onChanged?.();
                       {box.lines.map((line, idx) => (
                         <div key={`${box.boxNumber}-${idx}`} className="flex items-center justify-between">
                           <span className="truncate" title={line.code || line.name}>
-                            {line.code || line.name || "Item"}
+                            {line.code || line.name || t('detail.boxSummary.item')}
                           </span>
-                          <span className="font-semibold text-text-primary">{line.qty} u</span>
+                          <span className="font-semibold text-text-primary">{tp('detail.boxSummary.unitsValue', { qty: line.qty })}</span>
                         </div>
                       ))}
                     </div>

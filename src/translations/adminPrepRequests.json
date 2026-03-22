@@ -119,6 +119,7 @@
         "assigned": "Assigned: {assigned} / {total}",
         "box": "Box",
         "units": "Units",
+        "zeroPlaceholder": "0",
         "addBox": "+ Add box",
         "removedPlaceholder": "Explain what was removed (weight limit, out of stock, etc.)",
         "saveItemBoxes": "Item & boxes saved.",
@@ -132,7 +133,15 @@
         "saving": "Saving…",
         "empty": "No boxes added yet.",
         "box": "Box",
-        "item": "Item"
+        "item": "Item",
+        "kg": "Kg",
+        "length": "Length",
+        "width": "Width",
+        "height": "Height",
+        "lengthShort": "L",
+        "widthShort": "W",
+        "heightShort": "H",
+        "unitsValue": "{qty} u"
       },
       "actions": {
         "reopenTitle": "Move back to pending so you can edit and confirm again",
@@ -149,14 +158,24 @@
         "emailFailed": "Request confirmed (status updated). Email failed: {error}",
         "emailSuccess": "Request confirmed (status updated) and client notified by email.",
         "reopenSuccess": "Request unlocked. Update the lines and confirm again when ready.",
-        "reopenFailed": "Unable to reopen request."
+        "reopenFailed": "Unable to reopen request.",
+        "unknownError": "unknown"
       },
       "confirmPrompt": "Confirm this request? Stock will be adjusted accordingly.",
       "reopenPrompt": "This will move the request back to Pending so you can edit it. Make sure to adjust stock manually if needed. Continue?",
       "requestNotFound": "Request not found.",
       "requestLabel": "Request #{id}",
       "companyLabel": "Company: {company}",
-      "statusLabel": "Status:"
+      "statusLabel": "Status:",
+      "wizard": {
+        "packGroup": "Pack group {index}",
+        "skuFallback": "SKU {index}",
+        "shipmentLabel": "Shipment #{id}",
+        "prepCenter": "Prep Center",
+        "carrierFallback": "Carrier",
+        "amazonPartneredCarrier": "Amazon partnered carrier",
+        "nonAmazonPartneredCarrier": "Non Amazon partnered carrier"
+      }
     }
   },
   "fr": {
@@ -279,6 +298,7 @@
         "assigned": "Affecté : {assigned} / {total}",
         "box": "Carton",
         "units": "Unités",
+        "zeroPlaceholder": "0",
         "addBox": "+ Ajouter un carton",
         "removedPlaceholder": "Expliquez ce qui a été retiré (limite de poids, rupture de stock, etc.)",
         "saveItemBoxes": "Produit et cartons enregistrés.",
@@ -292,7 +312,15 @@
         "saving": "Enregistrement…",
         "empty": "Aucun carton ajouté pour le moment.",
         "box": "Carton",
-        "item": "Article"
+        "item": "Article",
+        "kg": "Kg",
+        "length": "Longueur",
+        "width": "Largeur",
+        "height": "Hauteur",
+        "lengthShort": "L",
+        "widthShort": "l",
+        "heightShort": "H",
+        "unitsValue": "{qty} u"
       },
       "actions": {
         "reopenTitle": "Remettre en attente pour modifier et confirmer à nouveau",
@@ -309,14 +337,24 @@
         "emailFailed": "Demande confirmée (statut mis à jour). Échec de l'email : {error}",
         "emailSuccess": "Demande confirmée (statut mis à jour) et client notifié par email.",
         "reopenSuccess": "Demande déverrouillée. Mettez à jour les lignes puis confirmez de nouveau lorsqu'elle sera prête.",
-        "reopenFailed": "Impossible de rouvrir la demande."
+        "reopenFailed": "Impossible de rouvrir la demande.",
+        "unknownError": "inconnue"
       },
       "confirmPrompt": "Confirmer cette demande ? Le stock sera ajusté en conséquence.",
       "reopenPrompt": "Cela remettra la demande en attente afin que vous puissiez la modifier. Vérifiez le stock manuellement si nécessaire. Continuer ?",
       "requestNotFound": "Demande introuvable.",
       "requestLabel": "Demande #{id}",
       "companyLabel": "Société : {company}",
-      "statusLabel": "Statut :"
+      "statusLabel": "Statut :",
+      "wizard": {
+        "packGroup": "Groupe de colis {index}",
+        "skuFallback": "SKU {index}",
+        "shipmentLabel": "Expédition #{id}",
+        "prepCenter": "Prep Center",
+        "carrierFallback": "Transporteur",
+        "amazonPartneredCarrier": "Transporteur partenaire Amazon",
+        "nonAmazonPartneredCarrier": "Transporteur non partenaire Amazon"
+      }
     }
   },
   "ro": {
@@ -439,6 +477,7 @@
         "assigned": "Alocate: {assigned} / {total}",
         "box": "Cutie",
         "units": "Unități",
+        "zeroPlaceholder": "0",
         "addBox": "+ Adaugă cutie",
         "removedPlaceholder": "Explică ce a fost eliminat (limită de greutate, lipsă stoc etc.)",
         "saveItemBoxes": "Produsul și cutiile au fost salvate.",
@@ -452,7 +491,15 @@
         "saving": "Se salvează…",
         "empty": "Nu există încă nicio cutie adăugată.",
         "box": "Cutie",
-        "item": "Articol"
+        "item": "Articol",
+        "kg": "Kg",
+        "length": "Lungime",
+        "width": "Lățime",
+        "height": "Înălțime",
+        "lengthShort": "L",
+        "widthShort": "l",
+        "heightShort": "H",
+        "unitsValue": "{qty} u"
       },
       "actions": {
         "reopenTitle": "Mută înapoi pe pending ca să poți edita și confirma din nou",
@@ -469,14 +516,24 @@
         "emailFailed": "Cererea a fost confirmată (status actualizat). Emailul a eșuat: {error}",
         "emailSuccess": "Cererea a fost confirmată (status actualizat) și clientul a fost notificat pe email.",
         "reopenSuccess": "Cererea a fost deblocată. Actualizează liniile și confirmă din nou când este gata.",
-        "reopenFailed": "Nu am putut redeschide cererea."
+        "reopenFailed": "Nu am putut redeschide cererea.",
+        "unknownError": "necunoscută"
       },
       "confirmPrompt": "Confirmi această cerere? Stocul va fi ajustat corespunzător.",
       "reopenPrompt": "Asta va muta cererea înapoi pe Pending ca să o poți edita. Verifică manual stocul dacă este nevoie. Continui?",
       "requestNotFound": "Cererea nu a fost găsită.",
       "requestLabel": "Cerere #{id}",
       "companyLabel": "Companie: {company}",
-      "statusLabel": "Status:"
+      "statusLabel": "Status:",
+      "wizard": {
+        "packGroup": "Grup colet {index}",
+        "skuFallback": "SKU {index}",
+        "shipmentLabel": "Expediere #{id}",
+        "prepCenter": "Prep Center",
+        "carrierFallback": "Curier",
+        "amazonPartneredCarrier": "Curier partener Amazon",
+        "nonAmazonPartneredCarrier": "Curier nepartener Amazon"
+      }
     }
   }
 }
