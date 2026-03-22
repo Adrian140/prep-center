@@ -3441,6 +3441,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const skuList = Array.isArray(plan?.skus) ? plan.skus : [];
     const groups = Array.isArray(packGroupsDecorated) ? packGroupsDecorated : [];
     if (!skuList.length || !groups.length) return [];
+    const positivePlanSkus = skuList.filter((sku) => (Number(sku?.units || 0) || 0) > 0);
 
     const skuMap = new Map(
       skuList.map((sku) => [
@@ -3458,7 +3459,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           null;
         if (!packingGroupId) return null;
 
-        const normalizedItems = normalizeGroupItemsForUnits(group?.items || []);
+        let normalizedItems = normalizeGroupItemsForUnits(group?.items || []);
+        if (!normalizedItems.length) {
+          if (positivePlanSkus.length === 1) {
+            const onlySku = positivePlanSkus[0];
+            normalizedItems = [
+              {
+                sku: onlySku?.sku || onlySku?.msku || onlySku?.SellerSKU || null,
+                quantity: Number(onlySku?.units || 0) || 0
+              }
+            ].filter((it) => String(it?.sku || '').trim() && Number(it?.quantity || 0) > 0);
+          } else if (groups.length === 1) {
+            normalizedItems = positivePlanSkus
+              .map((sku) => ({
+                sku: sku?.sku || sku?.msku || sku?.SellerSKU || null,
+                quantity: Number(sku?.units || 0) || 0
+              }))
+              .filter((it) => String(it?.sku || '').trim() && Number(it?.quantity || 0) > 0);
+          }
+        }
         if (!normalizedItems.length) return null;
 
         const fallbackBoxCount = Number(group?.boxes || 0) || null;
