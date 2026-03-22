@@ -166,6 +166,36 @@ const getTomorrowIsoDate = () => {
   return d.toISOString().slice(0, 10);
 };
 
+const getWarehouseShipFromAddress = (market) => {
+  const normalized = String(market || '').trim().toUpperCase();
+  if (normalized === 'DE') {
+    return {
+      name: 'Radu Cenusa',
+      addressLine1: 'Zienestrasse 12',
+      addressLine2: '',
+      city: 'Wolfach',
+      stateOrProvinceCode: 'BW',
+      postalCode: '77709',
+      countryCode: 'DE',
+      phoneNumber: '+49 176 24963618',
+      email: 'logistics.de@prep-center.eu',
+      companyName: 'EcomPrepHub'
+    };
+  }
+  return {
+    name: 'Bucur Adrian',
+    addressLine1: '5 Rue des Enclos',
+    addressLine2: 'Cellule 7',
+    city: 'La Gouesniere',
+    stateOrProvinceCode: '35',
+    postalCode: '35350',
+    countryCode: 'FR',
+    phoneNumber: '+33675116218',
+    email: 'contact@prep-center.eu',
+    companyName: 'EcomPrep Hub'
+  };
+};
+
 const splitIntegerProportionally = (total, weights = []) => {
   const normalizedTotal = Math.max(0, Math.floor(Number(total) || 0));
   const safeWeights = (Array.isArray(weights) ? weights : []).map((weight) => {
@@ -4116,8 +4146,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const resolveContactInformation = () => {
+    const warehouseAddress = getWarehouseShipFromAddress(currentMarket);
     const candidates = [
       plan?.sourceAddress,
+      warehouseAddress,
       plan?.shipFrom,
       plan?.shipFrom?.address,
       shipments?.[0]?.shipFromAddress,
@@ -4158,9 +4190,19 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   };
 
   const mergeShipFromWithSource = (shipFrom, sourceAddress) => {
+    if ((!shipFrom || typeof shipFrom !== 'object') && sourceAddress && typeof sourceAddress === 'object') {
+      return { ...sourceAddress };
+    }
     if (!shipFrom || typeof shipFrom !== 'object' || !sourceAddress) return shipFrom;
     return {
       ...shipFrom,
+      addressLine1: shipFrom.addressLine1 || shipFrom.line1 || sourceAddress.addressLine1 || sourceAddress.line1 || null,
+      addressLine2: shipFrom.addressLine2 || shipFrom.line2 || sourceAddress.addressLine2 || sourceAddress.line2 || null,
+      city: shipFrom.city || sourceAddress.city || null,
+      stateOrProvinceCode:
+        shipFrom.stateOrProvinceCode || shipFrom.state || shipFrom.region || sourceAddress.stateOrProvinceCode || sourceAddress.state || sourceAddress.region || null,
+      postalCode: shipFrom.postalCode || shipFrom.zip || shipFrom.postcode || sourceAddress.postalCode || sourceAddress.zip || sourceAddress.postcode || null,
+      countryCode: shipFrom.countryCode || shipFrom.country || sourceAddress.countryCode || sourceAddress.country || null,
       phoneNumber: shipFrom.phoneNumber || sourceAddress.phoneNumber || null,
       email: shipFrom.email || sourceAddress.email || null,
       name: shipFrom.name || sourceAddress.name || null
@@ -4863,6 +4905,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const deriveShipmentsFromPacking = (baseShipments = []) => {
     if (!Array.isArray(packGroups) || !packGroups.length) return [];
     const baseList = Array.isArray(baseShipments) ? baseShipments : [];
+    const warehouseShipFrom = getWarehouseShipFromAddress(currentMarket);
+    const canonicalShipFrom = mergeShipFromWithSource(
+      plan?.shipFrom || warehouseShipFrom,
+      plan?.sourceAddress || warehouseShipFrom
+    );
     return packGroups.map((g, idx) => {
       const boxCount = Math.max(1, Number(g.boxes) || 1);
       const dims = g.boxDimensions || {};
@@ -4885,7 +4932,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return {
         id: g?.shipmentId || g?.shipment_id || base?.shipmentId || base?.id || `s-${idx + 1}`,
         name: base?.name || `Shipment #${idx + 1}`,
-        from: base?.from || formatAddress(plan?.shipFrom || {}),
+        from: base?.from || formatAddress(canonicalShipFrom || {}),
         to: base?.to || plan?.marketplace || plan?.destination || '—',
         boxes: boxCount,
         skuCount: Number(g.skuCount || 0) || 0,
@@ -4913,7 +4960,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (currentLocal === nextLocal) return prev;
       return derived;
     });
-  }, [packGroups, plan?.shipFrom, plan?.marketplace]);
+  }, [currentMarket, packGroups, plan?.shipFrom, plan?.sourceAddress, plan?.marketplace]);
 
   const handleCarrierChange = (carrier) => {
     setCarrierTouched(true);

@@ -883,6 +883,35 @@ serve(async (req) => {
         destCountry ??
         "FR"
     );
+    const buildWarehouseAddress = (country: string) => {
+      if (country === "DE") {
+        return {
+          name: "Radu Cenusa",
+          addressLine1: "Zienestrasse 12",
+          addressLine2: "",
+          city: "Wolfach",
+          stateOrProvinceCode: "BW",
+          postalCode: "77709",
+          countryCode: "DE",
+          phoneNumber: "+49 176 24963618",
+          email: "logistics.de@prep-center.eu",
+          companyName: "EcomPrepHub"
+        };
+      }
+      return {
+        name: "Bucur Adrian",
+        addressLine1: "5 Rue des Enclos",
+        addressLine2: "Cellule 7",
+        city: "La Gouesniere",
+        stateOrProvinceCode: "35",
+        postalCode: "35350",
+        countryCode: "FR",
+        phoneNumber: "+33675116218",
+        email: "contact@prep-center.eu",
+        companyName: "EcomPrep Hub"
+      };
+    };
+    const warehouseSourceAddress = buildWarehouseAddress(warehouseCountry);
     const marketplaceByCountry: Record<string, string> = {
       FR: "A13V1IB3VIYZZH",
       DE: "A1PA6795UKMFR9",
@@ -1702,7 +1731,10 @@ serve(async (req) => {
       placementShipments?.[0]?.shipmentId ||
       placementShipments?.[0]?.id ||
       null;
-    let contactInformation = contactInformationFromBody || contactFromAddress(planSourceAddress);
+    let contactInformation =
+      contactInformationFromBody ||
+      contactFromAddress(planSourceAddress) ||
+      contactFromAddress(warehouseSourceAddress);
     if (!isCompleteContact(contactInformation) && fallbackShipmentIdForContact) {
       const shDetail = await signedFetch({
         method: "GET",
@@ -1753,7 +1785,7 @@ serve(async (req) => {
               packingGroupId: pgId,
               boxes: Number(g?.boxes || g?.boxCount || 1) || 1,
               packageFromGroup: pkg,
-              shipFromAddress: planSourceAddress || null
+              shipFromAddress: planSourceAddress || warehouseSourceAddress || null
             };
           })
           .filter((g: any) => g.packingGroupId && g.packageFromGroup)
@@ -1980,6 +2012,7 @@ serve(async (req) => {
           shipFromAddress:
             packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.shipFromAddress ||
             planSourceAddress ||
+            warehouseSourceAddress ||
             null,
           boxes: packingGroupsForTransport?.[shipmentToGroupIdx.get(String(sid)) ?? idx]?.boxes || null,
           isPackingGroup: false
@@ -2009,7 +2042,7 @@ serve(async (req) => {
     const normalizePlacementShipments = (list: any[]) =>
       (Array.isArray(list) ? list : []).map((sh: any, idx: number) => {
         const id = sh?.shipmentId || sh?.id || `s-${idx + 1}`;
-        const shipFromAddress = sh?.source?.address || planSourceAddress || null;
+        const shipFromAddress = sh?.source?.address || planSourceAddress || warehouseSourceAddress || null;
         const shipToAddress = sh?.destination?.address || sh?.destination || null;
         const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
         const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
