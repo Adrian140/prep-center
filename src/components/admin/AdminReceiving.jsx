@@ -60,6 +60,10 @@ const FBA_MODE_META = {
 };
 
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
+const RECEIVING_SORT_PRIORITY = {
+  submitted: 0,
+  partial: 1
+};
 const getShipmentLatestReceptionTimestamp = (shipment = {}) => {
   const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
   const latestEventAt = items
@@ -1297,6 +1301,15 @@ const buildShipmentsList = (data = [], isArchive = false) =>
 
 const sortShipments = (rows = []) =>
   rows.slice().sort((a, b) => {
+    const statusA = a.computed_status || a.status || 'submitted';
+    const statusB = b.computed_status || b.status || 'submitted';
+    const priorityA = RECEIVING_SORT_PRIORITY[statusA] ?? 2;
+    const priorityB = RECEIVING_SORT_PRIORITY[statusB] ?? 2;
+
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB;
+    }
+
     const dateA = getShipmentLatestReceptionTimestamp(a);
     const dateB = getShipmentLatestReceptionTimestamp(b);
     return dateB - dateA;
