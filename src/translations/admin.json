@@ -29,7 +29,11 @@
       "refresh": "Refresh",
       "signOut": "Sign out",
       "accessDeniedTitle": "Access denied",
-      "accessDeniedDesc": "Your account does not have administrator permissions."
+      "accessDeniedDesc": "Your account does not have administrator permissions.",
+      "groups": {
+        "operations": "Operations",
+        "account": "Account"
+      }
     },
     "adminDashboard": {
       "title": "Dashboard",
@@ -447,6 +451,12 @@
     }
   },
   "fr": {
+    "common": {
+      "groups": {
+        "operations": "Opérations",
+        "account": "Compte"
+      }
+    },
     "adminDashboard": {
       "title": "Tableau de bord",
       "subtitle": "Vue opérationnelle",
@@ -597,7 +607,11 @@
       "refresh": "Actualizează",
       "signOut": "Deconectare",
       "accessDeniedTitle": "Acces interzis",
-      "accessDeniedDesc": "Contul tău nu are permisiuni de administrator."
+      "accessDeniedDesc": "Contul tău nu are permisiuni de administrator.",
+      "groups": {
+        "operations": "Operațiuni",
+        "account": "Cont"
+      }
     },
     "adminDashboard": {
       "title": "Dashboard",
@@ -969,6 +983,12 @@
     }
   },
   "de": {
+    "common": {
+      "groups": {
+        "operations": "Operationen",
+        "account": "Konto"
+      }
+    },
     "adminOther": {
       "returnGroup": {
         "lines": "{count} Zeilen in dieser Retoure",
@@ -985,6 +1005,12 @@
     }
   },
   "it": {
+    "common": {
+      "groups": {
+        "operations": "Operazioni",
+        "account": "Account"
+      }
+    },
     "adminOther": {
       "returnGroup": {
         "lines": "{count} righe in questo reso",
@@ -1001,6 +1027,12 @@
     }
   },
   "es": {
+    "common": {
+      "groups": {
+        "operations": "Operaciones",
+        "account": "Cuenta"
+      }
+    },
     "adminOther": {
       "returnGroup": {
         "lines": "{count} líneas en esta devolución",
