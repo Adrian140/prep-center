@@ -972,7 +972,11 @@ serve(async (req) => {
             : Array.isArray(body?.packingGroups)
             ? body.packingGroups.length
             : 0,
-          package_groupings_count: Array.isArray(body?.packageGroupings) ? body.packageGroupings.length : 0,
+          package_groupings_count: Array.isArray(body?.package_groupings)
+            ? body.package_groupings.length
+            : Array.isArray(body?.packageGroupings)
+            ? body.packageGroupings.length
+            : 0,
           timestamp: new Date().toISOString()
         },
         null,
@@ -987,6 +991,10 @@ serve(async (req) => {
     const packingGroupsInput =
       (Array.isArray(body?.packing_groups) && body.packing_groups) ||
       (Array.isArray(body?.packingGroups) && body.packingGroups) ||
+      [];
+    const directGroupings =
+      (Array.isArray(body?.package_groupings) && body.package_groupings) ||
+      (Array.isArray(body?.packageGroupings) && body.packageGroupings) ||
       [];
     const packingGroupsSummary = Array.isArray(packingGroupsInput)
       ? packingGroupsInput.map((g: any) => ({
@@ -1004,7 +1012,6 @@ serve(async (req) => {
             : 0
         }))
       : [];
-    const directGroupings = Array.isArray(body?.packageGroupings) ? body.packageGroupings : [];
     const summarizePackageGroupings = (groups: any[] = []) =>
       (Array.isArray(groups) ? groups : []).map((g: any) => {
         const boxes = Array.isArray(g?.boxes) ? g.boxes : [];
