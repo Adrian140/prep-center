@@ -2,7 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { supabaseHelpers } from '@/config/supabase';
 import { X, Play, AlertCircle } from 'lucide-react';
 
-export default function UserGuidePlayer({ section, title = 'Video guide', unavailableText }) {
+export default function UserGuidePlayer({
+  section,
+  title = 'Video guide',
+  unavailableText,
+  className = '',
+  buttonClassName = ''
+}) {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [src, setSrc] = useState('');
@@ -55,11 +61,12 @@ export default function UserGuidePlayer({ section, title = 'Video guide', unavai
   const hasVideo = Boolean(src);
 
   return (
-    <div className="mb-2">
+    <div className={className}>
       <button
         onClick={() => setOpen(true)}
-        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition
-          ${hasVideo ? 'hover:bg-gray-50' : 'opacity-60 cursor-not-allowed'}`}
+        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border transition ${
+          hasVideo ? 'hover:bg-gray-50' : 'opacity-60 cursor-not-allowed'
+        } ${buttonClassName}`}
         title={title}
         disabled={!hasVideo || loading}
       >
