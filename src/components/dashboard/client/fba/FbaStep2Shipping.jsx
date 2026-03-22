@@ -691,7 +691,7 @@ export default function FbaStep2Shipping({
               })}
             </div>
           )}
-          {hasSpdOptions ? (
+          {(hasSpdOptions && !isAmazonLikePallet) ? (
             <div className="space-y-2">
               <div className="text-xs font-semibold text-slate-600">{tt('spdMode', 'Small parcel delivery (SPD)')}</div>
               <div className="flex flex-wrap gap-3">
@@ -763,7 +763,7 @@ export default function FbaStep2Shipping({
             </div>
           ) : (
             modeKeys.map((modeKey) => {
-              if (!activeModeKey || modeKey !== activeModeKey) return null;
+              if (!isAmazonLikePallet && (!activeModeKey || modeKey !== activeModeKey)) return null;
               const list = groupedOptions[modeKey] || [];
               if (!list.length) return null;
               const title =
@@ -771,7 +771,9 @@ export default function FbaStep2Shipping({
                   ? tt('ltlMode', 'Less-than-truckload (LTL)')
                   : modeKey === 'FTL'
                     ? tt('ftlMode', 'Full truckload (FTL)')
-                    : tt('otherMode', 'Other');
+                    : modeKey === 'SPD'
+                      ? tt('spdMode', 'Small parcel delivery (SPD)')
+                      : tt('otherMode', 'Other');
               return (
                 <div key={modeKey} className="space-y-2">
                   <div className="text-xs font-semibold text-slate-600">{title}</div>
