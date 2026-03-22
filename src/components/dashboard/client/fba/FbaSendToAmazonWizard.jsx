@@ -4213,6 +4213,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const fetchCooldownRef = useRef(0);
   const step2InitRef = useRef(false);
+  const shippingPackingRecoveryRef = useRef(false);
 
   async function fetchShippingOptions({ force = false } = {}) {
     if (typeof window === 'undefined') return; // rulează doar în browser
@@ -4394,6 +4395,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       });
       if (error) throw error;
       if (json?.error) {
+        if (json?.code === 'PACKING_REQUIRED' && !shippingPackingRecoveryRef.current) {
+          shippingPackingRecoveryRef.current = true;
+          setShippingError('Sincronizăm automat packing information din Step 1...');
+          const submitted = await submitPackingInformation();
+          if (submitted) {
+            if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
+            shippingRetryTimerRef.current = setTimeout(() => {
+              fetchShippingOptions({ force: true });
+            }, 150);
+            return;
+          }
+        }
         if (
           json?.code === 'SHIPMENTS_PENDING' ||
           json?.code === 'SHIPMENTS_PENDING_FOR_GENERATE_TRANSPORT' ||
@@ -4424,6 +4437,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingSummary(null);
         return;
       }
+      shippingPackingRecoveryRef.current = false;
       setShippingOptions(aggregateTransportationOptions(json.options || [], json.summary || null));
       setShippingSummary(json.summary || null);
       if (json?.selectedTransportationOptionId) {
@@ -4497,6 +4511,18 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
     } catch (e) {
       const parsed = await extractFunctionInvokeError(e);
+      if (parsed?.code === 'PACKING_REQUIRED' && !shippingPackingRecoveryRef.current) {
+        shippingPackingRecoveryRef.current = true;
+        setShippingError('Sincronizăm automat packing information din Step 1...');
+        const submitted = await submitPackingInformation();
+        if (submitted) {
+          if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
+          shippingRetryTimerRef.current = setTimeout(() => {
+            fetchShippingOptions({ force: true });
+          }, 150);
+          return;
+        }
+      }
       if (parsed?.code === 'INBOUND_PLAN_MISMATCH') {
         setSelectedTransportationOptionId(null);
         setShippingOptions([]);
@@ -4511,6 +4537,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       console.error("fetchShippingOptions failed", e);
       setShippingError(detail);
     } finally {
+      if (!(Array.isArray(shippingOptionsRef.current) && shippingOptionsRef.current.length)) {
+        shippingPackingRecoveryRef.current = false;
+      }
       setShippingLoading(false);
       shippingFetchLockRef.current.lastKey = requestKey;
       shippingFetchLockRef.current.lastAt = Date.now();
