@@ -19,21 +19,6 @@ const AUTO_NAME_UUID_REGEX = /^auto-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 const CLIENT_NOTE_MARKER = "[CLIENT_NOTE]";
 
-const STATUS_PRIORITY = {
-  draft: 1,
-  submitted: 1,
-  partial: 2,
-  received: 3,
-  processed: 4,
-  cancelled: 5
-};
-
-const STATUS_SORT_DATE = {
-  partial: 'updated_at',
-  received: 'updated_at',
-  processed: 'updated_at'
-};
-
 const EDITABLE_RECEIVING_STATUSES = [
   'draft',
   'submitted',
@@ -75,6 +60,22 @@ const FBA_MODE_META = {
 };
 
 const getFbaModeMeta = (mode = 'none') => FBA_MODE_META[mode] || FBA_MODE_META.none;
+const getShipmentLatestReceptionTimestamp = (shipment = {}) => {
+  const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
+  const latestEventAt = items
+    .flatMap((item) => (Array.isArray(item?.receiving_item_events) ? item.receiving_item_events : []))
+    .map((event) => new Date(event?.created_at || 0).getTime())
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .sort((a, b) => b - a)[0];
+
+  return (
+    latestEventAt ||
+    new Date(shipment?.received_at || 0).getTime() ||
+    new Date(shipment?.updated_at || 0).getTime() ||
+    new Date(shipment?.created_at || 0).getTime() ||
+    0
+  );
+};
 const isPrepBusinessSource = (shipment = {}) =>
   String(shipment?.import_source || '').trim().toLowerCase() === 'prepbusiness';
 const isPrepBusinessAutoCreatedNote = (note = '') =>
@@ -1296,18 +1297,8 @@ const buildShipmentsList = (data = [], isArchive = false) =>
 
 const sortShipments = (rows = []) =>
   rows.slice().sort((a, b) => {
-    const statusA = a.computed_status || a.status;
-    const statusB = b.computed_status || b.status;
-    const priorityA = STATUS_PRIORITY[statusA] ?? 999;
-    const priorityB = STATUS_PRIORITY[statusB] ?? 999;
-
-    if (priorityA !== priorityB) {
-      return priorityA - priorityB;
-    }
-
-    const dateKey = STATUS_SORT_DATE[statusA] || 'created_at';
-    const dateA = new Date(a[dateKey] || a.created_at || 0).getTime();
-    const dateB = new Date(b[dateKey] || b.created_at || 0).getTime();
+    const dateA = getShipmentLatestReceptionTimestamp(a);
+    const dateB = getShipmentLatestReceptionTimestamp(b);
     return dateB - dateA;
   });
 
