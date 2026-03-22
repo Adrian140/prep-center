@@ -1914,6 +1914,7 @@ const items = (draftData.items || []).map((it) => ({
       isMissingColumnError(error, 'warehouse_country');
     const listSelect = `
       id,
+      inbound_plan_id,
       created_at,
       completed_at,
       confirmed_at,
@@ -2050,6 +2051,16 @@ deletePrepRequest: async (requestId) => {
       .from('prep_requests')
       .update({ fba_shipment_id: shipmentId })
       .eq('id', requestId);
+  },
+
+  cancelPrepRequestAmazon: async (requestId, inboundPlanId) => {
+    return await supabase.functions.invoke('fba-inbound-actions', {
+      body: {
+        action: 'cancel_inbound_plan',
+        request_id: requestId,
+        inbound_plan_id: inboundPlanId
+      }
+    });
   },
 
   updatePrepHeader: async (requestId, updates) => {

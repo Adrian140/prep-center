@@ -406,6 +406,16 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getOperationState(payload: any): string {
+  return String(
+    payload?.operationStatus ||
+      payload?.status ||
+      payload?.payload?.operationStatus ||
+      payload?.payload?.status ||
+      ""
+  ).toUpperCase();
+}
+
 async function signedFetchWithRetry(opts: Parameters<typeof signedFetch>[0], maxAttempts = 6) {
   let last: any = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -415,6 +425,66 @@ async function signedFetchWithRetry(opts: Parameters<typeof signedFetch>[0], max
     const base = Math.min(20000, 500 * (2 ** attempt));
     const jitter = Math.floor(Math.random() * 250);
     await delay(base + jitter);
+  }
+  return last;
+}
+
+async function fetchInboundOperationStatus(opts: {
+  operationId: string;
+  awsRegion: string;
+  host: string;
+  tempCreds: TempCreds;
+  lwaAccessToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const { operationId, awsRegion, host, tempCreds, lwaAccessToken, traceId, marketplaceId, sellerId } = opts;
+  return await signedFetchWithRetry({
+    method: "GET",
+    service: "execute-api",
+    region: awsRegion,
+    host,
+    path: `/inbound/fba/2024-03-20/operations/${encodeURIComponent(operationId)}`,
+    query: "",
+    payload: "",
+    accessKey: tempCreds.accessKeyId,
+    secretKey: tempCreds.secretAccessKey,
+    sessionToken: tempCreds.sessionToken,
+    lwaToken: lwaAccessToken,
+    traceId,
+    operationName: "get_inbound_operation_status",
+    marketplaceId,
+    sellerId
+  });
+}
+
+async function pollInboundOperationStatus(opts: {
+  operationId: string;
+  awsRegion: string;
+  host: string;
+  tempCreds: TempCreds;
+  lwaAccessToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+  maxAttempts?: number;
+  delayMs?: number;
+}) {
+  const maxAttempts = opts.maxAttempts ?? 12;
+  const delayMs = opts.delayMs ?? 1500;
+  let last: any = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    last = await fetchInboundOperationStatus(opts);
+    if (!last?.res?.ok) return last;
+    const state = getOperationState(last?.json);
+    if (!state || ["SUCCEEDED", "SUCCESS", "COMPLETED", "COMPLETE"].includes(state)) {
+      return last;
+    }
+    if (["FAILED", "FAILURE", "CANCELLED", "CANCELED", "ERROR", "ERRORED"].includes(state)) {
+      return last;
+    }
+    await delay(delayMs);
   }
   return last;
 }
@@ -464,7 +534,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action || "").trim();
     const requestId = body?.request_id ?? body?.requestId;
-    const inboundPlanId = body?.inbound_plan_id ?? body?.inboundPlanId ?? null;
+    const inboundPlanIdInput = body?.inbound_plan_id ?? body?.inboundPlanId ?? null;
     const shipmentId = body?.shipment_id ?? body?.shipmentId ?? null;
     if (!action) {
       return new Response(JSON.stringify({ error: "Missing action", traceId }), {
@@ -495,7 +565,7 @@ serve(async (req) => {
 
     const { data: reqData, error: reqErr } = await supabase
       .from("prep_requests")
-      .select("id, destination_country, warehouse_country, company_id, user_id, inventory_deducted_at")
+      .select("id, destination_country, warehouse_country, company_id, user_id, inventory_deducted_at, inbound_plan_id")
       .eq("id", requestId)
       .maybeSingle();
     if (reqErr) throw reqErr;
@@ -514,6 +584,14 @@ serve(async (req) => {
           headers: { ...corsHeaders, "content-type": "application/json" }
         });
       }
+    }
+    const storedInboundPlanId = reqData?.inbound_plan_id || null;
+    const inboundPlanId = inboundPlanIdInput || storedInboundPlanId;
+    if (inboundPlanIdInput && storedInboundPlanId && String(inboundPlanIdInput) !== String(storedInboundPlanId)) {
+      return new Response(JSON.stringify({ error: "Inbound plan mismatch", traceId }), {
+        status: 409,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
     }
 
     // Fetch Amazon integration
@@ -686,6 +764,19 @@ serve(async (req) => {
         });
         break;
       }
+      case "cancel_inbound_plan": {
+        if (!inboundPlanId) {
+          return new Response(JSON.stringify({ error: "inbound_plan_id este necesar", traceId }), {
+            status: 400,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
+        method = "PUT";
+        path = `${v2024BasePath}/inboundPlans/${encodeURIComponent(String(inboundPlanId))}/cancellation`;
+        query = "";
+        payload = "";
+        break;
+      }
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}`, traceId }), {
           status: 400,
@@ -721,6 +812,60 @@ serve(async (req) => {
         }),
         { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
+    }
+
+    let operationData: any = null;
+    if (action === "cancel_inbound_plan") {
+      const operationId =
+        res?.json?.operationId ||
+        res?.json?.payload?.operationId ||
+        null;
+      if (operationId) {
+        operationData = await pollInboundOperationStatus({
+          operationId: String(operationId),
+          awsRegion,
+          host,
+          tempCreds,
+          lwaAccessToken,
+          traceId,
+          marketplaceId,
+          sellerId
+        });
+        const operationState = getOperationState(operationData?.json);
+        if (operationData?.res && !operationData.res.ok) {
+          return new Response(
+            JSON.stringify({
+              error: "Amazon cancellation operation failed",
+              status: operationData.res.status || null,
+              body: operationData.text || null,
+              traceId
+            }),
+            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+        if (operationState && ["FAILED", "FAILURE", "CANCELLED", "CANCELED", "ERROR", "ERRORED"].includes(operationState)) {
+          return new Response(
+            JSON.stringify({
+              error: "Amazon cancellation operation did not succeed",
+              operationState,
+              operation: operationData?.json || null,
+              traceId
+            }),
+            { status: 502, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
+      }
+      const { error: cancelStatusErr } = await supabase.rpc(
+        "cancel_prep_request_inventory",
+        { p_request_id: requestId }
+      );
+      if (cancelStatusErr) {
+        console.warn("prep_request_cancel_finalize_failed", {
+          traceId,
+          requestId,
+          error: cancelStatusErr.message
+        });
+      }
     }
 
     let inventoryDeducted: boolean | null = null;
@@ -766,6 +911,7 @@ serve(async (req) => {
       JSON.stringify({
         ok: true,
         data: res?.json || null,
+        operation: operationData?.json || null,
         inventoryDeducted,
         inventoryError,
         requestId: res?.requestId || null,

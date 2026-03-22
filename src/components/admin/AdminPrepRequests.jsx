@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabaseHelpers } from '../../config/supabase';
-import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2, X } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, RefreshCw, Trash2, X, Ban } from 'lucide-react';
 import AdminPrepRequestDetail from './AdminPrepRequestDetail';
 import { tabSessionStorage, readJSON, writeJSON } from '@/utils/tabStorage';
 import DestinationBadge from '@/components/common/DestinationBadge';
@@ -64,7 +64,8 @@ export default function AdminPrepRequests() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState(initialState.selectedId || null); // request id pt. detail
   const [selectedView, setSelectedView] = useState(initialState.selectedView || 'detail');
-  const [flash, setFlash] = useState('');
+  const [flash, setFlash] = useState(null);
+  const [actionLoading, setActionLoading] = useState({ id: null, type: null });
   const firstLoadRef = useRef(true);
   const initialPageRef = useRef(initialPage);
   const trimmedQuery = q.trim();
@@ -89,20 +90,52 @@ export default function AdminPrepRequests() {
     if (!confirm(secondPrompt)) return;
   }
 
-  setFlash('');
+  setFlash(null);
   try {
     const { error } = await supabaseHelpers.deletePrepRequest(row.id);
     if (error) throw error;
     await load(1); // sau load(page) dacă preferi să rămâi pe pagină
-    setFlash(t('list.flash.requestDeleted'));
+    setFlash({ type: 'success', message: t('list.flash.requestDeleted') });
   } catch (e) {
-    setFlash(e?.message || t('list.flash.deleteFailed'));
+    setFlash({ type: 'error', message: e?.message || t('list.flash.deleteFailed') });
+  }
+};
+
+ const handleCancel = async (row) => {
+  const inboundPlanId =
+    row?.inbound_plan_id ||
+    row?.amazon_snapshot?.inboundPlanId ||
+    row?.amazon_snapshot?.inbound_plan_id ||
+    null;
+  if (!inboundPlanId) {
+    setFlash({ type: 'error', message: t('list.flash.cancelMissingPlan') });
+    return;
+  }
+
+  const shortId = row.id?.slice(0, 8) || row.id;
+  const prompt = tp('list.cancelConfirm', { shortId, inboundPlanId });
+  if (!confirm(prompt)) return;
+
+  setActionLoading({ id: row.id, type: 'cancel' });
+  setFlash(null);
+  try {
+    const { data, error } = await supabaseHelpers.cancelPrepRequestAmazon(row.id, inboundPlanId);
+    if (error) throw error;
+    if (data?.ok !== true) {
+      throw new Error(data?.error || t('list.flash.cancelFailed'));
+    }
+    await load(page);
+    setFlash({ type: 'success', message: t('list.flash.cancelled') });
+  } catch (e) {
+    setFlash({ type: 'error', message: e?.message || t('list.flash.cancelFailed') });
+  } finally {
+    setActionLoading({ id: null, type: null });
   }
 };
 
  const load = async (p = 1) => {
   setLoading(true);
-  setFlash('');
+  setFlash(null);
   try {
     const { data, error } = await supabaseHelpers.listPrepRequests({
       status: status === 'all' ? undefined : status,
@@ -116,7 +149,7 @@ export default function AdminPrepRequests() {
   } catch (e) {
     console.error('listPrepRequests failed:', e?.message || e);
     setRows([]);
-    setFlash(e?.message || t('list.flash.loadError'));
+    setFlash({ type: 'error', message: e?.message || t('list.flash.loadError') });
   } finally {
     setLoading(false);
   }
@@ -306,8 +339,16 @@ export default function AdminPrepRequests() {
         </div>
       </div>
 
-      {flash && (
-        <div className="px-4 py-3 rounded bg-red-50 border border-red-200 text-red-700">{flash}</div>
+      {flash?.message && (
+        <div
+          className={`px-4 py-3 rounded border ${
+            flash.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {flash.message}
+        </div>
       )}
 
       <div className="border rounded-xl overflow-hidden overflow-x-auto">
@@ -383,6 +424,14 @@ export default function AdminPrepRequests() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {(() => {
+                      const canCancel = Boolean(
+                        (r.inbound_plan_id || r?.amazon_snapshot?.inboundPlanId || r?.amazon_snapshot?.inbound_plan_id) &&
+                          String(r.status || '').toLowerCase() !== 'cancelled'
+                      );
+                      const cancelLoading = actionLoading.id === r.id && actionLoading.type === 'cancel';
+                      return (
+                        <>
                     <button
                       onClick={() => {
                         setSelectedId(r.id);
@@ -401,14 +450,29 @@ export default function AdminPrepRequests() {
                     >
                       {t('list.viewShipping')}
                     </button>
+                    {canCancel && (
+                      <button
+                        onClick={() => handleCancel(r)}
+                        disabled={cancelLoading}
+                        className="ml-2 px-3 py-1 bg-amber-500 text-white rounded inline-flex items-center gap-1 disabled:opacity-60"
+                        title={t('list.cancelTitle')}
+                      >
+                        <Ban className="w-4 h-4" />
+                        {cancelLoading ? t('common.loading') : t('common.cancel')}
+                      </button>
+                    )}
                      <button
                       onClick={() => handleDelete(r)}
-                      className="ml-2 px-3 py-1 bg-red-600 text-white rounded inline-flex items-center gap-1"
+                      disabled={cancelLoading}
+                      className="ml-2 px-3 py-1 bg-red-600 text-white rounded inline-flex items-center gap-1 disabled:opacity-60"
                       title={tp('list.deleteTitle', { status: t(`status.${String(r.status || '').toLowerCase()}`) })}
                     >
                       <Trash2 className="w-4 h-4" />
                       {t('common.delete')}
                     </button>
+                        </>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))
