@@ -3746,7 +3746,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         console.log('setPackingInformation traceId', response.traceId);
       }
       if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
-      completeAndNext('1b');
+      if (currentStep === '2' || skipPackingStep || palletOnlyMode) {
+        setCompletedSteps((prev) => (prev.includes('1b') ? prev : [...prev, '1b']));
+        setCurrentStep('2');
+      } else {
+        completeAndNext('1b');
+      }
       return true;
     } catch (e) {
       const parsed = await extractFunctionInvokeError(e);
@@ -3791,6 +3796,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   useEffect(() => {
     if (currentStep !== '2') return;
+    if (palletOnlyMode) return;
     const inboundPlanId = resolveInboundPlanId();
     if (!inboundPlanId) return;
     if (autoShipPlanRef.current.planId !== inboundPlanId) {
@@ -3805,6 +3811,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     submitPackingInformation({ packingGroups: [] });
   }, [
     currentStep,
+    palletOnlyMode,
     shipments,
     resolveInboundPlanId,
     buildPackageGroupingsFromBoxPlan,
