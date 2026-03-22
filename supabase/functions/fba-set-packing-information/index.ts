@@ -1730,6 +1730,18 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "content-type": "application/json" } }
         );
       }
+      if (!opStatus || ["IN_PROGRESS", "PENDING", "PROCESSING"].includes(opStateUp)) {
+        return new Response(
+          JSON.stringify({
+            code: "PACKING_INFORMATION_PENDING",
+            message: "Amazon încă procesează packing information. Reîncearcă în câteva secunde.",
+            traceId,
+            retryAfterMs: 3000,
+            operationId: opId
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     const listBoxes = async () =>

@@ -3732,6 +3732,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         };
       }
       const response = responseData && typeof responseData === 'object' ? responseData : {};
+      if (response?.code === 'PACKING_INFORMATION_PENDING') {
+        const retryAfterMs = Number(response?.retryAfterMs || 3000) || 3000;
+        setPackingSubmitError(response?.message || 'Amazon is still processing packing information.');
+        if (currentStep === '2') {
+          if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
+          shippingRetryTimerRef.current = setTimeout(() => {
+            fetchShippingOptions({ force: true });
+          }, retryAfterMs);
+        }
+        return true;
+      }
       if (!response?.ok) {
         const trace = response?.traceId || response?.trace_id || null;
         const detail =
