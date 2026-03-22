@@ -2451,16 +2451,38 @@ serve(async (req) => {
         .filter(Boolean);
       return cleaned.length ? cleaned : null;
     }
+    const VALID_FREIGHT_CLASSES = new Set([
+      "NONE",
+      "FC_50",
+      "FC_55",
+      "FC_60",
+      "FC_65",
+      "FC_70",
+      "FC_77_5",
+      "FC_85",
+      "FC_92_5",
+      "FC_100",
+      "FC_110",
+      "FC_125",
+      "FC_150",
+      "FC_175",
+      "FC_200",
+      "FC_250",
+      "FC_300",
+      "FC_400",
+      "FC_500",
+    ]);
     function normalizeFreightInformation(info: any) {
       if (!info) return null;
       const declared = info?.declaredValue || info?.declared_value || null;
       const amount = Number(declared?.amount ?? declared?.value ?? null);
       const code = (declared?.code || declared?.currency || "USD").toString().toUpperCase();
-      const freightClass = info?.freightClass || info?.freight_class || null;
-      if (!Number.isFinite(amount) || !freightClass) return null;
+      const rawFreightClass = String(info?.freightClass || info?.freight_class || "").trim().toUpperCase();
+      const freightClass = VALID_FREIGHT_CLASSES.has(rawFreightClass) ? rawFreightClass : "NONE";
+      if (!Number.isFinite(amount)) return null;
       return {
         declaredValue: { amount, code },
-        freightClass: String(freightClass)
+        freightClass
       };
     }
     function normalizePkgFromGroup(g: any) {

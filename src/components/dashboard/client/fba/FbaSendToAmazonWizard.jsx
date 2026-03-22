@@ -741,7 +741,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       height: '',
       weight: '',
       stackability: 'STACKABLE',
-      freightClass: 'FC_XX',
+      freightClass: 'NONE',
       declaredValue: '',
       declaredValueCurrency: 'EUR'
     }
@@ -902,7 +902,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       pallets,
       totalWeightKg: totalWeight ? Number(totalWeight.toFixed(2)) : '',
       totalVolumeCm3: null,
-      freightClass: 'FC_XX',
+      freightClass: 'NONE',
       footprint,
       stackability: 'STACKABLE',
       length: isEu ? DEFAULT_EU_PALLET.length : 120,
@@ -1725,7 +1725,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         height: '',
         weight: '',
         stackability: 'STACKABLE',
-        freightClass: 'FC_XX',
+        freightClass: 'NONE',
         declaredValue: '',
         declaredValueCurrency: 'EUR'
       }
@@ -4082,7 +4082,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             amount: Number(palletDetails.declaredValue || 1),
             code: palletDetails.declaredValueCurrency || 'EUR'
           },
-          freightClass: palletDetails.freightClass || footprint?.freightClass || 'FC_XX'
+          freightClass: palletDetails.freightClass || footprint?.freightClass || 'NONE'
         }
       : null;
 
@@ -5218,7 +5218,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         height,
         weight,
         declaredValue: declaredValue > 0 ? declaredValue : 1,
-        freightClass: freightClass || 'FC_XX',
+        freightClass: freightClass || 'NONE',
         stackability: ['STACKABLE', 'NON_STACKABLE'].includes(String(prev.stackability || '').toUpperCase())
           ? prev.stackability
           : 'STACKABLE'
@@ -5242,7 +5242,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         height,
         weight,
         declaredValue: declaredValue > 0 ? declaredValue : 1,
-        freightClass: freightClass || 'FC_XX',
+        freightClass: freightClass || 'NONE',
         stackability: ['STACKABLE', 'NON_STACKABLE'].includes(String(prev.stackability || '').toUpperCase())
           ? prev.stackability
           : 'STACKABLE'

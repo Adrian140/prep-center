@@ -103,7 +103,7 @@ export default function FbaStep2Shipping({
         height: '',
         weight: '',
         stackability: 'STACKABLE',
-        freightClass: 'FC_XX',
+        freightClass: 'NONE',
         declaredValue: '',
         declaredValueCurrency: 'EUR'
       },
