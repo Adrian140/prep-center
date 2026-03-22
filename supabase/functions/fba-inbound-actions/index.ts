@@ -489,6 +489,139 @@ async function pollInboundOperationStatus(opts: {
   return last;
 }
 
+function normalizeMarketCode(value: string | null | undefined) {
+  const upper = String(value || "").trim().toUpperCase();
+  if (!upper) return "FR";
+  if (upper === "GERMANY" || upper === "DEU") return "DE";
+  if (upper === "FRANCE" || upper === "FRA") return "FR";
+  return upper;
+}
+
+function parseNumeric(value: unknown, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+async function rollbackPrepRequestLocally(requestId: string) {
+  const { data: requestRow, error: requestError } = await supabase
+    .from("prep_requests")
+    .select(`
+      id,
+      company_id,
+      user_id,
+      warehouse_country,
+      destination_country,
+      completed_at,
+      step4_confirmed_at,
+      confirmed_at,
+      created_at,
+      fba_shipment_id,
+      inventory_deducted_at,
+      prep_request_items(stock_item_id, units_requested, units_sent),
+      prep_request_services(service_name, unit_price, units),
+      prep_request_heavy_parcel(labels_count, unit_price, market)
+    `)
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (requestError) throw requestError;
+  if (!requestRow) throw new Error("Request not found for rollback");
+
+  const marketCode = normalizeMarketCode(requestRow.warehouse_country || requestRow.destination_country || "FR");
+  const serviceDate = String(
+    requestRow.completed_at ||
+      requestRow.step4_confirmed_at ||
+      requestRow.confirmed_at ||
+      requestRow.created_at ||
+      new Date().toISOString()
+  ).slice(0, 10);
+  const shipmentId = requestRow.fba_shipment_id || null;
+
+  if (requestRow.inventory_deducted_at) {
+    const items = Array.isArray(requestRow.prep_request_items) ? requestRow.prep_request_items : [];
+    const stockItemIds = items.map((item: any) => item?.stock_item_id).filter(Boolean);
+    if (stockItemIds.length) {
+      const { data: stockRows, error: stockError } = await supabase
+        .from("stock_items")
+        .select("id, qty, prep_qty_by_country")
+        .in("id", stockItemIds);
+      if (stockError) throw stockError;
+      const stockMap = new Map((stockRows || []).map((row: any) => [row.id, row]));
+      for (const item of items) {
+        const stockItemId = item?.stock_item_id;
+        if (!stockItemId) continue;
+        const stockRow = stockMap.get(stockItemId);
+        if (!stockRow) continue;
+        const unitsToRestore = parseNumeric(item?.units_sent, parseNumeric(item?.units_requested, 0));
+        const byCountry =
+          stockRow.prep_qty_by_country && typeof stockRow.prep_qty_by_country === "object"
+            ? { ...stockRow.prep_qty_by_country }
+            : {};
+        const nextMarketQty = parseNumeric(byCountry[marketCode], parseNumeric(stockRow.qty, 0)) + unitsToRestore;
+        byCountry[marketCode] = nextMarketQty;
+        const nextQty = Object.values(byCountry).reduce((sum, value) => sum + parseNumeric(value, 0), 0);
+        const { error: updateStockError } = await supabase
+          .from("stock_items")
+          .update({
+            prep_qty_by_country: byCountry,
+            qty: nextQty
+          })
+          .eq("id", stockItemId);
+        if (updateStockError) throw updateStockError;
+      }
+    }
+
+    const services = Array.isArray(requestRow.prep_request_services) ? requestRow.prep_request_services : [];
+    for (const service of services) {
+      const { error: deleteLineError } = await supabase
+        .from("fba_lines")
+        .delete()
+        .eq("company_id", requestRow.company_id)
+        .eq("user_id", requestRow.user_id)
+        .eq("service", service.service_name)
+        .eq("unit_price", service.unit_price)
+        .eq("units", service.units)
+        .eq("service_date", serviceDate)
+        .eq("country", marketCode)
+        .eq("obs_admin", shipmentId);
+      if (deleteLineError) throw deleteLineError;
+    }
+
+    const heavyRows = Array.isArray(requestRow.prep_request_heavy_parcel) ? requestRow.prep_request_heavy_parcel : [];
+    for (const heavy of heavyRows) {
+      if (normalizeMarketCode(heavy?.market || null) !== marketCode) continue;
+      const labelsCount = parseNumeric(heavy?.labels_count, 0);
+      if (labelsCount <= 0) continue;
+      const { error: deleteHeavyLineError } = await supabase
+        .from("fba_lines")
+        .delete()
+        .eq("company_id", requestRow.company_id)
+        .eq("user_id", requestRow.user_id)
+        .eq("service", "Heavy Parcel")
+        .eq("unit_price", heavy.unit_price)
+        .eq("units", labelsCount)
+        .eq("service_date", serviceDate)
+        .eq("country", marketCode)
+        .eq("obs_admin", shipmentId);
+      if (deleteHeavyLineError) throw deleteHeavyLineError;
+    }
+  }
+
+  const { error: updateRequestError } = await supabase
+    .from("prep_requests")
+    .update({
+      status: "cancelled",
+      prep_status: "cancelled",
+      amazon_status: "CANCELLED",
+      step2_confirmed_at: null,
+      step4_confirmed_at: null,
+      completed_at: null,
+      inventory_deducted_at: null
+    })
+    .eq("id", requestId);
+  if (updateRequestError) throw updateRequestError;
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   const origin = req.headers.get("origin") || "*";
@@ -855,15 +988,17 @@ serve(async (req) => {
           );
         }
       }
-      const { error: cancelStatusErr } = await supabase.rpc(
-        "cancel_prep_request_inventory",
-        { p_request_id: requestId }
-      );
+      let cancelStatusErr: any = null;
+      try {
+        await rollbackPrepRequestLocally(String(requestId));
+      } catch (rollbackError: any) {
+        cancelStatusErr = rollbackError;
+      }
       if (cancelStatusErr) {
         console.warn("prep_request_cancel_finalize_failed", {
           traceId,
           requestId,
-          error: cancelStatusErr.message
+          error: cancelStatusErr.message || String(cancelStatusErr)
         });
       }
     }
