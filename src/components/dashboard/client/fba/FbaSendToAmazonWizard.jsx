@@ -3871,7 +3871,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         };
       }
       const response = responseData && typeof responseData === 'object' ? responseData : {};
-      if (response?.code === 'PACKING_INFORMATION_PENDING') {
+      if (
+        response?.code === 'PACKING_INFORMATION_PENDING' ||
+        response?.code === 'BOXES_NOT_READY' ||
+        response?.code === 'PLACEMENT_OPTIONS_PENDING'
+      ) {
         const retryAfterMs = Number(response?.retryAfterMs || 3000) || 3000;
         setPackingSubmitError(response?.message || 'Amazon is still processing packing information.');
         if (packingPendingRetryTimerRef.current) {
@@ -6612,7 +6616,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           onRetry={refreshPackingGroups}
           retryLoading={packingRefreshLoading}
           submitting={packingSubmitLoading}
-          autoPackingMode={autoPackingActive}
+          autoPackingMode={autoPackingActive && packingSubmitLoading}
           palletMode={palletOnlyMode}
           onUpdateGroup={handlePackGroupUpdate}
           onNext={submitPackingInformation}

@@ -1965,6 +1965,17 @@ serve(async (req) => {
         placementOptions?.[0]?.placementOptionId ||
         placementOptions?.[0]?.id ||
         null;
+      if (!placementOptionId) {
+        return new Response(
+          JSON.stringify({
+            code: "PLACEMENT_OPTIONS_PENDING",
+            message: "Amazon încă procesează placement options. Reîncearcă în câteva secunde.",
+            traceId,
+            retryAfterMs: 3000
+          }),
+          { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+        );
+      }
     }
 
     // persist inbound/packing IDs (idempotent)
