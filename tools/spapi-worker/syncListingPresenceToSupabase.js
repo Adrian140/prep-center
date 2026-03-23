@@ -84,7 +84,41 @@ function normalizeHeaderKey(rawHeader) {
   }
   if (['asin', 'asin1'].includes(original)) return 'asin';
   if (['status', 'item-status', 'etat', 'estado', 'stato'].includes(original)) return 'status';
+  if (
+    [
+      'product-id',
+      'productid',
+      'external-product-id',
+      'externalproductid',
+      'item-id',
+      'itemid'
+    ].includes(original)
+  ) {
+    return 'product_id';
+  }
+  if (
+    [
+      'product-id-type',
+      'productidtype',
+      'external-product-id-type',
+      'externalproductidtype',
+      'idtype'
+    ].includes(original)
+  ) {
+    return 'product_id_type';
+  }
+  if (['item-name', 'itemname', 'product-name', 'productname', 'title', 'name'].includes(original)) {
+    return 'name';
+  }
   return original;
+}
+
+function normalizeEan(value) {
+  const digits = String(value || '').replace(/\D+/g, '');
+  if (digits.length === 8 || digits.length === 12 || digits.length === 13 || digits.length === 14) {
+    return digits;
+  }
+  return '';
 }
 
 function parseListingRows(tsvText) {
@@ -124,8 +158,12 @@ function normalizeListings(rawRows = []) {
       const sku = String(row.sku || '').trim();
       const asin = String(row.asin || '').trim();
       const status = String(row.status || '').trim();
+      const productIdType = String(row.product_id_type || '').trim().toUpperCase();
+      const productId = String(row.product_id || '').trim();
+      const ean = ['EAN', 'UPC', 'GTIN', 'ISBN'].includes(productIdType) ? normalizeEan(productId) : '';
+      const name = String(row.name || '').trim();
       if (!sku && !asin) return null;
-      return { sku: sku || null, asin: asin || null, status };
+      return { sku: sku || null, asin: asin || null, ean: ean || null, name: name || null, status };
     })
     .filter(Boolean);
 }
@@ -283,7 +321,7 @@ async function fetchCompanyStockItems(companyId) {
     const to = from + pageSize - 1;
     const { data, error } = await supabase
       .from('stock_items')
-      .select('id, company_id, asin, sku')
+      .select('id, company_id, asin, sku, ean, name')
       .eq('company_id', companyId)
       .order('id', { ascending: true })
       .range(from, to);
@@ -293,19 +331,88 @@ async function fetchCompanyStockItems(companyId) {
     if (page.length < pageSize) break;
     from += pageSize;
   }
-  return all.filter((row) => normalizeIdentifier(row?.asin) || normalizeIdentifier(row?.sku));
+  return all.filter(
+    (row) => normalizeIdentifier(row?.asin) || normalizeIdentifier(row?.sku) || normalizeEan(row?.ean)
+  );
 }
 
 function buildListingIndex(listings = []) {
   const bySku = new Map();
   const byAsin = new Map();
+  const byEan = new Map();
   for (const row of listings) {
     const skuKey = normalizeIdentifier(row?.sku);
     const asinKey = normalizeIdentifier(row?.asin);
+    const eanKey = normalizeEan(row?.ean);
     if (skuKey && !bySku.has(skuKey)) bySku.set(skuKey, row);
     if (asinKey && !byAsin.has(asinKey)) byAsin.set(asinKey, row);
+    if (eanKey && !byEan.has(eanKey)) byEan.set(eanKey, row);
+  }
+  return { bySku, byAsin, byEan };
+}
+
+function buildStockConflictIndex(stockItems = []) {
+  const bySku = new Map();
+  const byAsin = new Map();
+  for (const item of stockItems) {
+    const skuKey = normalizeIdentifier(item?.sku);
+    const asinKey = normalizeIdentifier(item?.asin);
+    if (skuKey && !bySku.has(skuKey)) bySku.set(skuKey, item.id);
+    if (asinKey && !byAsin.has(asinKey)) byAsin.set(asinKey, item.id);
   }
   return { bySku, byAsin };
+}
+
+function buildStockPatch(item, hit, conflictIndex) {
+  if (!item || !hit) return null;
+  const patch = { id: item.id };
+  let changed = false;
+
+  const hitSkuKey = normalizeIdentifier(hit.sku);
+  const hitAsinKey = normalizeIdentifier(hit.asin);
+
+  if (!item.asin && hit.asin) {
+    const owner = conflictIndex.byAsin.get(hitAsinKey);
+    if (!owner || owner === item.id) {
+      patch.asin = hit.asin;
+      changed = true;
+      if (!owner) conflictIndex.byAsin.set(hitAsinKey, item.id);
+    }
+  }
+
+  if (!item.sku && hit.sku) {
+    const owner = conflictIndex.bySku.get(hitSkuKey);
+    if (!owner || owner === item.id) {
+      patch.sku = hit.sku;
+      changed = true;
+      if (!owner) conflictIndex.bySku.set(hitSkuKey, item.id);
+    }
+  }
+
+  if (!item.ean && hit.ean) {
+    patch.ean = hit.ean;
+    changed = true;
+  }
+
+  if (!String(item.name || '').trim() && String(hit.name || '').trim()) {
+    patch.name = hit.name;
+    changed = true;
+  }
+
+  return changed ? patch : null;
+}
+
+async function applyStockPatches(patches = []) {
+  if (!patches.length) return 0;
+  let updated = 0;
+  for (const patch of patches) {
+    const { id, ...payload } = patch || {};
+    if (!id || !Object.keys(payload).length) continue;
+    const { error } = await supabase.from('stock_items').update(payload).eq('id', id);
+    if (error) throw error;
+    updated += 1;
+  }
+  return updated;
 }
 
 async function syncIntegrationMarket(params) {
@@ -323,7 +430,7 @@ async function syncIntegrationMarket(params) {
   const rawDoc = await downloadReportDocument(spClient, reportDocumentId);
   const rawRows = parseListingRows(rawDoc);
   const listings = normalizeListings(rawRows);
-  const { bySku, byAsin } = buildListingIndex(listings);
+  const { bySku, byAsin, byEan } = buildListingIndex(listings);
 
   if (!listings.length) {
     console.warn(
@@ -332,17 +439,29 @@ async function syncIntegrationMarket(params) {
     return { marketId, total: stockItems.length, matched: 0, skipped: true, emptyReport: true };
   }
 
+  const conflictIndex = buildStockConflictIndex(stockItems);
+  const stockPatches = [];
   const rows = stockItems.map((item) => {
     const skuKey = normalizeIdentifier(item.sku);
     const asinKey = normalizeIdentifier(item.asin);
+    const eanKey = normalizeEan(item.ean);
     const hitBySku = skuKey ? bySku.get(skuKey) : null;
     const hitByAsin = !hitBySku && asinKey ? byAsin.get(asinKey) : null;
-    const hit = hitBySku || hitByAsin || null;
+    const hitByEan = !hitBySku && !hitByAsin && eanKey ? byEan.get(eanKey) : null;
+    const hit = hitBySku || hitByAsin || hitByEan || null;
+    const stockPatch = buildStockPatch(item, hit, conflictIndex);
+    if (stockPatch) stockPatches.push(stockPatch);
     if (shouldDebug(companyId, skuKey, asinKey)) {
       console.log(
         `[listing-presence][debug] company=${companyId} market=${marketId} sku=${item.sku} asin=${item.asin} ` +
           `status=${hit?.status || 'NOT_FOUND'} reportSku=${hit?.sku || ''} source=${
-            hitBySku ? 'sku_report_match' : hitByAsin ? 'asin_report_match' : 'report_not_found'
+            hitBySku
+              ? 'sku_report_match'
+              : hitByAsin
+              ? 'asin_report_match'
+              : hitByEan
+              ? 'ean_report_match'
+              : 'report_not_found'
           }`
       );
     }
@@ -353,7 +472,13 @@ async function syncIntegrationMarket(params) {
       marketplace_id: marketId,
       exists_on_marketplace: Boolean(hit),
       resolved_sku: hit?.sku || null,
-      source: hitBySku ? 'sku_report_match' : hitByAsin ? 'asin_report_match' : 'report_not_found',
+      source: hitBySku
+        ? 'sku_report_match'
+        : hitByAsin
+        ? 'asin_report_match'
+        : hitByEan
+        ? 'ean_report_match'
+        : 'report_not_found',
       raw_status: hit?.status || (hit ? 'LISTED' : 'NOT_FOUND'),
       checked_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -373,10 +498,13 @@ async function syncIntegrationMarket(params) {
     }
   }
 
+  const hydrated = await applyStockPatches(stockPatches);
+
   return {
     marketId,
     total: rows.length,
-    matched: rows.filter((r) => r.exists_on_marketplace).length
+    matched: rows.filter((r) => r.exists_on_marketplace).length,
+    hydrated
   };
 }
 
@@ -419,7 +547,7 @@ async function syncIntegration(integration, startedAt) {
       });
       marketResults.push(result);
       console.log(
-        `[listing-presence] company ${companyLabel} ${market.code}: ${result.matched || 0}/${result.total || 0}`
+        `[listing-presence] company ${companyLabel} ${market.code}: ${result.matched || 0}/${result.total || 0} hydrated=${result.hydrated || 0}`
       );
     } catch (error) {
       console.error(
