@@ -531,6 +531,32 @@ function hydratePackingGroupsFromDbItems(groups: any[], dbItems: any[]) {
   });
 }
 
+function sanitizePackageGroupings(groups: any[]) {
+  const list = Array.isArray(groups) ? groups : [];
+  return list
+    .map((group: any) => {
+      const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+      const sanitizedBoxes = boxes
+        .map((box: any) => {
+          const source = String(box?.contentInformationSource || "").toUpperCase();
+          const normalizedItems = Array.isArray(box?.items)
+            ? box.items.map((it: any) => normalizeItem(it)).filter(Boolean)
+            : [];
+          const shouldAttachItems = source === "BOX_CONTENT_PROVIDED";
+          return {
+            ...box,
+            ...(shouldAttachItems ? { items: normalizedItems } : { items: undefined })
+          };
+        })
+        .filter(Boolean);
+      return {
+        ...group,
+        boxes: sanitizedBoxes
+      };
+    })
+    .filter(Boolean);
+}
+
 async function sha256(message: string): Promise<string> {
   const data = new TextEncoder().encode(message);
   const hash = await crypto.subtle.digest("SHA-256", data);
@@ -1478,6 +1504,7 @@ serve(async (req) => {
         return { ...g, packingGroupId: fallbackId ? String(fallbackId) : null };
       });
     }
+    packageGroupings = sanitizePackageGroupings(packageGroupings);
     try {
       console.log(
         JSON.stringify(
