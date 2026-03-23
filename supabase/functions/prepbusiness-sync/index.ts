@@ -163,7 +163,7 @@ async function resolveMerchantContext(payload: Record<string, unknown>) {
 }
 
 async function ensureStockItem(companyId: string, userId: string | null, item: Record<string, unknown>) {
-  const asin = normalizeText(item.asin);
+  let asin = normalizeText(item.asin);
   const sku = normalizeText(item.sku);
   const ean = normalizeText(item.ean);
   const desiredName =
@@ -213,6 +213,19 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
     return await maybeHydrateIdentifiers(withName as Record<string, unknown>);
   };
 
+  const sameValueOrMissing = (left: unknown, right: unknown) => {
+    const a = normalizeText(left);
+    const b = normalizeText(right);
+    if (!a || !b) return true;
+    return String(a).trim().toUpperCase() === String(b).trim().toUpperCase();
+  };
+
+  const canReuseSkuRow = (row: Record<string, unknown> | null) =>
+    !!row && sameValueOrMissing((row as any).asin, asin);
+
+  const canReuseAsinRow = (row: Record<string, unknown> | null) =>
+    !!row && sameValueOrMissing((row as any).sku, sku);
+
   if (asin && sku) {
     const { data: exactPair } = await supabase
       .from("stock_items")
@@ -231,7 +244,9 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("company_id", companyId)
       .eq("sku", sku)
       .maybeSingle();
-    if (bySku) return await finalizeMatchedRow(bySku as Record<string, unknown>);
+    if (canReuseSkuRow(bySku as Record<string, unknown> | null)) {
+      return await finalizeMatchedRow(bySku as Record<string, unknown>);
+    }
   }
 
   if (asin) {
@@ -241,17 +256,52 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("company_id", companyId)
       .eq("asin", asin)
       .maybeSingle();
-    if (byAsin) return await finalizeMatchedRow(byAsin as Record<string, unknown>);
+    if (canReuseAsinRow(byAsin as Record<string, unknown> | null)) {
+      return await finalizeMatchedRow(byAsin as Record<string, unknown>);
+    }
   }
 
   if (ean) {
-    const { data: byEan } = await supabase
+    const { data: byEanRows } = await supabase
       .from("stock_items")
       .select("*")
       .eq("company_id", companyId)
       .eq("ean", ean)
-      .maybeSingle();
-    if (byEan) return await finalizeMatchedRow(byEan as Record<string, unknown>);
+      .order("created_at", { ascending: true })
+      .limit(10);
+
+    const eanCandidates = Array.isArray(byEanRows) ? byEanRows : [];
+    const exactPairByEan = eanCandidates.find(
+      (row) => sameValueOrMissing((row as any).asin, asin) && sameValueOrMissing((row as any).sku, sku)
+    );
+    if (exactPairByEan && (normalizeText((exactPairByEan as any).sku) || normalizeText((exactPairByEan as any).asin))) {
+      return await finalizeMatchedRow(exactPairByEan as Record<string, unknown>);
+    }
+
+    const reusableBySku = eanCandidates.find((row) => {
+      const rowSku = normalizeText((row as any).sku);
+      if (!rowSku || !sku) return false;
+      return String(rowSku).trim().toUpperCase() === String(sku).trim().toUpperCase() && canReuseSkuRow(row as Record<string, unknown>);
+    });
+    if (reusableBySku) {
+      return await finalizeMatchedRow(reusableBySku as Record<string, unknown>);
+    }
+
+    const reusableByAsin = eanCandidates.find((row) => {
+      const rowAsin = normalizeText((row as any).asin);
+      if (!rowAsin || !asin) return false;
+      return String(rowAsin).trim().toUpperCase() === String(asin).trim().toUpperCase() && canReuseAsinRow(row as Record<string, unknown>);
+    });
+    if (reusableByAsin) {
+      return await finalizeMatchedRow(reusableByAsin as Record<string, unknown>);
+    }
+
+    if (!asin) {
+      const asinCarrier = eanCandidates.find((row) => normalizeText((row as any).asin));
+      if (asinCarrier) {
+        asin = normalizeText((asinCarrier as any).asin);
+      }
+    }
   }
 
   const payload = {
