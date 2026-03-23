@@ -1115,10 +1115,23 @@ serve(async (req) => {
       return { ok: false, state: "UNKNOWN", res: lastOp || lastGen };
     };
 
-    const pollOperationStatus = async (operationId: string) => {
-      // Amazon poate întoarce operații asincrone; menținem polling-ul scurt pentru a nu depăși timeout-ul Edge.
-      const maxAttempts = 10;
-      const timeoutMs = 25000;
+    type PollOperationStatusOptions = {
+      maxAttempts?: number;
+      timeoutMs?: number;
+      delayBaseMs?: number;
+      maxDelayMs?: number;
+      context?: string;
+    };
+
+    const pollOperationStatus = async (
+      operationId: string,
+      options: PollOperationStatusOptions = {}
+    ) => {
+      // Pentru stabilitate, lăsăm Amazon să termine operațiile asincrone chiar și pe planuri cu mai multe shipment-uri.
+      const maxAttempts = Number.isFinite(options.maxAttempts) ? Number(options.maxAttempts) : 24;
+      const timeoutMs = Number.isFinite(options.timeoutMs) ? Number(options.timeoutMs) : 90000;
+      const delayBaseMs = Number.isFinite(options.delayBaseMs) ? Number(options.delayBaseMs) : 500;
+      const maxDelayMs = Number.isFinite(options.maxDelayMs) ? Number(options.maxDelayMs) : 2500;
       const start = Date.now();
       let attempt = 0;
       let last: Awaited<ReturnType<typeof signedFetch>> | null = null;
@@ -1146,10 +1159,11 @@ serve(async (req) => {
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           return opRes;
         }
-        await delay(Math.min(350 * attempt, 1500));
+        await delay(Math.min(delayBaseMs * attempt, maxDelayMs));
       }
       console.warn("pollOperationStatus timeout", {
         traceId,
+        context: options.context || null,
         operationId,
         attempts: attempt,
         elapsedMs: Date.now() - start,
@@ -3196,7 +3210,11 @@ serve(async (req) => {
       null;
 
     if (opId) {
-      const genStatus = await pollOperationStatus(opId);
+      const genStatus = await pollOperationStatus(opId, {
+        context: "generateTransportationOptions",
+        maxAttempts: shipmentTransportationConfigurations.length > 1 ? 30 : 24,
+        timeoutMs: shipmentTransportationConfigurations.length > 1 ? 120000 : 90000
+      });
       const stateUp = getOperationState(genStatus) || String(genStatus?.res?.status || "").toUpperCase();
       logStep("generateTransportationOptions_status", {
         traceId,
@@ -3942,7 +3960,11 @@ serve(async (req) => {
           genRes?.json?.operationId ||
           null;
         if (genOpId) {
-          const genStatus = await pollOperationStatus(genOpId);
+          const genStatus = await pollOperationStatus(genOpId, {
+            context: "generateTransportationOptions_after_deliveryWindow",
+            maxAttempts: shipmentIds.length > 1 ? 30 : 24,
+            timeoutMs: shipmentIds.length > 1 ? 120000 : 90000
+          });
           const stUp = getOperationState(genStatus);
           if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
             logStep("deliveryWindow_generate_failed", { traceId, shipmentId, state: stUp });
@@ -3972,7 +3994,9 @@ serve(async (req) => {
           confirmRes?.json?.operationId ||
           null;
         if (confirmOpId) {
-          const confirmStatus = await pollOperationStatus(confirmOpId);
+          const confirmStatus = await pollOperationStatus(confirmOpId, {
+            context: "confirmDeliveryWindowOption"
+          });
           const stUp = getOperationState(confirmStatus);
           if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stUp)) {
             logStep("deliveryWindow_confirm_failed", { traceId, shipmentId, state: stUp });
@@ -4021,7 +4045,11 @@ serve(async (req) => {
           regenRes?.json?.operationId ||
           null;
         if (regenOpId) {
-          const regenStatus = await pollOperationStatus(regenOpId);
+          const regenStatus = await pollOperationStatus(regenOpId, {
+            context: "generateTransportationOptions_after_deliveryWindow",
+            maxAttempts: shipmentIds.length > 1 ? 30 : 24,
+            timeoutMs: shipmentIds.length > 1 ? 120000 : 90000
+          });
           logStep("generateTransportationOptions_after_deliveryWindow_status", {
             traceId,
             operationId: regenOpId,
@@ -4888,7 +4916,11 @@ serve(async (req) => {
         regenRes?.json?.operationId ||
         null;
       if (regenOpId) {
-        const regenStatus = await pollOperationStatus(regenOpId);
+        const regenStatus = await pollOperationStatus(regenOpId, {
+          context: "generateTransportationOptions_after_deliveryWindow",
+          maxAttempts: shipmentIds.length > 1 ? 30 : 24,
+          timeoutMs: shipmentIds.length > 1 ? 120000 : 90000
+        });
         logStep("generateTransportationOptions_after_deliveryWindow_status", {
           traceId,
           operationId: regenOpId,
@@ -5198,7 +5230,9 @@ serve(async (req) => {
       );
     }
     if (confirmOpId) {
-      const confirmStatus = await pollOperationStatus(confirmOpId);
+      const confirmStatus = await pollOperationStatus(confirmOpId, {
+        context: "confirmTransportationOptions"
+      });
       const stateUp = getOperationState(confirmStatus) || String(confirmStatus?.res?.status || "").toUpperCase();
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
         return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
