@@ -3118,6 +3118,25 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   }, [historyMode, step1BoxPlanForMarket, palletOnlyMode]);
   const autoPackingReady = useMemo(() => {
     if (!autoPackingEnabled || !Array.isArray(packGroupsForAuto) || !packGroupsForAuto.length) return false;
+    const planGroupIsComplete = (planGroup) => {
+      const boxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
+      const boxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
+      if (!boxes.length) return false;
+      const boxesComplete = boxes.every((box) => {
+        const dims = getSafeDims({
+          length: box?.length_cm ?? box?.length ?? null,
+          width: box?.width_cm ?? box?.width ?? null,
+          height: box?.height_cm ?? box?.height ?? null
+        });
+        const weight = getPositiveNumber(box?.weight_kg ?? box?.weight ?? null);
+        return Boolean(dims && weight);
+      });
+      if (!boxesComplete) return false;
+      if (!boxItems.length) return false;
+      return boxItems.every((box) =>
+        Object.values(box || {}).some((qty) => Number(qty || 0) > 0)
+      );
+    };
     if (palletOnlyMode) {
       return packGroupsForAuto.every((g) => {
         const id = String(g?.packingGroupId || g?.id || '').trim();
@@ -3138,7 +3157,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       );
     };
     return packGroupsForAuto.every((g) => {
+      const id = String(g?.packingGroupId || g?.id || '').trim();
+      if (!id) return false;
       if (!hasGroupItems(g)) return false;
+      const { planGroup } = resolvePlanGroupForPackGroup(g);
+      if (planGroupIsComplete(planGroup)) return true;
       const packMode = String(g?.packMode || 'single').toLowerCase();
       if (packMode === 'multiple') {
         const perBox = Array.isArray(g?.perBoxDetails) ? g.perBoxDetails : [];
@@ -3150,11 +3173,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           return Boolean(dims && w);
         });
       }
-      const dims = getSafeDims(g?.boxDimensions);
-      const w = getPositiveNumber(g?.boxWeight);
+      const dims = getSafeDims(g?.boxDimensions || g?.dimensions);
+      const w = getPositiveNumber(g?.boxWeight ?? g?.weight?.value ?? g?.weight);
       return Boolean(dims && w);
     });
-  }, [autoPackingEnabled, packGroupsForAuto, normalizeGroupItemsForUnits, step1BoxPlanForMarket, palletOnlyMode]);
+  }, [autoPackingEnabled, packGroupsForAuto, normalizeGroupItemsForUnits, step1BoxPlanForMarket, palletOnlyMode, resolvePlanGroupForPackGroup]);
 
   // Active auto-packing only when we have valid groups with dimensions/weight; otherwise allow manual UI.
   const autoPackingActive = useMemo(() => autoPackingEnabled && autoPackingReady, [autoPackingEnabled, autoPackingReady]);
