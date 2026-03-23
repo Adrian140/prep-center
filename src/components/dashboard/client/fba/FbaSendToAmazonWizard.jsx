@@ -2603,19 +2603,13 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const resolveStalePackingSkuMismatches = useCallback(
     async (quantityMismatches = [], amazonPackingGroups = []) => {
       const mismatches = Array.isArray(quantityMismatches) ? quantityMismatches : [];
-      if (!mismatches.length) return { resolved: false, removedIds: [] };
+      const groups = Array.isArray(amazonPackingGroups) ? amazonPackingGroups : [];
+      if (!mismatches.length || !groups.length) return { resolved: false, removedIds: [] };
 
-      const staleMismatchKeys = new Set(
-        mismatches
-          .filter((row) => (Number(row?.amazon || 0) || 0) <= 0 && (Number(row?.confirmed || 0) || 0) > 0)
-          .map((row) => normalizeStep1Key(row?.sku))
-          .filter(Boolean)
-      );
-      if (!staleMismatchKeys.size) return { resolved: false, removedIds: [] };
-
-      const amazonKeys = new Set();
-      (Array.isArray(amazonPackingGroups) ? amazonPackingGroups : []).forEach((group) => {
+      const amazonQtyByKey = new Map();
+      groups.forEach((group) => {
         (Array.isArray(group?.items) ? group.items : []).forEach((item) => {
+          const quantity = Number(item?.quantity || 0) || 0;
           [
             item?.sku,
             item?.msku,
@@ -2625,54 +2619,84 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           ]
             .map((value) => normalizeStep1Key(value))
             .filter(Boolean)
-            .forEach((key) => amazonKeys.add(key));
+            .forEach((key) => {
+              if (!amazonQtyByKey.has(key)) amazonQtyByKey.set(key, quantity);
+            });
         });
       });
+      if (!amazonQtyByKey.size) return { resolved: false, removedIds: [] };
 
       const localSkus = Array.isArray(planRef.current?.skus) ? planRef.current.skus : [];
-      const staleLocalSkus = localSkus.filter((sku) => {
+      const touchedIds = [];
+      const hiddenIds = [];
+      const hiddenIdentifiers = [];
+
+      const nextSkus = localSkus.map((sku) => {
         const identifiers = collectSkuIdentifiers(sku);
-        if (!identifiers.some((key) => staleMismatchKeys.has(key))) return false;
-        return !identifiers.some((key) => amazonKeys.has(key));
+        const amazonEntry = identifiers.find((key) => amazonQtyByKey.has(key));
+        const currentUnits = Number(sku?.units || 0) || 0;
+
+        if (amazonEntry) {
+          const amazonUnits = Number(amazonQtyByKey.get(amazonEntry) || 0) || 0;
+          if (amazonUnits === currentUnits && !sku?.excluded) return sku;
+          touchedIds.push(String(sku?.id || ''));
+          return {
+            ...sku,
+            units: amazonUnits,
+            excluded: amazonUnits <= 0 ? true : false
+          };
+        }
+
+        if (currentUnits <= 0) return sku;
+        touchedIds.push(String(sku?.id || ''));
+        if (sku?.id) hiddenIds.push(String(sku.id));
+        hiddenIdentifiers.push(...identifiers);
+        return {
+          ...sku,
+          units: 0,
+          excluded: true
+        };
       });
 
-      if (!staleLocalSkus.length) return { resolved: false, removedIds: [] };
-
-      const staleIdSet = new Set(staleLocalSkus.map((sku) => String(sku?.id || '')).filter(Boolean));
-      const removedIds = Array.from(staleIdSet);
+      if (!touchedIds.length) return { resolved: false, removedIds: [] };
 
       setPlan((prev) => {
-        const nextSkus = (Array.isArray(prev?.skus) ? prev.skus : []).map((sku) =>
-          staleIdSet.has(String(sku?.id || '')) ? { ...sku, units: 0, excluded: true } : sku
-        );
         snapshotServerUnits(nextSkus);
         return { ...prev, skus: nextSkus };
       });
 
-      setStep1HiddenSkuIds((prev) => {
-        const next = { ...(prev || {}) };
-        removedIds.forEach((id) => {
-          next[id] = true;
+      if (hiddenIds.length) {
+        setStep1HiddenSkuIds((prev) => {
+          const next = { ...(prev || {}) };
+          hiddenIds.forEach((id) => {
+            next[id] = true;
+          });
+          return next;
         });
-        return next;
-      });
+      }
 
-      const identifiers = staleLocalSkus.flatMap((sku) => collectSkuIdentifiers(sku));
-      setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, identifiers));
+      if (hiddenIdentifiers.length) {
+        setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, hiddenIdentifiers));
+      }
+
+      if (typeof window !== 'undefined') {
+        if (stateStorageKey) window.localStorage.removeItem(stateStorageKey);
+        if (stepStorageKey) window.localStorage.removeItem(stepStorageKey);
+      }
 
       const requestId = resolveRequestId();
       if (requestId) {
         await Promise.all(
-          staleLocalSkus
+          nextSkus
             .filter((sku) => isUuid(String(sku?.id || '')))
             .map((sku) =>
               supabase
                 .from('prep_request_items')
-                .update({ units_sent: 0 })
+                .update({ units_sent: Number(sku?.units || 0) || 0 })
                 .eq('id', sku.id)
                 .then(({ error }) => {
                   if (error) {
-                    console.warn('stale sku units_sent persist failed', {
+                    console.warn('amazon sku sync persist failed', {
                       requestId,
                       skuId: sku.id,
                       error: error.message
@@ -2683,9 +2707,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         );
       }
 
-      return { resolved: true, removedIds };
+      return { resolved: true, removedIds: hiddenIds };
     },
-    [collectSkuIdentifiers, normalizeStep1Key, removeSkuFromStep1Plan, resolveRequestId, snapshotServerUnits]
+    [
+      collectSkuIdentifiers,
+      normalizeStep1Key,
+      removeSkuFromStep1Plan,
+      resolveRequestId,
+      snapshotServerUnits,
+      stateStorageKey,
+      stepStorageKey
+    ]
   );
 
   const handleRemoveSku = (skuId) => {
