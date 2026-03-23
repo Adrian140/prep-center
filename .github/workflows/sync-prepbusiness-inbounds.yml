@@ -54,7 +54,10 @@ jobs:
 
           const results = Array.isArray(parsed?.results) ? parsed.results : [];
           const freshResults = results.filter((entry) => !entry?.idempotent);
-          if (!freshResults.length) process.exit(0);
+          if (!freshResults.length) {
+            console.log('PrepBusiness product summary: 0 new products imported.');
+            process.exit(0);
+          }
 
           console.log('PrepBusiness product summary:');
           for (const entry of freshResults) {
