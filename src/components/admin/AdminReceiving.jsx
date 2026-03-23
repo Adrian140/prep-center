@@ -106,6 +106,27 @@ const getDisplayReceivedAt = (shipment = {}) => {
   if (!hasActualReceptionEvidence(shipment)) return null;
   return shipment?.latest_received_at || shipment?.received_at || shipment?.processed_at || null;
 };
+
+const getReceivingItemEvents = (item) => {
+  const rows = Array.isArray(item?.receiving_item_events) ? item.receiving_item_events : [];
+  return [...rows]
+    .filter((row) => row?.created_at)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+};
+
+const formatReceivingEventDateTime = (value) => {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleString('fr-FR', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
 const isPrepBusinessSource = (shipment = {}) =>
   String(shipment?.import_source || '').trim().toLowerCase() === 'prepbusiness';
 const isPrepBusinessAutoCreatedNote = (note = '') =>
@@ -1028,7 +1049,13 @@ const checkStockMatches = async () => {
                   : 0;
                 const pendingFba = Math.max(0, plannedFbaQty - sentToAmazon);
                 const hasDirectIntent = intent.hasIntent || intent.directFromAction;
-                const receivedAt = item.received_at ? new Date(item.received_at) : null;
+                const itemEvents = getReceivingItemEvents(item);
+                const lastEvent = itemEvents[0] || null;
+                const receivedAt = lastEvent?.created_at
+                  ? new Date(lastEvent.created_at)
+                  : item.received_at
+                  ? new Date(item.received_at)
+                  : null;
                 let lineStatus;
                 if (expectedQty <= 0 && confirmedQty <= 0) {
                   lineStatus = {
@@ -1096,7 +1123,24 @@ const checkStockMatches = async () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-text-primary">{productName}</div>
+                      <div className="space-y-2">
+                        <div className="font-semibold text-text-primary">{productName}</div>
+                        {itemEvents.length > 0 && (
+                          <div className="text-[11px] text-text-secondary space-y-1">
+                            {itemEvents.map((event) => {
+                              const delta = Number(event.quantity_delta || 0);
+                              const deltaLabel = delta > 0 ? `+${delta}` : String(delta);
+                              const totalAfter = Math.max(0, Number(event.quantity_after || 0));
+                              const totalExpected = expectedQty || totalAfter;
+                              return (
+                                <div key={event.id || event.created_at}>
+                                  {`Received ${deltaLabel} on ${formatReceivingEventDateTime(event.created_at)} · total ${totalAfter}/${totalExpected}`}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="font-semibold text-text-primary">
@@ -1179,7 +1223,7 @@ const checkStockMatches = async () => {
                         </span>
                         <span className="text-xs text-text-secondary mt-1">
                           {lineStatus.label === 'Received' && receivedAt
-                            ? `Received ${receivedAt.toLocaleDateString()}`
+                            ? `Received ${formatReceivingEventDateTime(receivedAt)}`
                             : lineStatus.detail}
                         </span>
                       </div>

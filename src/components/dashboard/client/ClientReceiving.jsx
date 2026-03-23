@@ -130,6 +130,20 @@ const getReceivingItemEvents = (item) => {
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 };
 
+const formatReceivingEventDateTime = (value, locale) => {
+  if (!value) return '—';
+  const d = value instanceof Date ? value : new Date(value);
+  return d.toLocaleString(locale, {
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+};
+
 const deriveReceivingStatus = (shipment) => {
   if (!shipment) return 'submitted';
   const base = shipment.status || 'submitted';
@@ -1183,16 +1197,11 @@ const resolveBoxesCount = (shipment) => {
                               {itemEvents.map((event) => {
                                 const delta = Number(event.quantity_delta || 0);
                                 const deltaLabel = delta > 0 ? `+${delta}` : String(delta);
+                                const totalAfter = Math.max(0, Number(event.quantity_after || 0));
+                                const totalExpected = expectedQty || totalAfter;
                                 return (
                                   <div key={event.id || event.created_at}>
-                                    {`${new Date(event.created_at).toLocaleString(DATE_LOCALE, {
-                                      hour12: false,
-                                      year: 'numeric',
-                                      month: '2-digit',
-                                      day: '2-digit',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })} · ${deltaLabel} · ${event.quantity_after}/${expectedQty || event.quantity_after}`}
+                                    {`Received ${deltaLabel} on ${formatReceivingEventDateTime(event.created_at, DATE_LOCALE)} · total ${totalAfter}/${totalExpected}`}
                                   </div>
                                 );
                               })}
