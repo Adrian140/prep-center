@@ -40,7 +40,6 @@ jobs:
           cat "$TMP_BODY"
           echo
 
-          echo "PrepBusiness product summary:"
           node - "$TMP_BODY" <<'NODE'
           const fs = require('fs');
           const path = process.argv[2];
@@ -54,12 +53,11 @@ jobs:
           }
 
           const results = Array.isArray(parsed?.results) ? parsed.results : [];
-          if (!results.length) {
-            console.log('No inbound results returned.');
-            process.exit(0);
-          }
+          const freshResults = results.filter((entry) => !entry?.idempotent);
+          if (!freshResults.length) process.exit(0);
 
-          for (const entry of results) {
+          console.log('PrepBusiness product summary:');
+          for (const entry of freshResults) {
             const sourceId = entry?.source_id ?? 'unknown';
             const state = entry?.error ? 'ERROR' : entry?.idempotent ? 'IDEMPOTENT' : 'IMPORTED';
             console.log(`- inbound ${sourceId} [${state}]`);
