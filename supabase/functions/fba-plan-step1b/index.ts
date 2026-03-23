@@ -1742,7 +1742,7 @@ serve(async (req) => {
     const fetchSkuMeta = async () => {
       const { data: prepItems } = await supabase
         .from("prep_request_items")
-        .select("sku, asin, product_name, units_sent, units_requested, stock_item_id")
+        .select("id, sku, asin, product_name, units_sent, units_requested, stock_item_id")
         .eq("prep_request_id", requestId);
 
       const asinList = Array.from(
@@ -1772,6 +1772,7 @@ serve(async (req) => {
       const skuMeta = new Map<string, { title: string | null; image: string | null; defaultQty: number }>();
       const confirmedQuantities: Record<string, number> = {};
       const skuDisplayByKey: Record<string, string> = {};
+      const prepItemIdBySkuKey: Record<string, string> = {};
 
       (prepItems || []).forEach((it: any) => {
         const skuRaw = normalizeSku(it.sku);
@@ -1782,6 +1783,9 @@ serve(async (req) => {
         confirmedQuantities[skuKey] = confirmedQty;
         if (!skuDisplayByKey[skuKey]) {
           skuDisplayByKey[skuKey] = skuRaw || skuKey;
+        }
+        if (it?.id && !prepItemIdBySkuKey[skuKey]) {
+          prepItemIdBySkuKey[skuKey] = String(it.id);
         }
 
         const itemAsin = String(it?.asin || "").trim().toUpperCase();
@@ -1795,10 +1799,10 @@ serve(async (req) => {
         });
       });
 
-      return { skuMeta, confirmedQuantities, skuDisplayByKey };
+      return { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey };
     };
 
-    const { skuMeta, confirmedQuantities, skuDisplayByKey } = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
@@ -2027,6 +2031,45 @@ serve(async (req) => {
         summedFromAmazon[sku] = (summedFromAmazon[sku] || 0) + q;
       });
     });
+
+    const staleSkuKeys = Object.keys(confirmedQuantities || {}).filter((sku) => {
+      const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
+      const amazon = Number(summedFromAmazon[sku] || 0) || 0;
+      return confirmed > 0 && amazon <= 0;
+    });
+
+    if (staleSkuKeys.length) {
+      const staleIds = staleSkuKeys
+        .map((sku) => prepItemIdBySkuKey[sku])
+        .filter(Boolean);
+      if (staleIds.length) {
+        const { error: staleUpdateErr } = await supabase
+          .from("prep_request_items")
+          .update({ units_sent: 0 })
+          .in("id", staleIds);
+        if (!staleUpdateErr) {
+          staleSkuKeys.forEach((sku) => {
+            confirmedQuantities[sku] = 0;
+          });
+          console.log(
+            JSON.stringify({
+              tag: "packingGroups_stale_skus_cleared",
+              traceId,
+              requestId,
+              staleSkuKeys,
+              staleIds
+            })
+          );
+        } else {
+          console.warn("packingGroups stale sku cleanup failed", {
+            traceId,
+            requestId,
+            staleSkuKeys,
+            error: staleUpdateErr.message
+          });
+        }
+      }
+    }
 
     const quantityMismatches = Object.keys(confirmedQuantities || {})
       .map((sku) => {
