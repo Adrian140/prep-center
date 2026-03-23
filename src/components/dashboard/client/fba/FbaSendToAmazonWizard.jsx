@@ -1042,6 +1042,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
   const autoPackingRef = useRef({ planId: null, attempted: false });
+  const packingPendingRetryTimerRef = useRef(null);
+  const packingPendingRetryCountRef = useRef(0);
   const step1BoxPlanPersistTimerRef = useRef(null);
   const lastStep1BoxPlanPersistedRef = useRef("");
   const step1UnitsPersistTimerRef = useRef(null);
@@ -3735,11 +3737,31 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (response?.code === 'PACKING_INFORMATION_PENDING') {
         const retryAfterMs = Number(response?.retryAfterMs || 3000) || 3000;
         setPackingSubmitError(response?.message || 'Amazon is still processing packing information.');
+        if (packingPendingRetryTimerRef.current) {
+          clearTimeout(packingPendingRetryTimerRef.current);
+          packingPendingRetryTimerRef.current = null;
+        }
         if (currentStep === '2') {
           if (shippingRetryTimerRef.current) clearTimeout(shippingRetryTimerRef.current);
           shippingRetryTimerRef.current = setTimeout(() => {
             fetchShippingOptions({ force: true });
           }, retryAfterMs);
+        } else {
+          const nextAttempt = packingPendingRetryCountRef.current + 1;
+          if (nextAttempt <= 10) {
+            packingPendingRetryCountRef.current = nextAttempt;
+            packingPendingRetryTimerRef.current = setTimeout(() => {
+              submitPackingInformation({
+                packingGroups:
+                  Array.isArray(payload?.packingGroups) && payload.packingGroups.length
+                    ? payload.packingGroups
+                    : packingGroupsPayload,
+                skipRefresh: true
+              });
+            }, retryAfterMs);
+          } else {
+            setPackingSubmitError('Amazon încă procesează packing information. Reîncearcă manual în câteva secunde.');
+          }
         }
         return true;
       }
@@ -3755,6 +3777,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       if (response?.traceId && !import.meta.env.PROD) {
         console.log('setPackingInformation traceId', response.traceId);
+      }
+      packingPendingRetryCountRef.current = 0;
+      if (packingPendingRetryTimerRef.current) {
+        clearTimeout(packingPendingRetryTimerRef.current);
+        packingPendingRetryTimerRef.current = null;
       }
       if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
       if (currentStep === '2' || skipPackingStep || palletOnlyMode) {
@@ -3774,12 +3801,26 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         parsed?.message ||
         e?.message ||
         'SetPackingInformation failed.';
+      packingPendingRetryCountRef.current = 0;
+      if (packingPendingRetryTimerRef.current) {
+        clearTimeout(packingPendingRetryTimerRef.current);
+        packingPendingRetryTimerRef.current = null;
+      }
       setPackingSubmitError(trace ? `${message} · TraceId ${trace}` : message);
       return false;
     } finally {
       setPackingSubmitLoading(false);
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (packingPendingRetryTimerRef.current) {
+        clearTimeout(packingPendingRetryTimerRef.current);
+        packingPendingRetryTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (currentStep !== '1b') return;
