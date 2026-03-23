@@ -96,6 +96,109 @@ const pickPrepBusinessMerchantName = (payload = null, merchantId = null) => {
   }
   return null;
 };
+const isLikelyEan = (value) => /^\d{8,14}$/.test(String(value || '').trim());
+const mapPrepBusinessPayloadItems = (payload = null) => {
+  const source =
+    payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload
+      : {};
+  const rawItems = Array.isArray(source.items)
+    ? source.items
+    : Array.isArray(source.lines)
+    ? source.lines
+    : [];
+  return rawItems.map((raw) => {
+    const item =
+      raw?.item && typeof raw.item === 'object' && !Array.isArray(raw.item)
+        ? raw.item
+        : {};
+    const identifiers = Array.isArray(item.identifiers) ? item.identifiers : [];
+    const findIdentifier = (types) => {
+      const allowed = new Set((types || []).map((entry) => String(entry || '').trim().toUpperCase()));
+      const hit = identifiers.find((row) =>
+        allowed.has(String(row?.identifier_type || '').trim().toUpperCase())
+      );
+      return normalizeCode(hit?.identifier);
+    };
+    const asin =
+      normalizeCode(raw?.asin) ||
+      normalizeCode(item?.asin) ||
+      findIdentifier(['ASIN']) ||
+      null;
+    const ean =
+      normalizeCode(raw?.ean) ||
+      normalizeCode(item?.ean) ||
+      findIdentifier(['EAN', 'GTIN', 'UPC']) ||
+      null;
+    const sku =
+      normalizeCode(raw?.sku) ||
+      normalizeCode(raw?.merchant_sku) ||
+      normalizeCode(item?.sku) ||
+      normalizeCode(item?.merchant_sku) ||
+      null;
+    const productName =
+      normalizeCode(raw?.product_name) ||
+      normalizeCode(raw?.title) ||
+      normalizeCode(item?.title) ||
+      null;
+    return { asin, ean, sku, product_name: productName };
+  });
+};
+const buildPrepBusinessItemLookup = (payload = null) => {
+  const map = new Map();
+  const add = (key, value) => {
+    const normalized = normalizeCode(key);
+    if (!normalized || map.has(normalized)) return;
+    map.set(normalized, value);
+  };
+  mapPrepBusinessPayloadItems(payload).forEach((item) => {
+    add(item.sku, item);
+    add(item.asin, item);
+    add(item.ean, item);
+    add(item.product_name, item);
+  });
+  return map;
+};
+const enrichReceivingIdentifiers = (item = {}, stockItem = null, payloadLookup = null) => {
+  const eanAsin = normalizeCode(item?.ean_asin);
+  const payloadMatch =
+    payloadLookup?.get(normalizeCode(item?.sku)) ||
+    payloadLookup?.get(normalizeCode(item?.asin)) ||
+    payloadLookup?.get(normalizeCode(item?.ean)) ||
+    payloadLookup?.get(eanAsin) ||
+    payloadLookup?.get(normalizeCode(item?.product_name)) ||
+    null;
+  const asin =
+    normalizeCode(item?.asin) ||
+    normalizeCode(stockItem?.asin) ||
+    normalizeCode(payloadMatch?.asin) ||
+    (isLikelyAsin(eanAsin) ? eanAsin : null) ||
+    null;
+  const sku =
+    normalizeCode(item?.sku) ||
+    normalizeCode(stockItem?.sku) ||
+    normalizeCode(payloadMatch?.sku) ||
+    null;
+  const ean =
+    normalizeCode(item?.ean) ||
+    normalizeCode(stockItem?.ean) ||
+    normalizeCode(payloadMatch?.ean) ||
+    (isLikelyEan(eanAsin) ? eanAsin : null) ||
+    null;
+  const productName =
+    normalizeCode(item?.product_name) ||
+    normalizeCode(stockItem?.name) ||
+    normalizeCode(payloadMatch?.product_name) ||
+    null;
+  return {
+    ...item,
+    asin,
+    sku,
+    ean,
+    product_name: productName || item?.product_name || null,
+    stock_item: stockItem || null
+  };
+};
 const normalizePrepDestinationCountry = (value) => {
   const code = String(value || 'FR').trim().toUpperCase();
   return code === 'GB' ? 'UK' : code;
@@ -3451,6 +3554,23 @@ createReceivingShipment: async (shipmentData) => {
     if (error) return { data: [], error };
 
     const shipments = data || [];
+    const prepBusinessShipmentIds = shipments
+      .filter((row) => String(row?.import_source || '').trim().toLowerCase() === 'prepbusiness')
+      .map((row) => row.id)
+      .filter(Boolean);
+    const prepBusinessImportByShipmentId = {};
+    if (prepBusinessShipmentIds.length > 0) {
+      const { data: importRows } = await supabase
+        .from('prep_business_imports')
+        .select('receiving_shipment_id, payload, created_at')
+        .in('receiving_shipment_id', prepBusinessShipmentIds)
+        .order('created_at', { ascending: false });
+      (importRows || []).forEach((row) => {
+        const shipmentId = row?.receiving_shipment_id;
+        if (!shipmentId || prepBusinessImportByShipmentId[shipmentId]) return;
+        prepBusinessImportByShipmentId[shipmentId] = row;
+      });
+    }
     const missingIds = shipments
       .filter((row) => !row.receiving_items || row.receiving_items.length === 0)
       .map((row) => row.id)
@@ -3493,6 +3613,9 @@ createReceivingShipment: async (shipmentData) => {
       const legacyItems = row.receiving_shipment_items || [];
       const modernItems = row.receiving_items || [];
       const fallbackItems = fallbackMap[row.id] || [];
+      const payloadLookup = buildPrepBusinessItemLookup(
+        prepBusinessImportByShipmentId[row.id]?.payload || null
+      );
       const resolvedItems =
         modernItems.length > 0
           ? modernItems
@@ -3502,7 +3625,9 @@ createReceivingShipment: async (shipmentData) => {
       const { receiving_shipment_items, receiving_items, ...rest } = row;
       return {
         ...rest,
-        receiving_items: resolvedItems
+        receiving_items: resolvedItems.map((item) =>
+          enrichReceivingIdentifiers(item, item?.stock_item || null, payloadLookup)
+        )
       };
     });
 
@@ -3954,6 +4079,7 @@ getAllReceivingShipments: async (options = {}) => {
     const prepMerchantName = isPrepBusiness
       ? pickPrepBusinessMerchantName(importMeta?.payload, importMeta?.merchant_id)
       : null;
+    const payloadLookup = buildPrepBusinessItemLookup(importMeta?.payload || null);
     const store_name = prepMerchantName || rawStore || null;
     const profileClientName =
       profileMeta.store_name ||
@@ -3962,16 +4088,16 @@ getAllReceivingShipments: async (options = {}) => {
 
     return {
       ...rest,
-      receiving_items: items.map((it) => ({
-        ...it,
-        stock_item:
+      receiving_items: items.map((it) => {
+        const stockItem =
           stockMap[it.stock_item_id] ||
           (it.asin && stockByAsin[it.asin]) ||
           (it.sku && stockBySku[it.sku]) ||
           ((it.ean_asin || it.ean) &&
             (stockByAsin[it.ean_asin || it.ean] || stockByEan[it.ean_asin || it.ean])) ||
-          null,
-      })),
+          null;
+        return enrichReceivingIdentifiers(it, stockItem, payloadLookup);
+      }),
       produits_count: items.length,
       store_name,
       prep_merchant_name: prepMerchantName,

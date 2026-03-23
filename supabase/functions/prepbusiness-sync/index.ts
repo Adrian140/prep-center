@@ -191,6 +191,28 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
     return (updated as Record<string, unknown>) || row;
   };
 
+  const maybeHydrateIdentifiers = async (row: Record<string, unknown> | null) => {
+    if (!row?.id) return row;
+    const patch: Record<string, unknown> = {};
+    if (!normalizeText((row as any).asin) && asin) patch.asin = asin;
+    if (!normalizeText((row as any).sku) && sku) patch.sku = sku;
+    if (!normalizeText((row as any).ean) && ean) patch.ean = ean;
+    if (Object.keys(patch).length === 0) return row;
+    const { data: updated, error } = await supabase
+      .from("stock_items")
+      .update(patch)
+      .eq("id", String((row as any).id))
+      .select("*")
+      .single();
+    if (error) return row;
+    return (updated as Record<string, unknown>) || row;
+  };
+
+  const finalizeMatchedRow = async (row: Record<string, unknown> | null) => {
+    const withName = await maybeUpdateName(row);
+    return await maybeHydrateIdentifiers(withName as Record<string, unknown>);
+  };
+
   if (asin && sku) {
     const { data: exactPair } = await supabase
       .from("stock_items")
@@ -199,7 +221,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("asin", asin)
       .eq("sku", sku)
       .maybeSingle();
-    if (exactPair) return await maybeUpdateName(exactPair as Record<string, unknown>);
+    if (exactPair) return await finalizeMatchedRow(exactPair as Record<string, unknown>);
   }
 
   if (sku) {
@@ -209,7 +231,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("company_id", companyId)
       .eq("sku", sku)
       .maybeSingle();
-    if (bySku) return await maybeUpdateName(bySku as Record<string, unknown>);
+    if (bySku) return await finalizeMatchedRow(bySku as Record<string, unknown>);
   }
 
   if (asin) {
@@ -219,7 +241,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("company_id", companyId)
       .eq("asin", asin)
       .maybeSingle();
-    if (byAsin) return await maybeUpdateName(byAsin as Record<string, unknown>);
+    if (byAsin) return await finalizeMatchedRow(byAsin as Record<string, unknown>);
   }
 
   if (ean) {
@@ -229,7 +251,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
       .eq("company_id", companyId)
       .eq("ean", ean)
       .maybeSingle();
-    if (byEan) return await maybeUpdateName(byEan as Record<string, unknown>);
+    if (byEan) return await finalizeMatchedRow(byEan as Record<string, unknown>);
   }
 
   const payload = {
@@ -258,7 +280,7 @@ async function ensureStockItem(companyId: string, userId: string | null, item: R
         .eq("sku", sku)
         .maybeSingle();
       if (existingAfterConflict) {
-        return await maybeUpdateName(existingAfterConflict as Record<string, unknown>);
+        return await finalizeMatchedRow(existingAfterConflict as Record<string, unknown>);
       }
     }
     throw error;
@@ -297,7 +319,7 @@ async function insertReceivingShipment(payload: Record<string, unknown>) {
 async function insertReceivingItems(items: Array<Record<string, unknown>>) {
   if (!items.length) return;
   let attempt = items;
-  const removable = ["send_to_fba", "fba_qty", "stock_item_id", "remaining_action"];
+  const removable = ["send_to_fba", "fba_qty", "stock_item_id", "remaining_action", "asin", "ean"];
   for (let i = 0; i <= removable.length; i += 1) {
     const { error } = await supabase.from("receiving_items").insert(attempt);
     if (!error) return;
@@ -348,21 +370,46 @@ async function importInbound(payload: Record<string, unknown>) {
   }
 
   const resolvedItems = [];
+  const skippedItems: Array<Record<string, unknown>> = [];
   for (const item of items) {
     const normalizedItem = normalizeInboundItem(item as Record<string, unknown>);
     const stock = await ensureStockItem(companyId, userId, normalizedItem);
+    const resolvedAsin = normalizeText(normalizedItem.asin) || normalizeText(stock?.asin) || null;
+    const resolvedSku = normalizeText(normalizedItem.sku) || normalizeText(stock?.sku) || null;
+    const resolvedEan = normalizeText(normalizedItem.ean) || normalizeText(stock?.ean) || null;
+    if (!resolvedAsin || !resolvedSku) {
+      skippedItems.push({
+        product_name:
+          normalizeText(normalizedItem.product_name) ||
+          normalizeText(normalizedItem.title) ||
+          resolvedSku ||
+          resolvedAsin ||
+          "Unknown product",
+        asin: resolvedAsin,
+        sku: resolvedSku,
+        ean: resolvedEan
+      });
+      continue;
+    }
     resolvedItems.push({
       ...normalizedItem,
       stock_item_id: stock?.id || null,
       product_name:
         normalizeText(normalizedItem.product_name) ||
         stock?.name ||
-        normalizeText(normalizedItem.sku) ||
-        normalizeText(normalizedItem.asin),
-      asin: normalizeText(normalizedItem.asin),
-      sku: normalizeText(normalizedItem.sku),
-      ean: normalizeText(normalizedItem.ean)
+        resolvedSku ||
+        resolvedAsin,
+      asin: resolvedAsin,
+      sku: resolvedSku,
+      ean: resolvedEan
     });
+  }
+
+  if (!resolvedItems.length) {
+    return {
+      error: "PrepBusiness inbound skipped because no line had both ASIN and SKU after sync.",
+      skipped_items: skippedItems
+    };
   }
 
   const destinationCountry =
@@ -426,7 +473,9 @@ async function importInbound(payload: Record<string, unknown>) {
       line_number: idx + 1,
       ean_asin: normalizeText(item.ean) || normalizeText(item.asin) || normalizeText(item.sku) || "UNKNOWN",
       product_name: normalizeText(item.product_name) || normalizeText(item.title) || normalizeText(item.sku) || normalizeText(item.asin) || "Unknown product",
+      asin: normalizeText(item.asin),
       sku: normalizeText(item.sku),
+      ean: normalizeText(item.ean),
       purchase_price: Number.isFinite(purchasePrice) ? Number(purchasePrice.toFixed(2)) : null,
       quantity_received: unitsRequested,
       remaining_action: encodeRemainingAction(sendToFba),
