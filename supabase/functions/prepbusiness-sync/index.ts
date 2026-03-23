@@ -350,11 +350,25 @@ async function importInbound(payload: Record<string, unknown>) {
   if (sourceId) {
     const { data: existing } = await supabase
       .from("prep_business_imports")
-      .select("id")
+      .select("id, payload")
       .eq("source_id", sourceId)
       .maybeSingle();
     if (existing) {
-      return { ok: true, idempotent: true, source_id: sourceId };
+      const existingPayload =
+        existing?.payload && typeof existing.payload === "object" && !Array.isArray(existing.payload)
+          ? (existing.payload as Record<string, unknown>)
+          : {};
+      const existingItems = Array.isArray(existingPayload.items)
+        ? (existingPayload.items as Array<Record<string, unknown>>)
+        : Array.isArray(existingPayload.lines)
+        ? (existingPayload.lines as Array<Record<string, unknown>>)
+        : items.map((entry) => entry as Record<string, unknown>);
+      return {
+        ok: true,
+        idempotent: true,
+        source_id: sourceId,
+        products: summarizeInboundProducts(existingItems)
+      };
     }
   }
 
@@ -408,6 +422,8 @@ async function importInbound(payload: Record<string, unknown>) {
   if (!resolvedItems.length) {
     return {
       error: "PrepBusiness inbound skipped because no line had both ASIN and SKU after sync.",
+      source_id: sourceId,
+      products: summarizeInboundProducts(items.map((entry) => entry as Record<string, unknown>)),
       skipped_items: skippedItems
     };
   }
@@ -506,7 +522,15 @@ async function importInbound(payload: Record<string, unknown>) {
       .eq("id", integration.id);
   }
 
-  return { ok: true, shipment_id: header?.id || null, source_id: sourceId };
+  return {
+    ok: true,
+    shipment_id: header?.id || null,
+    source_id: sourceId,
+    products: resolvedItems.map((item) => ({
+      asin: normalizeText(item.asin) || null,
+      sku: normalizeText(item.sku) || null
+    }))
+  };
 }
 
 function normalizeIdentifierType(value: unknown) {
@@ -585,6 +609,23 @@ function normalizeInboundItem(raw: Record<string, unknown>) {
     title,
     product_name: productName
   };
+}
+
+function summarizeInboundProducts(items: Array<Record<string, unknown>>) {
+  const seen = new Set<string>();
+  return (Array.isArray(items) ? items : [])
+    .map((raw) => normalizeInboundItem(raw))
+    .map((item) => ({
+      asin: normalizeText(item.asin) || null,
+      sku: normalizeText(item.sku) || null
+    }))
+    .filter((item) => item.asin || item.sku)
+    .filter((item) => {
+      const key = `${String(item.asin || "")}::${String(item.sku || "")}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 async function fetchInboundItems(merchantId: string, shipmentId: string | number) {

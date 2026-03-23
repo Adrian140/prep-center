@@ -38,6 +38,43 @@ jobs:
 
           echo "HTTP $HTTP_CODE"
           cat "$TMP_BODY"
+          echo
+
+          echo "PrepBusiness product summary:"
+          node - "$TMP_BODY" <<'NODE'
+          const fs = require('fs');
+          const path = process.argv[2];
+          const raw = fs.readFileSync(path, 'utf8');
+          let parsed;
+          try {
+            parsed = JSON.parse(raw);
+          } catch (error) {
+            console.error('Could not parse JSON response:', error.message);
+            process.exit(0);
+          }
+
+          const results = Array.isArray(parsed?.results) ? parsed.results : [];
+          if (!results.length) {
+            console.log('No inbound results returned.');
+            process.exit(0);
+          }
+
+          for (const entry of results) {
+            const sourceId = entry?.source_id ?? 'unknown';
+            const state = entry?.error ? 'ERROR' : entry?.idempotent ? 'IDEMPOTENT' : 'IMPORTED';
+            console.log(`- inbound ${sourceId} [${state}]`);
+            const products = Array.isArray(entry?.products) ? entry.products : [];
+            if (!products.length) {
+              console.log('  products: none');
+              continue;
+            }
+            for (const product of products) {
+              const asin = String(product?.asin || '—').trim() || '—';
+              const sku = String(product?.sku || '—').trim() || '—';
+              console.log(`  ASIN=${asin} | SKU=${sku}`);
+            }
+          }
+          NODE
 
           if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
             echo "prepbusiness-sync failed"
