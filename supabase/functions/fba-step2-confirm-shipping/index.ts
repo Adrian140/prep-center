@@ -1146,7 +1146,7 @@ serve(async (req) => {
         if (["SUCCESS", "FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp) || opRes.res.status >= 400) {
           return opRes;
         }
-        await delay(Math.min(500 * attempt, 2500));
+        await delay(Math.min(350 * attempt, 1500));
       }
       console.warn("pollOperationStatus timeout", {
         traceId,
@@ -2647,177 +2647,180 @@ serve(async (req) => {
     );
 
     const normalizeShipmentsFromPlan = async () => {
-      const list: any[] = [];
-      for (const sh of placementShipments) {
-        const shId = sh.shipmentId || sh.id;
-        if (!shId) continue;
-        const shDetail = await signedFetch({
-          method: "GET",
-          service: "execute-api",
-          region: awsRegion,
-          host,
-          path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
-          query: "",
-          payload: "",
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          lwaToken: lwaAccessToken,
-          traceId,
-          operationName: "inbound.v20240320.getShipment",
-          marketplaceId,
-          sellerId
-        });
-        const shJson = shDetail?.json || {};
-        const payload = shJson?.payload || shJson;
-        const destinationAddress =
-          payload?.destinationAddress ||
-          payload?.to ||
-          payload?.destination?.address ||
-          payload?.DestinationAddress ||
-          sh?.destination?.address ||
-          sh?.shipToAddress ||
-          null;
-        const sourceAddress =
-          payload?.shipFromAddress ||
-          payload?.from ||
-          payload?.source?.address ||
-          payload?.SourceAddress ||
-          null;
-        const contents = payload?.contents || payload?.Contents || {};
-        const shipmentConfirmationId =
-          payload?.shipmentConfirmationId ||
-          payload?.shipmentConfirmationID ||
-          payload?.ShipmentConfirmationId ||
-          payload?.ShipmentConfirmationID ||
-          null;
-        const amazonShipmentId = pickFbaShipmentId(
-          payload?.shipmentId ||
-          payload?.ShipmentId ||
-          payload?.shipmentID ||
-          payload?.ShipmentID
-        );
-        const shipmentName =
-          payload?.shipmentName ||
-          payload?.ShipmentName ||
-          sh?.shipmentName ||
-          sh?.name ||
-          null;
-        const destinationFc =
-          payload?.destination?.warehouseId ||
-          payload?.destination?.warehouseCode ||
-          payload?.destinationWarehouseId ||
-          sh?.destinationWarehouseId ||
-          sh?.destinationFc ||
-          sh?.destination?.warehouseId ||
-          null;
-        const destinationType = String(
-          payload?.destination?.destinationType ||
-          payload?.destinationType ||
-          payload?.DestinationType ||
-          ""
-        ).toUpperCase();
-        const isBoxLevelMultiDestination =
-          destinationType.includes("MULTIPLE_DESTINATION") ||
-          destinationType.includes("BOX_LEVEL");
-        const cfg = configsByShipment.get(String(shId)) || {};
-        const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
-        const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
-        const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
-        const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
-        let weightFromPackages = 0;
-        let weightFromPackagesUnit: string | null = null;
-        pkgList.forEach((p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (
-            p?.weight?.unit ||
-            p?.weight?.unitOfMeasurement ||
-            p?.weight?.uom ||
-            "KG"
-          )
-            .toString()
-            .toUpperCase();
-          weightFromPackages += w;
-          if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
-        });
-        let weightFromPallets = 0;
-        let weightFromPalletsUnit: string | null = null;
-        palletList.forEach((p: any) => {
-          const w = Number(p?.weight?.value || 0);
-          if (!Number.isFinite(w) || w <= 0) return;
-          const unit = (
-            p?.weight?.unit ||
-            p?.weight?.unitOfMeasurement ||
-            p?.weight?.uom ||
-            "KG"
-          )
-            .toString()
-            .toUpperCase();
-          weightFromPallets += w;
-          if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
-        });
-        const weightFromCfg = weightFromPackages || weightFromPallets || 0;
-        const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
-        const weightFromCfgKg =
-          weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
-        const contentsWeightRaw = contents?.weight ?? contents?.Weight ?? null;
-        const contentsWeightUnitRaw =
-          contents?.weight_unit ||
-          contents?.weightUnit ||
-          contents?.weightUnitOfMeasurement ||
-          contents?.weightUom ||
-          null;
-        const contentsWeight = Number(contentsWeightRaw);
-        const hasContentsWeight = Number.isFinite(contentsWeight) && contentsWeight > 0;
-        let resolvedWeight: number | null = null;
-        let resolvedWeightUnit: string | null = null;
-        if (hasContentsWeight) {
-          resolvedWeight = contentsWeight;
-          if (contentsWeightUnitRaw) {
-            resolvedWeightUnit = String(contentsWeightUnitRaw).toUpperCase();
+      const normalized = await Promise.all(
+        (placementShipments || []).map(async (sh: any) => {
+          const shId = sh?.shipmentId || sh?.id;
+          if (!shId) return null;
+          const shDetail = await signedFetch({
+            method: "GET",
+            service: "execute-api",
+            region: awsRegion,
+            host,
+            path: `${basePath}/inboundPlans/${encodeURIComponent(inboundPlanId)}/shipments/${encodeURIComponent(shId)}`,
+            query: "",
+            payload: "",
+            accessKey: tempCreds.accessKeyId,
+            secretKey: tempCreds.secretAccessKey,
+            sessionToken: tempCreds.sessionToken,
+            lwaToken: lwaAccessToken,
+            traceId,
+            operationName: "inbound.v20240320.getShipment",
+            marketplaceId,
+            sellerId
+          });
+          const shJson = shDetail?.json || {};
+          const payload = shJson?.payload || shJson;
+          const destinationAddress =
+            payload?.destinationAddress ||
+            payload?.to ||
+            payload?.destination?.address ||
+            payload?.DestinationAddress ||
+            sh?.destination?.address ||
+            sh?.shipToAddress ||
+            null;
+          const sourceAddress =
+            payload?.shipFromAddress ||
+            payload?.from ||
+            payload?.source?.address ||
+            payload?.SourceAddress ||
+            null;
+          const contents = payload?.contents || payload?.Contents || {};
+          const shipmentConfirmationId =
+            payload?.shipmentConfirmationId ||
+            payload?.shipmentConfirmationID ||
+            payload?.ShipmentConfirmationId ||
+            payload?.ShipmentConfirmationID ||
+            null;
+          const amazonShipmentId =
+            pickFbaShipmentId(
+              payload?.shipmentId ||
+              payload?.ShipmentId ||
+              payload?.shipmentID ||
+              payload?.ShipmentID
+            ) ||
+            pickFbaShipmentId(shipmentConfirmationId);
+          const shipmentName =
+            payload?.shipmentName ||
+            payload?.ShipmentName ||
+            sh?.shipmentName ||
+            sh?.name ||
+            null;
+          const destinationFc =
+            payload?.destination?.warehouseId ||
+            payload?.destination?.warehouseCode ||
+            payload?.destinationWarehouseId ||
+            sh?.destinationWarehouseId ||
+            sh?.destinationFc ||
+            sh?.destination?.warehouseId ||
+            null;
+          const destinationType = String(
+            payload?.destination?.destinationType ||
+            payload?.destinationType ||
+            payload?.DestinationType ||
+            ""
+          ).toUpperCase();
+          const isBoxLevelMultiDestination =
+            destinationType.includes("MULTIPLE_DESTINATION") ||
+            destinationType.includes("BOX_LEVEL");
+          const cfg = configsByShipment.get(String(shId)) || {};
+          const pgId = sh?.packingGroupId || sh?.packing_group_id || null;
+          const pgMeta = pgId ? packingGroupSummary.get(String(pgId)) : null;
+          const pkgList = Array.isArray(cfg?.packages) ? cfg.packages : [];
+          const palletList = Array.isArray(cfg?.pallets) ? cfg.pallets : [];
+          let weightFromPackages = 0;
+          let weightFromPackagesUnit: string | null = null;
+          pkgList.forEach((p: any) => {
+            const w = Number(p?.weight?.value || 0);
+            if (!Number.isFinite(w) || w <= 0) return;
+            const unit = (
+              p?.weight?.unit ||
+              p?.weight?.unitOfMeasurement ||
+              p?.weight?.uom ||
+              "KG"
+            )
+              .toString()
+              .toUpperCase();
+            weightFromPackages += w;
+            if (!weightFromPackagesUnit) weightFromPackagesUnit = unit;
+          });
+          let weightFromPallets = 0;
+          let weightFromPalletsUnit: string | null = null;
+          palletList.forEach((p: any) => {
+            const w = Number(p?.weight?.value || 0);
+            if (!Number.isFinite(w) || w <= 0) return;
+            const unit = (
+              p?.weight?.unit ||
+              p?.weight?.unitOfMeasurement ||
+              p?.weight?.uom ||
+              "KG"
+            )
+              .toString()
+              .toUpperCase();
+            weightFromPallets += w;
+            if (!weightFromPalletsUnit) weightFromPalletsUnit = unit;
+          });
+          const weightFromCfg = weightFromPackages || weightFromPallets || 0;
+          const weightFromCfgUnit = weightFromPackagesUnit || weightFromPalletsUnit || null;
+          const weightFromCfgKg =
+            weightFromCfgUnit === "LB" ? lbToKg(weightFromCfg) : weightFromCfg || 0;
+          const contentsWeightRaw = contents?.weight ?? contents?.Weight ?? null;
+          const contentsWeightUnitRaw =
+            contents?.weight_unit ||
+            contents?.weightUnit ||
+            contents?.weightUnitOfMeasurement ||
+            contents?.weightUom ||
+            null;
+          const contentsWeight = Number(contentsWeightRaw);
+          const hasContentsWeight = Number.isFinite(contentsWeight) && contentsWeight > 0;
+          let resolvedWeight: number | null = null;
+          let resolvedWeightUnit: string | null = null;
+          if (hasContentsWeight) {
+            resolvedWeight = contentsWeight;
+            if (contentsWeightUnitRaw) {
+              resolvedWeightUnit = String(contentsWeightUnitRaw).toUpperCase();
+            } else if (weightFromCfg > 0) {
+              const diffLb = Math.abs(contentsWeight - weightFromCfg);
+              const diffKg = Math.abs(contentsWeight - weightFromCfgKg);
+              resolvedWeightUnit = diffKg < diffLb ? "KG" : weightFromCfgUnit || "LB";
+            } else {
+              resolvedWeightUnit = weightFromCfgUnit || "LB";
+            }
           } else if (weightFromCfg > 0) {
-            const diffLb = Math.abs(contentsWeight - weightFromCfg);
-            const diffKg = Math.abs(contentsWeight - weightFromCfgKg);
-            resolvedWeightUnit = diffKg < diffLb ? "KG" : weightFromCfgUnit || "LB";
-          } else {
+            resolvedWeight = weightFromCfg;
             resolvedWeightUnit = weightFromCfgUnit || "LB";
           }
-        } else if (weightFromCfg > 0) {
-          resolvedWeight = weightFromCfg;
-          resolvedWeightUnit = weightFromCfgUnit || "LB";
-        }
-        const boxesFromCfg = pkgList.length
-          ? pkgList.length
-          : palletList.length
-            ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
-            : null;
-        list.push({
-          id: shId,
-          amazonShipmentId,
-          shipmentConfirmationId,
-          name: shipmentName,
-          from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
-          to: (() => {
-            if (isBoxLevelMultiDestination) {
-              return "Multiple destinations via box-level inventory placement.";
-            }
-            const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
-            if (addr && destinationFc) return `${destinationFc} - ${addr}`;
-            if (addr) return addr;
-            return destinationFc || null;
-          })(),
-          destinationWarehouseId: destinationFc || null,
-          destinationType: destinationType || null,
-          boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
-          skuCount: pgMeta?.skuCount ?? contents?.skuCount ?? null,
-          units: pgMeta?.units ?? contents?.units ?? null,
-          items: pgMeta?.items || null,
-          weight: resolvedWeight ?? null,
-          weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
-        });
-      }
-      return list;
+          const boxesFromCfg = pkgList.length
+            ? pkgList.length
+            : palletList.length
+              ? palletList.reduce((sum: number, p: any) => sum + Number(p?.quantity || 0), 0)
+              : null;
+          return {
+            id: shId,
+            amazonShipmentId,
+            shipmentConfirmationId,
+            name: shipmentName,
+            from: formatAddress(sourceAddress) || formatAddress(sh?.shipFromAddress || sh?.from) || null,
+            to: (() => {
+              if (isBoxLevelMultiDestination) {
+                return "Multiple destinations via box-level inventory placement.";
+              }
+              const addr = formatAddress(destinationAddress) || formatAddress(sh?.destinationAddress || sh?.to) || null;
+              if (addr && destinationFc) return `${destinationFc} - ${addr}`;
+              if (addr) return addr;
+              return destinationFc || null;
+            })(),
+            destinationWarehouseId: destinationFc || null,
+            destinationType: destinationType || null,
+            boxes: contents?.boxes || contents?.cartons || boxesFromCfg || null,
+            skuCount: pgMeta?.skuCount ?? contents?.skuCount ?? null,
+            units: pgMeta?.units ?? contents?.units ?? null,
+            items: pgMeta?.items || null,
+            weight: resolvedWeight ?? null,
+            weight_unit: resolvedWeight ? resolvedWeightUnit || "LB" : null
+          };
+        })
+      );
+      return normalized.filter(Boolean);
     };
     const EU_MARKETPLACES = new Set([
       "A13V1IB3VIYZZH", // FR
@@ -5206,64 +5209,18 @@ serve(async (req) => {
     }
 
     const shipments = await normalizeShipmentsFromPlan();
-
-    const attachAmazonShipmentIds = async (list: any[]) => {
-      const needs = (list || []).filter((sh) => !isFbaShipmentId(sh?.amazonShipmentId) && sh?.name);
-      if (!needs.length || !marketplaceId) return list;
-      try {
-        const lastUpdatedAfter = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-        const v0Shipments = await listV0Shipments({
-          lwaToken,
-          accessKey: tempCreds.accessKeyId,
-          secretKey: tempCreds.secretAccessKey,
-          sessionToken: tempCreds.sessionToken,
-          region: awsRegion,
-          marketplaceId,
-          sellerId,
-          traceId,
-          lastUpdatedAfter
-        });
-        if (!v0Shipments.length) return list;
-        const byName = new Map<string, any[]>();
-        v0Shipments.forEach((sh) => {
-          const nameKey = normalizeShipmentName(sh?.ShipmentName);
-          if (!nameKey) return;
-          if (!byName.has(nameKey)) byName.set(nameKey, []);
-          byName.get(nameKey)?.push(sh);
-        });
-        return list.map((sh) => {
-          if (isFbaShipmentId(sh?.amazonShipmentId) || !sh?.name) return sh;
-          const nameKey = normalizeShipmentName(sh.name);
-          const candidates = byName.get(nameKey) || [];
-          if (!candidates.length) {
-            return {
-              ...sh,
-              amazonShipmentId: null
-            };
+    const shipmentsWithAmazonIds = (Array.isArray(shipments) ? shipments : []).map((shipment: any) => {
+      const resolvedId =
+        pickFbaShipmentId(shipment?.amazonShipmentId) ||
+        pickFbaShipmentId(shipment?.shipmentConfirmationId) ||
+        null;
+      return resolvedId
+        ? {
+            ...shipment,
+            amazonShipmentId: resolvedId
           }
-          const dest = sh?.destinationWarehouseId || null;
-          const picked =
-            candidates.find((c) => dest && c?.DestinationFulfillmentCenterId === dest) ||
-            candidates[0];
-          const fbaId = pickFbaShipmentId(picked?.ShipmentId);
-          return fbaId
-            ? {
-                ...sh,
-                amazonShipmentId: fbaId,
-                legacyShipmentId: picked?.ShipmentReferenceId || null
-              }
-            : {
-                ...sh,
-                amazonShipmentId: null
-              };
-        });
-      } catch (err) {
-        logStep("amazon_shipment_id_lookup_failed", { traceId, error: `${err}` });
-        return list;
-      }
-    };
-
-    const shipmentsWithAmazonIds = await attachAmazonShipmentIds(shipments);
+        : shipment;
+    });
     const resolvedFbaShipmentId = pickFbaShipmentId(
       ...(Array.isArray(shipmentsWithAmazonIds) ? shipmentsWithAmazonIds.flatMap((sh: any) => [sh?.amazonShipmentId]) : [])
     );
