@@ -58,6 +58,8 @@ const createClientUid = () =>
     ? crypto.randomUUID()
     : `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+const normalizeItemKey = (value) => String(value || '').trim().toUpperCase();
+
 const normalizeStep2Shipments = (value) => {
   const list = Array.isArray(value) ? value : [];
   return list
@@ -205,6 +207,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   const [reqLines, setReqLines] = useState([]);
   const [reqBoxServices, setReqBoxServices] = useState([]);
   const [reqHeavyParcel, setReqHeavyParcel] = useState(null);
+  const [reqSelectedShipmentId, setReqSelectedShipmentId] = useState(null);
   const [reqErrors, setReqErrors] = useState([]);
   const [adding, setAdding] = useState(false);
   const [addingSel, setAddingSel] = useState('');
@@ -479,13 +482,22 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     setInventoryDraftQty((prev) => ({ ...prev, [stockId]: '' }));
   };
 
-  const openReqEditor = async (requestId) => {
+  const openReqEditor = async (requestId, shipment = null) => {
     setReqOpen(true);
     setReqLoading(true);
     setReqHeader(null);
     setReqLines([]);
     setReqBoxServices([]);
     setReqHeavyParcel(null);
+    setReqSelectedShipmentId(
+      shipment
+        ? (
+            pickAmazonShipmentId({ shipment, row: null, snapshot: null }) ||
+            shipment?.shipmentId ||
+            null
+          )
+        : null
+    );
     setReqEditable(false);
     setAdding(false);
     setAddingSel('');
@@ -824,16 +836,41 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
     () => normalizeStep2Shipments(reqHeader?.step2_shipments),
     [reqHeader?.step2_shipments]
   );
+  const reqSelectedShipment = useMemo(() => {
+    if (!reqSelectedShipmentId) return null;
+    return reqStep2Shipments.find((sh) => {
+      const amazonId = pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot });
+      return String(sh?.shipmentId || '') === String(reqSelectedShipmentId) || String(amazonId || '') === String(reqSelectedShipmentId);
+    }) || null;
+  }, [reqSelectedShipmentId, reqStep2Shipments, reqHeader]);
+  const displayedReqLines = useMemo(() => {
+    if (!reqSelectedShipment || !Array.isArray(reqSelectedShipment?.items) || !reqSelectedShipment.items.length) {
+      return reqLines;
+    }
+    const allowedKeys = new Set();
+    reqSelectedShipment.items.forEach((item) => {
+      [item?.sku, item?.msku, item?.SellerSKU, item?.sellerSku, item?.asin]
+        .map(normalizeItemKey)
+        .filter(Boolean)
+        .forEach((key) => allowedKeys.add(key));
+    });
+    return reqLines.filter((line) => {
+      const lineKeys = [line?.sku, line?.asin, line?.stock_item?.sku, line?.stock_item?.asin]
+        .map(normalizeItemKey)
+        .filter(Boolean);
+      return lineKeys.some((key) => allowedKeys.has(key));
+    });
+  }, [reqLines, reqSelectedShipment]);
   const reqTotals = useMemo(() => {
-    const totalUnitsExpected = reqLines.reduce((sum, line) => {
+    const totalUnitsExpected = displayedReqLines.reduce((sum, line) => {
       const val = Number(line.amazon_units_expected ?? line.units_sent ?? line.units_requested ?? 0);
       return Number.isFinite(val) ? sum + val : sum;
     }, 0);
-    const totalUnitsLocated = reqLines.reduce((sum, line) => {
+    const totalUnitsLocated = displayedReqLines.reduce((sum, line) => {
       const val = Number(line.amazon_units_received);
       return Number.isFinite(val) ? sum + val : sum;
     }, 0);
-    const prepServicesTotal = reqLines.reduce((sum, line) => {
+    const prepServicesTotal = displayedReqLines.reduce((sum, line) => {
       const services = Array.isArray(line?.services) ? line.services : [];
       return (
         sum +
@@ -888,13 +925,19 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       grandTotal: prepServicesTotal + boxServicesTotal + heavyLabelsTotal,
       boxServiceGroups
     };
-  }, [reqLines, reqBoxServices, reqHeavyParcel]);
-  const headerShipmentIds = reqStep2Shipments.length
-    ? reqStep2Shipments
-        .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }))
-        .filter(Boolean)
-        .join(' · ')
-    : (isAmazonShipmentId(reqHeader?.fba_shipment_id) ? reqHeader?.fba_shipment_id : '');
+  }, [displayedReqLines, reqBoxServices, reqHeavyParcel]);
+  const headerShipmentIds = reqSelectedShipment
+    ? (
+        pickAmazonShipmentId({ shipment: reqSelectedShipment, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }) ||
+        reqSelectedShipment?.shipmentId ||
+        ''
+      )
+    : reqStep2Shipments.length
+      ? reqStep2Shipments
+          .map((sh) => pickAmazonShipmentId({ shipment: sh, row: reqHeader, snapshot: reqHeader?.amazon_snapshot }))
+          .filter(Boolean)
+          .join(' · ')
+      : (isAmazonShipmentId(reqHeader?.fba_shipment_id) ? reqHeader?.fba_shipment_id : '');
   const headerTrackingIds = (reqHeader?.prep_request_tracking || [])
     .map((t) => t?.tracking_id)
     .filter(Boolean);
@@ -1148,7 +1191,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 return (
                   <tr key={`${row.id}-${shipment?.shipmentId || 'single'}`} className="border-t even:bg-gray-50/60">
                     <td className="px-4 py-3 align-top">
-                      <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id)}>
+                      <div className="font-semibold text-primary hover:underline cursor-pointer" onClick={() => row.id && openReqEditor(row.id, shipment)}>
                         {shipmentName}{shipmentSuffix}
                       </div>
                       {amazonShipmentId ? (
@@ -1221,7 +1264,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                        <button
                          className="inline-flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                          disabled={!row.id}
-                       onClick={() => row.id && openReqEditor(row.id)}
+                       onClick={() => row.id && openReqEditor(row.id, shipment)}
                       >
                         View request
                         <ChevronDown className="w-4 h-4" />
@@ -1276,7 +1319,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 <div>
                   <div className="text-xs uppercase tracking-wide text-text-secondary">Shipment name</div>
                   <div className="text-xl font-semibold text-primary">
-                    {reqHeader?.amazon_shipment_name || amazonSnapshot.shipment_name || headerShipmentIds || '—'}
+                    {reqSelectedShipment?.name || reqHeader?.amazon_shipment_name || amazonSnapshot.shipment_name || headerShipmentIds || '—'}
                   </div>
                   <div className="text-sm text-text-secondary font-mono">
                     {headerShipmentIds || '—'}
@@ -1332,6 +1375,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   <div className="text-xs uppercase text-text-secondary mb-2">Ship to</div>
                   {(() => {
                     const fallbackText =
+                      reqSelectedShipment?.toText ||
                       reqStep2Shipments[0]?.toText ||
                       amazonSnapshot.destination_code ||
                       reqHeader?.amazon_destination_code ||
@@ -1354,13 +1398,14 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                 <div className="p-5">
                   <div className="text-xs uppercase text-text-secondary mb-2">Contents</div>
                   <div className="text-sm text-text-primary">
-                    {reqHeader?.amazon_skus ?? amazonSnapshot.skus ?? '—'} MSKUs
+                    {reqSelectedShipment?.skuCount ?? reqHeader?.amazon_skus ?? amazonSnapshot.skus ?? '—'} MSKUs
                   </div>
                   <div className="text-sm text-text-primary">
-                    {(reqHeader?.amazon_units_expected ??
+                    {(reqSelectedShipment?.units ??
+                      reqHeader?.amazon_units_expected ??
                       amazonSnapshot.units_expected ??
-                      (reqLines.length
-                        ? reqLines.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0)
+                      (displayedReqLines.length
+                        ? displayedReqLines.reduce((acc, it) => acc + Number(it.units_sent ?? it.units_requested ?? 0), 0)
                         : null)) ?? '—'} units expected
                   </div>
                   <div className="text-xs text-text-secondary">
@@ -1422,14 +1467,14 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                         </tr>
                       </thead>
                       <tbody>
-                        {reqLines.length === 0 && (
+                        {displayedReqLines.length === 0 && (
                           <tr>
                             <td colSpan={reqEditable ? 6 : 5} className="px-3 py-6 text-center text-text-secondary">
                               {t('ClientPrepShipments.drawer.empty')}
                             </td>
                           </tr>
                         )}
-                        {reqLines.map((line) => {
+                        {displayedReqLines.map((line) => {
                           const lineKey = line.id ?? line.client_uid;
                           const meta = getStockMeta(line);
                           const asin = String(line.asin || '').trim();
@@ -1544,7 +1589,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                             </tr>
                           );
                         })}
-                        {!reqEditable && reqLines.length > 0 && (
+                        {!reqEditable && displayedReqLines.length > 0 && (
                           <>
                             <tr className="border-t bg-gray-50/70">
                               <td className="px-2 py-2 text-center text-text-secondary">Box</td>
