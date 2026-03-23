@@ -80,6 +80,32 @@ const getShipmentLatestReceptionTimestamp = (shipment = {}) => {
     0
   );
 };
+
+const hasActualReceptionEvidence = (shipment = {}) => {
+  const status = String(shipment?.computed_status || shipment?.status || 'submitted').toLowerCase();
+  if (!['partial', 'received', 'processed'].includes(status)) return false;
+
+  if (shipment?.received_at || shipment?.processed_at) return true;
+
+  const items = Array.isArray(shipment?.receiving_items) ? shipment.receiving_items : [];
+  const hasItemEvidence = items.some((item) => {
+    if (item?.received_at) return true;
+    if (item?.is_received) return true;
+    const receivedUnits = Number(item?.received_units || 0);
+    if (Number.isFinite(receivedUnits) && receivedUnits > 0) return true;
+    return Array.isArray(item?.receiving_item_events) && item.receiving_item_events.length > 0;
+  });
+  if (hasItemEvidence) return true;
+
+  const latestReceivedAt = String(shipment?.latest_received_at || '').trim();
+  const createdAt = String(shipment?.created_at || '').trim();
+  return Boolean(latestReceivedAt) && latestReceivedAt !== createdAt;
+};
+
+const getDisplayReceivedAt = (shipment = {}) => {
+  if (!hasActualReceptionEvidence(shipment)) return null;
+  return shipment?.latest_received_at || shipment?.received_at || shipment?.processed_at || null;
+};
 const isPrepBusinessSource = (shipment = {}) =>
   String(shipment?.import_source || '').trim().toLowerCase() === 'prepbusiness';
 const isPrepBusinessAutoCreatedNote = (note = '') =>
@@ -117,12 +143,7 @@ const computeShipmentStatus = (shipment = {}) => {
       ) || 0
     );
   const getConfirmed = (item) => {
-    const base =
-      item?.received_units != null
-        ? item.received_units
-        : item?.quantity_received != null
-        ? item.quantity_received
-        : item?.quantity ?? item?.qty ?? 0;
+    const base = item?.received_units != null ? item.received_units : 0;
     const val = Number(base);
     return Number.isFinite(val) && val >= 0 ? val : 0;
   };
@@ -1282,6 +1303,7 @@ const buildShipmentsList = (data = [], isArchive = false) =>
   (data || []).map((row) => ({
     ...row,
     computed_status: row.computed_status || computeShipmentStatus(row),
+    latest_received_at: getDisplayReceivedAt(row),
     isArchive:
       typeof row.isArchive === 'boolean'
         ? row.isArchive

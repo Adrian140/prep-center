@@ -64,7 +64,7 @@ const sumUnitsFromItems = (items) => {
   return hasUnits ? sum : null;
 };
 
-const resolveShipmentUnits = (shipment, fallback, index, fallbackList) => {
+const resolveShipmentUnits = (shipment, fallback) => {
   const candidates = [
     shipment?.units,
     shipment?.unitCount,
@@ -86,11 +86,22 @@ const resolveShipmentUnits = (shipment, fallback, index, fallbackList) => {
       shipment?.sku_items
   );
   if (Number.isFinite(fromItems)) return fromItems;
-  const fallbackUnits = getFiniteNumber(
-    fallback?.units ?? fallbackList?.[index]?.units
-  );
+  const fallbackUnits = getFiniteNumber(fallback?.units);
   if (Number.isFinite(fallbackUnits)) return fallbackUnits;
   return 0;
+};
+
+const getPackingGroupKey = (value) => {
+  const key = String(
+    value?.packingGroupId ||
+    value?.packing_group_id ||
+    value?.groupId ||
+    value?.group_id ||
+    value?.step1PlanGroupKey ||
+    value?.id ||
+    ''
+  ).trim();
+  return key || null;
 };
 
 const getSafeDims = (dims = {}) => {
@@ -4645,11 +4656,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           (configs || []).map((cfg) => [String(cfg?.shipmentId || ''), cfg]).filter(([id]) => Boolean(id))
         );
         const fallbackById = new Map();
-        (fallbackShipments || []).forEach((sh, idx) => {
-          const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
+        (fallbackShipments || []).forEach((sh) => {
+          const id = sh?.id || sh?.shipmentId || null;
           if (id) fallbackById.set(String(id), sh);
           if (sh?.shipmentId) fallbackById.set(String(sh.shipmentId), sh);
-          fallbackById.set(`index:${idx}`, sh);
+          if (sh?.packingGroupId) fallbackById.set(String(sh.packingGroupId), sh);
         });
         setShipments(
           json.shipments.map((s, idx) => {
@@ -4657,12 +4668,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             const fb =
               fallbackById.get(key) ||
               fallbackById.get(String(s?.packingGroupId || "")) ||
-              fallbackById.get(`index:${idx}`) ||
               {};
           return {
             ...fb,
             ...s,
-            units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
+            units: resolveShipmentUnits(s, fb),
             weight: s.weight ?? fb.weight ?? null,
             palletQuantity:
               s?.palletQuantity ??
@@ -4962,11 +4972,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           (configs || []).map((cfg) => [String(cfg?.shipmentId || ''), cfg]).filter(([id]) => Boolean(id))
         );
         const fallbackById = new Map();
-        (fallbackShipments || []).forEach((sh, idx) => {
-          const id = sh?.id || sh?.shipmentId || sh?.packingGroupId || null;
+        (fallbackShipments || []).forEach((sh) => {
+          const id = sh?.id || sh?.shipmentId || null;
           if (id) fallbackById.set(String(id), sh);
           if (sh?.shipmentId) fallbackById.set(String(sh.shipmentId), sh);
-          fallbackById.set(`index:${idx}`, sh);
+          if (sh?.packingGroupId) fallbackById.set(String(sh.packingGroupId), sh);
         });
         setShipments(
           json.shipments.map((s, idx) => {
@@ -4974,12 +4984,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             const fb =
               fallbackById.get(key) ||
               fallbackById.get(String(s?.packingGroupId || "")) ||
-              fallbackById.get(`index:${idx}`) ||
               {};
             return {
               ...fb,
               ...s,
-              units: resolveShipmentUnits(s, fb, idx, fallbackShipments),
+              units: resolveShipmentUnits(s, fb),
               weight: s.weight ?? fb.weight ?? null,
               palletQuantity:
                 s?.palletQuantity ??
@@ -5126,6 +5135,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const deriveShipmentsFromPacking = (baseShipments = []) => {
     if (!Array.isArray(packGroups) || !packGroups.length) return [];
     const baseList = Array.isArray(baseShipments) ? baseShipments : [];
+    const baseByShipmentId = new Map();
+    const baseByGroupId = new Map();
+    baseList.forEach((base) => {
+      const shipmentId = String(base?.shipmentId || base?.id || '').trim();
+      const packingGroupId = getPackingGroupKey(base);
+      if (shipmentId) baseByShipmentId.set(shipmentId, base);
+      if (packingGroupId) baseByGroupId.set(packingGroupId, base);
+    });
     const warehouseShipFrom = getWarehouseShipFromAddress(currentMarket);
     const canonicalShipFrom = mergeShipFromWithSource(
       plan?.shipFrom || warehouseShipFrom,
@@ -5134,9 +5151,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return packGroups.map((g, idx) => {
       const boxCount = Math.max(1, Number(g.boxes) || 1);
       const dims = g.boxDimensions || {};
-      const base = baseList[idx] || baseList[0] || {};
+      const packingGroupId = getPackingGroupKey(g);
+      const shipmentId = String(g?.shipmentId || g?.shipment_id || '').trim();
+      const base =
+        (shipmentId ? baseByShipmentId.get(shipmentId) : null) ||
+        (packingGroupId ? baseByGroupId.get(packingGroupId) : null) ||
+        {};
       const boxesDetail = Array.from({ length: boxCount }, () => ({
-        groupId: g.id,
+        groupId: packingGroupId || g.id,
         length: dims.length || null,
         width: dims.width || null,
         height: dims.height || null,
@@ -5151,7 +5173,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const totalWeight = baseWeight || (palletWeight && palletQty ? palletWeight * palletQty : 0);
 
       return {
-        id: g?.shipmentId || g?.shipment_id || base?.shipmentId || base?.id || `s-${idx + 1}`,
+        id: shipmentId || base?.shipmentId || base?.id || packingGroupId || `s-${idx + 1}`,
+        shipmentId: shipmentId || base?.shipmentId || base?.id || null,
+        packingGroupId,
         name: base?.name || `Shipment #${idx + 1}`,
         from: base?.from || formatAddress(canonicalShipFrom || {}),
         to: base?.to || plan?.marketplace || plan?.destination || '—',
