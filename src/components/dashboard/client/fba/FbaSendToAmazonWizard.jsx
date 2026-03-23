@@ -3699,10 +3699,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         console.warn('Proceeding with existing packing groups because Amazon refresh not ready', refreshRes);
       }
 
-      const packageGroupings = packageGroupingsFallback.length
-        ? packageGroupingsFallback
-        : packageGroupingsFromSkuTemplates.length
-        ? packageGroupingsFromSkuTemplates
+      const shouldSendDirectPackageGroupings =
+        !packingGroupsPayload.length ||
+        packingGroupsPayload.some((g) => !g?.packingGroupId || String(g.packingGroupId).toLowerCase().startsWith('fallback-'));
+      const packageGroupings = shouldSendDirectPackageGroupings
+        ? (
+            packageGroupingsFallback.length
+              ? packageGroupingsFallback
+              : packageGroupingsFromSkuTemplates.length
+              ? packageGroupingsFromSkuTemplates
+              : null
+          )
         : null;
       const invokeBody = {
         request_id: requestId,

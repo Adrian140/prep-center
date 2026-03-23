@@ -932,6 +932,85 @@ async function attachExpectedItemsToPackingGroups(opts: {
   });
 }
 
+async function hydrateDirectPackageGroupingsWithExpectedItems(opts: {
+  inboundPlanId: string;
+  packageGroupings: any[];
+  awsRegion: string;
+  host: string;
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string | null;
+  lwaToken: string;
+  traceId: string;
+  marketplaceId: string;
+  sellerId: string;
+}) {
+  const groups = Array.isArray(opts.packageGroupings) ? opts.packageGroupings : [];
+  const ids = Array.from(
+    new Set(
+      groups
+        .map((g: any) => g?.packingGroupId || g?.packing_group_id || g?.id || g?.groupId || null)
+        .filter(Boolean)
+        .map((id: any) => String(id))
+    )
+  );
+
+  const expectedByGroup = new Map<string, Map<string, any>>();
+  await Promise.all(
+    ids.map(async (packingGroupId) => {
+      const items = await fetchPackingGroupItems({
+        inboundPlanId: opts.inboundPlanId,
+        packingGroupId,
+        awsRegion: opts.awsRegion,
+        host: opts.host,
+        accessKey: opts.accessKey,
+        secretKey: opts.secretKey,
+        sessionToken: opts.sessionToken,
+        lwaToken: opts.lwaToken,
+        traceId: opts.traceId,
+        marketplaceId: opts.marketplaceId,
+        sellerId: opts.sellerId
+      });
+      const bySku = new Map<string, any>();
+      (Array.isArray(items) ? items : []).forEach((item: any) => {
+        const sku = normalizeSku(item?.msku || item?.sku || item?.sellerSku || item?.MSKU || "");
+        if (!sku) return;
+        bySku.set(sku.toUpperCase(), item);
+      });
+      expectedByGroup.set(String(packingGroupId), bySku);
+    })
+  );
+
+  return groups.map((group: any) => {
+    const groupId = group?.packingGroupId || group?.packing_group_id || group?.id || group?.groupId || null;
+    const expected = groupId ? expectedByGroup.get(String(groupId)) : null;
+    if (!expected) return group;
+    const boxes = Array.isArray(group?.boxes) ? group.boxes : [];
+    return {
+      ...group,
+      boxes: boxes.map((box: any) => {
+        const items = Array.isArray(box?.items) ? box.items : [];
+        return {
+          ...box,
+          items: items
+            .map((item: any) => {
+              const sku = normalizeSku(item?.msku || item?.sku || item?.sellerSku || item?.MSKU || "");
+              if (!sku) return normalizeItem(item);
+              const expectedItem = expected.get(sku.toUpperCase()) || {};
+              return normalizeItem({
+                ...expectedItem,
+                ...item,
+                msku: item?.msku || item?.sku || expectedItem?.msku || expectedItem?.sku || sku,
+                quantity: item?.quantity ?? item?.qty ?? expectedItem?.quantity ?? 0
+              });
+            })
+            .filter(Boolean)
+        };
+      })
+    };
+  });
+}
+
 serve(async (req) => {
   const traceId = crypto.randomUUID();
   const origin = req.headers.get("origin") || "*";
@@ -1439,7 +1518,19 @@ serve(async (req) => {
     }
 
     if (directGroupings.length) {
-      packageGroupings = directGroupings;
+      packageGroupings = await hydrateDirectPackageGroupingsWithExpectedItems({
+        inboundPlanId,
+        packageGroupings: directGroupings,
+        awsRegion,
+        host,
+        accessKey: tempCreds.accessKeyId,
+        secretKey: tempCreds.secretAccessKey,
+        sessionToken: tempCreds.sessionToken,
+        lwaToken: lwaAccessToken,
+        traceId,
+        marketplaceId,
+        sellerId
+      });
     } else {
       try {
         const hydratedGroups = await attachExpectedItemsToPackingGroups({

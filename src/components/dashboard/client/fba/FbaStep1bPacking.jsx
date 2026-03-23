@@ -362,6 +362,7 @@ export default function FbaStep1bPacking({
     const missing = visibleGroups.find((group) => {
       const { dims, weight, boxes, perBoxDetails, perBoxItems, contentInformationSource } = resolveBoxState(group);
       const boxCount = clampBoxes(boxes);
+      const perBoxDetailsSlice = (perBoxDetails || []).slice(0, boxCount);
 
       if (!palletMode && boxCount > 10) {
         return true;
@@ -369,7 +370,7 @@ export default function FbaStep1bPacking({
 
       // For multiple boxes we want per-box details complete
       if ((group.packMode || 'single') === 'multiple') {
-        return perBox.some((b) => {
+        return perBoxDetailsSlice.some((b) => {
           const l = resolveGroupNumber(b.length);
           const w = resolveGroupNumber(b.width);
           const h = resolveGroupNumber(b.height);
