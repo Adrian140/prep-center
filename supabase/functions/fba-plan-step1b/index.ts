@@ -1799,10 +1799,10 @@ serve(async (req) => {
         });
       });
 
-      return { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey };
+      return { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey, prepItems: prepItems || [] };
     };
 
-    const { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey } = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey, prepItems } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
@@ -2023,14 +2023,85 @@ serve(async (req) => {
 
     // Compare confirmed quantities (DB) vs quantities in packing groups (Amazon)
     const summedFromAmazon: Record<string, number> = {};
+    const amazonSkuByAsin = new Map<string, { skuRaw: string; skuKey: string; ambiguous: boolean }>();
     (effectivePackingGroups || []).forEach((g: any) => {
       (g?.items || []).forEach((it: any) => {
         const sku = normalizeSkuKey(it?.sku || it?.msku || "");
+        const skuRaw = normalizeSku(it?.sku || it?.msku || "");
+        const asin = String(it?.asin || "").trim().toUpperCase();
         const q = Number(it?.quantity || 0) || 0;
         if (!sku) return;
         summedFromAmazon[sku] = (summedFromAmazon[sku] || 0) + q;
+        if (asin && skuRaw) {
+          const existing = amazonSkuByAsin.get(asin);
+          if (!existing) {
+            amazonSkuByAsin.set(asin, { skuRaw, skuKey: sku, ambiguous: false });
+          } else if (existing.skuKey !== sku) {
+            amazonSkuByAsin.set(asin, { ...existing, ambiguous: true });
+          }
+        }
       });
     });
+
+    const canonicalSkuUpdates = (Array.isArray(prepItems) ? prepItems : [])
+      .map((row: any) => {
+        const currentSkuRaw = normalizeSku(row?.sku || "");
+        const currentSkuKey = normalizeSkuKey(currentSkuRaw);
+        const asin = String(row?.asin || "").trim().toUpperCase();
+        if (!asin) return null;
+        if (currentSkuKey && Number(summedFromAmazon[currentSkuKey] || 0) > 0) return null;
+        const target = amazonSkuByAsin.get(asin);
+        if (!target || target.ambiguous || !target.skuKey || target.skuKey === currentSkuKey) return null;
+        return {
+          id: String(row?.id || ""),
+          fromSkuRaw: currentSkuRaw,
+          fromSkuKey: currentSkuKey,
+          toSkuRaw: target.skuRaw,
+          toSkuKey: target.skuKey,
+          qty: Number(row?.units_sent ?? row?.units_requested ?? 0) || 0
+        };
+      })
+      .filter((entry: any) => entry?.id);
+
+    if (canonicalSkuUpdates.length) {
+      for (const entry of canonicalSkuUpdates) {
+        const { error: canonicalUpdateErr } = await supabase
+          .from("prep_request_items")
+          .update({ sku: entry.toSkuRaw })
+          .eq("id", entry.id);
+        if (canonicalUpdateErr) {
+          console.warn("packingGroups canonical sku sync failed", {
+            traceId,
+            requestId,
+            prepItemId: entry.id,
+            fromSku: entry.fromSkuRaw,
+            toSku: entry.toSkuRaw,
+            error: canonicalUpdateErr.message
+          });
+          continue;
+        }
+        confirmedQuantities[entry.toSkuKey] =
+          (Number(confirmedQuantities[entry.toSkuKey] || 0) || 0) + entry.qty;
+        skuDisplayByKey[entry.toSkuKey] = entry.toSkuRaw;
+        prepItemIdBySkuKey[entry.toSkuKey] = entry.id;
+        if (entry.fromSkuKey) {
+          confirmedQuantities[entry.fromSkuKey] = 0;
+          delete prepItemIdBySkuKey[entry.fromSkuKey];
+        }
+      }
+      console.log(
+        JSON.stringify({
+          tag: "packingGroups_canonical_skus_synced",
+          traceId,
+          requestId,
+          updates: canonicalSkuUpdates.map((entry: any) => ({
+            prepItemId: entry.id,
+            fromSku: entry.fromSkuRaw,
+            toSku: entry.toSkuRaw
+          }))
+        })
+      );
+    }
 
     const staleSkuKeys = Object.keys(confirmedQuantities || {}).filter((sku) => {
       const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
