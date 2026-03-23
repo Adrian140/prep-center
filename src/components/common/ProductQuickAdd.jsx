@@ -7,14 +7,16 @@ import { buildPrepQtyPatch } from '@/utils/marketStock';
 const defaultLabels = {
   title: 'Manual inventory intake',
   subtitle:
-    'Add placeholders manually or upload the template with EAN/ASIN, product name and (optional) purchase price. Quantities will sync automatically once Amazon sends the listing.',
+    'Add placeholders manually or upload the template with EAN/ASIN, product name, and optional SKU, EAN and purchase price. Quantities will sync automatically once Amazon sends the listing.',
   manualTitle: 'Manual entry',
   eanLabel: 'EAN/ASIN *',
+  skuLabel: 'SKU (optional)',
+  eanOptionalLabel: 'EAN (optional)',
   nameLabel: 'Product Name *',
   priceLabel: 'Purchase price (€)',
   addLine: 'Add line',
   uploadTitle: 'Import from XLSX/CSV',
-  uploadHint: 'Required columns: EAN/ASIN and Product Name. Purchase price is optional.',
+  uploadHint: 'Required columns: EAN/ASIN and Product Name. SKU, EAN and purchase price are optional.',
   template: 'Download template',
   previewTitle: 'Pending lines',
   empty: 'No pending lines yet.',
@@ -25,7 +27,7 @@ const defaultLabels = {
     invalidCode: 'Enter a valid EAN or ASIN.',
     invalidPrice: 'Enter a valid price (e.g. 12.50).',
     fileType: 'Please upload a .xlsx or .csv file.',
-    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
+  fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
     fileRows: 'No valid rows were detected in the file.',
     save: 'Unable to add products: {msg}'
   },
@@ -103,6 +105,9 @@ const setRowIndexKeys = (map, row) => {
   if (row.asin) {
     map.set(buildCodeKey(row.asin, 'ASIN'), row);
   }
+  if (row.sku) {
+    map.set(buildCodeKey(row.sku, 'SKU'), row);
+  }
 };
 
 function ProductQuickAdd({
@@ -126,7 +131,7 @@ function ProductQuickAdd({
     }),
     [labelsProp]
   );
-  const [manual, setManual] = useState({ code: '', name: '', price: '' });
+  const [manual, setManual] = useState({ code: '', sku: '', ean: '', name: '', price: '' });
   const [pending, setPending] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -140,7 +145,7 @@ function ProductQuickAdd({
 
   const addManualLine = () => {
     setError('');
-    const { code, name, price } = manual;
+    const { code, sku, ean, name, price } = manual;
     if (!code.trim() || !name.trim()) {
       setError(labels.errors?.missingFields || defaultLabels.errors.missingFields);
       return;
@@ -161,11 +166,13 @@ function ProductQuickAdd({
     const next = {
       id: randomId(),
       name: name.trim(),
+      sku: sku.trim() || null,
+      ean: ean.trim() || parsedCode.ean || null,
       ...parsedCode,
       price: parsedPrice
     };
     setPending((prev) => [...prev, next]);
-    setManual({ code: '', name: '', price: '' });
+    setManual({ code: '', sku: '', ean: '', name: '', price: '' });
     setMessage('');
   };
 
@@ -203,6 +210,8 @@ function ProductQuickAdd({
         (h) => h.includes('ean') || h.includes('asin') || h.includes('sku')
       );
       const idxName = headers.findIndex((h) => h.includes('product') && h.includes('name'));
+      const idxSku = headers.findIndex((h) => h === 'sku' || (h.includes('merchant') && h.includes('sku')));
+      const idxEan = headers.findIndex((h) => h === 'ean' || h.includes('barcode'));
       const idxPrice = headers.findIndex((h) => h.includes('price'));
       if (idxCode === -1 || idxName === -1) {
         setError(labels.errors?.fileHeaders || defaultLabels.errors.fileHeaders);
@@ -230,6 +239,14 @@ function ProductQuickAdd({
         parsed.push({
           id: randomId(),
           name: String(name).trim(),
+          sku:
+            idxSku !== -1 && row[idxSku] != null && String(row[idxSku]).trim()
+              ? String(row[idxSku]).trim()
+              : null,
+          ean:
+            idxEan !== -1 && row[idxEan] != null && String(row[idxEan]).trim()
+              ? String(row[idxEan]).trim()
+              : parsedCode.ean || null,
           ...parsedCode,
           price: priceValue
         });
@@ -249,6 +266,8 @@ function ProductQuickAdd({
       ? buildCodeKey(line.ean, 'EAN')
       : line.asin
       ? buildCodeKey(line.asin, 'ASIN')
+      : line.sku
+      ? buildCodeKey(line.sku, 'SKU')
       : null;
     const matchedRow = key ? localIndexMap.get(key) : null;
     if (matchedRow) {
@@ -256,6 +275,7 @@ function ProductQuickAdd({
       if (!matchedRow.name && line.name) patch.name = line.name;
       if (line.ean && !matchedRow.ean) patch.ean = line.ean;
       if (line.asin && !matchedRow.asin) patch.asin = line.asin;
+      if (line.sku && !matchedRow.sku) patch.sku = line.sku;
       if (
         line.price != null &&
         Number(line.price) !== Number(matchedRow.purchase_price ?? null)
@@ -275,6 +295,7 @@ function ProductQuickAdd({
       user_id: companyId ? null : userId || null,
       ean: line.ean || null,
       asin: line.asin || null,
+      sku: line.sku || null,
       name: line.name,
       qty: prepPatch.qty,
       prep_qty_by_country: prepPatch.prep_qty_by_country,
@@ -358,7 +379,7 @@ function ProductQuickAdd({
 
       <div className="mt-4 space-y-2">
         <p className="text-xs font-semibold text-text-secondary">{labels.manualTitle}</p>
-        <div className="grid gap-3 [grid-template-columns:1fr] md:[grid-template-columns:1.1fr_1.8fr_1.1fr_auto] md:items-end">
+        <div className="grid gap-3 [grid-template-columns:1fr] md:[grid-template-columns:1.05fr_1fr_1fr_1.7fr_1fr_auto] md:items-end">
           <div>
             <label className="text-xs font-semibold text-text-secondary">{labels.eanLabel}</label>
             <input
@@ -366,6 +387,24 @@ function ProductQuickAdd({
               placeholder={labels.eanLabel}
               value={manual.code}
               onChange={(e) => setManual((prev) => ({ ...prev, code: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary">{labels.skuLabel}</label>
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              placeholder={labels.skuLabel}
+              value={manual.sku}
+              onChange={(e) => setManual((prev) => ({ ...prev, sku: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-text-secondary">{labels.eanOptionalLabel}</label>
+            <input
+              className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              placeholder={labels.eanOptionalLabel}
+              value={manual.ean}
+              onChange={(e) => setManual((prev) => ({ ...prev, ean: e.target.value }))}
             />
           </div>
           <div>
@@ -408,7 +447,9 @@ function ProductQuickAdd({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
-                <th className="px-3 py-2 w-1/4">{labels.eanLabel}</th>
+                <th className="px-3 py-2 w-1/5">{labels.eanLabel}</th>
+                <th className="px-3 py-2 w-1/5">{labels.skuLabel}</th>
+                <th className="px-3 py-2 w-1/5">{labels.eanOptionalLabel}</th>
                 <th className="px-3 py-2">{labels.nameLabel}</th>
                 <th className="px-3 py-2 text-right w-32">{labels.priceLabel}</th>
                 <th className="px-3 py-2 w-16 text-center"></th>
@@ -417,7 +458,7 @@ function ProductQuickAdd({
             <tbody>
               {pending.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={4}>
+                  <td className="px-3 py-4 text-sm text-text-secondary" colSpan={6}>
                     {labels.empty}
                   </td>
                 </tr>
@@ -427,6 +468,8 @@ function ProductQuickAdd({
                   <td className="px-3 py-2 font-mono text-xs">
                     {line.ean || line.asin || '—'}
                   </td>
+                  <td className="px-3 py-2 font-mono text-xs">{line.sku || '—'}</td>
+                  <td className="px-3 py-2 font-mono text-xs">{line.ean || '—'}</td>
                   <td className="px-3 py-2">{line.name}</td>
                   <td className="px-3 py-2 text-right font-mono text-xs">
                     {line.price != null ? line.price.toFixed(2) : '—'}
