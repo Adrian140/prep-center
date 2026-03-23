@@ -1052,7 +1052,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);
-  const autoPackingRef = useRef({ planId: null, attempted: false });
+  const autoPackingRef = useRef({ planId: null, requestKey: null, attempted: false });
   const packingPendingRetryTimerRef = useRef(null);
   const packingPendingRetryCountRef = useRef(0);
   const step1BoxPlanPersistTimerRef = useRef(null);
@@ -3158,6 +3158,27 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   // Active auto-packing only when we have valid groups with dimensions/weight; otherwise allow manual UI.
   const autoPackingActive = useMemo(() => autoPackingEnabled && autoPackingReady, [autoPackingEnabled, autoPackingReady]);
+  const autoPackingRequestKey = useMemo(() => {
+    const inboundPlanId = resolveInboundPlanId();
+    if (!inboundPlanId || !autoPackingEnabled || !autoPackingReady) return null;
+    const groups = (Array.isArray(packGroupsForAuto) ? packGroupsForAuto : []).map((g) => ({
+      id: g?.packingGroupId || g?.id || null,
+      boxes: Number(g?.boxes || 0) || 0,
+      boxDimensions: g?.boxDimensions || g?.dimensions || null,
+      boxWeight: g?.boxWeight || g?.weight || null,
+      perBoxDetails: g?.perBoxDetails || null,
+      perBoxItems: g?.perBoxItems || null,
+      items: (Array.isArray(g?.items) ? g.items : []).map((it) => ({
+        sku: it?.sku || it?.msku || it?.SellerSKU || null,
+        quantity: Number(it?.quantity || 0) || 0
+      }))
+    }));
+    return JSON.stringify({
+      inboundPlanId,
+      packingOptionId: packingOptionId || null,
+      groups
+    });
+  }, [autoPackingEnabled, autoPackingReady, packGroupsForAuto, packingOptionId, resolveInboundPlanId]);
 
   const handlePackGroupUpdate = (groupId, patch) => {
     setPackGroups((prev) =>
@@ -3969,17 +3990,31 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (packingSubmitLoading) return;
     const inboundPlanId = resolveInboundPlanId();
     if (!inboundPlanId) return;
-    if (autoPackingRef.current.planId !== inboundPlanId) {
-      autoPackingRef.current = { planId: inboundPlanId, attempted: false };
+    if (!autoPackingRequestKey) return;
+    if (
+      autoPackingRef.current.planId !== inboundPlanId ||
+      autoPackingRef.current.requestKey !== autoPackingRequestKey
+    ) {
+      autoPackingRef.current = { planId: inboundPlanId, requestKey: autoPackingRequestKey, attempted: false };
     }
     if (autoPackingRef.current.attempted) return;
     autoPackingRef.current.attempted = true;
-    const payload = buildPackingPayload(packGroupsForAuto);
-    submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
+    let cancelled = false;
+    (async () => {
+      const payload = buildPackingPayload(packGroupsForAuto);
+      const submitted = await submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
+      if (!submitted && !cancelled) {
+        autoPackingRef.current = { planId: inboundPlanId, requestKey: autoPackingRequestKey, attempted: false };
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     currentStep,
     autoPackingEnabled,
     autoPackingReady,
+    autoPackingRequestKey,
     packingSubmitLoading,
     packGroupsForAuto,
     resolveInboundPlanId,
