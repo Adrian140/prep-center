@@ -607,16 +607,28 @@ function mapInboundItems(items: Array<Record<string, unknown>>) {
   return items.map((row) => {
     const item = (row?.item as Record<string, unknown>) || {};
     const identifiers = Array.isArray(item?.identifiers) ? item.identifiers : [];
-    const asin = normalizeText(row?.asin) || extractIdentifier(identifiers, ["ASIN"]) || null;
+    const rawSku = normalizeText(row?.sku) || normalizeText(item?.merchant_sku) || null;
+    const embeddedAsin = (() => {
+      const match = String(rawSku || "").trim().toUpperCase().match(/(?:^|_)(B[0-9A-Z]{9})(?:$|_)/);
+      return match?.[1] || null;
+    })();
+    const asin =
+      normalizeText(row?.asin) ||
+      normalizeText(item?.asin) ||
+      extractIdentifier(identifiers, ["ASIN"]) ||
+      embeddedAsin ||
+      null;
     const ean =
       normalizeText(row?.ean) ||
+      normalizeText(item?.ean) ||
       extractIdentifier(identifiers, ["EAN", "GTIN", "UPC"]) ||
       null;
-    const sku = normalizeText(row?.sku) || normalizeText(item?.merchant_sku) || null;
+    const sku = rawSku;
     const title = normalizeText(row?.title) || normalizeText(item?.title) || null;
     const expected = (row?.expected as Record<string, unknown>) || {};
     const qty = Number(row?.quantity ?? expected?.quantity ?? row?.qty ?? 0) || 0;
     return {
+      item_id: normalizeText(row?.item_id) || normalizeText(item?.id) || null,
       asin,
       ean,
       sku,
@@ -697,6 +709,82 @@ async function fetchInboundItems(merchantId: string, shipmentId: string | number
   if (Array.isArray(data?.items)) return data.items;
   if (Array.isArray(data?.data)) return data.data;
   return [];
+}
+
+async function fetchInventoryItem(merchantId: string, itemId: string | number) {
+  const base = PREP_BASE_URL.replace(/\/+$/, "");
+  const url = `${base}/inventory/${itemId}`;
+  const resp = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${PREP_TOKEN}`,
+      "X-Api-Key": PREP_TOKEN,
+      "X-Selected-Client-Id": String(merchantId),
+      Accept: "application/json"
+    }
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`PrepBusiness API error ${resp.status}: ${text || resp.statusText}`);
+  }
+  const data = await resp.json();
+  return data?.item || data?.inventory_item || data?.data || data || null;
+}
+
+async function enrichInboundItemsFromInventory(
+  merchantId: string,
+  items: Array<Record<string, unknown>>
+) {
+  const cache = new Map<string, Record<string, unknown> | null>();
+  const resolveInventoryDetails = async (itemId: string) => {
+    if (cache.has(itemId)) return cache.get(itemId) || null;
+    try {
+      const data = await fetchInventoryItem(merchantId, itemId);
+      const identifiers = Array.isArray(data?.identifiers) ? data.identifiers : [];
+      const merchantSku =
+        normalizeText(data?.merchant_sku) ||
+        normalizeText(data?.sku) ||
+        null;
+      const embeddedAsin = (() => {
+        const match = String(merchantSku || "").trim().toUpperCase().match(/(?:^|_)(B[0-9A-Z]{9})(?:$|_)/);
+        return match?.[1] || null;
+      })();
+      const normalized = {
+        asin:
+          normalizeText(data?.asin) ||
+          extractIdentifier(identifiers, ["ASIN"]) ||
+          embeddedAsin ||
+          null,
+        ean:
+          normalizeText(data?.ean) ||
+          extractIdentifier(identifiers, ["EAN", "GTIN", "UPC"]) ||
+          null,
+        sku: merchantSku
+      };
+      cache.set(itemId, normalized);
+      return normalized;
+    } catch (error) {
+      console.warn("PrepBusiness inventory item fetch failed", itemId, error?.message || error);
+      cache.set(itemId, null);
+      return null;
+    }
+  };
+
+  const enriched = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const itemId = normalizeText(item?.item_id);
+    if (!itemId || (normalizeText(item?.asin) && normalizeText(item?.sku))) {
+      enriched.push(item);
+      continue;
+    }
+    const details = await resolveInventoryDetails(String(itemId));
+    enriched.push({
+      ...item,
+      asin: normalizeText(item?.asin) || normalizeText(details?.asin) || null,
+      ean: normalizeText(item?.ean) || normalizeText(details?.ean) || null,
+      sku: normalizeText(item?.sku) || normalizeText(details?.sku) || null
+    });
+  }
+  return enriched;
 }
 
 async function fetchInboundDetails(merchantId: string, shipmentId: string | number) {
@@ -1038,7 +1126,10 @@ async function handleSync(req: Request) {
       if (shipmentId) {
         try {
           const rawItems = await fetchInboundItems(String(merchant.merchant_id), shipmentId);
-          items = mapInboundItems(rawItems as Array<Record<string, unknown>>);
+          items = await enrichInboundItemsFromInventory(
+            String(merchant.merchant_id),
+            mapInboundItems(rawItems as Array<Record<string, unknown>>)
+          );
         } catch (error) {
           console.warn("PrepBusiness items fetch failed", shipmentId, error?.message || error);
         }
