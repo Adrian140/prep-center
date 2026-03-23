@@ -3973,6 +3973,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
         return { ok: false, code: responseData?.code || 'PACKING_OPTIONS_NOT_READY', message: msg, traceId: trace };
       }
+      if (responseData?.code === 'PLACEMENT_OPTIONS_PROCESSING') {
+        const trace = responseData?.traceId || responseData?.trace_id || null;
+        const msg = responseData?.message || 'Amazon is still processing placement options.';
+        setPackingReadyError(trace ? `${msg} · TraceId ${trace}` : msg);
+        return { ok: false, code: 'PLACEMENT_OPTIONS_PROCESSING', message: msg, traceId: trace };
+      }
       if (responseData?.code === 'PLACEMENT_ALREADY_ACCEPTED') {
         const cachedGroups = Array.isArray(responseData?.packingGroups) ? responseData.packingGroups : [];
         const trace = responseData?.traceId || responseData?.trace_id || null;
@@ -4051,6 +4057,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
           'PACKING_GROUPS_PROCESSING',
           'PACKING_OPTIONS_NOT_READY',
           'PACKING_OPTIONS_PROCESSING',
+          'PLACEMENT_OPTIONS_PROCESSING',
           'PLAN_STILL_CREATING'
         ];
         if (!transientCodes.includes(res?.code)) return res;

@@ -1577,18 +1577,52 @@ serve(async (req) => {
       };
 
       let placementListRes: Awaited<ReturnType<typeof signedFetch>> | null = await listPlacementOptions();
+      let placementOpState = "";
       if (!placementListRes || (placementListRes.res.ok && !extractPlacementOptions(placementListRes).length)) {
         const genPlacement = await generatePlacementOptions();
         const opId =
           genPlacement?.json?.payload?.operationId ||
           genPlacement?.json?.operationId ||
           null;
-        if (opId) await pollOperationStatus(opId);
-        placementListRes = await listPlacementOptions();
+        if (opId) {
+          const opStatus = await pollOperationStatus(opId);
+          placementOpState = String(
+            opStatus?.json?.payload?.state ||
+              opStatus?.json?.payload?.operationStatus ||
+              opStatus?.json?.state ||
+              opStatus?.json?.operationStatus ||
+              ""
+          ).toUpperCase();
+        }
+        const maxPlacementPolls = 6;
+        for (let attempt = 1; attempt <= maxPlacementPolls; attempt += 1) {
+          placementListRes = await listPlacementOptions();
+          if (extractPlacementOptions(placementListRes).length) break;
+          if (attempt < maxPlacementPolls) {
+            await delay(Math.min(700 * attempt, 2500));
+          }
+        }
       }
       placementOptionsList = extractPlacementOptions(placementListRes);
       placementOptionId = await choosePreferredPlacementOption(placementOptionsList);
       if (!placementOptionId) {
+        const processingMessage = "Amazon încă procesează placement options. Reîncearcă în câteva secunde.";
+        if (includePlacement && (!placementOptionsList.length || ["IN_PROGRESS", "PENDING", "PROCESSING"].includes(placementOpState))) {
+          return new Response(
+            JSON.stringify({
+              code: "PLACEMENT_OPTIONS_PROCESSING",
+              message: processingMessage,
+              traceId,
+              inboundPlanId,
+              packingOptionId,
+              placementOptionId: null,
+              amazonIntegrationId: integId || null,
+              retryAfterMs: 3000,
+              debug: debugSnapshot(true)
+            }),
+            { status: 202, headers: { ...corsHeaders, "content-type": "application/json" } }
+          );
+        }
         warnings.push("Nu am putut obține placementOptionId (generate/list).");
       }
       planShipments = planCheck?.json?.payload?.shipments || planCheck?.json?.shipments || [];
