@@ -2600,6 +2600,93 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     },
     [normalizeStep1Key]
   );
+  const resolveStalePackingSkuMismatches = useCallback(
+    async (quantityMismatches = [], amazonPackingGroups = []) => {
+      const mismatches = Array.isArray(quantityMismatches) ? quantityMismatches : [];
+      if (!mismatches.length) return { resolved: false, removedIds: [] };
+
+      const staleMismatchKeys = new Set(
+        mismatches
+          .filter((row) => (Number(row?.amazon || 0) || 0) <= 0 && (Number(row?.confirmed || 0) || 0) > 0)
+          .map((row) => normalizeStep1Key(row?.sku))
+          .filter(Boolean)
+      );
+      if (!staleMismatchKeys.size) return { resolved: false, removedIds: [] };
+
+      const amazonKeys = new Set();
+      (Array.isArray(amazonPackingGroups) ? amazonPackingGroups : []).forEach((group) => {
+        (Array.isArray(group?.items) ? group.items : []).forEach((item) => {
+          [
+            item?.sku,
+            item?.msku,
+            item?.SellerSKU,
+            item?.sellerSku,
+            item?.asin
+          ]
+            .map((value) => normalizeStep1Key(value))
+            .filter(Boolean)
+            .forEach((key) => amazonKeys.add(key));
+        });
+      });
+
+      const localSkus = Array.isArray(planRef.current?.skus) ? planRef.current.skus : [];
+      const staleLocalSkus = localSkus.filter((sku) => {
+        const identifiers = collectSkuIdentifiers(sku);
+        if (!identifiers.some((key) => staleMismatchKeys.has(key))) return false;
+        return !identifiers.some((key) => amazonKeys.has(key));
+      });
+
+      if (!staleLocalSkus.length) return { resolved: false, removedIds: [] };
+
+      const staleIdSet = new Set(staleLocalSkus.map((sku) => String(sku?.id || '')).filter(Boolean));
+      const removedIds = Array.from(staleIdSet);
+
+      setPlan((prev) => {
+        const nextSkus = (Array.isArray(prev?.skus) ? prev.skus : []).map((sku) =>
+          staleIdSet.has(String(sku?.id || '')) ? { ...sku, units: 0, excluded: true } : sku
+        );
+        snapshotServerUnits(nextSkus);
+        return { ...prev, skus: nextSkus };
+      });
+
+      setStep1HiddenSkuIds((prev) => {
+        const next = { ...(prev || {}) };
+        removedIds.forEach((id) => {
+          next[id] = true;
+        });
+        return next;
+      });
+
+      const identifiers = staleLocalSkus.flatMap((sku) => collectSkuIdentifiers(sku));
+      setStep1BoxPlanByMarket((prev) => removeSkuFromStep1Plan(prev, identifiers));
+
+      const requestId = resolveRequestId();
+      if (requestId) {
+        await Promise.all(
+          staleLocalSkus
+            .filter((sku) => isUuid(String(sku?.id || '')))
+            .map((sku) =>
+              supabase
+                .from('prep_request_items')
+                .update({ units_sent: 0 })
+                .eq('id', sku.id)
+                .then(({ error }) => {
+                  if (error) {
+                    console.warn('stale sku units_sent persist failed', {
+                      requestId,
+                      skuId: sku.id,
+                      error: error.message
+                    });
+                  }
+                })
+            )
+        );
+      }
+
+      return { resolved: true, removedIds };
+    },
+    [collectSkuIdentifiers, normalizeStep1Key, removeSkuFromStep1Plan, resolveRequestId, snapshotServerUnits]
+  );
 
   const handleRemoveSku = (skuId) => {
     const requestId = resolveRequestId();
@@ -4015,6 +4102,17 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (Array.isArray(responseData?.shipments)) setShipments(responseData.shipments);
         setPlanError('');
         if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+          const syncResult = await resolveStalePackingSkuMismatches(responseData.quantityMismatches, normalized);
+          if (syncResult?.resolved) {
+            setPackingReadyError('');
+            return {
+              ok: true,
+              code: 'PLACEMENT_ALREADY_ACCEPTED',
+              packingOptionId: responseData?.packingOptionId || null,
+              packingGroups: normalized,
+              autoResolvedMismatches: syncResult?.removedIds || []
+            };
+          }
           const first = responseData.quantityMismatches[0];
           const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
           setPackGroups([]); // nu folosi grupuri Amazon cu cantități vechi
@@ -4051,6 +4149,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
             inbound_plan_id: inboundPlanId
           }));
           if (Array.isArray(responseData?.quantityMismatches) && responseData.quantityMismatches.length) {
+            const syncResult = await resolveStalePackingSkuMismatches(responseData.quantityMismatches, filtered);
+            if (syncResult?.resolved) {
+              setPackingReadyError('');
+              return {
+                ok: true,
+                packingOptionId: responseData?.packingOptionId || null,
+                packingGroups: filtered,
+                autoResolvedMismatches: syncResult?.removedIds || []
+              };
+            }
             const first = responseData.quantityMismatches[0];
             const msg = `Quantities differ between UI and Amazon (${first.sku}: Amazon ${first.amazon} vs confirmed ${first.confirmed}).`;
             setPackGroups([]); // evităm afișarea grupurilor cu cantități vechi
