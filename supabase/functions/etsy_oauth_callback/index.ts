@@ -12,7 +12,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 const ETSY_CLIENT_ID = Deno.env.get("ETSY_CLIENT_ID") || "";
-const ETSY_CLIENT_SECRET = Deno.env.get("ETSY_CLIENT_SECRET") || "";
 const ETSY_REDIRECT_URI = Deno.env.get("ETSY_REDIRECT_URI") || "";
 const ETSY_ENC_KEY = Deno.env.get("ETSY_ENC_KEY") || "";
 
@@ -65,8 +64,8 @@ serve(async (req) => {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
     return jsonResponse({ error: "Missing Supabase environment variables." }, 500);
   }
-  if (!ETSY_CLIENT_ID || !ETSY_CLIENT_SECRET) {
-    return jsonResponse({ error: "Missing ETSY_CLIENT_ID / ETSY_CLIENT_SECRET." }, 500);
+  if (!ETSY_CLIENT_ID) {
+    return jsonResponse({ error: "Missing ETSY_CLIENT_ID." }, 500);
   }
 
   const authHeader = req.headers.get("authorization") || "";
@@ -130,6 +129,8 @@ serve(async (req) => {
   const refreshToken = String(tokenJson?.refresh_token || "").trim();
   const tokenType = String(tokenJson?.token_type || "Bearer").trim();
   const expiresIn = Number(tokenJson?.expires_in || 0) || null;
+  const scope = String(tokenJson?.scope || "").trim();
+  const accessScopes = scope ? scope.split(/\s+/).filter(Boolean) : [];
 
   if (!accessToken || !refreshToken) {
     return jsonResponse({ error: "Etsy did not return access_token / refresh_token." }, 502);
@@ -165,6 +166,7 @@ serve(async (req) => {
       token_type: tokenType,
       access_token: encAccess.value,
       refresh_token: encRefresh.value,
+      scope: scope || null,
       encrypted: Boolean(encAccess.encrypted || encRefresh.encrypted),
       expires_at: accessExp,
       updated_at: new Date().toISOString()
@@ -183,6 +185,7 @@ serve(async (req) => {
         shop_name: existing?.shop_name || null,
         shop_url: existing?.shop_url || null,
         etsy_user_id: etsyUserId,
+        access_scopes: accessScopes,
         connected_at: new Date().toISOString(),
         last_synced_at: new Date().toISOString(),
         last_error: null,

@@ -15,7 +15,8 @@ import {
   Truck,
   Link2,
   ChevronDown,
-  Settings
+  Settings,
+  Store
 } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { useDashboardTranslation } from '../../translations';
@@ -37,6 +38,7 @@ import ClientDealsPopover from './client/ClientDealsPopover';
 import ClientAffiliates from './client/ClientAffiliates';
 import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
+import ClientEtsyWorkspace from './client/ClientEtsyWorkspace';
 import ClientFbaShipmentDetailsDrawer from './client/ClientFbaShipmentDetailsDrawer';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { tabSessionStorage } from '@/utils/tabStorage';
@@ -56,6 +58,8 @@ function SupabaseDashboard() {
   const location = useLocation();
   const [hasQogita, setHasQogita] = useState(false);
   const [qogitaLoading, setQogitaLoading] = useState(true);
+  const [hasEtsy, setHasEtsy] = useState(false);
+  const [etsyLoading, setEtsyLoading] = useState(true);
   const reportTabs = BASE_REPORT_TABS;
 
   const validTabs = [
@@ -71,7 +75,8 @@ function SupabaseDashboard() {
     'security',
     'settings',
     ...reportTabs.map((rt) => rt.id),
-    'reports-qogita'
+    'reports-qogita',
+    'products-etsy'
   ];
 
   const normalizeTab = (tab) => {
@@ -164,10 +169,42 @@ function SupabaseDashboard() {
   }, [user?.id]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadEtsy = async () => {
+      setEtsyLoading(true);
+      if (!user?.id) {
+        setHasEtsy(false);
+        setEtsyLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('etsy_integrations')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('status', ['active', 'connected'])
+        .limit(1)
+        .maybeSingle();
+      if (cancelled) return;
+      setHasEtsy(!!data);
+      setEtsyLoading(false);
+    };
+    loadEtsy();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
     if (activeTab === 'reports-qogita' && !qogitaLoading && !hasQogita) {
       setActiveTab('activity');
     }
   }, [activeTab, hasQogita, qogitaLoading]);
+
+  useEffect(() => {
+    if (activeTab === 'products-etsy' && !etsyLoading && !hasEtsy) {
+      setActiveTab('stock');
+    }
+  }, [activeTab, hasEtsy, etsyLoading]);
 
   const companyId = profile?.company_id;
   const isAdmin =
@@ -327,6 +364,7 @@ const renderTabContent = useMemo(() => {
     case 'activity':
       return <SupabaseClientActivity onOpenFbaShipmentDetails={openFbaDetailsDrawer} />;
     case 'stock':     return <ClientStock />;
+    case 'products-etsy': return <ClientEtsyWorkspace />;
     case 'exports':   return <ClientExports />;
     case 'box-estimator': return <ClientBoxEstimator />;
     case 'reports-shipments': return <ClientPrepShipments />;
@@ -434,6 +472,20 @@ const renderTabContent = useMemo(() => {
                                 </div>
                               )}
                             </div>
+                          )}
+
+                          {g.key === 'Operations' && tab.id === 'stock' && hasEtsy && (
+                            <button
+                              onClick={() => setActiveTab('products-etsy')}
+                              className={`ml-1 w-[calc(100%-0.25rem)] flex items-center gap-2 px-2.5 py-1.5 text-left rounded-md text-[13px] mt-1 border border-white/10 transition-all duration-200 ${
+                                activeTab === 'products-etsy'
+                                  ? 'bg-gradient-to-r from-[#0EA5E9] to-[#14B8A6] text-white shadow-sm shadow-cyan-500/20'
+                                  : 'text-slate-300/70 hover:bg-white/10 hover:text-white'
+                              }`}
+                            >
+                              <Store className="w-3.5 h-3.5" />
+                              Etsy
+                            </button>
                           )}
 
                           {g.key === 'Operations' && tab.id === 'stock' && hasQogita && (

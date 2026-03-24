@@ -4,6 +4,7 @@ import { supabaseHelpers } from '@/config/supabase';
 import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const PKCE_STORAGE_PREFIX = 'etsy_pkce_verifier:';
+const ETSY_PROD_REDIRECT_URI = 'https://prep-center.eu/auth/etsy/callback';
 
 const formatDateTime = (value) => {
   if (!value) return '-';
@@ -50,7 +51,9 @@ export default function ClientEtsyIntegration({ user, profile }) {
   const [flashType, setFlashType] = useState('error');
 
   const etsyClientId = import.meta.env.VITE_ETSY_CLIENT_ID || '';
-  const etsyRedirectUri = import.meta.env.VITE_ETSY_REDIRECT_URI || `${window.location.origin}/auth/etsy/callback`;
+  const etsyRedirectUri =
+    import.meta.env.VITE_ETSY_REDIRECT_URI ||
+    (import.meta.env.PROD ? ETSY_PROD_REDIRECT_URI : `${window.location.origin}/auth/etsy/callback`);
   const etsyOauthBaseUrl = (import.meta.env.VITE_ETSY_OAUTH_BASE_URL || 'https://www.etsy.com').replace(/\/$/, '');
   const etsyScopes = String(import.meta.env.VITE_ETSY_SCOPES || 'shops_r listings_r transactions_r').trim();
   const hasOauthConfig = Boolean(etsyClientId) && Boolean(etsyRedirectUri);
