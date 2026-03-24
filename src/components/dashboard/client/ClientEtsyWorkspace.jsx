@@ -31,6 +31,7 @@ export default function ClientEtsyWorkspace() {
   const [orders, setOrders] = useState([]);
   const [listings, setListings] = useState([]);
   const [tracking, setTracking] = useState([]);
+  const [selectedOrderId, setSelectedOrderId] = useState(null);
 
   const companyId = profile?.company_id || profile?.id || null;
 
@@ -59,6 +60,7 @@ export default function ClientEtsyWorkspace() {
       setOrders(ordersRes.data || []);
       setListings(listingsRes.data || []);
       setTracking(trackingRes.data || []);
+      setSelectedOrderId((prev) => prev || ordersRes.data?.[0]?.id || null);
     }
     setRefreshing(false);
     setLoading(false);
@@ -78,6 +80,25 @@ export default function ClientEtsyWorkspace() {
       revenue: totalRevenue
     };
   }, [orders, listings, tracking]);
+
+  useEffect(() => {
+    if (!orders.length) {
+      setSelectedOrderId(null);
+      return;
+    }
+    const exists = orders.some((row) => row.id === selectedOrderId);
+    if (!exists) setSelectedOrderId(orders[0].id);
+  }, [orders, selectedOrderId]);
+
+  const selectedOrder = useMemo(
+    () => orders.find((row) => row.id === selectedOrderId) || orders[0] || null,
+    [orders, selectedOrderId]
+  );
+
+  const visibleTracking = useMemo(() => {
+    if (!selectedOrder?.id) return tracking.slice(0, 8);
+    return tracking.filter((row) => row.order_id === selectedOrder.id);
+  }, [tracking, selectedOrder]);
 
   if (loading) {
     return (
@@ -163,7 +184,14 @@ export default function ClientEtsyWorkspace() {
           ) : (
             <div className="divide-y">
               {orders.slice(0, 12).map((row) => (
-                <div key={row.id} className="px-5 py-4">
+                <button
+                  key={row.id}
+                  type="button"
+                  onClick={() => setSelectedOrderId(row.id)}
+                  className={`block w-full px-5 py-4 text-left transition-colors ${
+                    selectedOrder?.id === row.id ? 'bg-orange-50' : 'hover:bg-slate-50'
+                  }`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="font-medium text-text-primary">
@@ -180,7 +208,7 @@ export default function ClientEtsyWorkspace() {
                       {money(row.grandtotal_amount, row.currency_code || 'EUR')}
                     </div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -197,10 +225,27 @@ export default function ClientEtsyWorkspace() {
             ) : (
               <div className="divide-y">
                 {listings.slice(0, 8).map((row) => (
-                  <div key={row.id} className="px-5 py-4">
-                    <div className="font-medium text-text-primary">{row.title || `Listing #${row.listing_id}`}</div>
-                    <div className="mt-1 text-sm text-text-secondary">
-                      SKU: {row.sku || '—'} · Qty: {row.quantity ?? 0} · {money(row.price_amount, row.currency_code || 'EUR')}
+                  <div key={row.id} className="flex gap-3 px-5 py-4">
+                    {row.image_url ? (
+                      <img
+                        src={row.image_url}
+                        alt={row.title || `Listing ${row.listing_id}`}
+                        className="h-16 w-16 rounded-lg border object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-lg border bg-slate-50 text-xs text-slate-400">
+                        No image
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-medium text-text-primary">{row.title || `Listing #${row.listing_id}`}</div>
+                      <div className="mt-1 text-sm text-text-secondary">
+                        SKU: {row.sku || '—'} · Qty: {row.quantity ?? 0} · {money(row.price_amount, row.currency_code || 'EUR')}
+                      </div>
+                      <div className="mt-1 text-xs text-text-secondary">
+                        Listing ID: {row.listing_id} {row.url ? `· ${row.url}` : ''}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -211,13 +256,20 @@ export default function ClientEtsyWorkspace() {
           <section className="rounded-xl border bg-white">
             <div className="flex items-center gap-2 border-b px-5 py-4">
               <Truck className="h-4 w-4 text-emerald-600" />
-              <h3 className="text-lg font-semibold text-text-primary">Tracking Timeline</h3>
+              <div>
+                <h3 className="text-lg font-semibold text-text-primary">Tracking Timeline</h3>
+                {selectedOrder ? (
+                  <p className="text-xs text-text-secondary">
+                    Selected receipt #{selectedOrder.receipt_id || '—'} · Track ID {selectedOrder.tracking_code || '—'}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            {tracking.length === 0 ? (
+            {visibleTracking.length === 0 ? (
               <div className="p-5 text-sm text-text-secondary">No tracking events synced yet.</div>
             ) : (
               <div className="divide-y">
-                {tracking.slice(0, 8).map((row) => (
+                {visibleTracking.slice(0, 8).map((row) => (
                   <div key={row.id} className="px-5 py-4">
                     <div className="font-medium text-text-primary">{row.status_label || row.status || 'Tracking update'}</div>
                     <div className="mt-1 text-sm text-text-secondary">
