@@ -1,6 +1,6 @@
 // FILE: src/components/dashboard/SupabaseDashboard.jsx
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   User,
   Users,
@@ -211,6 +211,10 @@ function SupabaseDashboard() {
     profile?.account_type === 'admin' ||
     profile?.is_admin === true ||
     user?.user_metadata?.account_type === 'admin';
+
+  if (isAdmin && !isLimitedAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
   const [reviewPrompt, setReviewPrompt] = useState({
     loading: true,
     eligible: false,
