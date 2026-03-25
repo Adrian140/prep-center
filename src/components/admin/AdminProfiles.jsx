@@ -110,6 +110,7 @@ export default function AdminProfiles({ onSelect }) {
   const { currentMarket } = useMarket();
   const isLimitedAdmin = Boolean(currentProfile?.is_limited_admin);
   const showBalances = !isLimitedAdmin;
+  const canManagePricingAccess = !isLimitedAdmin;
   const [persistedFilters, setPersistedFilters] = useSessionStorage(STORAGE_KEY, {
     selectedMonth: monthKey(new Date()),
     showEmail: false,
@@ -128,7 +129,7 @@ export default function AdminProfiles({ onSelect }) {
   const [showEmail, setShowEmail] = useState(!!persistedFilters.showEmail);
   const [showPhone, setShowPhone] = useState(!!persistedFilters.showPhone);
   const [showPricing, setShowPricing] = useState(
-    persistedFilters.showPricing === undefined ? true : !!persistedFilters.showPricing
+    canManagePricingAccess && (persistedFilters.showPricing === undefined ? true : !!persistedFilters.showPricing)
   );
   const [from, setFrom] = useState(persistedFilters.from || isoLocal(firstDayOfMonth(new Date())));
   const [to, setTo] = useState(persistedFilters.to || isoLocal(lastDayOfMonth(new Date())));
@@ -192,6 +193,11 @@ export default function AdminProfiles({ onSelect }) {
       setRestFilter("all");
     }
   }, [showBalances, restFilter]);
+
+  useEffect(() => {
+    if (canManagePricingAccess) return;
+    if (showPricing) setShowPricing(false);
+  }, [canManagePricingAccess, showPricing]);
 
   useEffect(() => {
     if (!storeBanner) return;
@@ -613,13 +619,15 @@ const togglePriceAccess = async (profile, nextValue) => {
           >
             {showPhone ? t("clients.buttons.hidePhone") : t("clients.buttons.showPhone")}
           </button>
-          <button
-            onClick={() => setShowPricing(!showPricing)}
-            className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm text-xs"
-            title={t("clients.buttons.togglePricing")}
-          >
-            {showPricing ? t("clients.buttons.hidePricing") : t("clients.buttons.showPricing")}
-          </button>
+          {canManagePricingAccess && (
+            <button
+              onClick={() => setShowPricing(!showPricing)}
+              className="inline-flex items-center justify-center gap-2 px-3 py-1.5 border rounded shadow-sm text-xs"
+              title={t("clients.buttons.togglePricing")}
+            >
+              {showPricing ? t("clients.buttons.hidePricing") : t("clients.buttons.showPricing")}
+            </button>
+          )}
         </div>
       </div>
 
