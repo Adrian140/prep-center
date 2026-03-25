@@ -1485,16 +1485,16 @@ async function checkSkuStatus(params: {
           });
         }
       }
-      if (asinResolved?.sku) {
-        const resolvedStatus = Array.isArray(asinResolved.statuses) ? asinResolved.statuses.join(",") : "";
-        return {
-          state: "ok",
-          reason: resolvedStatus
-            ? `SKU input negăsit; mapat din ASIN pe listing activ (${resolvedStatus})`
-            : "SKU input negăsit; mapat din ASIN pe listing",
-          canonicalSku: asinResolved.sku,
-          fnsku: asinResolved.fnsku || null
-        };
+      if (asinResolved?.sku && traceId) {
+        console.warn("sku-not-found-asin-different-sku", {
+          traceId,
+          inputSku: sku,
+          asin,
+          destinationMarketplaceId: marketplaceId,
+          resolvedSku: asinResolved.sku,
+          resolvedStatuses: asinResolved.statuses,
+          resolvedFnsku: asinResolved.fnsku || null
+        });
       }
       if (traceId) {
         console.warn("sku-not-found-diagnostics", {
