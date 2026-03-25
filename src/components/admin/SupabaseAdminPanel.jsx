@@ -47,11 +47,13 @@ import { useAdminTranslation } from '@/i18n/useAdminTranslation';
 
 function SupabaseAdminPanel() {
   const tabId = getTabId();
-  const { user, signOut } = useSupabaseAuth();
+  const { user, profile, signOut } = useSupabaseAuth();
   const { currentMarket } = useMarket();
   const { t } = useAdminTranslation();
   const [isAdmin, setIsAdmin] = useState(false);
 const [checkingAdmin, setCheckingAdmin] = useState(true);
+  const isLimitedAdmin = Boolean(profile?.is_limited_admin);
+  const hiddenLimitedTabs = useMemo(() => new Set(['dashboard', 'invoices', 'affiliates']), []);
 
 useEffect(() => {
   const checkAdmin = async () => {
@@ -219,7 +221,14 @@ useEffect(() => {
     { id: 'security', label: t('sidebar.security'), icon: Shield },
     { id: 'analytics', label: t('sidebar.analytics'), icon: BarChart3 },
     { id: 'settings', label: t('sidebar.settings'), icon: Settings }
-  ]), [t]);
+  ].filter((tab) => !(isLimitedAdmin && hiddenLimitedTabs.has(tab.id)))), [t, isLimitedAdmin, hiddenLimitedTabs]);
+
+  const allowedTabIds = useMemo(() => tabs.map((tab) => tab.id), [tabs]);
+
+  useEffect(() => {
+    if (allowedTabIds.includes(activeTab)) return;
+    setActiveTab(allowedTabIds[0] || 'profiles');
+  }, [activeTab, allowedTabIds]);
 
   useEffect(() => {
      if (user) { // Changed to user
@@ -1630,6 +1639,9 @@ const renderSettingsTab = () => {
 };
 
 const renderTabContent = () => {
+  if (!allowedTabIds.includes(activeTab)) {
+    return null;
+  }
   switch (activeTab) {
     case 'analytics': return <AdminAnalytics />;
     case 'dashboard': return <AdminCompanyDashboard />;
