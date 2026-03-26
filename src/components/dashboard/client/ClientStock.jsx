@@ -1777,6 +1777,12 @@ useEffect(() => {
     if (pendingShipmentFilter === 'without') {
       base = base.filter((r) => Number(pendingShipmentByItemId?.[r.id]?.total || 0) <= 0);
     }
+    if (fulfillmentFilter === 'both') {
+      base = base.filter((r) => {
+        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
+        return kind === 'FBA' || kind === 'FBM';
+      });
+    }
     if (fulfillmentFilter === 'fba') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
@@ -3131,6 +3137,20 @@ const saveReqChanges = async () => {
                 }`}
               >
                 FBA
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFulfillmentFilter('both');
+                  setPage(1);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  fulfillmentFilter === 'both'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Both
               </button>
               <button
                 type="button"
