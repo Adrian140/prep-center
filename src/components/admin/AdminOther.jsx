@@ -29,6 +29,7 @@ const formatInvoiceTooltip = (invoice) => {
     : null;
   return `Factură #${invoice.invoice_number}${formattedDate ? ` · ${formattedDate}` : ''}`;
 };
+const normalizeServiceLabel = (value) => String(value || '').trim().replace(/\s+/g, ' ');
 
 export default function AdminOther({
   rows = [],
@@ -77,12 +78,13 @@ export default function AdminOther({
       const options = [];
       const prices = {};
       (data || []).forEach((row) => {
-        const name = String(row?.service_name || '').trim();
+        const name = normalizeServiceLabel(row?.service_name);
         const category = String(row?.category || '').toLowerCase();
         if (!name) return;
         if (!category.includes('extra') && !category.includes('storage')) return;
-        if (seen.has(name)) return;
-        seen.add(name);
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
         options.push(name);
         prices[name] = row?.price ?? '';
       });

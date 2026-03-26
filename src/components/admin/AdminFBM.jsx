@@ -42,6 +42,7 @@ const addPreset = (val) => {
   const list = Array.from(new Set([ ...loadPresets(), v ])).sort((a,b)=>a-b);
   savePresets(list);
 };
+const normalizeServiceLabel = (value) => String(value || '').trim().replace(/\s+/g, ' ');
 
 export default function AdminFBM({
   rows = [],
@@ -82,7 +83,19 @@ export default function AdminFBM({
         console.error('Failed to load FBM pricing services', error);
         return;
       }
-      let list = data || [];
+      const seen = new Set();
+      let list = (data || []).reduce((acc, row) => {
+        const serviceName = normalizeServiceLabel(row?.service_name);
+        if (!serviceName) return acc;
+        const key = serviceName.toLowerCase();
+        if (seen.has(key)) return acc;
+        seen.add(key);
+        acc.push({
+          ...row,
+          service_name: serviceName
+        });
+        return acc;
+      }, []);
       const hasTransport = list.some((item) => item.service_name === 'Transport');
       if (!hasTransport) {
         list = [

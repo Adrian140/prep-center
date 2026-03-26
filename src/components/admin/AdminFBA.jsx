@@ -48,6 +48,7 @@ const formatInvoiceTooltip = (invoice) => {
 
 const normalizeFbaShipmentId = (value) => String(value || '').trim().toUpperCase();
 const isFbaShipmentId = (value) => /^FBA[0-9A-Z]+$/i.test(normalizeFbaShipmentId(value));
+const normalizeServiceLabel = (value) => String(value || '').trim().replace(/\s+/g, ' ');
 
 export default function AdminFBA({
   rows = [],
@@ -157,7 +158,22 @@ const [form, setForm] = useSessionStorage(formStorageKey, defaultForm);
         console.error('Failed to load FBA pricing services', error);
         return;
       }
-      setServiceOptions(data || []);
+      const seen = new Set();
+      const deduped = [];
+      (data || []).forEach((row) => {
+        const serviceName = normalizeServiceLabel(row?.service_name);
+        const category = String(row?.category || '').trim();
+        if (!serviceName || !category) return;
+        const key = `${category.toLowerCase()}::${serviceName.toLowerCase()}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        deduped.push({
+          ...row,
+          service_name: serviceName,
+          category
+        });
+      });
+      setServiceOptions(deduped);
     };
     fetchServices();
   }, []);
