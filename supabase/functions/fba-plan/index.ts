@@ -1869,10 +1869,12 @@ serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, "content-type": "application/json" } }
       );
     }
-    const authSupabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    });
-    const { data: authData, error: authErr } = await authSupabase.auth.getUser();
+    const bearer = authHeader.replace(/^bearer\s+/i, "").trim();
+    const authSupabase = createClient(
+      SUPABASE_URL,
+      Deno.env.get("SUPABASE_ANON_KEY") || SUPABASE_SERVICE_ROLE_KEY
+    );
+    const { data: authData, error: authErr } = await authSupabase.auth.getUser(bearer);
     const user = authData?.user ?? null;
     if (authErr || !user) {
       console.warn("fba-plan auth failed", { traceId, error: authErr?.message || null });
