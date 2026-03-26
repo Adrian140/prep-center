@@ -97,11 +97,10 @@ const getFulfillmentKind = (row, channelRows = []) => {
     )
   );
 
-  if (normalizedChannels.includes('FBA') && normalizedChannels.includes('FBM')) {
-    return 'BOTH';
-  }
-  if (normalizedChannels.includes('FBA')) return 'FBA';
+  // UI rule: when Amazon reports both channels for the same stock item,
+  // we classify it as FBM to avoid duplicates between the two tabs.
   if (normalizedChannels.includes('FBM')) return 'FBM';
+  if (normalizedChannels.includes('FBA')) return 'FBA';
 
   const amazonSignal =
     Number(row?.amazon_stock || 0) > 0 ||
@@ -1781,13 +1780,13 @@ useEffect(() => {
     if (fulfillmentFilter === 'fba') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBA' || kind === 'BOTH';
+        return kind === 'FBA';
       });
     }
     if (fulfillmentFilter === 'fbm') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBM' || kind === 'BOTH';
+        return kind === 'FBM';
       });
     }
     return base;
@@ -3443,11 +3442,7 @@ const saveReqChanges = async () => {
     const etsyOrders = etsyOrdersByItemId?.[r.id] || null;
     const fulfillmentKind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
     const fulfillmentBadges =
-      fulfillmentKind === 'BOTH'
-        ? ['FBA', 'FBM']
-        : fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM'
-        ? [fulfillmentKind]
-        : [];
+      fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM' ? [fulfillmentKind] : [];
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
