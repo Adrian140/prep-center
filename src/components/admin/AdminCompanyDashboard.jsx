@@ -37,6 +37,14 @@ const formatDisplayDate = (value) => {
     return value;
   }
 };
+const isInternalCompanyLabel = (value, companyId = '') => {
+  const label = String(value || '').trim();
+  const id = String(companyId || '').trim();
+  if (!label) return true;
+  if (id && label.toLowerCase() === id.toLowerCase()) return true;
+  if (/^auto[-\s]/i.test(label)) return true;
+  return false;
+};
 
 const Card = ({ title, value, subtitle, color = 'bg-white', accentClass = 'text-text-primary' }) => (
   <div className={`${color} border rounded-xl p-4 shadow-sm`}>
@@ -239,7 +247,7 @@ export default function AdminCompanyDashboard() {
       setStalenessError('');
       const [staleRes, profilesRes] = await Promise.all([
         supabaseHelpers.getInventoryStaleness(currentMarket),
-        supabase.from('profiles').select('company_id, store_name').limit(5000)
+        supabase.from('profiles').select('company_id, store_name, company_name, first_name, last_name').limit(5000)
       ]);
       const { data, error } = staleRes;
       if (cancelled) return;
@@ -252,7 +260,11 @@ export default function AdminCompanyDashboard() {
         const map = {};
         (profilesRes.data || []).forEach((p) => {
           if (!p?.company_id) return;
-          const name = (p.store_name || '').trim();
+          const clientName = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+          const name =
+            [p.store_name, p.company_name, clientName]
+              .map((value) => String(value || '').trim())
+              .find((value) => value && !isInternalCompanyLabel(value, p.company_id)) || '';
           if (!name) return;
           if (!map[p.company_id]) map[p.company_id] = name;
         });
@@ -586,10 +598,17 @@ export default function AdminCompanyDashboard() {
   const companyNameById = useMemo(() => {
     const map = new Map();
     companies.forEach((c) => {
-      if (c?.id && c?.name) map.set(c.id, c.name);
+      if (c?.id && c?.name && !isInternalCompanyLabel(c.name, c.id)) map.set(c.id, c.name);
     });
     return map;
   }, [companies]);
+  const resolveCompanyDisplayName = (companyId, fallbackName = '') => {
+    const profileName = String(storeByCompany?.[companyId] || '').trim();
+    if (profileName) return profileName;
+    const safeFallback = String(fallbackName || '').trim();
+    if (safeFallback && !isInternalCompanyLabel(safeFallback, companyId)) return safeFallback;
+    return companyId || 'Client';
+  };
 
   const loadUninvoicedBreakdown = async () => {
     if (!dateFrom || !dateTo) return;
@@ -628,7 +647,7 @@ export default function AdminCompanyDashboard() {
         if (!rowsByCompany.has(id)) {
           rowsByCompany.set(id, {
             companyId: id,
-            name: companyNameById.get(id) || '—',
+            name: resolveCompanyDisplayName(id, companyNameById.get(id)),
             unitsFba: 0,
             unitsFbm: 0,
             unitsOther: 0,
@@ -750,7 +769,7 @@ export default function AdminCompanyDashboard() {
         if (!id) return;
         const entry = rowsByCompany.get(id) || {
           companyId: id,
-          name: companyNameById.get(id) || '—',
+          name: resolveCompanyDisplayName(id, companyNameById.get(id)),
           invoicesCount: 0,
           amount: 0
         };
@@ -996,7 +1015,7 @@ export default function AdminCompanyDashboard() {
                           <tr key={`${row.company_id || idx}`} className={`border-b last:border-b-0 ${highlight ? 'bg-red-50' : ''}`}>
                             <td className="py-2 pr-4 text-text-primary">
                               <div className="font-semibold">
-                                {storeByCompany[row.company_id] || row.company_name || row.company_id || 'Client'}
+                                {resolveCompanyDisplayName(row.company_id, row.company_name)}
                               </div>
                               <div className="text-xs text-text-secondary">{row.company_id || ''}</div>
                             </td>
