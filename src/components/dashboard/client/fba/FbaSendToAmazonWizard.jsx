@@ -8,6 +8,8 @@ import FbaStep3Labels from './FbaStep3Labels';
 import FbaStep4Tracking from './FbaStep4Tracking';
 import { useMarket } from '@/contexts/MarketContext';
 import { useDashboardTranslation } from '@/translations';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { STEP1_COPY } from './fbaStep1Copy';
 
 const getSafeNumber = (val) => {
   if (val === null || val === undefined) return null;
@@ -598,6 +600,7 @@ export default function FbaSendToAmazonWizard({
   fetchPlan // optional async () => ({ shipFrom, marketplace, skus, packGroups, shipments, skuStatuses, warning, blocking })
 }) {
   const { currentMarket } = useMarket();
+  const { currentLanguage } = useLanguage();
   const { t, tp } = useDashboardTranslation();
   const tt = useCallback(
     (key, fallback) => {
@@ -625,6 +628,14 @@ export default function FbaSendToAmazonWizard({
       continueAnyway: tt('continueAnyway', 'Continue anyway')
     }),
     [tt]
+  );
+  const step1Copy = STEP1_COPY[currentLanguage] || STEP1_COPY.en;
+  const tw = useCallback(
+    (key, fallback = '', vars = {}) => {
+      const template = step1Copy[key] || STEP1_COPY.en[key] || fallback || key;
+      return String(template).replace(/\{(\w+)\}/g, (_, varKey) => String(vars[varKey] ?? `{${varKey}}`));
+    },
+    [step1Copy]
   );
   const [plan, setPlan] = useState(initialPlan);
   const [carrierTouched, setCarrierTouched] = useState(false);
@@ -1040,15 +1051,31 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   const toFriendlyPlanNotice = useCallback((warning) => {
     const raw = String(warning || '').trim();
     if (!raw) return '';
+    const normalized = raw
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
     if (/shipments.+goal|fluxul continu[aă] normal|packing options/i.test(raw)) {
-      return 'Planul Amazon a fost creat cu succes. Poți continua cu împachetarea (Step 1b).';
+      return tw('planCreatedContinuePacking');
+    }
+    if (
+      normalized.includes('approval is required before this item can be sent to amazon') &&
+      (
+        (normalized.includes('could not create') && normalized.includes('plan')) ||
+        normalized.includes('nu a putut crea planul de trimitere') ||
+        normalized.includes('n a pas pu creer le plan d expedition') ||
+        normalized.includes('konnte den versandplan nicht erstellen')
+      )
+    ) {
+      return tw('planCreationFailedApprovalRequired');
     }
     return raw
       .replace(/`/g, '')
       .replace(/\b(RequestId|TraceId)\s*:\s*[A-Za-z0-9-]+/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
-  }, []);
+  }, [tw]);
   const planMissingRetryRef = useRef(0);
   const trackingPrefillRef = useRef(false);
   const trackingLoadRequestedRef = useRef(false);

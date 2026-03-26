@@ -3,6 +3,10 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon reported an issue for this SKU. Review and try again.',
     opMissingPrep: 'Prep classification is missing for this SKU. Choose prep and submit again.',
     opNotEligible: 'This product is currently not eligible for inbound on the selected marketplace.',
+    approvalRequiredIssue: 'Approval is required before this item can be sent to Amazon.',
+    planCreationFailedApprovalRequired:
+      'Amazon could not create the shipping plan for this request. Amazon reason: approval is required before this item can be sent to Amazon. Check the items marked in red and try again. The Amazon plan is in ERROR status. I reset the plan; retry Step 1.',
+    planCreatedContinuePacking: 'Amazon plan was created successfully. You can continue with packing (Step 1b).',
     validationMissingBoxes: 'Add at least one box for every pack with units.',
     validationMissingAssignments: 'Distribute all units into boxes (Assigned must equal Units).',
     validationMissingDims: 'Add dimensions and weight for every box.',
@@ -184,6 +188,10 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon a raportat o problemă pentru acest SKU. Verifică și încearcă din nou.',
     opMissingPrep: 'Lipsește categoria de pregătire (prep) pentru acest SKU. Selectează prep și retrimite.',
     opNotEligible: 'Acest produs nu este eligibil momentan pentru inbound pe marketplace-ul selectat.',
+    approvalRequiredIssue: 'Este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon.',
+    planCreationFailedApprovalRequired:
+      'Amazon nu a putut crea planul de trimitere pentru această cerere. Motiv Amazon: este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon. Verifică produsele marcate cu roșu și încearcă din nou. Planul Amazon este în status ERROR. Am resetat planul; reîncearcă Pasul 1.',
+    planCreatedContinuePacking: 'Planul Amazon a fost creat cu succes. Poți continua cu împachetarea (Pasul 1b).',
     validationMissingBoxes: 'Adaugă cel puțin o cutie pentru fiecare grup cu unități.',
     validationMissingAssignments: 'Distribuie toate unitățile în cutii (Assigned trebuie să fie egal cu Units).',
     validationMissingDims: 'Completează dimensiunile și greutatea pentru fiecare cutie.',
@@ -365,6 +373,10 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon a signalé un problème pour ce SKU. Vérifiez et réessayez.',
     opMissingPrep: 'La classification prep est manquante pour ce SKU. Sélectionnez-la et renvoyez.',
     opNotEligible: 'Ce produit n’est pas éligible à l’inbound sur la marketplace sélectionnée.',
+    approvalRequiredIssue: 'L’approbation est requise avant que cet article puisse être envoyé à Amazon.',
+    planCreationFailedApprovalRequired:
+      'Amazon n’a pas pu créer le plan d’expédition pour cette demande. Motif Amazon : l’approbation est requise avant que cet article puisse être envoyé à Amazon. Vérifiez les produits marqués en rouge puis réessayez. Le plan Amazon est au statut ERROR. Je l’ai réinitialisé ; relancez l’étape 1.',
+    planCreatedContinuePacking: 'Le plan Amazon a été créé avec succès. Vous pouvez continuer vers l’emballage (étape 1b).',
     validationMissingBoxes: 'Ajoutez au moins une boîte pour chaque groupe avec des unités.',
     validationMissingAssignments: 'Répartissez toutes les unités dans les boîtes (Assigned = Units).',
     validationMissingDims: 'Ajoutez dimensions et poids pour chaque boîte.',
@@ -545,6 +557,10 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon hat ein Problem für diese SKU gemeldet. Prüfen und erneut versuchen.',
     opMissingPrep: 'Die Prep-Klassifizierung fehlt für diese SKU. Bitte auswählen und erneut senden.',
     opNotEligible: 'Dieses Produkt ist für Inbound auf dem gewählten Marktplatz derzeit nicht berechtigt.',
+    approvalRequiredIssue: 'Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann.',
+    planCreationFailedApprovalRequired:
+      'Amazon konnte den Versandplan für diese Anfrage nicht erstellen. Amazon-Grund: Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann. Prüfe die rot markierten Produkte und versuche es erneut. Der Amazon-Plan hat den Status ERROR. Ich habe den Plan zurückgesetzt; starte Schritt 1 erneut.',
+    planCreatedContinuePacking: 'Der Amazon-Plan wurde erfolgreich erstellt. Du kannst mit dem Packen fortfahren (Schritt 1b).',
     validationMissingBoxes: 'Füge mindestens eine Box für jede Gruppe mit Einheiten hinzu.',
     validationMissingAssignments: 'Verteile alle Einheiten auf Boxen (Assigned muss Units entsprechen).',
     validationMissingDims: 'Füge Maße und Gewicht für jede Box hinzu.',

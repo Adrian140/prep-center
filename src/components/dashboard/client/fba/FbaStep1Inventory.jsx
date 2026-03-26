@@ -177,10 +177,34 @@ export default function FbaStep1Inventory({
       ) {
         return tr('statusReasonListingDiscoverable');
       }
+      if (normalized.includes('approval is required before this item can be sent to amazon')) {
+        return tr('approvalRequiredIssue');
+      }
       return raw;
     },
     [normalizeReasonText, tr]
   );
+  const localizeKnownAmazonMessage = useCallback(
+    (value) => {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      const normalized = normalizeReasonText(raw);
+      if (normalized.includes('approval is required before this item can be sent to amazon')) {
+        if (
+          (normalized.includes('could not create') && normalized.includes('plan')) ||
+          normalized.includes('nu a putut crea planul de trimitere') ||
+          normalized.includes('n a pas pu creer le plan d expedition') ||
+          normalized.includes('konnte den versandplan nicht erstellen')
+        ) {
+          return tr('planCreationFailedApprovalRequired');
+        }
+        return tr('approvalRequiredIssue');
+      }
+      return raw;
+    },
+    [normalizeReasonText, tr]
+  );
+  const translatedError = useMemo(() => localizeKnownAmazonMessage(error), [error, localizeKnownAmazonMessage]);
   const translatedNotice = useMemo(() => {
     const raw = String(notice || '').trim();
     if (!raw) return '';
@@ -193,8 +217,8 @@ export default function FbaStep1Inventory({
         list: String(match[2] || '').trim()
       });
     }
-    return raw;
-  }, [notice, tr]);
+    return localizeKnownAmazonMessage(raw);
+  }, [localizeKnownAmazonMessage, notice, tr]);
 
   const resolvedInboundPlanId =
     inboundPlanId ||
@@ -396,9 +420,14 @@ export default function FbaStep1Inventory({
     if (/not available for inbound/i.test(message)) {
       return tr('opNotEligible');
     }
-    const cleaned = message.replace(/\bFBA_INB_\d+\b[:\s-]*/gi, '').trim();
+    const cleaned = message
+      .replace(/\bFBA_INB_\d+\b[:\s-]*/gi, '')
+      .replace(/^error\s*:\s*/i, '')
+      .trim();
+    const localized = localizeKnownAmazonMessage(cleaned);
+    if (localized && localized !== cleaned) return localized;
     return translateSkuStatusReason(cleaned);
-  }, [tr, translateSkuStatusReason]);
+  }, [localizeKnownAmazonMessage, tr, translateSkuStatusReason]);
   const listingAttrRequirementsBySku = useMemo(() => {
     const map = new Map();
     (Array.isArray(operationProblems) ? operationProblems : []).forEach((problem) => {
@@ -2738,11 +2767,11 @@ export default function FbaStep1Inventory({
         </div>
       )}
 
-      {(error || hasBlocking) && (
+      {(translatedError || hasBlocking) && (
         <div
-          className={`px-6 py-3 border-b text-sm ${error ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}
+          className={`px-6 py-3 border-b text-sm ${translatedError ? 'bg-red-50 text-red-700 border-red-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}
         >
-          {error ||
+          {translatedError ||
             (skuEligibilityBlocking
               ? tr('notEligibleBanner')
               : tr('inboundPlanNotReady'))}
