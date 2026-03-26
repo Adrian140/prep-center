@@ -1272,6 +1272,16 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     };
     return (Array.isArray(skus) ? skus : []).map((sku) => {
       const locator = firstMedia(sku?.main_product_image_locator)?.media_location || null;
+      const ean =
+        sku?.ean ||
+        sku?.ean13 ||
+        sku?.barcode ||
+        sku?.GTIN ||
+        sku?.gtin ||
+        sku?.stock_item?.ean ||
+        sku?.item?.ean ||
+        sku?.item?.ean13 ||
+        null;
       const image =
         sku?.image ||
         sku?.thumbnail ||
@@ -1297,6 +1307,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const boxesCount = Number.isFinite(boxesCountNum) && boxesCountNum > 0 ? Math.floor(boxesCountNum) : null;
       const nextSku = {
         ...sku,
+        ...(ean && !sku.ean ? { ean } : null),
         ...(image && !sku.image ? { image } : null),
         ...(needsExpiryDefault ? { expiryDate: expiryDefault, expiry: expiryDefault } : null),
         ...(expiryDate ? { expiryDate, expiry: sku?.expiry || expiryDate } : null),
@@ -1355,6 +1366,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
         const merged = {
           ...serverSku,
+          stock_item_id: serverSku?.stock_item_id || localSku?.stock_item_id || null,
+          ean: serverSku?.ean || localSku?.ean || localSku?.ean13 || localSku?.barcode || null,
+          image: serverSku?.image || localSku?.image || localSku?.thumbnail || localSku?.img || null,
+          title: serverSku?.title || localSku?.title || localSku?.product_name || localSku?.name || null,
+          product_name: serverSku?.product_name || localSku?.product_name || localSku?.title || localSku?.name || null,
+          name: serverSku?.name || localSku?.name || localSku?.product_name || localSku?.title || null,
           units: mergedUnits,
           unitsPerBox: keepPositiveNumber(serverSku?.unitsPerBox, localSku?.unitsPerBox),
           boxesCount: keepPositiveNumber(serverSku?.boxesCount, localSku?.boxesCount),

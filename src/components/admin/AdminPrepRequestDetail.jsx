@@ -200,9 +200,12 @@ export default function AdminPrepRequestDetail({ requestId, onBack, onChanged, o
       const snap = (key && skuMap.get(key)) || {};
       return {
         id: it.id || `sku-${idx}`,
+        stock_item_id: it.stock_item_id || it.stock_item?.id || null,
         title: it.product_name || snap?.title || snap?.name || it.stock_item?.name || tp('detail.wizard.skuFallback', { index: idx + 1 }),
         sku: it.sku || snap?.sku || snap?.msku || it.stock_item?.sku || '—',
         asin: it.asin || snap?.asin || it.stock_item?.asin || '—',
+        ean: it.ean || snap?.ean || it.stock_item?.ean || '',
+        image: snap?.image || snap?.thumbnail || snap?.main_image || it.stock_item?.image_url || null,
         storageType: snap?.storageType || 'Standard-size',
         packing: 'individual',
         units: Number(it.units_sent ?? it.units_requested ?? 0),
