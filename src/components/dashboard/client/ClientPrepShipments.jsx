@@ -60,33 +60,85 @@ const createClientUid = () =>
 
 const normalizeItemKey = (value) => String(value || '').trim().toUpperCase();
 
+const sumShipmentItemUnits = (items) => {
+  if (!Array.isArray(items)) return null;
+  let total = 0;
+  let hasUnits = false;
+  items.forEach((item) => {
+    const qty = Number(
+      item?.quantity ??
+        item?.qty ??
+        item?.units ??
+        item?.unitCount ??
+        item?.count
+    );
+    if (Number.isFinite(qty) && qty > 0) {
+      total += qty;
+      hasUnits = true;
+    }
+  });
+  return hasUnits ? total : null;
+};
+
+const resolveShipmentUnits = (shipment) => {
+  const directCandidates = [
+    shipment?.units,
+    shipment?.unitCount,
+    shipment?.unitsCount,
+    shipment?.totalUnits,
+    shipment?.total_units,
+    shipment?.quantity,
+    shipment?.qty
+  ];
+  for (const value of directCandidates) {
+    const num = Number(value);
+    if (Number.isFinite(num) && num > 0) return num;
+  }
+  return sumShipmentItemUnits(
+    shipment?.items ||
+      shipment?.shipmentItems ||
+      shipment?.shipment_items ||
+      shipment?.skuItems ||
+      shipment?.sku_items
+  );
+};
+
 const normalizeStep2Shipments = (value) => {
   const list = Array.isArray(value) ? value : [];
   return list
-    .map((sh, idx) => ({
-      shipmentId: sh?.shipmentId || sh?.shipment_id || sh?.id || null,
-      packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
-      name: sh?.name || sh?.shipmentName || sh?.shipment_name || null,
-      amazonShipmentId: sh?.amazonShipmentId || sh?.amazon_shipment_id || null,
-      legacyShipmentId: sh?.legacyShipmentId || sh?.legacy_shipment_id || null,
-      skuCount: sh?.skuCount ?? sh?.skus ?? null,
-      units: sh?.units ?? null,
-      boxes:
-        sh?.boxes ??
-        sh?.boxCount ??
-        sh?.box_count ??
-        sh?.packageCount ??
-        sh?.package_count ??
-        sh?.cartons ??
-        sh?.cartons_count ??
-        sh?.numberOfBoxes ??
-        null,
-      items: Array.isArray(sh?.items) ? sh.items : null,
-      toText: sh?.to || null,
-      shipToAddress: sh?.shipToAddress || sh?.ship_to_address || sh?.destination?.address || sh?.destination || null,
-      shipFromAddress: sh?.shipFromAddress || sh?.ship_from_address || sh?.source?.address || sh?.source || null,
-      index: Number.isFinite(Number(sh?.index)) ? Number(sh.index) : idx
-    }))
+    .map((sh, idx) => {
+      const items =
+        (Array.isArray(sh?.items) && sh.items) ||
+        (Array.isArray(sh?.shipmentItems) && sh.shipmentItems) ||
+        (Array.isArray(sh?.shipment_items) && sh.shipment_items) ||
+        (Array.isArray(sh?.skuItems) && sh.skuItems) ||
+        (Array.isArray(sh?.sku_items) && sh.sku_items) ||
+        null;
+      return {
+        shipmentId: sh?.shipmentId || sh?.shipment_id || sh?.id || null,
+        packingGroupId: sh?.packingGroupId || sh?.packing_group_id || null,
+        name: sh?.name || sh?.shipmentName || sh?.shipment_name || null,
+        amazonShipmentId: sh?.amazonShipmentId || sh?.amazon_shipment_id || null,
+        legacyShipmentId: sh?.legacyShipmentId || sh?.legacy_shipment_id || null,
+        skuCount: sh?.skuCount ?? sh?.skus ?? null,
+        units: resolveShipmentUnits({ ...sh, items }),
+        boxes:
+          sh?.boxes ??
+          sh?.boxCount ??
+          sh?.box_count ??
+          sh?.packageCount ??
+          sh?.package_count ??
+          sh?.cartons ??
+          sh?.cartons_count ??
+          sh?.numberOfBoxes ??
+          null,
+        items,
+        toText: sh?.to || null,
+        shipToAddress: sh?.shipToAddress || sh?.ship_to_address || sh?.destination?.address || sh?.destination || null,
+        shipFromAddress: sh?.shipFromAddress || sh?.ship_from_address || sh?.source?.address || sh?.source || null,
+        index: Number.isFinite(Number(sh?.index)) ? Number(sh.index) : idx
+      };
+    })
     .filter((sh) => sh.shipmentId);
 };
 
@@ -1144,7 +1196,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                   ? perShipmentSkusRaw
                   : (Number.isFinite(skusCountRaw) ? skusCountRaw : items.length || '—');
                 const unitsExpectedRaw = Number(row.amazon_units_expected ?? snapshot.units_expected);
-                const unitsExpected = Number.isFinite(perShipmentUnitsRaw)
+                const unitsExpected = Number.isFinite(perShipmentUnitsRaw) && perShipmentUnitsRaw > 0
                   ? perShipmentUnitsRaw
                   : (Number.isFinite(unitsExpectedRaw)
                     ? unitsExpectedRaw

@@ -6729,7 +6729,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     if (stepKey === '3') {
       return (
         <FbaStep3Labels
-          shipments={shipments}
+          shipments={shipmentsWithFallback}
           labelFormat={labelFormat}
           onFormatChange={setLabelFormat}
           onPrint={handlePrintLabels}
@@ -6835,7 +6835,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return shipments.map((sh) => ({
       ...sh,
       skuCount: sh?.skuCount ?? shipmentFallbackTotals.skuCountFallback,
-      units: sh?.units ?? shipmentFallbackTotals.unitsFallback
+      units: resolveShipmentUnits(sh, { units: shipmentFallbackTotals.unitsFallback })
     }));
   }, [shipments, shipmentFallbackTotals]);
   const autoShipPlanRef = useRef({ planId: null, attempted: false });
