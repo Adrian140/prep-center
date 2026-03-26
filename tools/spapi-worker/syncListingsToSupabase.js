@@ -522,6 +522,16 @@ function normalizeListings(rawRows = []) {
   return normalized;
 }
 
+function normalizeFulfillmentChannel(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toUpperCase();
+  if (!normalized) return null;
+  if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
+  if (normalized.includes('MERCHANT') || normalized === 'MFN') return 'FBM';
+  return normalized;
+}
+
 function filterListings(listings = []) {
   return listings.filter((row) => {
     const status = (row.status || '').toLowerCase();
@@ -964,6 +974,123 @@ async function fetchCompanyStockItems(companyId, chunkSize = 1000) {
   return rows;
 }
 
+function buildStockItemIndexes(stockItems = []) {
+  const byCombo = new Map();
+  const bySku = new Map();
+  const byAsin = new Map();
+  const byEan = new Map();
+
+  for (const row of stockItems) {
+    const comboKey = makeCombinationKey(row?.company_id, row?.sku, row?.asin);
+    const skuKey = normalizeIdentifier(row?.sku);
+    const asinKey = normalizeIdentifier(row?.asin);
+    const eanKey = normalizeEan(row?.ean);
+    if (comboKey && !byCombo.has(comboKey)) byCombo.set(comboKey, row);
+    if (skuKey && !bySku.has(skuKey)) bySku.set(skuKey, row);
+    if (asinKey && !byAsin.has(asinKey)) byAsin.set(asinKey, row);
+    if (eanKey && !byEan.has(eanKey)) byEan.set(eanKey, row);
+  }
+
+  return { byCombo, bySku, byAsin, byEan };
+}
+
+function findStockItemForListing(listing, companyId, stockIndexes) {
+  const comboKey = makeCombinationKey(companyId, listing?.sku, listing?.asin);
+  const skuKey = normalizeIdentifier(listing?.sku);
+  const asinKey = normalizeIdentifier(listing?.asin);
+  const eanKey = normalizeEan(listing?.ean);
+
+  return (
+    (comboKey ? stockIndexes.byCombo.get(comboKey) : null) ||
+    (skuKey ? stockIndexes.bySku.get(skuKey) : null) ||
+    (asinKey ? stockIndexes.byAsin.get(asinKey) : null) ||
+    (eanKey ? stockIndexes.byEan.get(eanKey) : null) ||
+    null
+  );
+}
+
+async function syncListingChannels({
+  companyId,
+  sellerId,
+  marketplaceId,
+  listings,
+  stockItems
+}) {
+  if (!companyId || !sellerId || !marketplaceId) {
+    return { upserted: 0, removed: 0, matched: 0 };
+  }
+
+  const stockIndexes = buildStockItemIndexes(stockItems);
+  const rowsByKey = new Map();
+  const matchedStockIds = new Set();
+
+  for (const listing of listings || []) {
+    const stockItem = findStockItemForListing(listing, companyId, stockIndexes);
+    if (!stockItem?.id) continue;
+
+    const channel = normalizeFulfillmentChannel(listing?.fulfillmentChannel);
+    if (!channel) continue;
+
+    matchedStockIds.add(stockItem.id);
+    const rowKey = `${companyId}::${stockItem.id}::${sellerId}::${marketplaceId}::${channel}`;
+    rowsByKey.set(rowKey, {
+      company_id: companyId,
+      stock_item_id: stockItem.id,
+      seller_id: sellerId,
+      marketplace_id: marketplaceId,
+      fulfillment_channel: channel,
+      raw_status: listing?.status || null,
+      checked_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+  }
+
+  const rows = Array.from(rowsByKey.values());
+  if (rows.length) {
+    const chunkSize = 500;
+    for (let i = 0; i < rows.length; i += chunkSize) {
+      const chunk = rows.slice(i, i + chunkSize);
+      const { error } = await supabase
+        .from('amazon_listing_channels')
+        .upsert(chunk, {
+          onConflict: 'company_id,stock_item_id,seller_id,marketplace_id,fulfillment_channel'
+        });
+      if (error) throw error;
+    }
+  }
+
+  const { data: existingRows, error: existingError } = await supabase
+    .from('amazon_listing_channels')
+    .select('id, stock_item_id, fulfillment_channel')
+    .eq('company_id', companyId)
+    .eq('seller_id', sellerId)
+    .eq('marketplace_id', marketplaceId);
+  if (existingError) throw existingError;
+
+  const keepKeys = new Set(rowsByKey.keys());
+  const staleIds = (existingRows || [])
+    .filter((row) => {
+      const keepKey = `${companyId}::${row.stock_item_id}::${sellerId}::${marketplaceId}::${row.fulfillment_channel}`;
+      return !keepKeys.has(keepKey);
+    })
+    .map((row) => row.id)
+    .filter(Boolean);
+
+  if (staleIds.length) {
+    const { error: deleteError } = await supabase
+      .from('amazon_listing_channels')
+      .delete()
+      .in('id', staleIds);
+    if (deleteError) throw deleteError;
+  }
+
+  return {
+    upserted: rows.length,
+    removed: staleIds.length,
+    matched: matchedStockIds.size
+  };
+}
+
 async function insertListingRows(rows) {
   if (!rows.length) return;
   const chunkSize = 500;
@@ -1337,6 +1464,15 @@ async function syncListingsIntegration(integration) {
       }
     }
 
+    const latestStockItems = await fetchCompanyStockItems(integration.company_id);
+    const channelStats = await syncListingChannels({
+      companyId: integration.company_id,
+      sellerId: integration.selling_partner_id || integration.id,
+      marketplaceId,
+      listings: listingRows,
+      stockItems: latestStockItems
+    });
+
     const catalogImageStats = await fillMissingImagesFromCatalog({
       spClient,
       companyId: integration.company_id,
@@ -1350,7 +1486,7 @@ async function syncListingsIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, channels=${channelStats.upserted}, channelMatched=${channelStats.matched}, channelRemoved=${channelStats.removed}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
     );
   } catch (err) {
     console.error(

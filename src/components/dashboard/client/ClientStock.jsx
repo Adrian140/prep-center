@@ -79,6 +79,40 @@ const buildSellerCentralUrl = (countryCode, asin) => {
   return `https://sellercentral.amazon.${tld}/catalog?searchTerms=${term}`;
 };
 
+const normalizeFulfillmentChannel = (value) => {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
+  if (normalized.includes('MERCHANT') || normalized === 'MFN') return 'FBM';
+  if (normalized === 'FBA' || normalized === 'FBM') return normalized;
+  return normalized;
+};
+
+const getFulfillmentKind = (row, channelRows = []) => {
+  const normalizedChannels = Array.from(
+    new Set(
+      (channelRows || [])
+        .map((entry) => normalizeFulfillmentChannel(entry?.fulfillment_channel))
+        .filter(Boolean)
+    )
+  );
+
+  if (normalizedChannels.includes('FBA') && normalizedChannels.includes('FBM')) {
+    return 'BOTH';
+  }
+  if (normalizedChannels.includes('FBA')) return 'FBA';
+  if (normalizedChannels.includes('FBM')) return 'FBM';
+
+  const amazonSignal =
+    Number(row?.amazon_stock || 0) > 0 ||
+    Number(row?.amazon_inbound || 0) > 0 ||
+    Number(row?.amazon_reserved || 0) > 0 ||
+    Number(row?.amazon_unfulfillable || 0) > 0;
+  if (amazonSignal) return 'FBA';
+
+  return 'UNKNOWN';
+};
+
 const normalizePrepCountryCode = (code) => {
   const upper = String(code || '').trim().toUpperCase();
   if (!upper) return '';
@@ -973,8 +1007,13 @@ const [pendingShipmentFilter, setPendingShipmentFilter] = useSessionStorage(
 );
 const [pendingShipmentByItemId, setPendingShipmentByItemId] = useState({});
 const [listingPresenceByItemId, setListingPresenceByItemId] = useState({});
+const [listingChannelsByItemId, setListingChannelsByItemId] = useState({});
 const [etsyListingsByItemId, setEtsyListingsByItemId] = useState({});
 const [etsyOrdersByItemId, setEtsyOrdersByItemId] = useState({});
+const [fulfillmentFilter, setFulfillmentFilter] = useSessionStorage(
+  `${storagePrefix}-fulfillmentFilter`,
+  'fba'
+);
 
   const [searchField, setSearchField] = useSessionStorage(
     `${storagePrefix}-searchField`,
@@ -1190,6 +1229,7 @@ const refreshStockData = useCallback(async () => {
     setDestinationStockByItemId({});
     setPendingShipmentByItemId({});
     setListingPresenceByItemId({});
+    setListingChannelsByItemId({});
     setEtsyListingsByItemId({});
     setEtsyOrdersByItemId({});
     return;
@@ -1296,6 +1336,45 @@ const refreshStockData = useCallback(async () => {
     }
   } catch {
     setListingPresenceByItemId({});
+  }
+
+  try {
+    if (!profile?.company_id) {
+      setListingChannelsByItemId({});
+    } else {
+      const stockIds = mappedAll.map((row) => row?.id).filter(Boolean);
+      if (!stockIds.length) {
+        setListingChannelsByItemId({});
+      } else {
+        const chunkSize = 500;
+        const channelRows = [];
+        for (let i = 0; i < stockIds.length; i += chunkSize) {
+          const chunk = stockIds.slice(i, i + chunkSize);
+          const { data, error } = await supabase
+            .from('amazon_listing_channels')
+            .select('stock_item_id, marketplace_id, fulfillment_channel, checked_at')
+            .eq('company_id', profile.company_id)
+            .in('stock_item_id', chunk);
+          if (error) {
+            console.warn('Failed to load amazon listing channels', error);
+            setListingChannelsByItemId({});
+            break;
+          }
+          if (Array.isArray(data)) channelRows.push(...data);
+        }
+
+        const grouped = {};
+        (channelRows || []).forEach((row) => {
+          const stockId = row?.stock_item_id;
+          if (!stockId) return;
+          if (!grouped[stockId]) grouped[stockId] = [];
+          grouped[stockId].push(row);
+        });
+        setListingChannelsByItemId(grouped);
+      }
+    }
+  } catch {
+    setListingChannelsByItemId({});
   }
 
   // Informative-only destination breakdown (from receiving log), per SKU.
@@ -1699,8 +1778,27 @@ useEffect(() => {
     if (pendingShipmentFilter === 'without') {
       base = base.filter((r) => Number(pendingShipmentByItemId?.[r.id]?.total || 0) <= 0);
     }
+    if (fulfillmentFilter === 'fba') {
+      base = base.filter((r) => {
+        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
+        return kind === 'FBA' || kind === 'BOTH';
+      });
+    }
+    if (fulfillmentFilter === 'fbm') {
+      base = base.filter((r) => {
+        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
+        return kind === 'FBM' || kind === 'BOTH';
+      });
+    }
     return base;
-  }, [searched, stockFilter, pendingShipmentFilter, pendingShipmentByItemId]);
+  }, [
+    searched,
+    stockFilter,
+    pendingShipmentFilter,
+    pendingShipmentByItemId,
+    fulfillmentFilter,
+    listingChannelsByItemId
+  ]);
 
   const quickFiltered = useMemo(() => {
     const term = normalize(productSearch).trim();
@@ -3020,6 +3118,36 @@ const saveReqChanges = async () => {
 
         <div className="flex w-full flex-col items-start gap-2 xl:items-end">
           <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:justify-end">
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setFulfillmentFilter('fba');
+                  setPage(1);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  fulfillmentFilter === 'fba'
+                    ? 'bg-sky-600 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                FBA
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFulfillmentFilter('fbm');
+                  setPage(1);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  fulfillmentFilter === 'fbm'
+                    ? 'bg-slate-600 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                FBM
+              </button>
+            </div>
             <button
               onClick={() => setQuickAddOpen((open) => !open)}
               className={`inline-flex min-h-11 items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold shadow transition-colors ${
@@ -3313,6 +3441,13 @@ const saveReqChanges = async () => {
     const warningDest = listingWarningDetails?.[r.id]?.destination || null;
     const etsyListings = etsyListingsByItemId?.[r.id] || [];
     const etsyOrders = etsyOrdersByItemId?.[r.id] || null;
+    const fulfillmentKind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
+    const fulfillmentBadges =
+      fulfillmentKind === 'BOTH'
+        ? ['FBA', 'FBM']
+        : fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM'
+        ? [fulfillmentKind]
+        : [];
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3400,15 +3535,33 @@ const saveReqChanges = async () => {
           </td>
 {/* 3) Product */}
 <td className="px-2 py-2 align-top max-w-[360px]">
-  <div
-    className="text-[#007185] font-medium leading-snug break-words whitespace-normal"
-    style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-  >
-    {r.name
-      ? r.name.length > 150
-        ? r.name.slice(0, 150)
-        : r.name
-      : '—'}
+  <div className="relative pr-16">
+    {fulfillmentBadges.length > 0 && (
+      <div className="absolute right-0 top-0 flex items-center gap-1">
+        {fulfillmentBadges.map((badge) => (
+          <span
+            key={`${r.id}-${badge}`}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+              badge === 'FBA'
+                ? 'bg-sky-100 text-sky-700'
+                : 'bg-slate-200 text-slate-700'
+            }`}
+          >
+            {badge}
+          </span>
+        ))}
+      </div>
+    )}
+    <div
+      className="text-[#007185] font-medium leading-snug break-words whitespace-normal"
+      style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+    >
+      {r.name
+        ? r.name.length > 150
+          ? r.name.slice(0, 150)
+          : r.name
+        : '—'}
+    </div>
   </div>
     <div className="mt-2 text-xs text-gray-600 flex flex-col gap-1">
       {renderIdentifierField('ASIN', r.asin, 'asin', 'B0...', 'ASIN')}
