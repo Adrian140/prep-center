@@ -694,6 +694,11 @@ export default function AdminReturns({
             profile.store_name ||
             r.company_id ||
             '—';
+          const clientNameLabel =
+            [profile.first_name, profile.last_name]
+              .map((value) => String(value || '').trim())
+              .filter(Boolean)
+              .join(' ') || '—';
           const userLabel = profile.email || profile.id || r.user_id || '—';
           const phoneLabel = profile.phone || '—';
           return (
@@ -706,6 +711,7 @@ export default function AdminReturns({
                   <div>
                     <div className="text-xs text-text-secondary">Company / Store</div>
                     <div className="font-semibold text-text-primary">{companyLabel}</div>
+                    <div className="text-xs text-text-secondary">Client: {clientNameLabel}</div>
                     <div className="text-xs text-text-secondary">User: {userLabel}</div>
                     <div className="text-xs text-text-secondary">Phone: {phoneLabel}</div>
                   </div>
