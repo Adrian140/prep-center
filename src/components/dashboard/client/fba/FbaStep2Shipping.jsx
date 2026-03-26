@@ -550,34 +550,30 @@ export default function FbaStep2Shipping({
                   )}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                {!isAmazonLikePallet && (
+              {isAmazonLikePallet && (
+                <div className="flex flex-col gap-2">
                   <div className="text-xs text-slate-600">{tt('shipDateHint', 'Ship date (Amazon uses start only)')}</div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={onGenerateOptions}
-                    disabled={!shipmentIds.length || !globalReadyStart || shippingLoading}
-                    className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
-                      shipmentIds.length && globalReadyStart && !shippingLoading
-                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                        : 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {shippingLoading
-                      ? tt('loading', 'Loading…')
-                      : isAmazonLikePallet
-                        ? tt('getShippingEstimates', 'Get shipping estimates')
-                        : tt('confirmReadyDate', 'Confirm ready date')}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={onGenerateOptions}
+                      disabled={!shipmentIds.length || !globalReadyStart || shippingLoading}
+                      className={`px-3 py-2 rounded-md text-xs font-semibold shadow-sm whitespace-nowrap ${
+                        shipmentIds.length && globalReadyStart && !shippingLoading
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                          : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {shippingLoading
+                        ? tt('loading', 'Loading…')
+                        : tt('getShippingEstimates', 'Get shipping estimates')}
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    {tt('shipDateAmazonHint', 'Choose the ship date to retrieve the LTL/FTL offers from Amazon.')}
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  {isAmazonLikePallet
-                    ? tt('shipDateAmazonHint', 'Choose the ship date to retrieve the LTL/FTL offers from Amazon.')
-                    : tt('readyWindowHint', 'Select just the ship date; Amazon calculează fereastra intern.')}
-                </div>
-              </div>
+              )}
             </div>
             {shipmentIds.length > 1 && (
               <div className="text-[11px] text-slate-500 mt-2">
