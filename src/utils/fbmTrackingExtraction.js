@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
+import { createWorker } from 'tesseract.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
@@ -66,16 +67,24 @@ const renderFileToCanvas = async (file) => {
 
 export const extractTrackingFromLabelFile = async (file) => {
   if (!file) return null;
+  let worker = null;
   try {
     const canvas = await renderFileToCanvas(file);
-    const { recognize } = await import('tesseract.js');
-    const result = await recognize(canvas, 'eng', {
+    worker = await createWorker('eng', 1, {
       logger: () => {}
     });
+    const result = await worker.recognize(canvas);
     return extractTrackingFromText(result?.data?.text || '');
   } catch (error) {
     console.warn('FBM label OCR failed:', error);
     return null;
+  } finally {
+    if (worker) {
+      try {
+        await worker.terminate();
+      } catch (terminateError) {
+        console.warn('FBM label OCR worker termination failed:', terminateError);
+      }
+    }
   }
 };
-
