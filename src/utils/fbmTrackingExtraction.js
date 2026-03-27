@@ -7,6 +7,7 @@ import { createWorker } from 'tesseract.js';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 const compactTracking = (value = '') => String(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
+const COLISSIMO_REGEX = /8J\d{11}/;
 
 const detectTrackingFromBarcode = async (canvas) => {
   if (typeof window === 'undefined' || typeof window.BarcodeDetector === 'undefined') {
@@ -21,6 +22,16 @@ const detectTrackingFromBarcode = async (canvas) => {
     for (const barcode of barcodes || []) {
       const candidate = compactTracking(barcode?.rawValue || '');
       if (!candidate) continue;
+      const colissimoMatch = candidate.match(COLISSIMO_REGEX);
+      if (colissimoMatch) {
+        return {
+          trackingNumber: colissimoMatch[0],
+          carrierCode: 'COLISSIMO',
+          carrierName: 'Colissimo',
+          message: `Tracking extracted from barcode: ${colissimoMatch[0]}`,
+          textPreview: candidate
+        };
+      }
       const upsMatch = candidate.match(/1Z[0-9A-Z]{16}/);
       if (upsMatch) {
         return {
@@ -51,6 +62,28 @@ const detectTrackingFromBarcode = async (canvas) => {
 const extractTrackingFromText = (text = '') => {
   const upper = String(text || '').toUpperCase();
   const compact = compactTracking(upper);
+
+  const numColisLine = upper.match(/NUM\s*COLIS\s*:?\s*([A-Z0-9 ]{8,30})/);
+  if (numColisLine) {
+    const candidate = compactTracking(numColisLine[1]);
+    const colissimoMatch = candidate.match(COLISSIMO_REGEX);
+    if (colissimoMatch) {
+      return {
+        trackingNumber: colissimoMatch[0],
+        carrierCode: 'COLISSIMO',
+        carrierName: 'Colissimo'
+      };
+    }
+  }
+
+  const colissimoMatch = compact.match(COLISSIMO_REGEX);
+  if (colissimoMatch) {
+    return {
+      trackingNumber: colissimoMatch[0],
+      carrierCode: 'COLISSIMO',
+      carrierName: 'Colissimo'
+    };
+  }
 
   const upsMatch = compact.match(/1Z[0-9A-Z]{16}/);
   if (upsMatch) {
