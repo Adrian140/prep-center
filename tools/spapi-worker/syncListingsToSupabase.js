@@ -1249,6 +1249,7 @@ async function syncListingsIntegration(integration) {
 
   try {
     const listingRaw = await fetchListingRows(spClient, marketplaceId);
+    console.log(`[Listings sync] ${integration.id} stage=parse-listings rawRows=${listingRaw.length}`);
     if (DEBUG_LISTING_HEADERS && listingRaw.length) {
       const headers = Object.keys(listingRaw[0] || {});
       console.log(
@@ -1260,6 +1261,9 @@ async function syncListingsIntegration(integration) {
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
     const fulfillmentSummary = summarizeFulfillmentChannels(listingRows);
+    console.log(
+      `[Listings sync] ${integration.id} stage=ean-enrichment filteredRows=${listingRows.length}`
+    );
     const eanEnrichmentStats = await enrichListingsEanFromKnownAndCatalog({
       spClient,
       marketplaceId,
@@ -1297,7 +1301,11 @@ async function syncListingsIntegration(integration) {
       return;
     }
 
+    console.log(`[Listings sync] ${integration.id} stage=fetch-existing-stock start`);
     const existing = await fetchCompanyStockItems(integration.company_id);
+    console.log(
+      `[Listings sync] ${integration.id} stage=fetch-existing-stock done existingRows=${existing.length}`
+    );
 
     const existingByKey = new Map();
     const existingByAsin = new Map(); // pentru completare titlu pe toate SKU-urile cu același ASIN
@@ -1528,10 +1536,16 @@ async function syncListingsIntegration(integration) {
       }
     }
 
+    console.log(
+      `[Listings sync] ${integration.id} stage=prepare-writes inserts=${inserts.length} updates=${updatesById.size} asinEans=${asinEanRows.length}`
+    );
     await insertListingRows(inserts);
     await insertAsinEans(asinEanRows);
 
     const updates = Array.from(updatesById.values());
+    console.log(
+      `[Listings sync] ${integration.id} stage=apply-updates updateRows=${updates.length}`
+    );
     if (updates.length) {
       for (const patch of updates) {
         if (!patch?.id) continue;
@@ -1554,12 +1568,21 @@ async function syncListingsIntegration(integration) {
       }
     }
 
+    console.log(`[Listings sync] ${integration.id} stage=refresh-stock-after-writes start`);
     const latestStockItems = await fetchCompanyStockItems(integration.company_id);
+    console.log(
+      `[Listings sync] ${integration.id} stage=refresh-stock-after-writes done stockRows=${latestStockItems.length}`
+    );
+    console.log(`[Listings sync] ${integration.id} stage=sync-fulfillment-summary start`);
     const fulfillmentSummaryStats = await syncStockItemFulfillmentSummary({
       companyId: integration.company_id,
       listings: listingRows,
       stockItems: latestStockItems
     });
+    console.log(
+      `[Listings sync] ${integration.id} stage=sync-fulfillment-summary done updated=${fulfillmentSummaryStats.updated}`
+    );
+    console.log(`[Listings sync] ${integration.id} stage=sync-listing-channels start`);
     const channelStats = await syncListingChannels({
       companyId: integration.company_id,
       sellerId: integration.selling_partner_id || integration.id,
@@ -1567,13 +1590,22 @@ async function syncListingsIntegration(integration) {
       listings: listingRows,
       stockItems: latestStockItems
     });
+    console.log(
+      `[Listings sync] ${integration.id} stage=sync-listing-channels done upserted=${channelStats.upserted} matched=${channelStats.matched} removed=${channelStats.removed}`
+    );
 
+    console.log(
+      `[Listings sync] ${integration.id} stage=fill-missing-images start asins=${catalogImageCandidates.size}`
+    );
     const catalogImageStats = await fillMissingImagesFromCatalog({
       spClient,
       companyId: integration.company_id,
       marketplaceId,
       asins: Array.from(catalogImageCandidates)
     });
+    console.log(
+      `[Listings sync] ${integration.id} stage=fill-missing-images done processed=${catalogImageStats.processed} found=${catalogImageStats.found} reused=${catalogImageStats.reused}`
+    );
 
     await supabase
       .from('amazon_integrations')
