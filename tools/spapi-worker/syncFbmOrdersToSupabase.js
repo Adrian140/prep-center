@@ -7,6 +7,7 @@ import { getCompanyNameMap, companyLabel } from './companyHelpers.js';
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
 const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_FBM_ORDER_WINDOW_DAYS || 30);
+const ORDER_INITIAL_LOOKBACK_DAYS = Number(process.env.SPAPI_FBM_INITIAL_LOOKBACK_DAYS || 3);
 const FBM_SYNC_LOOP = process.env.SPAPI_FBM_SYNC_LOOP !== 'false';
 const FBM_SYNC_INTERVAL_MS = Number(process.env.SPAPI_FBM_SYNC_INTERVAL_MS || 5 * 60 * 1000);
 const FBM_SYNC_TIME_BUDGET_MS = Number(
@@ -369,12 +370,11 @@ async function syncIntegration(integration) {
   let totalItems = 0;
 
   for (const marketplaceId of marketplaceIds) {
-    const consentGrantedAt = integration.marketplace_consent?.[marketplaceId] || null;
     const defaultWindowStart = isoDateDaysAgo(ORDER_WINDOW_DAYS);
-    const createdAfterIso =
-      consentGrantedAt && new Date(consentGrantedAt).toISOString() > defaultWindowStart
-        ? new Date(consentGrantedAt).toISOString()
-        : defaultWindowStart;
+    const onboardingWindowStart = isoDateDaysAgo(Math.max(0, ORDER_INITIAL_LOOKBACK_DAYS));
+    const createdAfterIso = onboardingWindowStart > defaultWindowStart
+      ? onboardingWindowStart
+      : defaultWindowStart;
     const orders = await listAllOrders(spClient, marketplaceId, createdAfterIso);
     const sellerFulfilledOrders = orders.filter((order) => {
       const channel = String(order?.FulfillmentChannel || '').trim().toLowerCase();
