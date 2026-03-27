@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Upload, Package, MapPin, Truck, RefreshCcw, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { getFbmCarrierMeta } from '@/utils/fbmCarrierLinks';
 import { extractTrackingFromLabelFile } from '@/utils/fbmTrackingExtraction';
 
 const bucketName = 'fbm-order-files';
@@ -425,7 +426,9 @@ export default function ClientFbmOrders() {
   );
   const visibleOrders = statusFilter === 'shipped' ? historyOrders : activeOrders;
 
-  const renderOrderCard = (order) => (
+  const renderOrderCard = (order) => {
+    const carrierMeta = getFbmCarrierMeta(order.carrier_code, order.carrier_name);
+    return (
     <div key={order.id} className="rounded-xl border bg-white p-4 shadow-sm">
       <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">
         <div className="space-y-2">
@@ -500,6 +503,19 @@ export default function ClientFbmOrders() {
             {order.local_status || order.amazon_order_status || 'pending'}
           </div>
           <div className="text-xs text-slate-500">Amazon: {order.amazon_order_status || '—'}</div>
+          {carrierMeta ? (
+            <div className="text-xs">
+              <div className="font-semibold text-slate-700">{carrierMeta.name}</div>
+              <a
+                href={carrierMeta.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 hover:underline"
+              >
+                Open tracking page
+              </a>
+            </div>
+          ) : null}
           <div className="text-xs text-slate-500">
             Tracking: {order.tracking_number || 'Not sent yet'}
           </div>
@@ -612,6 +628,7 @@ export default function ClientFbmOrders() {
       </div>
     </div>
   );
+  };
 
   return (
     <div className="space-y-4">

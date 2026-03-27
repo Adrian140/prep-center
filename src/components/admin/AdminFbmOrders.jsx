@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCcw, Truck, MapPin, Package, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { getFbmCarrierMeta } from '@/utils/fbmCarrierLinks';
 
 const bucketName = 'fbm-order-files';
 
@@ -326,6 +327,7 @@ export default function AdminFbmOrders() {
             [row.profile?.first_name, row.profile?.last_name].filter(Boolean).join(' ') ||
             row.profile?.email ||
             'Unknown client';
+          const carrierMeta = getFbmCarrierMeta(row.carrier_code, row.carrier_name);
           return (
             <div key={row.id} className="rounded-xl border bg-white p-4 shadow-sm">
               <div className="grid gap-4 lg:grid-cols-[1.1fr_1fr_0.8fr]">
@@ -371,6 +373,19 @@ export default function AdminFbmOrders() {
                   <div>Purchase: {formatDateTime(row.purchase_date)}</div>
                   <div>Ship by: {formatDateTime(row.latest_ship_date)}</div>
                   <div>Total: {formatMoney(row.order_total_amount, row.order_total_currency)}</div>
+                  {carrierMeta ? (
+                    <div className="text-xs">
+                      <div className="font-semibold text-slate-700">{carrierMeta.name}</div>
+                      <a
+                        href={carrierMeta.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Open tracking page
+                      </a>
+                    </div>
+                  ) : null}
                   <div>Tracking: {row.tracking_number || 'Not sent yet'}</div>
                 </div>
 
