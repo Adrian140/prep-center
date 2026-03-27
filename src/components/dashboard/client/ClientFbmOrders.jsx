@@ -355,6 +355,43 @@ export default function ClientFbmOrders() {
     }
   };
 
+  const deleteLabel = async (order, file) => {
+    if (!file?.id) return;
+    if (!window.confirm(`Delete label ${file.file_name || 'file'}?`)) {
+      return;
+    }
+    setSavingId(file.id);
+    setError('');
+    try {
+      if (file.storage_path) {
+        const { error: storageError } = await supabase.storage.from(bucketName).remove([file.storage_path]);
+        if (storageError) throw storageError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('fbm_order_files')
+        .delete()
+        .eq('id', file.id)
+        .eq('company_id', profile.company_id);
+      if (deleteError) throw deleteError;
+
+      setRows((prev) =>
+        prev.map((row) =>
+          row.id !== order.id
+            ? row
+            : {
+                ...row,
+                fbm_order_files: (row.fbm_order_files || []).filter((entry) => entry.id !== file.id)
+              }
+        )
+      );
+    } catch (err) {
+      setError(err?.message || 'Could not delete label.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const orderCards = useMemo(() => rows || [], [rows]);
   const activeOrders = useMemo(
     () => orderCards.filter((order) => String(order.amazon_order_status || '').trim().toLowerCase() === 'unshipped'),
@@ -374,7 +411,7 @@ export default function ClientFbmOrders() {
             <Package className="h-5 w-5 text-sky-600" />
             {order.recipient_name || 'Recipient unavailable'}
           </div>
-          <div className="text-sm text-slate-600">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
             {[
               order.address_line_1,
               order.address_line_2,
@@ -463,7 +500,7 @@ export default function ClientFbmOrders() {
           <thead>
             <tr className="border-b text-left text-slate-500">
               <th className="px-2 py-2">Contents</th>
-              <th className="px-2 py-2">Qty</th>
+              <th className="px-2 py-2 text-red-600">Qty</th>
               <th className="px-2 py-2">Price</th>
               <th className="px-2 py-2">Stock link</th>
               <th className="px-2 py-2">Shipping label</th>
@@ -496,7 +533,7 @@ export default function ClientFbmOrders() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-3">{item.quantity_ordered || 0}</td>
+                  <td className="px-2 py-3 text-base font-bold text-red-600">{item.quantity_ordered || 0}</td>
                   <td className="px-2 py-3">
                     {formatMoney(item.item_price_amount, item.item_price_currency)}
                   </td>
@@ -523,15 +560,25 @@ export default function ClientFbmOrders() {
                         />
                       </label>
                       {files.map((file) => (
-                        <a
-                          key={file.id}
-                          href={file.signed_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs text-primary hover:underline"
-                        >
-                          {file.file_name || 'Shipping label'}
-                        </a>
+                        <div key={file.id} className="flex items-center gap-2">
+                          <a
+                            href={file.signed_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            {file.file_name || 'Shipping label'}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => deleteLabel(order, file)}
+                            disabled={savingId === file.id}
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-200 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                            aria-label={`Delete ${file.file_name || 'shipping label'}`}
+                          >
+                            ×
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </td>
