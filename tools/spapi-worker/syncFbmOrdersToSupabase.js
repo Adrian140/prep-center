@@ -6,7 +6,7 @@ import { getCompanyNameMap, companyLabel } from './companyHelpers.js';
 
 const DEFAULT_MARKETPLACE = process.env.SPAPI_MARKETPLACE_ID || 'A13V1IB3VIYZZH';
 const ORDERS_PAGE_SIZE = 100;
-const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_FBM_ORDER_WINDOW_DAYS || 14);
+const ORDER_WINDOW_DAYS = Number(process.env.SPAPI_FBM_ORDER_WINDOW_DAYS || 30);
 const FBM_SYNC_LOOP = process.env.SPAPI_FBM_SYNC_LOOP !== 'false';
 const FBM_SYNC_INTERVAL_MS = Number(process.env.SPAPI_FBM_SYNC_INTERVAL_MS || 5 * 60 * 1000);
 const FBM_SYNC_TIME_BUDGET_MS = Number(
@@ -16,12 +16,7 @@ const SUPPORTED_MARKETPLACES = [
   'A13V1IB3VIYZZH',
   'A1PA6795UKMFR9',
   'A1RKKUPIHCS9HS',
-  'APJ6JRA9NG5V4',
-  'A1F83G8C2ARO7P',
-  'AMEN7PMS3EDWL',
-  'A1805IZSGTT6HS',
-  'A2NODRKZP88ZB9',
-  'A1C3SOZRARQ6R3'
+  'APJ6JRA9NG5V4'
 ];
 
 const ORDER_STATUSES = [
@@ -161,11 +156,13 @@ async function fetchActiveIntegrations() {
 
 function resolveMarketplaceIds(integration) {
   if (Array.isArray(integration.marketplace_ids) && integration.marketplace_ids.length) {
-    return integration.marketplace_ids.filter(Boolean);
+    return integration.marketplace_ids.filter((id) => SUPPORTED_MARKETPLACES.includes(id));
   }
   const fromEnv = parseMarketplaceEnvList();
-  if (fromEnv?.length) return fromEnv;
-  if (integration.marketplace_id) return [integration.marketplace_id];
+  if (fromEnv?.length) return fromEnv.filter((id) => SUPPORTED_MARKETPLACES.includes(id));
+  if (integration.marketplace_id && SUPPORTED_MARKETPLACES.includes(integration.marketplace_id)) {
+    return [integration.marketplace_id];
+  }
   return [DEFAULT_MARKETPLACE];
 }
 
@@ -178,7 +175,6 @@ async function listAllOrders(spClient, marketplaceId) {
       : {
           MarketplaceIds: [marketplaceId],
           CreatedAfter: isoDateDaysAgo(ORDER_WINDOW_DAYS),
-          FulfillmentChannels: ['MFN'],
           OrderStatuses: ORDER_STATUSES,
           MaxResultsPerPage: ORDERS_PAGE_SIZE
         };
@@ -292,6 +288,18 @@ function parseAmount(node) {
   return node?.Amount != null ? Number(node.Amount) : null;
 }
 
+function summarizeFulfillmentChannels(orders = []) {
+  const counts = new Map();
+  for (const order of orders) {
+    const raw = String(order?.FulfillmentChannel || 'UNKNOWN').trim() || 'UNKNOWN';
+    counts.set(raw, (counts.get(raw) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([key, count]) => `${key}:${count}`)
+    .join(', ');
+}
+
 async function syncIntegration(integration) {
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
@@ -307,11 +315,11 @@ async function syncIntegration(integration) {
     const orders = await listAllOrders(spClient, marketplaceId);
     const sellerFulfilledOrders = orders.filter((order) => {
       const channel = String(order?.FulfillmentChannel || '').trim().toLowerCase();
-      return channel === 'mfn' || channel === 'sellerfulfilled';
+      return channel === 'mfn' || channel === 'sellerfulfilled' || channel === 'default';
     });
 
     console.log(
-      `[FBM sync] ${integration.id} marketplace ${marketplaceId}: fetched ${sellerFulfilledOrders.length} seller-fulfilled orders.`
+      `[FBM sync] ${integration.id} marketplace ${marketplaceId}: rawOrders=${orders.length}, sellerFulfilled=${sellerFulfilledOrders.length}, rawFulfillment=${summarizeFulfillmentChannels(orders)}`
     );
 
     for (const order of sellerFulfilledOrders) {
