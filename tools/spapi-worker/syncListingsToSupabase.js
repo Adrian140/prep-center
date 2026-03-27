@@ -534,7 +534,13 @@ function normalizeFulfillmentChannel(value) {
     .toUpperCase();
   if (!normalized) return null;
   if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
-  if (normalized.includes('MERCHANT') || normalized === 'MFN') return 'FBM';
+  if (
+    normalized.includes('MERCHANT') ||
+    normalized === 'MFN' ||
+    normalized === 'DEFAULT'
+  ) {
+    return 'FBM';
+  }
   return normalized;
 }
 
