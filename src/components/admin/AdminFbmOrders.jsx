@@ -19,7 +19,6 @@ const formatMoney = (amount, currency = 'EUR') => {
   }).format(num);
 };
 
-const statusOptions = ['pending', 'processing', 'ready', 'shipped', 'cancelled'];
 const isProcessedStatus = (status) => ['processing', 'ready', 'shipped'].includes(String(status || '').trim().toLowerCase());
 
 export default function AdminFbmOrders() {
@@ -169,7 +168,8 @@ export default function AdminFbmOrders() {
   const historyRows = rows.filter((row) => isProcessedStatus(row.local_status));
   const visibleRows = statusFilter === 'shipped' ? historyRows : activeRows;
 
-  const updateStatus = async (row, localStatus) => {
+  const markDone = async (row) => {
+    const localStatus = 'shipped';
     setSavingId(row.id);
     setError('');
     const { error: updateError } = await supabase
@@ -340,18 +340,20 @@ export default function AdminFbmOrders() {
 
                 <div className="space-y-2">
                   <div className="text-sm font-semibold text-slate-800">Prep status</div>
-                  <select
-                    className="w-full rounded-lg border px-3 py-2 text-sm"
-                    value={row.local_status || 'pending'}
-                    disabled={savingId === row.id}
-                    onChange={(e) => updateStatus(row, e.target.value)}
-                  >
-                    {statusOptions.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
+                  {String(row.local_status || '').trim().toLowerCase() === 'shipped' ? (
+                    <div className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      Done
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => markDone(row)}
+                      disabled={savingId === row.id}
+                      className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                      {savingId === row.id ? 'Saving...' : 'Done'}
+                    </button>
+                  )}
                   <div className="text-xs text-slate-500">Amazon: {row.amazon_order_status || '—'}</div>
                   {String(row.amazon_order_status || '').trim().toLowerCase() === 'unshipped' ? (
                     <button
