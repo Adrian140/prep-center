@@ -25,7 +25,11 @@ const DEBUG_LISTING_RAW_HEADER =
 const LISTING_FETCH_IMAGES_FROM_CATALOG =
   String(process.env.SPAPI_LISTING_FETCH_IMAGES_FROM_CATALOG || 'true').toLowerCase() !== 'false';
 const LISTING_FETCH_EAN_FROM_CATALOG =
-  String(process.env.SPAPI_LISTING_FETCH_EAN_FROM_CATALOG || 'false').toLowerCase() === 'true';
+  String(process.env.SPAPI_LISTING_FETCH_EAN_FROM_CATALOG || 'true').toLowerCase() !== 'false';
+const LISTING_CATALOG_DETAILS_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.SPAPI_LISTING_CATALOG_DETAILS_CONCURRENCY || 6)
+);
 const LISTING_CATALOG_MARKETPLACE_IDS = String(
   process.env.SPAPI_LISTING_CATALOG_MARKETPLACE_IDS ||
     'A13V1IB3VIYZZH,A1PA6795UKMFR9,APJ6JRA9NG5V4,A1RKKUPIHCS9HS'
@@ -683,6 +687,25 @@ async function fetchCatalogMainImage(spClient, asin, marketplaceId) {
   return pickCatalogMainImage(res);
 }
 
+async function fetchCatalogListingDetails(spClient, asin, marketplaceId) {
+  const res = await spClient.callAPI({
+    operation: 'getCatalogItem',
+    endpoint: 'catalogItems',
+    path: { asin },
+    query: {
+      marketplaceIds: [marketplaceId],
+      includedData: ['identifiers', 'images']
+    },
+    options: {
+      version: '2022-04-01'
+    }
+  });
+  return {
+    ean: pickCatalogEan(res, marketplaceId),
+    image: pickCatalogMainImage(res)
+  };
+}
+
 async function fetchCatalogEan(spClient, asin, marketplaceId) {
   const res = await spClient.callAPI({
     operation: 'getCatalogItem',
@@ -697,6 +720,64 @@ async function fetchCatalogEan(spClient, asin, marketplaceId) {
     }
   });
   return pickCatalogEan(res, marketplaceId);
+}
+
+async function fetchCachedCatalogDetailsByAsin({ companyId, asins }) {
+  const map = new Map();
+  const uniqueAsins = Array.from(
+    new Set((asins || []).map((v) => String(v || '').trim().toUpperCase()).filter(Boolean))
+  );
+  if (!uniqueAsins.length) return map;
+
+  const chunkSize = 300;
+  for (let i = 0; i < uniqueAsins.length; i += chunkSize) {
+    const chunk = uniqueAsins.slice(i, i + chunkSize);
+    if (!chunk.length) continue;
+
+    const [{ data: asinEans, error: asinEansError }, { data: stockRows, error: stockError }, { data: assetRows, error: assetError }] =
+      await Promise.all([
+        supabase.from('asin_eans').select('asin, ean').eq('company_id', companyId).in('asin', chunk),
+        supabase.from('stock_items').select('asin, ean, image_url').eq('company_id', companyId).in('asin', chunk),
+        supabase.from('asin_assets').select('asin, image_urls').in('asin', chunk)
+      ]);
+
+    if (asinEansError) throw asinEansError;
+    if (stockError) throw stockError;
+    if (assetError) throw assetError;
+
+    for (const row of asinEans || []) {
+      const asin = String(row?.asin || '').trim().toUpperCase();
+      if (!asin) continue;
+      const prev = map.get(asin) || { ean: null, image: null };
+      const ean = normalizeEan(row?.ean);
+      if (ean && !prev.ean) prev.ean = ean;
+      map.set(asin, prev);
+    }
+
+    for (const row of stockRows || []) {
+      const asin = String(row?.asin || '').trim().toUpperCase();
+      if (!asin) continue;
+      const prev = map.get(asin) || { ean: null, image: null };
+      const ean = normalizeEan(row?.ean);
+      const image = typeof row?.image_url === 'string' && row.image_url.trim() ? row.image_url.trim() : null;
+      if (ean && !prev.ean) prev.ean = ean;
+      if (image && !prev.image) prev.image = image;
+      map.set(asin, prev);
+    }
+
+    for (const row of assetRows || []) {
+      const asin = String(row?.asin || '').trim().toUpperCase();
+      if (!asin) continue;
+      const prev = map.get(asin) || { ean: null, image: null };
+      const image = Array.isArray(row?.image_urls)
+        ? row.image_urls.find((value) => typeof value === 'string' && value.trim())
+        : null;
+      if (image && !prev.image) prev.image = String(image).trim();
+      map.set(asin, prev);
+    }
+  }
+
+  return map;
 }
 
 async function fetchKnownEansByAsin({ companyId, asins }) {
@@ -838,6 +919,214 @@ async function enrichListingsEanFromKnownAndCatalog({
   }
 
   return { knownFilled, catalogFilled, catalogNotFound, catalogFailed };
+}
+
+async function enrichListingsCatalogDetails({
+  spClient,
+  marketplaceId,
+  companyId,
+  userId,
+  listings
+}) {
+  const candidates = (listings || []).filter((row) => {
+    if (!row?.asin) return false;
+    const needsEan = LISTING_FETCH_EAN_FROM_CATALOG && !normalizeEan(row?.ean);
+    const needsImage = LISTING_FETCH_IMAGES_FROM_CATALOG && !(typeof row?.imageUrl === 'string' && row.imageUrl.trim());
+    return needsEan || needsImage;
+  });
+
+  if (!candidates.length) {
+    return {
+      cachedEanFilled: 0,
+      cachedImageFilled: 0,
+      catalogEanFilled: 0,
+      catalogImageFilled: 0,
+      catalogNotFound: 0,
+      catalogFailed: 0,
+      requestedAsins: 0
+    };
+  }
+
+  const candidateAsins = Array.from(
+    new Set(candidates.map((row) => String(row.asin || '').trim().toUpperCase()).filter(Boolean))
+  );
+  const cachedMap = await fetchCachedCatalogDetailsByAsin({ companyId, asins: candidateAsins });
+
+  let cachedEanFilled = 0;
+  let cachedImageFilled = 0;
+  for (const row of candidates) {
+    const asin = String(row.asin || '').trim().toUpperCase();
+    const cached = cachedMap.get(asin) || null;
+    if (!cached) continue;
+    if (!normalizeEan(row?.ean) && normalizeEan(cached.ean)) {
+      row.ean = normalizeEan(cached.ean);
+      cachedEanFilled += 1;
+    }
+    if (!(typeof row?.imageUrl === 'string' && row.imageUrl.trim()) && cached.image) {
+      row.imageUrl = String(cached.image).trim();
+      cachedImageFilled += 1;
+    }
+  }
+
+  const remainingAsins = Array.from(
+    new Set(
+      candidates
+        .filter((row) => {
+          const needsEan = LISTING_FETCH_EAN_FROM_CATALOG && !normalizeEan(row?.ean);
+          const needsImage = LISTING_FETCH_IMAGES_FROM_CATALOG && !(typeof row?.imageUrl === 'string' && row.imageUrl.trim());
+          return needsEan || needsImage;
+        })
+        .map((row) => String(row.asin || '').trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
+
+  if (!remainingAsins.length) {
+    return {
+      cachedEanFilled,
+      cachedImageFilled,
+      catalogEanFilled: 0,
+      catalogImageFilled: 0,
+      catalogNotFound: 0,
+      catalogFailed: 0,
+      requestedAsins: 0
+    };
+  }
+
+  const catalogMarketplaceIds = resolveCatalogMarketplaceIds(marketplaceId);
+  const foundMap = new Map();
+  let catalogNotFound = 0;
+  let catalogFailed = 0;
+
+  let index = 0;
+  const worker = async () => {
+    while (index < remainingAsins.length) {
+      const current = remainingAsins[index];
+      index += 1;
+      let found = null;
+      let hadError = false;
+      for (const marketId of catalogMarketplaceIds) {
+        try {
+          const details = await runWithTransientRetry(
+            () => fetchCatalogListingDetails(spClient, current, marketId),
+            `catalog-details asin=${current} marketplace=${marketId}`
+          );
+          const ean = normalizeEan(details?.ean);
+          const image =
+            typeof details?.image === 'string' && details.image.trim() ? details.image.trim() : null;
+          if (ean || image) {
+            found = { ean, image };
+            break;
+          }
+        } catch (err) {
+          if (isCatalogNotFoundError(err)) continue;
+          hadError = true;
+          console.warn(
+            `[Listings sync] Catalog details lookup warning company=${companyId} asin=${current} marketplace=${marketId}: ${extractErrorText(
+              err
+            ).slice(0, 300)}`
+          );
+        }
+      }
+
+      if (found) {
+        foundMap.set(current, found);
+      } else if (hadError) {
+        catalogFailed += 1;
+      } else {
+        catalogNotFound += 1;
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(LISTING_CATALOG_DETAILS_CONCURRENCY, remainingAsins.length) }, () =>
+      worker()
+    )
+  );
+
+  let catalogEanFilled = 0;
+  let catalogImageFilled = 0;
+  const asinEanRows = [];
+  const asinAssetRows = [];
+  for (const row of listings || []) {
+    const asin = String(row?.asin || '').trim().toUpperCase();
+    if (!asin) continue;
+    const found = foundMap.get(asin) || null;
+    if (!found) continue;
+    if (!normalizeEan(row?.ean) && found.ean) {
+      row.ean = found.ean;
+      catalogEanFilled += 1;
+    }
+    if (!(typeof row?.imageUrl === 'string' && row.imageUrl.trim()) && found.image) {
+      row.imageUrl = found.image;
+      catalogImageFilled += 1;
+    }
+  }
+
+  for (const [asin, found] of foundMap.entries()) {
+    if (found.ean) {
+      asinEanRows.push({ user_id: userId, company_id: companyId, asin, ean: found.ean });
+    }
+    if (found.image) {
+      asinAssetRows.push({
+        asin,
+        image_urls: [found.image],
+        source: 'amazon_catalog',
+        fetched_at: new Date().toISOString()
+      });
+    }
+  }
+
+  if (asinEanRows.length) {
+    for (let i = 0; i < asinEanRows.length; i += 500) {
+      const chunk = asinEanRows.slice(i, i + 500);
+      const { error } = await supabase
+        .from('asin_eans')
+        .insert(chunk, { ignoreDuplicates: true, onConflict: 'user_id,asin,ean' });
+      if (error) throw error;
+    }
+  }
+
+  if (asinAssetRows.length) {
+    for (let i = 0; i < asinAssetRows.length; i += 500) {
+      const chunk = asinAssetRows.slice(i, i + 500);
+      const { error } = await supabase
+        .from('asin_assets')
+        .upsert(chunk, { onConflict: 'asin' });
+      if (error) throw error;
+    }
+  }
+
+  const imageAsins = asinAssetRows.map((row) => row.asin).filter(Boolean);
+  if (imageAsins.length) {
+    for (let i = 0; i < imageAsins.length; i += 300) {
+      const chunk = imageAsins.slice(i, i + 300);
+      const updates = chunk.map((asin) => {
+        const found = foundMap.get(asin);
+        return found?.image ? { asin, image: found.image } : null;
+      }).filter(Boolean);
+      for (const entry of updates) {
+        const { error } = await supabase
+          .from('stock_items')
+          .update({ image_url: entry.image })
+          .eq('company_id', companyId)
+          .eq('asin', entry.asin)
+          .is('image_url', null);
+        if (error) throw error;
+      }
+    }
+  }
+
+  return {
+    cachedEanFilled,
+    cachedImageFilled,
+    catalogEanFilled,
+    catalogImageFilled,
+    catalogNotFound,
+    catalogFailed,
+    requestedAsins: remainingAsins.length
+  };
 }
 
 async function fillMissingImagesFromCatalog({
@@ -1276,12 +1565,13 @@ async function syncListingsIntegration(integration) {
     const listingRows = filterListings(normalized);
     const fulfillmentSummary = summarizeFulfillmentChannels(listingRows);
     console.log(
-      `[Listings sync] ${integration.id} stage=ean-enrichment filteredRows=${listingRows.length}`
+      `[Listings sync] ${integration.id} stage=catalog-details-enrichment filteredRows=${listingRows.length}`
     );
-    const eanEnrichmentStats = await enrichListingsEanFromKnownAndCatalog({
+    const catalogDetailStats = await enrichListingsCatalogDetails({
       spClient,
       marketplaceId,
       companyId: integration.company_id,
+      userId: integration.user_id,
       listings: listingRows
     });
     const listingRowsWithImage = listingRows.filter(
@@ -1291,7 +1581,7 @@ async function syncListingsIntegration(integration) {
     const emptySku = listingRaw.filter((r) => !String(r.sku || '').trim()).length;
     const emptyAsin = listingRaw.filter((r) => !String(r.asin || '').trim() && !String(r.productId || '').trim()).length;
     console.log(
-      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin} eanKnown=${eanEnrichmentStats.knownFilled} eanCatalog=${eanEnrichmentStats.catalogFilled} eanCatalogNotFound=${eanEnrichmentStats.catalogNotFound} eanCatalogFailed=${eanEnrichmentStats.catalogFailed} fulfillment=${fulfillmentSummary.normalizedSummary || 'none'} rawFulfillment=${fulfillmentSummary.rawSummary || 'none'}`
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin} eanCached=${catalogDetailStats.cachedEanFilled} imageCached=${catalogDetailStats.cachedImageFilled} eanCatalog=${catalogDetailStats.catalogEanFilled} imageCatalog=${catalogDetailStats.catalogImageFilled} catalogRequested=${catalogDetailStats.requestedAsins} catalogNotFound=${catalogDetailStats.catalogNotFound} catalogFailed=${catalogDetailStats.catalogFailed} fulfillment=${fulfillmentSummary.normalizedSummary || 'none'} rawFulfillment=${fulfillmentSummary.rawSummary || 'none'}`
     );
     if (fulfillmentSummary.fbm === 0) {
       console.warn(
@@ -1345,7 +1635,6 @@ async function syncListingsIntegration(integration) {
     const inserts = [];
     let insertsWithImage = 0;
     const updatesWithImage = new Set();
-    const catalogImageCandidates = new Set();
     const updatesById = new Map();
     const asinEanRows = [];
     const queueUpdate = (patch) => {
@@ -1480,12 +1769,6 @@ async function syncListingsIntegration(integration) {
                 if (comboKey) {
                   existingCombinationKeys.add(comboKey);
                 }
-                if (
-                  listing.asin &&
-                  !(listing.imageUrl && String(listing.imageUrl).trim().length > 0)
-                ) {
-                  catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
-                }
                 if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
                   insertsWithImage += 1;
                 }
@@ -1530,10 +1813,6 @@ async function syncListingsIntegration(integration) {
             image_url: listing.imageUrl || null,
             qty: 0
           });
-          if (listing.asin && !(listing.imageUrl && String(listing.imageUrl).trim().length > 0)) {
-            // Fetch catalog image only for newly inserted ASINs in this run.
-            catalogImageCandidates.add(String(listing.asin).trim().toUpperCase());
-          }
           if (listing.imageUrl && String(listing.imageUrl).trim().length > 0) {
             insertsWithImage += 1;
           }
@@ -1608,26 +1887,13 @@ async function syncListingsIntegration(integration) {
       `[Listings sync] ${integration.id} stage=sync-listing-channels done upserted=${channelStats.upserted} matched=${channelStats.matched} removed=${channelStats.removed}`
     );
 
-    console.log(
-      `[Listings sync] ${integration.id} stage=fill-missing-images start asins=${catalogImageCandidates.size}`
-    );
-    const catalogImageStats = await fillMissingImagesFromCatalog({
-      spClient,
-      companyId: integration.company_id,
-      marketplaceId,
-      asins: Array.from(catalogImageCandidates)
-    });
-    console.log(
-      `[Listings sync] ${integration.id} stage=fill-missing-images done processed=${catalogImageStats.processed} found=${catalogImageStats.found} reused=${catalogImageStats.reused}`
-    );
-
     await supabase
       .from('amazon_integrations')
       .update({ last_synced_at: new Date().toISOString(), last_error: null })
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, channels=${channelStats.upserted}, channelMatched=${channelStats.matched}, channelRemoved=${channelStats.removed}, fulfillmentSummary=${fulfillmentSummaryStats.updated}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, channels=${channelStats.upserted}, channelMatched=${channelStats.matched}, channelRemoved=${channelStats.removed}, fulfillmentSummary=${fulfillmentSummaryStats.updated}, catalogRequested=${catalogDetailStats.requestedAsins}, eanCatalog=${catalogDetailStats.catalogEanFilled}, imageCatalog=${catalogDetailStats.catalogImageFilled}, catalogNotFound=${catalogDetailStats.catalogNotFound}, catalogFailed=${catalogDetailStats.catalogFailed}).`
     );
   } catch (err) {
     console.error(
