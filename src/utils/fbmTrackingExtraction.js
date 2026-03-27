@@ -1,3 +1,5 @@
+import 'core-js/actual/map/get-or-insert-computed';
+import 'core-js/actual/weak-map/get-or-insert-computed';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerSrc from 'pdfjs-dist/build/pdf.worker.mjs?url';
 import { createWorker } from 'tesseract.js';
