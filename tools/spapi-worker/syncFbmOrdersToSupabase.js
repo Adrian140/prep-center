@@ -229,12 +229,41 @@ async function listOrderItems(spClient, amazonOrderId) {
   return items;
 }
 
-async function getOrderAddressSafe(spClient, amazonOrderId) {
+async function createOrderRestrictedDataToken(spClient, amazonOrderId) {
+  try {
+    const res = await spClient.callAPI({
+      operation: 'createRestrictedDataToken',
+      endpoint: 'tokens',
+      body: {
+        restrictedResources: [
+          {
+            method: 'GET',
+            path: `/orders/v0/orders/${amazonOrderId}/address`
+          },
+          {
+            method: 'GET',
+            path: `/orders/v0/orders/${amazonOrderId}/buyerInfo`
+          }
+        ]
+      }
+    });
+    return res?.restrictedDataToken || res?.payload?.restrictedDataToken || null;
+  } catch (err) {
+    console.warn(
+      `[FBM sync] createRestrictedDataToken failed for ${amazonOrderId}: ${err?.message || err}`
+    );
+    return null;
+  }
+}
+
+async function getOrderAddressSafe(spClient, amazonOrderId, restrictedDataToken = null) {
+  if (!restrictedDataToken) return null;
   try {
     const res = await spClient.callAPI({
       operation: 'getOrderAddress',
       endpoint: 'orders',
-      path: { orderId: amazonOrderId }
+      path: { orderId: amazonOrderId },
+      restricted_data_token: restrictedDataToken
     });
     return res?.ShippingAddress || res?.payload?.ShippingAddress || null;
   } catch (err) {
@@ -243,12 +272,14 @@ async function getOrderAddressSafe(spClient, amazonOrderId) {
   }
 }
 
-async function getOrderBuyerInfoSafe(spClient, amazonOrderId) {
+async function getOrderBuyerInfoSafe(spClient, amazonOrderId, restrictedDataToken = null) {
+  if (!restrictedDataToken) return null;
   try {
     const res = await spClient.callAPI({
       operation: 'getOrderBuyerInfo',
       endpoint: 'orders',
-      path: { orderId: amazonOrderId }
+      path: { orderId: amazonOrderId },
+      restricted_data_token: restrictedDataToken
     });
     return res?.BuyerInfo || res?.payload?.BuyerInfo || null;
   } catch (err) {
@@ -351,9 +382,16 @@ async function syncIntegration(integration) {
         .eq('amazon_order_id', amazonOrderId)
         .maybeSingle();
 
+      const restrictedDataToken = await createOrderRestrictedDataToken(spClient, amazonOrderId);
+      if (!restrictedDataToken) {
+        console.warn(
+          `[FBM sync] ${amazonOrderId}: restricted buyer/address data unavailable. Check Amazon PII approval or Tokens API permissions.`
+        );
+      }
+
       const [address, buyerInfo, orderItems] = await Promise.all([
-        getOrderAddressSafe(spClient, amazonOrderId),
-        getOrderBuyerInfoSafe(spClient, amazonOrderId),
+        getOrderAddressSafe(spClient, amazonOrderId, restrictedDataToken),
+        getOrderBuyerInfoSafe(spClient, amazonOrderId, restrictedDataToken),
         listOrderItems(spClient, amazonOrderId)
       ]);
 
@@ -384,8 +422,8 @@ async function syncIntegration(integration) {
         latest_delivery_end_date: order?.LatestDeliveryDate || null,
         buyer_email: buyerInfo?.BuyerEmail || null,
         buyer_name: buyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
-        buyer_phone: buyerInfo?.BuyerTaxInfo?.CompanyLegalName || null,
-        recipient_name: address?.Name || null,
+        buyer_phone: address?.Phone || null,
+        recipient_name: address?.Name || buyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
         company_name: address?.CompanyName || null,
         address_line_1: address?.AddressLine1 || null,
         address_line_2: address?.AddressLine2 || null,

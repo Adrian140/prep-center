@@ -60,6 +60,9 @@ export default function AdminFbmOrders() {
         purchase_date,
         latest_ship_date,
         recipient_name,
+        buyer_name,
+        buyer_email,
+        buyer_phone,
         address_line_1,
         address_line_2,
         address_line_3,
@@ -67,6 +70,7 @@ export default function AdminFbmOrders() {
         state_or_region,
         postal_code,
         country_code,
+        address_phone,
         tracking_number,
         carrier_name,
         carrier_code,
@@ -219,6 +223,22 @@ export default function AdminFbmOrders() {
                     </div>
                   </div>
                   <div className="text-xs text-slate-500">Amazon order: {row.amazon_order_id}</div>
+                  {row.buyer_name || row.buyer_phone || row.buyer_email || row.address_phone ? (
+                    <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      <div>
+                        Buyer: <span className="font-semibold text-slate-800">{row.buyer_name || '—'}</span>
+                      </div>
+                      <div>
+                        Phone:{' '}
+                        <span className="font-semibold text-slate-800">
+                          {row.buyer_phone || row.address_phone || '—'}
+                        </span>
+                      </div>
+                      <div>
+                        Email: <span className="font-semibold text-slate-800">{row.buyer_email || '—'}</span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2 text-sm text-slate-600">
@@ -335,6 +355,22 @@ export default function AdminFbmOrders() {
                       </div>
                     </div>
                     <div className="text-xs text-slate-500">Amazon order: {row.amazon_order_id}</div>
+                    {row.buyer_name || row.buyer_phone || row.buyer_email || row.address_phone ? (
+                      <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                        <div>
+                          Buyer: <span className="font-semibold text-slate-800">{row.buyer_name || '—'}</span>
+                        </div>
+                        <div>
+                          Phone:{' '}
+                          <span className="font-semibold text-slate-800">
+                            {row.buyer_phone || row.address_phone || '—'}
+                          </span>
+                        </div>
+                        <div>
+                          Email: <span className="font-semibold text-slate-800">{row.buyer_email || '—'}</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2 text-sm text-slate-600">

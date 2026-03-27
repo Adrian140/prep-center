@@ -85,6 +85,9 @@ export default function ClientFbmOrders() {
         purchase_date,
         latest_ship_date,
         recipient_name,
+        buyer_name,
+        buyer_email,
+        buyer_phone,
         address_line_1,
         address_line_2,
         address_line_3,
@@ -92,6 +95,7 @@ export default function ClientFbmOrders() {
         state_or_region,
         postal_code,
         country_code,
+        address_phone,
         marketplace_country,
         tracking_number,
         carrier_name,
@@ -342,6 +346,22 @@ export default function ClientFbmOrders() {
           {order.seller_order_id ? (
             <div className="text-xs text-slate-500">
               Seller order: <span className="font-semibold">{order.seller_order_id}</span>
+            </div>
+          ) : null}
+          {order.buyer_name || order.buyer_phone || order.buyer_email || order.address_phone ? (
+            <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              <div>
+                Buyer: <span className="font-semibold text-slate-800">{order.buyer_name || '—'}</span>
+              </div>
+              <div>
+                Phone:{' '}
+                <span className="font-semibold text-slate-800">
+                  {order.buyer_phone || order.address_phone || '—'}
+                </span>
+              </div>
+              <div>
+                Email: <span className="font-semibold text-slate-800">{order.buyer_email || '—'}</span>
+              </div>
             </div>
           ) : null}
         </div>
