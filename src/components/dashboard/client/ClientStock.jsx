@@ -1814,13 +1814,13 @@ useEffect(() => {
     if (fulfillmentFilter === 'fba') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBA';
+        return kind === 'FBA' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fbm') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBM';
+        return kind === 'FBM' || kind === 'UNKNOWN';
       });
     }
     return base;
@@ -3490,7 +3490,9 @@ const saveReqChanges = async () => {
     const etsyOrders = etsyOrdersByItemId?.[r.id] || null;
     const fulfillmentKind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
     const fulfillmentBadges =
-      fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM' ? [fulfillmentKind] : [];
+      fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM' || fulfillmentKind === 'UNKNOWN'
+        ? [fulfillmentKind]
+        : [];
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
@@ -3587,7 +3589,9 @@ const saveReqChanges = async () => {
             className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
               badge === 'FBA'
                 ? 'bg-sky-100 text-sky-700'
-                : 'bg-slate-200 text-slate-700'
+                : badge === 'FBM'
+                  ? 'bg-slate-200 text-slate-700'
+                  : 'bg-amber-100 text-amber-800'
             }`}
           >
             {badge}
