@@ -6,6 +6,12 @@ import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
 
 const bucketName = 'fbm-order-files';
+const FBM_MARKETS = [
+  { id: 'A13V1IB3VIYZZH', label: 'France (FR)' },
+  { id: 'A1PA6795UKMFR9', label: 'Germany (DE)' },
+  { id: 'A1RKKUPIHCS9HS', label: 'Spain (ES)' },
+  { id: 'APJ6JRA9NG5V4', label: 'Italy (IT)' }
+];
 
 const sanitizeFilename = (name = '') =>
   name
@@ -37,6 +43,11 @@ export default function ClientFbmOrders() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [error, setError] = useState('');
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsSaving, setSettingsSaving] = useState(false);
+  const [settings, setSettings] = useState([]);
+  const [selectedMarkets, setSelectedMarkets] = useState([]);
+  const [acceptedConsent, setAcceptedConsent] = useState(false);
 
   const createSignedUrl = async (path) => {
     if (!path) return '';
@@ -154,9 +165,92 @@ export default function ClientFbmOrders() {
     setLoading(false);
   };
 
+  const loadSettings = async () => {
+    if (!profile?.company_id) {
+      setSettings([]);
+      setSelectedMarkets([]);
+      setSettingsLoading(false);
+      return;
+    }
+    setSettingsLoading(true);
+    const { data, error: settingsError } = await supabase
+      .from('fbm_order_sync_settings')
+      .select('id, marketplace_id, enabled, consent_granted_at, consent_revoked_at')
+      .eq('company_id', profile.company_id);
+    if (settingsError) {
+      setError(settingsError.message);
+      setSettings([]);
+      setSelectedMarkets([]);
+    } else {
+      const rows = Array.isArray(data) ? data : [];
+      setSettings(rows);
+      setSelectedMarkets(rows.filter((row) => row.enabled).map((row) => row.marketplace_id));
+    }
+    setSettingsLoading(false);
+  };
+
   useEffect(() => {
     load();
+    loadSettings();
   }, [profile?.company_id, currentMarket]);
+
+  const enabledMarketplaces = useMemo(
+    () => settings.filter((row) => row.enabled).map((row) => row.marketplace_id),
+    [settings]
+  );
+
+  const hasConsent = enabledMarketplaces.length > 0;
+
+  const saveSettings = async (enabled) => {
+    if (!profile?.company_id) return;
+    setSettingsSaving(true);
+    setError('');
+    try {
+      const now = new Date().toISOString();
+      const payload = FBM_MARKETS.map((market) => {
+        const isEnabled = enabled.includes(market.id);
+        return {
+          company_id: profile.company_id,
+          user_id: profile.id,
+          marketplace_id: market.id,
+          enabled: isEnabled,
+          consent_granted_at: isEnabled ? now : null,
+          consent_revoked_at: isEnabled ? null : now,
+          consent_text_version: 'v1',
+          updated_at: now
+        };
+      });
+      const { error: upsertError } = await supabase
+        .from('fbm_order_sync_settings')
+        .upsert(payload, { onConflict: 'company_id,marketplace_id' });
+      if (upsertError) throw upsertError;
+      setAcceptedConsent(false);
+      await loadSettings();
+      await load();
+    } catch (err) {
+      setError(err?.message || 'Could not save FBM access settings.');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const activateSelected = async () => {
+    if (!acceptedConsent || !selectedMarkets.length) {
+      setError('Select at least one marketplace and confirm consent first.');
+      return;
+    }
+    await saveSettings(selectedMarkets);
+  };
+
+  const revokeSelected = async () => {
+    const remaining = enabledMarketplaces.filter((id) => !selectedMarkets.includes(id));
+    await saveSettings(remaining);
+  };
+
+  const revokeAll = async () => {
+    setSelectedMarkets([]);
+    await saveSettings([]);
+  };
 
   const uploadLabel = async (order, item, file) => {
     if (!file || !profile?.company_id) return;
@@ -234,19 +328,112 @@ export default function ClientFbmOrders() {
         </div>
       ) : null}
 
+      <div className="rounded-xl border bg-white p-4 shadow-sm">
+        <div className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">FBM order access</h3>
+            <p className="text-sm text-slate-600">
+              Enable the Amazon marketplaces from which you want us to import seller-fulfilled orders
+              into PrepCenter. We will store order details, shipping addresses and uploaded labels so
+              your team can prepare and process these orders inside our system.
+            </p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {FBM_MARKETS.map((market) => (
+              <label
+                key={market.id}
+                className="flex items-center gap-3 rounded-lg border px-3 py-2 text-sm text-slate-700"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedMarkets.includes(market.id)}
+                  disabled={settingsLoading || settingsSaving}
+                  onChange={(e) => {
+                    setSelectedMarkets((prev) =>
+                      e.target.checked
+                        ? Array.from(new Set([...prev, market.id]))
+                        : prev.filter((id) => id !== market.id)
+                    );
+                  }}
+                />
+                <span>{market.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <label className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={acceptedConsent}
+              disabled={settingsSaving}
+              onChange={(e) => setAcceptedConsent(e.target.checked)}
+            />
+            <span>
+              I confirm that I authorize PrepCenter to import my Amazon FBM orders for the selected
+              marketplaces and use the order data only for fulfillment operations. I understand that I
+              can revoke this access at any time.
+            </span>
+          </label>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={activateSelected}
+              disabled={settingsLoading || settingsSaving || !selectedMarkets.length}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {settingsSaving ? 'Saving...' : 'Enable FBM Orders'}
+            </button>
+            <button
+              type="button"
+              onClick={revokeSelected}
+              disabled={settingsLoading || settingsSaving || !selectedMarkets.length}
+              className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+            >
+              Disable selected
+            </button>
+            <button
+              type="button"
+              onClick={revokeAll}
+              disabled={settingsLoading || settingsSaving || !hasConsent}
+              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
+            >
+              Revoke all access
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-500">
+            Active marketplaces:{' '}
+            {enabledMarketplaces.length
+              ? FBM_MARKETS.filter((market) => enabledMarketplaces.includes(market.id))
+                  .map((market) => market.label)
+                  .join(', ')
+              : 'none'}
+          </div>
+        </div>
+      </div>
+
       {loading ? (
         <div className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-text-secondary">
           Loading FBM orders...
         </div>
       ) : null}
 
-      {!loading && !orderCards.length ? (
+      {!loading && hasConsent && !orderCards.length ? (
         <div className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-text-secondary">
           No FBM orders synced yet.
         </div>
       ) : null}
 
-      {!loading &&
+      {!loading && !hasConsent ? (
+        <div className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-text-secondary">
+          Enable at least one marketplace above to allow FBM order import.
+        </div>
+      ) : null}
+
+      {!loading && hasConsent &&
         orderCards.map((order) => (
           <div key={order.id} className="rounded-xl border bg-white p-4 shadow-sm">
             <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr_1fr]">

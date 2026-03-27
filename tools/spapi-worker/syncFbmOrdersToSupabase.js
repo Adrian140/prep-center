@@ -154,6 +154,25 @@ async function fetchActiveIntegrations() {
     .filter((row) => !!row?.refresh_token);
 }
 
+async function fetchEnabledMarketplaceMap(companyIds = []) {
+  const ids = Array.from(new Set((companyIds || []).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const { data, error } = await supabase
+    .from('fbm_order_sync_settings')
+    .select('company_id, marketplace_id, enabled')
+    .in('company_id', ids)
+    .eq('enabled', true);
+  if (error) throw error;
+  const map = new Map();
+  for (const row of data || []) {
+    if (!map.has(row.company_id)) {
+      map.set(row.company_id, new Set());
+    }
+    map.get(row.company_id).add(row.marketplace_id);
+  }
+  return map;
+}
+
 function resolveMarketplaceIds(integration) {
   if (Array.isArray(integration.marketplace_ids) && integration.marketplace_ids.length) {
     return integration.marketplace_ids.filter((id) => SUPPORTED_MARKETPLACES.includes(id));
@@ -440,6 +459,10 @@ async function main(resumeCompanyId = null) {
     return { resumeNextCompanyId: null };
   }
 
+  const enabledMarketplaceMap = await fetchEnabledMarketplaceMap(
+    integrations.map((integration) => integration.company_id)
+  );
+
   const startedAt = Date.now();
   const companies = new Map();
   for (const integration of integrations) {
@@ -467,6 +490,16 @@ async function main(resumeCompanyId = null) {
     }
     for (const integration of entry.integrations) {
       try {
+        const enabledMarkets = Array.from(
+          enabledMarketplaceMap.get(integration.company_id) || []
+        ).filter((id) => SUPPORTED_MARKETPLACES.includes(id));
+        if (!enabledMarkets.length) {
+          console.log(
+            `[FBM sync] Skipping integration ${integration.id} (${companyLabel(integration.company_id, COMPANY_NAME_MAP)}) because no FBM marketplaces are enabled by the client.`
+          );
+          continue;
+        }
+        integration.marketplace_ids = enabledMarkets;
         await syncIntegration(integration);
       } catch (err) {
         console.error(`[FBM sync] Failed for integration ${integration.id}`, err);
