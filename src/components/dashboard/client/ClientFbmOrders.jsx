@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Upload, Package, MapPin, Truck, RefreshCcw, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
+import { extractTrackingFromLabelFile } from '@/utils/fbmTrackingExtraction';
 
 const bucketName = 'fbm-order-files';
 const FBM_MARKETS = [
@@ -302,12 +303,30 @@ export default function ClientFbmOrders() {
       if (insertError) throw insertError;
 
       const signedUrl = await createSignedUrl(uploadData.path);
+      const extractedTracking = await extractTrackingFromLabelFile(file);
+      if (extractedTracking?.trackingNumber) {
+        const { error: trackingError } = await supabase
+          .from('fbm_orders')
+          .update({
+            tracking_number: extractedTracking.trackingNumber,
+            carrier_code: extractedTracking.carrierCode || order.carrier_code || null,
+            carrier_name: extractedTracking.carrierName || order.carrier_name || null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', order.id)
+          .eq('company_id', profile.company_id);
+        if (trackingError) throw trackingError;
+      }
+
       setRows((prev) =>
         prev.map((row) =>
           row.id !== order.id
             ? row
             : {
                 ...row,
+                tracking_number: extractedTracking?.trackingNumber || row.tracking_number || null,
+                carrier_code: extractedTracking?.carrierCode || row.carrier_code || null,
+                carrier_name: extractedTracking?.carrierName || row.carrier_name || null,
                 fbm_order_files: [...(row.fbm_order_files || []), { ...inserted, signed_url: signedUrl }]
               }
         )
