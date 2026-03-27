@@ -15,6 +15,7 @@ import { supabase } from '@/config/supabase';
 import AdminPricing from './AdminPricing';
 import AdminShippingRates from './AdminShippingRates';
 import AdminReturns from './AdminReturns';
+import AdminFbmOrders from './AdminFbmOrders';
 import AdminChat from './AdminChat';
 import AdminEtsy from './AdminEtsy';
 import AdminUPS from './AdminUPS';
@@ -81,7 +82,7 @@ useEffect(() => {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const lastUrlTabRef = useRef(null);
   const validTabs = [
-    'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns',
+    'analytics', 'dashboard', 'profiles', 'receiving', 'prep-requests', 'returns', 'fbm-orders',
     'chat', 'etsy', 'ups', 'pricing', 'prep-business', 'reviews', 'user-guide', 'security', 'invoices', 'settings'
   ];
   // ✅ Save & restore last selected admin tab
@@ -209,6 +210,7 @@ useEffect(() => {
     { id: 'receiving', label: t('sidebar.receiving'), icon: Truck },
     { id: 'prep-requests', label: t('sidebar.prepRequests'), icon: PackageCheck },
     { id: 'returns', label: 'Returns', icon: Package },
+    { id: 'fbm-orders', label: 'FBM Orders', icon: Package },
     { id: 'chat', label: 'Chat', icon: Users },
     { id: 'invoices', label: t('sidebar.invoices'), icon: FileText },
     { id: 'etsy', label: 'Etsy', icon: Store },
@@ -1651,6 +1653,7 @@ const renderTabContent = () => {
     case 'receiving': return <AdminReceiving />;
     case 'prep-requests': return <AdminPrepRequests />;
     case 'returns': return <AdminReturns />;
+    case 'fbm-orders': return <AdminFbmOrders />;
     case 'services': return renderServicesTab();
     case 'pricing': return renderPricingTab();
     case 'reviews': return renderReviewsTab();

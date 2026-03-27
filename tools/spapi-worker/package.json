@@ -14,6 +14,7 @@
     "sync-amazon-catalog-codes": "node syncAmazonCatalogCodes.js",
     "sync-keepa-images": "node syncKeepaImages.js",
     "sync-sales": "node syncSalesToSupabase.js",
+    "sync-fbm-orders": "node syncFbmOrdersToSupabase.js",
     "sync-refunds": "node syncRefundsToSupabase.js",
     "sync-prep-shipments": "node syncPrepShipmentsFromAmazon.js",
     "backfill-prep-packgroups": "node backfillPrepShipmentsPackgroups.js",

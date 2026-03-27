@@ -40,6 +40,7 @@ import ClientBoxEstimator from './client/ClientBoxEstimator';
 import ClientQogitaShipments from './client/ClientQogitaShipments';
 import ClientEtsyWorkspace from './client/ClientEtsyWorkspace';
 import ClientFbaShipmentDetailsDrawer from './client/ClientFbaShipmentDetailsDrawer';
+import ClientFbmOrders from './client/ClientFbmOrders';
 import ErrorBoundary from '@/components/common/ErrorBoundary';
 import { tabSessionStorage } from '@/utils/tabStorage';
 import { supabaseHelpers } from '@/config/supabase';
@@ -65,6 +66,7 @@ function SupabaseDashboard() {
   const validTabs = [
     'activity',
     'stock',
+    'fbm-orders',
     'box-estimator',
     'exports',
     'profile',
@@ -248,6 +250,7 @@ function SupabaseDashboard() {
       // Operations
       { id: 'activity', label: t('sidebar.activity'), icon: FileText, group: 'Operations' },
       { id: 'stock', label: t('sidebar.stock'), icon: Boxes, group: 'Operations' },
+      { id: 'fbm-orders', label: 'FBM Orders', icon: Package, group: 'Operations' },
       { id: 'box-estimator', label: 'Box Estimator', icon: Truck, group: 'Operations' },
       { id: 'exports', label: t('sidebar.exports'), icon: Download, group: 'Operations' },
 
@@ -368,6 +371,7 @@ const renderTabContent = useMemo(() => {
     case 'activity':
       return <SupabaseClientActivity onOpenFbaShipmentDetails={openFbaDetailsDrawer} />;
     case 'stock':     return <ClientStock />;
+    case 'fbm-orders': return <ClientFbmOrders />;
     case 'products-etsy': return <ClientEtsyWorkspace />;
     case 'exports':   return <ClientExports />;
     case 'box-estimator': return <ClientBoxEstimator />;
