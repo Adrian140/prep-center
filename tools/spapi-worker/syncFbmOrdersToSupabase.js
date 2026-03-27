@@ -92,16 +92,21 @@ function singleModeIntegration() {
   return null;
 }
 
-async function fetchActiveIntegrations() {
+async function fetchActiveIntegrations(companyIds = []) {
   const single = singleModeIntegration();
   if (single) return single;
 
-  const { data, error } = await supabase
+  const ids = Array.from(new Set((companyIds || []).filter(Boolean)));
+  let query = supabase
     .from('amazon_integrations')
     .select(
       'id, user_id, company_id, marketplace_id, region, selling_partner_id, refresh_token, last_synced_at'
     )
     .eq('status', 'active');
+  if (ids.length) {
+    query = query.in('company_id', ids);
+  }
+  const { data, error } = await query;
   if (error) throw error;
 
   const integrations = data || [];
@@ -149,12 +154,14 @@ async function fetchActiveIntegrations() {
 
 async function fetchEnabledMarketplaceMap(companyIds = []) {
   const ids = Array.from(new Set((companyIds || []).filter(Boolean)));
-  if (!ids.length) return new Map();
-  const { data, error } = await supabase
+  let query = supabase
     .from('fbm_order_sync_settings')
     .select('company_id, marketplace_id, enabled, consent_granted_at')
-    .in('company_id', ids)
     .eq('enabled', true);
+  if (ids.length) {
+    query = query.in('company_id', ids);
+  }
+  const { data, error } = await query;
   if (error) throw error;
   const map = new Map();
   for (const row of data || []) {
@@ -513,15 +520,18 @@ async function syncIntegration(integration) {
 }
 
 async function main(resumeCompanyId = null) {
-  const integrations = await fetchActiveIntegrations();
-  if (!integrations.length) {
-    console.log('[FBM sync] No active integrations found.');
+  const enabledMarketplaceMap = await fetchEnabledMarketplaceMap();
+  const enabledCompanyIds = Array.from(enabledMarketplaceMap.keys());
+  if (!enabledCompanyIds.length) {
+    console.log('[FBM sync] No companies have enabled FBM marketplace access.');
     return { resumeNextCompanyId: null };
   }
 
-  const enabledMarketplaceMap = await fetchEnabledMarketplaceMap(
-    integrations.map((integration) => integration.company_id)
-  );
+  const integrations = await fetchActiveIntegrations(enabledCompanyIds);
+  if (!integrations.length) {
+    console.log('[FBM sync] No active Amazon integrations found for companies with FBM access enabled.');
+    return { resumeNextCompanyId: null };
+  }
 
   const startedAt = Date.now();
   const companies = new Map();
@@ -541,19 +551,6 @@ async function main(resumeCompanyId = null) {
       companyEntries = [...companyEntries.slice(idx), ...companyEntries.slice(0, idx)];
     }
   }
-
-  const disabledCompanyEntries = companyEntries.filter((entry) => {
-    const enabledMarkets = Array.from((enabledMarketplaceMap.get(entry.companyId) || new Map()).keys()).filter(
-      (id) => SUPPORTED_MARKETPLACES.includes(id)
-    );
-    return enabledMarkets.length === 0;
-  });
-
-  disabledCompanyEntries.forEach((entry) => {
-    console.log(
-      `[FBM sync] Skipping company ${companyLabel(entry.companyId, COMPANY_NAME_MAP)} because no FBM marketplaces are enabled by the client.`
-    );
-  });
 
   companyEntries = companyEntries
     .map((entry) => {
