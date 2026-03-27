@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { RefreshCcw, Truck, MapPin, Package } from 'lucide-react';
+import { RefreshCcw, Truck, MapPin, Package, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
@@ -160,6 +160,41 @@ export default function AdminFbmOrders() {
     setSavingId(null);
   };
 
+  const deleteOrder = async (row) => {
+    const isUnshipped = String(row.amazon_order_status || '').trim().toLowerCase() === 'unshipped';
+    if (!isUnshipped) {
+      setError('Only unshipped FBM orders can be deleted.');
+      return;
+    }
+    if (!window.confirm(`Delete FBM order ${row.amazon_order_id}? The sync can import it again later.`)) {
+      return;
+    }
+    setSavingId(row.id);
+    setError('');
+    try {
+      const storagePaths = (row.fbm_order_files || [])
+        .map((file) => file.storage_path)
+        .filter(Boolean);
+      if (storagePaths.length) {
+        const { error: storageError } = await supabase.storage.from(bucketName).remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('fbm_orders')
+        .delete()
+        .eq('id', row.id)
+        .eq('amazon_order_status', 'Unshipped');
+      if (deleteError) throw deleteError;
+
+      setRows((prev) => prev.filter((entry) => entry.id !== row.id));
+    } catch (err) {
+      setError(err?.message || 'Could not delete FBM order.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -268,6 +303,17 @@ export default function AdminFbmOrders() {
                     ))}
                   </select>
                   <div className="text-xs text-slate-500">Amazon: {row.amazon_order_status || '—'}</div>
+                  {String(row.amazon_order_status || '').trim().toLowerCase() === 'unshipped' ? (
+                    <button
+                      type="button"
+                      onClick={() => deleteOrder(row)}
+                      disabled={savingId === row.id}
+                      className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {savingId === row.id ? 'Deleting...' : 'Delete order'}
+                    </button>
+                  ) : null}
                 </div>
               </div>
 

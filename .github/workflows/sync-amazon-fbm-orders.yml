@@ -2,8 +2,6 @@ name: Sync Amazon FBM Orders
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/10 * * * *'
 
 permissions:
   contents: read
@@ -48,8 +46,8 @@ jobs:
           SPAPI_FBM_SYNC_TIME_BUDGET_MS: ${{ secrets.SPAPI_FBM_SYNC_TIME_BUDGET_MS || '3300000' }}
         run: npm run sync-fbm-orders
 
-      - name: Pause and relaunch (tolerant)
-        if: ${{ success() && github.event_name == 'workflow_dispatch' }}
+      - name: Relaunch next FBM sync run
+        if: ${{ success() }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ github.token }}

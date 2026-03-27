@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Upload, Package, MapPin, Truck, RefreshCcw } from 'lucide-react';
+import { Upload, Package, MapPin, Truck, RefreshCcw, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
 import { useMarket } from '@/contexts/MarketContext';
@@ -308,6 +308,42 @@ export default function ClientFbmOrders() {
     }
   };
 
+  const deleteOrder = async (order) => {
+    const isUnshipped = String(order.amazon_order_status || '').trim().toLowerCase() === 'unshipped';
+    if (!isUnshipped) {
+      setError('Only unshipped FBM orders can be deleted.');
+      return;
+    }
+    if (!window.confirm(`Delete FBM order ${order.amazon_order_id}? The sync can import it again later.`)) {
+      return;
+    }
+    setSavingId(order.id);
+    setError('');
+    try {
+      const storagePaths = (order.fbm_order_files || [])
+        .map((file) => file.storage_path)
+        .filter(Boolean);
+      if (storagePaths.length) {
+        const { error: storageError } = await supabase.storage.from(bucketName).remove(storagePaths);
+        if (storageError) throw storageError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('fbm_orders')
+        .delete()
+        .eq('id', order.id)
+        .eq('company_id', profile.company_id)
+        .eq('amazon_order_status', 'Unshipped');
+      if (deleteError) throw deleteError;
+
+      setRows((prev) => prev.filter((row) => row.id !== order.id));
+    } catch (err) {
+      setError(err?.message || 'Could not delete FBM order.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   const orderCards = useMemo(() => rows || [], [rows]);
   const activeOrders = useMemo(
     () => orderCards.filter((order) => String(order.amazon_order_status || '').trim().toLowerCase() === 'unshipped'),
@@ -393,6 +429,17 @@ export default function ClientFbmOrders() {
           <div className="text-xs text-slate-500">
             Tracking: {order.tracking_number || 'Not sent yet'}
           </div>
+          {String(order.amazon_order_status || '').trim().toLowerCase() === 'unshipped' ? (
+            <button
+              type="button"
+              onClick={() => deleteOrder(order)}
+              disabled={savingId === order.id}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {savingId === order.id ? 'Deleting...' : 'Delete order'}
+            </button>
+          ) : null}
         </div>
       </div>
 
