@@ -520,33 +520,35 @@ export default function ClientFbmOrders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">FBM Orders</h2>
           <p className="text-sm text-text-secondary">
             Commandes Amazon seller-fulfilled cu adresă, conținut și etichete per item.
           </p>
+          {hasConsent ? (
+            <div className="mt-3 inline-flex rounded-xl border bg-white p-1 shadow-sm">
+              {[
+                { id: 'unshipped', label: 'Unshipped' },
+                { id: 'shipped', label: 'Shipped' }
+              ].map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setStatusFilter(option.id)}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+                    statusFilter === option.id
+                      ? 'bg-primary text-white'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-xl border bg-white p-1">
-            {[
-              { id: 'unshipped', label: 'Unshipped' },
-              { id: 'shipped', label: 'Shipped' }
-            ].map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setStatusFilter(option.id)}
-                className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
-                  statusFilter === option.id
-                    ? 'bg-primary text-white'
-                    : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {hasConsent ? (
             <button
               type="button"

@@ -199,15 +199,13 @@ export default function AdminFbmOrders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-text-primary">FBM Orders</h2>
           <p className="text-sm text-text-secondary">
             Commandes seller-fulfilled din Amazon, cu adrese, produse și etichetele încărcate de client.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-xl border bg-white p-1">
+          <div className="mt-3 inline-flex rounded-xl border bg-white p-1 shadow-sm">
             {[
               { id: 'unshipped', label: 'Unshipped' },
               { id: 'shipped', label: 'Shipped' }
@@ -226,6 +224,8 @@ export default function AdminFbmOrders() {
               </button>
             ))}
           </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
             onClick={load}
