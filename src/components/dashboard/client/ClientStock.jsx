@@ -83,23 +83,18 @@ const normalizeFulfillmentChannel = (value) => {
   const normalized = String(value || '').trim().toUpperCase();
   if (!normalized) return null;
   if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
-  if (normalized.includes('MERCHANT') || normalized === 'MFN') return 'FBM';
+  if (
+    normalized.includes('MERCHANT') ||
+    normalized === 'MFN' ||
+    normalized === 'DEFAULT'
+  ) {
+    return 'FBM';
+  }
   if (normalized === 'FBA' || normalized === 'FBM') return normalized;
   return normalized;
 };
 
 const getFulfillmentKind = (row, channelRows = []) => {
-  const rowChannels = Array.isArray(row?.amazon_fulfillment_channels)
-    ? row.amazon_fulfillment_channels
-    : [];
-  const normalizedRowChannels = Array.from(
-    new Set(rowChannels.map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
-  );
-  const rowMode = normalizeFulfillmentChannel(row?.amazon_fulfillment_mode);
-
-  if (normalizedRowChannels.includes('FBM') || rowMode === 'FBM') return 'FBM';
-  if (normalizedRowChannels.includes('FBA') || rowMode === 'FBA') return 'FBA';
-
   const normalizedChannels = Array.from(
     new Set(
       (channelRows || [])
@@ -110,6 +105,17 @@ const getFulfillmentKind = (row, channelRows = []) => {
 
   if (normalizedChannels.includes('FBM')) return 'FBM';
   if (normalizedChannels.includes('FBA')) return 'FBA';
+
+  const rowChannels = Array.isArray(row?.amazon_fulfillment_channels)
+    ? row.amazon_fulfillment_channels
+    : [];
+  const normalizedRowChannels = Array.from(
+    new Set(rowChannels.map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
+  );
+  const rowMode = normalizeFulfillmentChannel(row?.amazon_fulfillment_mode);
+
+  if (normalizedRowChannels.includes('FBM') || rowMode === 'FBM') return 'FBM';
+  if (normalizedRowChannels.includes('FBA') || rowMode === 'FBA') return 'FBA';
 
   const amazonSignal =
     Number(row?.amazon_stock || 0) > 0 ||

@@ -1353,6 +1353,34 @@ function findStockItemForListing(listing, companyId, stockIndexes) {
   );
 }
 
+function findStockItemForFulfillment(listing, companyId, stockIndexes) {
+  const comboKey = makeCombinationKey(companyId, listing?.sku, listing?.asin);
+  const skuKey = normalizeIdentifier(listing?.sku);
+  const asinKey = normalizeIdentifier(listing?.asin);
+  const eanKey = normalizeEan(listing?.ean);
+
+  if (comboKey && stockIndexes.byCombo.has(comboKey)) {
+    return stockIndexes.byCombo.get(comboKey);
+  }
+
+  if (skuKey && stockIndexes.bySku.has(skuKey)) {
+    return stockIndexes.bySku.get(skuKey);
+  }
+
+  // Fallback pe ASIN/EAN doar când listingul nu are SKU. Altfel riscăm
+  // să amestecăm două listinguri diferite ale aceluiași ASIN (ex: FBA + FBM).
+  if (!skuKey) {
+    if (asinKey && stockIndexes.byAsin.has(asinKey)) {
+      return stockIndexes.byAsin.get(asinKey);
+    }
+    if (eanKey && stockIndexes.byEan.has(eanKey)) {
+      return stockIndexes.byEan.get(eanKey);
+    }
+  }
+
+  return null;
+}
+
 async function syncListingChannels({
   companyId,
   sellerId,
@@ -1369,7 +1397,7 @@ async function syncListingChannels({
   const matchedStockIds = new Set();
 
   for (const listing of listings || []) {
-    const stockItem = findStockItemForListing(listing, companyId, stockIndexes);
+    const stockItem = findStockItemForFulfillment(listing, companyId, stockIndexes);
     if (!stockItem?.id) continue;
 
     const channel = normalizeFulfillmentChannel(listing?.fulfillmentChannel);
@@ -1453,7 +1481,7 @@ async function syncStockItemFulfillmentSummary({ companyId, listings, stockItems
   const patchesById = new Map();
 
   for (const listing of listings) {
-    const stockItem = findStockItemForListing(listing, companyId, stockIndexes);
+    const stockItem = findStockItemForFulfillment(listing, companyId, stockIndexes);
     if (!stockItem?.id) continue;
 
     const channel = normalizeFulfillmentChannel(listing?.fulfillmentChannel);
