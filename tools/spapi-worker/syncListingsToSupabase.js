@@ -532,6 +532,38 @@ function normalizeFulfillmentChannel(value) {
   return normalized;
 }
 
+function summarizeFulfillmentChannels(listings = []) {
+  const normalizedCounts = new Map();
+  const rawCounts = new Map();
+
+  for (const row of listings || []) {
+    const raw = String(row?.fulfillmentChannel || '').trim() || '(empty)';
+    rawCounts.set(raw, (rawCounts.get(raw) || 0) + 1);
+
+    const normalized = normalizeFulfillmentChannel(row?.fulfillmentChannel) || 'UNKNOWN';
+    normalizedCounts.set(normalized, (normalizedCounts.get(normalized) || 0) + 1);
+  }
+
+  const normalizedSummary = Array.from(normalizedCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, value]) => `${key}:${value}`)
+    .join(', ');
+
+  const rawSummary = Array.from(rawCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([key, value]) => `${key}:${value}`)
+    .join(', ');
+
+  return {
+    normalizedSummary,
+    rawSummary,
+    fba: normalizedCounts.get('FBA') || 0,
+    fbm: normalizedCounts.get('FBM') || 0,
+    unknown: normalizedCounts.get('UNKNOWN') || 0
+  };
+}
+
 function filterListings(listings = []) {
   return listings.filter((row) => {
     const status = (row.status || '').toLowerCase();
@@ -1227,6 +1259,7 @@ async function syncListingsIntegration(integration) {
     }
     const normalized = normalizeListings(listingRaw);
     const listingRows = filterListings(normalized);
+    const fulfillmentSummary = summarizeFulfillmentChannels(listingRows);
     const eanEnrichmentStats = await enrichListingsEanFromKnownAndCatalog({
       spClient,
       marketplaceId,
@@ -1240,8 +1273,13 @@ async function syncListingsIntegration(integration) {
     const emptySku = listingRaw.filter((r) => !String(r.sku || '').trim()).length;
     const emptyAsin = listingRaw.filter((r) => !String(r.asin || '').trim() && !String(r.productId || '').trim()).length;
     console.log(
-      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin} eanKnown=${eanEnrichmentStats.knownFilled} eanCatalog=${eanEnrichmentStats.catalogFilled} eanCatalogNotFound=${eanEnrichmentStats.catalogNotFound} eanCatalogFailed=${eanEnrichmentStats.catalogFailed}`
+      `[Listings sync] ${integration.id} raw=${listingRaw.length} normalized=${normalized.length} filtered=${listingRows.length} withImage=${listingRowsWithImage} emptySku=${emptySku} emptyAsin=${emptyAsin} eanKnown=${eanEnrichmentStats.knownFilled} eanCatalog=${eanEnrichmentStats.catalogFilled} eanCatalogNotFound=${eanEnrichmentStats.catalogNotFound} eanCatalogFailed=${eanEnrichmentStats.catalogFailed} fulfillment=${fulfillmentSummary.normalizedSummary || 'none'} rawFulfillment=${fulfillmentSummary.rawSummary || 'none'}`
     );
+    if (fulfillmentSummary.fbm === 0) {
+      console.warn(
+        `[Listings sync] ${integration.id} marketplace=${marketplaceId} returned no FBM rows. Raw fulfillment values seen: ${fulfillmentSummary.rawSummary || 'none'}`
+      );
+    }
 
     if (!listingRows.length) {
       if (listingRaw.length) {
