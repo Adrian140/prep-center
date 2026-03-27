@@ -430,7 +430,12 @@ async function syncIntegration(integration) {
         listOrderItems(spClient, amazonOrderId)
       ]);
 
-      const effectiveAddress = address || orderDetails?.ShippingAddress || null;
+      const orderShippingAddress = order?.ShippingAddress || null;
+      const effectiveAddress =
+        address ||
+        orderDetails?.ShippingAddress ||
+        orderShippingAddress ||
+        null;
       const effectiveBuyerInfo = buyerInfo || orderDetails?.BuyerInfo || null;
 
       if (!effectiveAddress?.Name && !effectiveAddress?.Phone && !effectiveBuyerInfo?.BuyerName && !effectiveBuyerInfo?.BuyerEmail) {
@@ -472,10 +477,10 @@ async function syncIntegration(integration) {
         address_line_1: effectiveAddress?.AddressLine1 || null,
         address_line_2: effectiveAddress?.AddressLine2 || null,
         address_line_3: effectiveAddress?.AddressLine3 || null,
-        city: effectiveAddress?.City || null,
-        state_or_region: effectiveAddress?.StateOrRegion || null,
-        postal_code: effectiveAddress?.PostalCode || null,
-        country_code: effectiveAddress?.CountryCode || null,
+        city: effectiveAddress?.City || orderShippingAddress?.City || null,
+        state_or_region: effectiveAddress?.StateOrRegion || orderShippingAddress?.StateOrRegion || null,
+        postal_code: effectiveAddress?.PostalCode || orderShippingAddress?.PostalCode || null,
+        country_code: effectiveAddress?.CountryCode || orderShippingAddress?.CountryCode || null,
         address_phone: effectiveAddress?.Phone || null,
         raw_order: order,
         raw_address: effectiveAddress || {},
