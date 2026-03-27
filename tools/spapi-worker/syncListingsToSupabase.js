@@ -962,7 +962,10 @@ async function fetchCompanyStockItems(companyId, chunkSize = 1000) {
     const to = from + chunkSize - 1;
     const { data, error } = await supabase
       .from('stock_items')
-      .select('id, company_id, user_id, sku, asin, ean, name, image_url', { head: false })
+      .select(
+        'id, company_id, user_id, sku, asin, ean, name, image_url, amazon_fulfillment_mode, amazon_fulfillment_channels',
+        { head: false }
+      )
       .eq('company_id', companyId)
       .range(from, to);
     if (error) throw error;
@@ -1089,6 +1092,55 @@ async function syncListingChannels({
     removed: staleIds.length,
     matched: matchedStockIds.size
   };
+}
+
+function buildFulfillmentMode(channels = []) {
+  const normalized = Array.from(
+    new Set((channels || []).map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
+  );
+  if (normalized.includes('FBM')) return 'FBM';
+  if (normalized.includes('FBA')) return 'FBA';
+  return null;
+}
+
+async function syncStockItemFulfillmentSummary({ companyId, listings, stockItems }) {
+  if (!companyId || !Array.isArray(listings) || !listings.length || !Array.isArray(stockItems) || !stockItems.length) {
+    return { updated: 0 };
+  }
+
+  const stockIndexes = buildStockItemIndexes(stockItems);
+  const patchesById = new Map();
+
+  for (const listing of listings) {
+    const stockItem = findStockItemForListing(listing, companyId, stockIndexes);
+    if (!stockItem?.id) continue;
+
+    const channel = normalizeFulfillmentChannel(listing?.fulfillmentChannel);
+    if (!channel) continue;
+
+    const existingChannels = Array.isArray(stockItem.amazon_fulfillment_channels)
+      ? stockItem.amazon_fulfillment_channels
+      : [];
+    const nextChannels = Array.from(
+      new Set([...existingChannels, channel].map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
+    );
+    const nextMode = buildFulfillmentMode(nextChannels);
+
+    patchesById.set(stockItem.id, {
+      id: stockItem.id,
+      amazon_fulfillment_mode: nextMode,
+      amazon_fulfillment_channels: nextChannels
+    });
+  }
+
+  const patches = Array.from(patchesById.values());
+  for (const patch of patches) {
+    const { id, ...payload } = patch;
+    const { error } = await supabase.from('stock_items').update(payload).eq('id', id);
+    if (error) throw error;
+  }
+
+  return { updated: patches.length };
 }
 
 async function insertListingRows(rows) {
@@ -1465,6 +1517,11 @@ async function syncListingsIntegration(integration) {
     }
 
     const latestStockItems = await fetchCompanyStockItems(integration.company_id);
+    const fulfillmentSummaryStats = await syncStockItemFulfillmentSummary({
+      companyId: integration.company_id,
+      listings: listingRows,
+      stockItems: latestStockItems
+    });
     const channelStats = await syncListingChannels({
       companyId: integration.company_id,
       sellerId: integration.selling_partner_id || integration.id,
@@ -1486,7 +1543,7 @@ async function syncListingsIntegration(integration) {
       .eq('id', integration.id);
 
     console.log(
-      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, channels=${channelStats.upserted}, channelMatched=${channelStats.matched}, channelRemoved=${channelStats.removed}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
+      `Listings integration ${integration.id} synced (${inserts.length} new rows from ${listingRows.length} listing rows, images: report=${listingRowsWithImage}, inserted=${insertsWithImage}, updated=${updatesWithImage.size}, channels=${channelStats.upserted}, channelMatched=${channelStats.matched}, channelRemoved=${channelStats.removed}, fulfillmentSummary=${fulfillmentSummaryStats.updated}, catalogProcessed=${catalogImageStats.processed}, catalogFound=${catalogImageStats.found}, catalogReused=${catalogImageStats.reused}, catalogNotFound=${catalogImageStats.notFound}, catalogFailed=${catalogImageStats.failed}).`
     );
   } catch (err) {
     console.error(

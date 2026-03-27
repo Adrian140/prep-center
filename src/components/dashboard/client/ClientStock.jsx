@@ -89,6 +89,17 @@ const normalizeFulfillmentChannel = (value) => {
 };
 
 const getFulfillmentKind = (row, channelRows = []) => {
+  const rowChannels = Array.isArray(row?.amazon_fulfillment_channels)
+    ? row.amazon_fulfillment_channels
+    : [];
+  const normalizedRowChannels = Array.from(
+    new Set(rowChannels.map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
+  );
+  const rowMode = normalizeFulfillmentChannel(row?.amazon_fulfillment_mode);
+
+  if (normalizedRowChannels.includes('FBM') || rowMode === 'FBM') return 'FBM';
+  if (normalizedRowChannels.includes('FBA') || rowMode === 'FBA') return 'FBA';
+
   const normalizedChannels = Array.from(
     new Set(
       (channelRows || [])
@@ -97,8 +108,6 @@ const getFulfillmentKind = (row, channelRows = []) => {
     )
   );
 
-  // UI rule: when Amazon reports both channels for the same stock item,
-  // we classify it as FBM to avoid duplicates between the two tabs.
   if (normalizedChannels.includes('FBM')) return 'FBM';
   if (normalizedChannels.includes('FBA')) return 'FBA';
 
