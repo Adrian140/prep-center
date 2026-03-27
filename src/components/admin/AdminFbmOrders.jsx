@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCcw, Truck, MapPin, Package, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
-import { useMarket } from '@/contexts/MarketContext';
-import { normalizeMarketCode } from '@/utils/market';
 
 const bucketName = 'fbm-order-files';
 
@@ -25,7 +23,6 @@ const statusOptions = ['pending', 'processing', 'ready', 'shipped', 'cancelled']
 const isProcessedStatus = (status) => ['processing', 'ready', 'shipped'].includes(String(status || '').trim().toLowerCase());
 
 export default function AdminFbmOrders() {
-  const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -55,6 +52,7 @@ export default function AdminFbmOrders() {
         seller_order_id,
         amazon_order_status,
         local_status,
+        sales_channel,
         shipment_service_level_category,
         order_total_amount,
         order_total_currency,
@@ -97,11 +95,6 @@ export default function AdminFbmOrders() {
       .order('purchase_date', { ascending: false })
       .limit(200);
 
-    const marketCode = normalizeMarketCode(currentMarket);
-    if (marketCode) {
-      query = query.eq('marketplace_country', marketCode);
-    }
-
     const { data, error: loadError } = await query;
     if (loadError) {
       setError(loadError.message);
@@ -139,7 +132,7 @@ export default function AdminFbmOrders() {
 
   useEffect(() => {
     load();
-  }, [currentMarket]);
+  }, []);
 
   const activeRows = rows.filter((row) => String(row.amazon_order_status || '').trim().toLowerCase() === 'unshipped');
   const historyRows = rows.filter((row) => isProcessedStatus(row.local_status));
@@ -283,6 +276,7 @@ export default function AdminFbmOrders() {
                     </div>
                   </div>
                   <div className="text-xs text-slate-500">Amazon order: {row.amazon_order_id}</div>
+                  <div className="text-xs text-slate-500">Sales channel: {row.sales_channel || row.marketplace_country || '—'}</div>
                   {row.buyer_name || row.buyer_phone || row.buyer_email || row.address_phone ? (
                     <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
                       <div>

@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Upload, Package, MapPin, Truck, RefreshCcw, Trash2 } from 'lucide-react';
 import { supabase } from '@/config/supabase';
 import { useSupabaseAuth } from '@/contexts/SupabaseAuthContext';
-import { useMarket } from '@/contexts/MarketContext';
-import { normalizeMarketCode } from '@/utils/market';
 
 const bucketName = 'fbm-order-files';
 const FBM_MARKETS = [
@@ -40,7 +38,6 @@ const isProcessedStatus = (status) => ['processing', 'ready', 'shipped'].include
 
 export default function ClientFbmOrders() {
   const { profile } = useSupabaseAuth();
-  const { currentMarket } = useMarket();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -80,6 +77,7 @@ export default function ClientFbmOrders() {
         seller_order_id,
         amazon_order_status,
         local_status,
+        sales_channel,
         shipment_service_level_category,
         order_total_amount,
         order_total_currency,
@@ -127,11 +125,6 @@ export default function ClientFbmOrders() {
       .eq('company_id', profile.company_id)
       .order('purchase_date', { ascending: false })
       .limit(200);
-
-    const marketCode = normalizeMarketCode(currentMarket);
-    if (marketCode) {
-      query = query.eq('marketplace_country', marketCode);
-    }
 
     const { data, error: loadError } = await query;
     if (loadError) {
@@ -199,7 +192,7 @@ export default function ClientFbmOrders() {
   useEffect(() => {
     load();
     loadSettings();
-  }, [profile?.company_id, currentMarket]);
+  }, [profile?.company_id]);
 
   const enabledMarketplaces = useMemo(
     () => settings.filter((row) => row.enabled).map((row) => row.marketplace_id),
@@ -380,6 +373,9 @@ export default function ClientFbmOrders() {
           </div>
           <div className="text-xs text-slate-500">
             Amazon order: <span className="font-semibold">{order.amazon_order_id}</span>
+          </div>
+          <div className="text-xs text-slate-500">
+            Sales channel: <span className="font-semibold">{order.sales_channel || order.marketplace_country || '—'}</span>
           </div>
           {order.seller_order_id ? (
             <div className="text-xs text-slate-500">
