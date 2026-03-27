@@ -238,11 +238,18 @@ async function createOrderRestrictedDataToken(spClient, amazonOrderId) {
         restrictedResources: [
           {
             method: 'GET',
-            path: `/orders/v0/orders/${amazonOrderId}/address`
+            path: `/orders/v0/orders/${amazonOrderId}`,
+            dataElements: ['shippingAddress', 'buyerInfo']
           },
           {
             method: 'GET',
-            path: `/orders/v0/orders/${amazonOrderId}/buyerInfo`
+            path: `/orders/v0/orders/${amazonOrderId}/address`,
+            dataElements: ['shippingAddress']
+          },
+          {
+            method: 'GET',
+            path: `/orders/v0/orders/${amazonOrderId}/buyerInfo`,
+            dataElements: ['buyerInfo']
           }
         ]
       }
@@ -394,6 +401,12 @@ async function syncIntegration(integration) {
         getOrderBuyerInfoSafe(spClient, amazonOrderId, restrictedDataToken),
         listOrderItems(spClient, amazonOrderId)
       ]);
+
+      if (!address?.Name && !address?.Phone && !buyerInfo?.BuyerName && !buyerInfo?.BuyerEmail) {
+        console.warn(
+          `[FBM sync] ${amazonOrderId}: Amazon returned no buyer/address PII after RDT. This usually means missing restricted roles approval or no PII available for this order.`
+        );
+      }
 
       const country = mapMarketplaceToCountry(order?.MarketplaceId || marketplaceId);
       const orderPatch = {
