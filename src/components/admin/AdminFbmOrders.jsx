@@ -221,6 +221,42 @@ export default function AdminFbmOrders() {
     }
   };
 
+  const deleteLabel = async (row, file) => {
+    if (!file?.id) return;
+    if (!window.confirm(`Delete label ${file.file_name || 'file'}?`)) {
+      return;
+    }
+    setSavingId(file.id);
+    setError('');
+    try {
+      if (file.storage_path) {
+        const { error: storageError } = await supabase.storage.from(bucketName).remove([file.storage_path]);
+        if (storageError) throw storageError;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('fbm_order_files')
+        .delete()
+        .eq('id', file.id);
+      if (deleteError) throw deleteError;
+
+      setRows((prev) =>
+        prev.map((entry) =>
+          entry.id !== row.id
+            ? entry
+            : {
+                ...entry,
+                fbm_order_files: (entry.fbm_order_files || []).filter((existing) => existing.id !== file.id)
+              }
+        )
+      );
+    } catch (err) {
+      setError(err?.message || 'Could not delete label.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -297,8 +333,8 @@ export default function AdminFbmOrders() {
                   <div className="text-base font-semibold text-slate-900">{customerName}</div>
                   <div className="flex items-start gap-2 text-sm text-slate-600">
                     <MapPin className="mt-0.5 h-4 w-4 text-amber-600" />
-                    <div>
-                      <div className="font-medium text-slate-900">{row.recipient_name || 'Recipient unavailable'}</div>
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 font-semibold text-red-700">
+                      <div className="font-medium">{row.recipient_name || 'Recipient unavailable'}</div>
                       {[row.address_line_1, row.address_line_2, row.address_line_3].filter(Boolean).map((line) => (
                         <div key={`${row.id}-${line}`}>{line}</div>
                       ))}
@@ -374,7 +410,7 @@ export default function AdminFbmOrders() {
                   <thead>
                     <tr className="border-b text-left text-slate-500">
                       <th className="px-2 py-2">Contents</th>
-                      <th className="px-2 py-2">Qty</th>
+                      <th className="px-2 py-2 text-red-600">Qty</th>
                       <th className="px-2 py-2">Price</th>
                       <th className="px-2 py-2">Stock link</th>
                       <th className="px-2 py-2">Files</th>
@@ -405,7 +441,7 @@ export default function AdminFbmOrders() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-2 py-3">{item.quantity_ordered || 0}</td>
+                          <td className="px-2 py-3 text-base font-bold text-red-600">{item.quantity_ordered || 0}</td>
                           <td className="px-2 py-3">{formatMoney(item.item_price_amount, item.item_price_currency)}</td>
                           <td className="px-2 py-3 text-xs text-slate-600">
                             {item.stock_item_id ? `Linked #${item.stock_item_id}` : 'Not linked yet'}
@@ -414,15 +450,25 @@ export default function AdminFbmOrders() {
                             <div className="flex flex-col gap-1">
                               {files.length ? (
                                 files.map((file) => (
-                                  <a
-                                    key={file.id}
-                                    href={file.signed_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs text-primary hover:underline"
-                                  >
-                                    {file.file_name || file.file_type || 'File'}
-                                  </a>
+                                  <div key={file.id} className="flex items-center gap-2">
+                                    <a
+                                      href={file.signed_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-xs text-primary hover:underline"
+                                    >
+                                      {file.file_name || file.file_type || 'File'}
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => deleteLabel(row, file)}
+                                      disabled={savingId === file.id}
+                                      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-red-200 text-[10px] font-bold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                      aria-label={`Delete ${file.file_name || 'label'}`}
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
                                 ))
                               ) : (
                                 <span className="text-xs text-slate-400">No files</span>
