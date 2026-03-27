@@ -6,6 +6,46 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 const compactTracking = (value = '') => String(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+const detectTrackingFromBarcode = async (canvas) => {
+  if (typeof window === 'undefined' || typeof window.BarcodeDetector === 'undefined') {
+    return null;
+  }
+
+  try {
+    const detector = new window.BarcodeDetector({
+      formats: ['code_128', 'code_39', 'codabar', 'ean_13', 'ean_8', 'pdf417', 'qr_code', 'upc_a', 'upc_e']
+    });
+    const barcodes = await detector.detect(canvas);
+    for (const barcode of barcodes || []) {
+      const candidate = compactTracking(barcode?.rawValue || '');
+      if (!candidate) continue;
+      const upsMatch = candidate.match(/1Z[0-9A-Z]{16}/);
+      if (upsMatch) {
+        return {
+          trackingNumber: upsMatch[0],
+          carrierCode: 'UPS',
+          carrierName: 'UPS',
+          message: `Tracking extracted from barcode: ${upsMatch[0]}`,
+          textPreview: candidate
+        };
+      }
+      if (candidate.length >= 8 && candidate.length <= 30) {
+        return {
+          trackingNumber: candidate,
+          carrierCode: null,
+          carrierName: null,
+          message: `Tracking extracted from barcode: ${candidate}`,
+          textPreview: candidate
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('FBM barcode detection failed:', error);
+  }
+
+  return null;
+};
+
 const extractTrackingFromText = (text = '') => {
   const upper = String(text || '').toUpperCase();
   const compact = compactTracking(upper);
@@ -72,6 +112,10 @@ export const extractTrackingFromLabelFile = async (file) => {
   let worker = null;
   try {
     const canvas = await renderFileToCanvas(file);
+    const barcodeResult = await detectTrackingFromBarcode(canvas);
+    if (barcodeResult?.trackingNumber) {
+      return barcodeResult;
+    }
     worker = await createWorker('eng', 1, {
       logger: () => {}
     });
