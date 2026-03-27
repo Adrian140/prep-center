@@ -313,13 +313,25 @@ export default function ClientFbmOrders() {
             Commandes Amazon seller-fulfilled cu adresă, conținut și etichete per item.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
-        >
-          <RefreshCcw className="h-4 w-4" /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {hasConsent ? (
+            <button
+              type="button"
+              onClick={revokeAll}
+              disabled={settingsSaving}
+              className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+            >
+              Revoke access
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={load}
+            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-slate-50"
+          >
+            <RefreshCcw className="h-4 w-4" /> Refresh
+          </button>
+        </div>
       </div>
 
       {error ? (
@@ -328,6 +340,7 @@ export default function ClientFbmOrders() {
         </div>
       ) : null}
 
+      {!hasConsent ? (
       <div className="rounded-xl border bg-white p-4 shadow-sm">
         <div className="space-y-3">
           <div>
@@ -414,6 +427,7 @@ export default function ClientFbmOrders() {
           </div>
         </div>
       </div>
+      ) : null}
 
       {loading ? (
         <div className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-text-secondary">
