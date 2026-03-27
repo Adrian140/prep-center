@@ -24,6 +24,8 @@ const DEBUG_LISTING_RAW_HEADER =
   String(process.env.SPAPI_LISTING_DEBUG_RAW_HEADER || '').trim() === '1';
 const LISTING_FETCH_IMAGES_FROM_CATALOG =
   String(process.env.SPAPI_LISTING_FETCH_IMAGES_FROM_CATALOG || 'true').toLowerCase() !== 'false';
+const LISTING_FETCH_EAN_FROM_CATALOG =
+  String(process.env.SPAPI_LISTING_FETCH_EAN_FROM_CATALOG || 'false').toLowerCase() === 'true';
 const LISTING_CATALOG_MARKETPLACE_IDS = String(
   process.env.SPAPI_LISTING_CATALOG_MARKETPLACE_IDS ||
     'A13V1IB3VIYZZH,A1PA6795UKMFR9,APJ6JRA9NG5V4,A1RKKUPIHCS9HS'
@@ -774,6 +776,18 @@ async function enrichListingsEanFromKnownAndCatalog({
 
   if (!stillMissingAsins.length) {
     return { knownFilled, catalogFilled: 0, catalogNotFound: 0, catalogFailed: 0 };
+  }
+
+  if (!LISTING_FETCH_EAN_FROM_CATALOG) {
+    console.log(
+      `[Listings sync] company=${companyId} skip catalog EAN fallback for ${stillMissingAsins.length} ASINs (SPAPI_LISTING_FETCH_EAN_FROM_CATALOG=false)`
+    );
+    return {
+      knownFilled,
+      catalogFilled: 0,
+      catalogNotFound: stillMissingAsins.length,
+      catalogFailed: 0
+    };
   }
 
   const catalogMarketplaceIds = resolveCatalogMarketplaceIds(marketplaceId);
