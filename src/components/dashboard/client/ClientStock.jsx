@@ -1808,7 +1808,7 @@ useEffect(() => {
     if (fulfillmentFilter === 'both') {
       base = base.filter((r) => {
         const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBA' || kind === 'FBM';
+        return kind === 'FBA' || kind === 'FBM' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fba') {
