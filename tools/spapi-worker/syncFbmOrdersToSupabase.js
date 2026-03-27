@@ -482,6 +482,42 @@ async function main(resumeCompanyId = null) {
     }
   }
 
+  const disabledCompanyEntries = companyEntries.filter((entry) => {
+    const enabledMarkets = Array.from(enabledMarketplaceMap.get(entry.companyId) || []).filter((id) =>
+      SUPPORTED_MARKETPLACES.includes(id)
+    );
+    return enabledMarkets.length === 0;
+  });
+
+  disabledCompanyEntries.forEach((entry) => {
+    console.log(
+      `[FBM sync] Skipping company ${companyLabel(entry.companyId, COMPANY_NAME_MAP)} because no FBM marketplaces are enabled by the client.`
+    );
+  });
+
+  companyEntries = companyEntries
+    .map((entry) => {
+      const enabledMarkets = Array.from(enabledMarketplaceMap.get(entry.companyId) || []).filter((id) =>
+        SUPPORTED_MARKETPLACES.includes(id)
+      );
+      return {
+        ...entry,
+        enabledMarkets,
+        integrations: enabledMarkets.length
+          ? entry.integrations.map((integration) => ({
+              ...integration,
+              marketplace_ids: enabledMarkets
+            }))
+          : []
+      };
+    })
+    .filter((entry) => entry.enabledMarkets.length > 0);
+
+  if (!companyEntries.length) {
+    console.log('[FBM sync] No companies have enabled FBM marketplace access.');
+    return { resumeNextCompanyId: null };
+  }
+
   let resumeNextCompanyId = null;
   for (const entry of companyEntries) {
     if (Date.now() - startedAt >= FBM_SYNC_TIME_BUDGET_MS) {
@@ -490,16 +526,6 @@ async function main(resumeCompanyId = null) {
     }
     for (const integration of entry.integrations) {
       try {
-        const enabledMarkets = Array.from(
-          enabledMarketplaceMap.get(integration.company_id) || []
-        ).filter((id) => SUPPORTED_MARKETPLACES.includes(id));
-        if (!enabledMarkets.length) {
-          console.log(
-            `[FBM sync] Skipping integration ${integration.id} (${companyLabel(integration.company_id, COMPANY_NAME_MAP)}) because no FBM marketplaces are enabled by the client.`
-          );
-          continue;
-        }
-        integration.marketplace_ids = enabledMarkets;
         await syncIntegration(integration);
       } catch (err) {
         console.error(`[FBM sync] Failed for integration ${integration.id}`, err);
