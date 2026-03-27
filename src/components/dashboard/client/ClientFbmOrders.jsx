@@ -316,6 +316,9 @@ export default function ClientFbmOrders() {
           .eq('id', order.id)
           .eq('company_id', profile.company_id);
         if (trackingError) throw trackingError;
+      } else if (extractedTracking?.message) {
+        const preview = extractedTracking.textPreview ? ` OCR preview: ${extractedTracking.textPreview}` : '';
+        setError(`Label uploaded, but tracking was not extracted. ${extractedTracking.message}${preview}`);
       }
 
       setRows((prev) =>

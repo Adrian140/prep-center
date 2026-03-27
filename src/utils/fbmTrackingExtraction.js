@@ -66,7 +66,9 @@ const renderFileToCanvas = async (file) => {
 };
 
 export const extractTrackingFromLabelFile = async (file) => {
-  if (!file) return null;
+  if (!file) {
+    return { trackingNumber: null, carrierCode: null, carrierName: null, message: 'No file provided.' };
+  }
   let worker = null;
   try {
     const canvas = await renderFileToCanvas(file);
@@ -74,10 +76,40 @@ export const extractTrackingFromLabelFile = async (file) => {
       logger: () => {}
     });
     const result = await worker.recognize(canvas);
-    return extractTrackingFromText(result?.data?.text || '');
+    const text = result?.data?.text || '';
+    if (!String(text).trim()) {
+      return {
+        trackingNumber: null,
+        carrierCode: null,
+        carrierName: null,
+        message: 'OCR completed but returned no readable text.',
+        textPreview: ''
+      };
+    }
+    const extracted = extractTrackingFromText(text);
+    if (extracted?.trackingNumber) {
+      return {
+        ...extracted,
+        message: `Tracking extracted: ${extracted.trackingNumber}`,
+        textPreview: text.slice(0, 240)
+      };
+    }
+    return {
+      trackingNumber: null,
+      carrierCode: null,
+      carrierName: null,
+      message: 'OCR extracted text, but no supported tracking pattern was recognized.',
+      textPreview: text.slice(0, 240)
+    };
   } catch (error) {
     console.warn('FBM label OCR failed:', error);
-    return null;
+    return {
+      trackingNumber: null,
+      carrierCode: null,
+      carrierName: null,
+      message: error?.message || 'OCR failed during label processing.',
+      textPreview: ''
+    };
   } finally {
     if (worker) {
       try {
