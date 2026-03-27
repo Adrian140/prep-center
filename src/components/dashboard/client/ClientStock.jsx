@@ -1025,8 +1025,8 @@ const [listingChannelsByItemId, setListingChannelsByItemId] = useState({});
 const [etsyListingsByItemId, setEtsyListingsByItemId] = useState({});
 const [etsyOrdersByItemId, setEtsyOrdersByItemId] = useState({});
 const [fulfillmentFilter, setFulfillmentFilter] = useSessionStorage(
-  `${storagePrefix}-fulfillmentFilter`,
-  'fba'
+  `${storagePrefix}-fulfillmentFilter-v2`,
+  'both'
 );
 
   const [searchField, setSearchField] = useSessionStorage(
