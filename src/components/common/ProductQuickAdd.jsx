@@ -9,7 +9,7 @@ const defaultLabels = {
   subtitle:
     'Add placeholders manually or upload the template with EAN/ASIN, product name, and optional SKU, EAN and purchase price. Quantities will sync automatically once Amazon sends the listing.',
   manualTitle: 'Manual entry',
-  eanLabel: 'EAN/ASIN *',
+  eanLabel: 'ASIN *',
   skuLabel: 'SKU (optional)',
   eanOptionalLabel: 'EAN (optional)',
   nameLabel: 'Product Name *',
@@ -45,6 +45,11 @@ const randomId = () =>
 const buildCodeKey = (code, type) => {
   if (!code) return null;
   return `${type}:${String(code).trim().toUpperCase()}`;
+};
+
+const buildAsinSkuKey = (asin, sku) => {
+  if (!asin || !sku) return null;
+  return `ASIN+SKU:${String(asin).trim().toUpperCase()}::${String(sku).trim().toUpperCase()}`;
 };
 
 const parseCode = (raw) => {
@@ -99,6 +104,10 @@ const downloadTemplate = async (labelsInput = defaultLabels) => {
 
 const setRowIndexKeys = (map, row) => {
   if (!row) return;
+  const asinSkuKey = buildAsinSkuKey(row.asin, row.sku);
+  if (asinSkuKey) {
+    map.set(asinSkuKey, row);
+  }
   if (row.ean) {
     map.set(buildCodeKey(row.ean, 'EAN'), row);
   }
@@ -262,14 +271,20 @@ function ProductQuickAdd({
   };
 
   const upsertRow = async (line, localIndexMap) => {
-    const key = line.ean
-      ? buildCodeKey(line.ean, 'EAN')
-      : line.asin
-      ? buildCodeKey(line.asin, 'ASIN')
-      : line.sku
-      ? buildCodeKey(line.sku, 'SKU')
-      : null;
-    const matchedRow = key ? localIndexMap.get(key) : null;
+    const asinSkuKey = buildAsinSkuKey(line.asin, line.sku);
+    let matchedRow = null;
+    if (asinSkuKey) {
+      matchedRow =
+        localIndexMap.get(asinSkuKey) ||
+        (line.sku ? localIndexMap.get(buildCodeKey(line.sku, 'SKU')) : null) ||
+        null;
+    } else if (line.sku) {
+      matchedRow = localIndexMap.get(buildCodeKey(line.sku, 'SKU')) || null;
+    } else if (line.ean) {
+      matchedRow = localIndexMap.get(buildCodeKey(line.ean, 'EAN')) || null;
+    } else if (line.asin) {
+      matchedRow = localIndexMap.get(buildCodeKey(line.asin, 'ASIN')) || null;
+    }
     if (matchedRow) {
       const patch = {};
       if (!matchedRow.name && line.name) patch.name = line.name;
