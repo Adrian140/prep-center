@@ -8,6 +8,61 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerSrc;
 
 const compactTracking = (value = '') => String(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
 const COLISSIMO_REGEX = /8J\d{11}/;
+const UPS_REGEX = /1Z[0-9A-Z]{16}/;
+const CHRONOPOST_REGEX = /[A-Z]{2}\d{9}[A-Z]{2}/;
+
+const carrierExtractors = [
+  {
+    carrierCode: 'COLISSIMO',
+    carrierName: 'Colissimo',
+    fromText(upper, compact) {
+      const numColisLine = upper.match(/NUM\s*COLIS\s*:?\s*([A-Z0-9 ]{8,30})/);
+      if (numColisLine) {
+        const candidate = compactTracking(numColisLine[1]).match(COLISSIMO_REGEX)?.[0];
+        if (candidate) return candidate;
+      }
+      return compact.match(COLISSIMO_REGEX)?.[0] || null;
+    }
+  },
+  {
+    carrierCode: 'CHRONOPOST',
+    carrierName: 'Chronopost',
+    fromText(upper, compact) {
+      const carrierTrackingLine = upper.match(/CARRIER\s*TRACKING\s*:?\s*([A-Z0-9 ]{8,30})/);
+      if (carrierTrackingLine) {
+        const candidate = compactTracking(carrierTrackingLine[1]).match(CHRONOPOST_REGEX)?.[0];
+        if (candidate) return candidate;
+      }
+      const chronoLine = upper.match(/CHRONOPOST[\s\S]{0,120}?([A-Z]{2}\s*\d(?:[\d ]{7,12})[A-Z]{2})/);
+      if (chronoLine) {
+        const candidate = compactTracking(chronoLine[1]).match(CHRONOPOST_REGEX)?.[0];
+        if (candidate) return candidate;
+      }
+      return compact.match(CHRONOPOST_REGEX)?.[0] || null;
+    }
+  },
+  {
+    carrierCode: 'UPS',
+    carrierName: 'UPS',
+    fromText(_upper, compact) {
+      return compact.match(UPS_REGEX)?.[0] || null;
+    }
+  }
+];
+
+const detectCarrierTracking = (upper, compact) => {
+  for (const extractor of carrierExtractors) {
+    const trackingNumber = extractor.fromText(upper, compact);
+    if (trackingNumber) {
+      return {
+        trackingNumber,
+        carrierCode: extractor.carrierCode,
+        carrierName: extractor.carrierName
+      };
+    }
+  }
+  return null;
+};
 
 const detectTrackingFromBarcode = async (canvas) => {
   if (typeof window === 'undefined' || typeof window.BarcodeDetector === 'undefined') {
@@ -22,23 +77,11 @@ const detectTrackingFromBarcode = async (canvas) => {
     for (const barcode of barcodes || []) {
       const candidate = compactTracking(barcode?.rawValue || '');
       if (!candidate) continue;
-      const colissimoMatch = candidate.match(COLISSIMO_REGEX);
-      if (colissimoMatch) {
+      const extracted = detectCarrierTracking(candidate, candidate);
+      if (extracted?.trackingNumber) {
         return {
-          trackingNumber: colissimoMatch[0],
-          carrierCode: 'COLISSIMO',
-          carrierName: 'Colissimo',
-          message: `Tracking extracted from barcode: ${colissimoMatch[0]}`,
-          textPreview: candidate
-        };
-      }
-      const upsMatch = candidate.match(/1Z[0-9A-Z]{16}/);
-      if (upsMatch) {
-        return {
-          trackingNumber: upsMatch[0],
-          carrierCode: 'UPS',
-          carrierName: 'UPS',
-          message: `Tracking extracted from barcode: ${upsMatch[0]}`,
+          ...extracted,
+          message: `Tracking extracted from barcode: ${extracted.trackingNumber}`,
           textPreview: candidate
         };
       }
@@ -62,36 +105,9 @@ const detectTrackingFromBarcode = async (canvas) => {
 const extractTrackingFromText = (text = '') => {
   const upper = String(text || '').toUpperCase();
   const compact = compactTracking(upper);
-
-  const numColisLine = upper.match(/NUM\s*COLIS\s*:?\s*([A-Z0-9 ]{8,30})/);
-  if (numColisLine) {
-    const candidate = compactTracking(numColisLine[1]);
-    const colissimoMatch = candidate.match(COLISSIMO_REGEX);
-    if (colissimoMatch) {
-      return {
-        trackingNumber: colissimoMatch[0],
-        carrierCode: 'COLISSIMO',
-        carrierName: 'Colissimo'
-      };
-    }
-  }
-
-  const colissimoMatch = compact.match(COLISSIMO_REGEX);
-  if (colissimoMatch) {
-    return {
-      trackingNumber: colissimoMatch[0],
-      carrierCode: 'COLISSIMO',
-      carrierName: 'Colissimo'
-    };
-  }
-
-  const upsMatch = compact.match(/1Z[0-9A-Z]{16}/);
-  if (upsMatch) {
-    return {
-      trackingNumber: upsMatch[0],
-      carrierCode: 'UPS',
-      carrierName: 'UPS'
-    };
+  const carrierMatch = detectCarrierTracking(upper, compact);
+  if (carrierMatch?.trackingNumber) {
+    return carrierMatch;
   }
 
   const explicitLine = upper.match(/TRACKING\s*#?\s*:?\s*([A-Z0-9 -]{8,40})/);
