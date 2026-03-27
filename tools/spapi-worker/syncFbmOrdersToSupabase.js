@@ -303,6 +303,22 @@ async function getOrderBuyerInfoSafe(spClient, amazonOrderId, restrictedDataToke
   }
 }
 
+async function getOrderWithPiiSafe(spClient, amazonOrderId, restrictedDataToken = null) {
+  if (!restrictedDataToken) return null;
+  try {
+    const res = await spClient.callAPI({
+      operation: 'getOrder',
+      endpoint: 'orders',
+      path: { orderId: amazonOrderId },
+      restricted_data_token: restrictedDataToken
+    });
+    return res?.payload || res || null;
+  } catch (err) {
+    console.warn(`[FBM sync] getOrder failed for ${amazonOrderId}: ${err?.message || err}`);
+    return null;
+  }
+}
+
 function mapLocalStatus(orderStatus) {
   const normalized = String(orderStatus || '').trim().toLowerCase();
   if (!normalized) return 'pending';
@@ -407,13 +423,17 @@ async function syncIntegration(integration) {
         );
       }
 
-      const [address, buyerInfo, orderItems] = await Promise.all([
+      const [address, buyerInfo, orderDetails, orderItems] = await Promise.all([
         getOrderAddressSafe(spClient, amazonOrderId, restrictedDataToken),
         getOrderBuyerInfoSafe(spClient, amazonOrderId, restrictedDataToken),
+        getOrderWithPiiSafe(spClient, amazonOrderId, restrictedDataToken),
         listOrderItems(spClient, amazonOrderId)
       ]);
 
-      if (!address?.Name && !address?.Phone && !buyerInfo?.BuyerName && !buyerInfo?.BuyerEmail) {
+      const effectiveAddress = address || orderDetails?.ShippingAddress || null;
+      const effectiveBuyerInfo = buyerInfo || orderDetails?.BuyerInfo || null;
+
+      if (!effectiveAddress?.Name && !effectiveAddress?.Phone && !effectiveBuyerInfo?.BuyerName && !effectiveBuyerInfo?.BuyerEmail) {
         console.warn(
           `[FBM sync] ${amazonOrderId}: Amazon returned no buyer/address PII after RDT. This usually means missing restricted roles approval or no PII available for this order.`
         );
@@ -444,22 +464,22 @@ async function syncIntegration(integration) {
         latest_ship_date: order?.LatestShipDate || null,
         latest_delivery_start_date: order?.LatestDeliveryDate || null,
         latest_delivery_end_date: order?.LatestDeliveryDate || null,
-        buyer_email: buyerInfo?.BuyerEmail || null,
-        buyer_name: buyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
-        buyer_phone: address?.Phone || null,
-        recipient_name: address?.Name || buyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
-        company_name: address?.CompanyName || null,
-        address_line_1: address?.AddressLine1 || null,
-        address_line_2: address?.AddressLine2 || null,
-        address_line_3: address?.AddressLine3 || null,
-        city: address?.City || null,
-        state_or_region: address?.StateOrRegion || null,
-        postal_code: address?.PostalCode || null,
-        country_code: address?.CountryCode || null,
-        address_phone: address?.Phone || null,
+        buyer_email: effectiveBuyerInfo?.BuyerEmail || null,
+        buyer_name: effectiveBuyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
+        buyer_phone: effectiveAddress?.Phone || null,
+        recipient_name: effectiveAddress?.Name || effectiveBuyerInfo?.BuyerName || order?.BuyerInfo?.BuyerName || null,
+        company_name: effectiveAddress?.CompanyName || null,
+        address_line_1: effectiveAddress?.AddressLine1 || null,
+        address_line_2: effectiveAddress?.AddressLine2 || null,
+        address_line_3: effectiveAddress?.AddressLine3 || null,
+        city: effectiveAddress?.City || null,
+        state_or_region: effectiveAddress?.StateOrRegion || null,
+        postal_code: effectiveAddress?.PostalCode || null,
+        country_code: effectiveAddress?.CountryCode || null,
+        address_phone: effectiveAddress?.Phone || null,
         raw_order: order,
-        raw_address: address || {},
-        raw_buyer: buyerInfo || {},
+        raw_address: effectiveAddress || {},
+        raw_buyer: effectiveBuyerInfo || {},
         last_synced_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
