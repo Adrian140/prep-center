@@ -359,6 +359,9 @@ function summarizeFulfillmentChannels(orders = []) {
 }
 
 async function syncIntegration(integration) {
+  console.log(
+    `[FBM sync] start integration=${integration.id} company=${integration.company_id} seller=${integration.selling_partner_id || 'n/a'}`
+  );
   const spClient = createSpClient({
     refreshToken: integration.refresh_token,
     region: integration.region || process.env.SPAPI_REGION
@@ -370,6 +373,7 @@ async function syncIntegration(integration) {
   let totalItems = 0;
 
   for (const marketplaceId of marketplaceIds) {
+    console.log(`[FBM sync] integration=${integration.id} stage=list-orders marketplace=${marketplaceId}`);
     const defaultWindowStart = isoDateDaysAgo(ORDER_WINDOW_DAYS);
     const onboardingWindowStart = isoDateDaysAgo(Math.max(0, ORDER_INITIAL_LOOKBACK_DAYS));
     const createdAfterIso = onboardingWindowStart > defaultWindowStart
@@ -523,14 +527,18 @@ async function syncIntegration(integration) {
 }
 
 async function main(resumeCompanyId = null) {
+  console.log('[FBM sync] stage=load-enabled-marketplaces start');
   const enabledMarketplaceMap = await fetchEnabledMarketplaceMap();
+  console.log(`[FBM sync] stage=load-enabled-marketplaces done companies=${enabledMarketplaceMap.size}`);
   const enabledCompanyIds = Array.from(enabledMarketplaceMap.keys());
   if (!enabledCompanyIds.length) {
     console.log('[FBM sync] No companies have enabled FBM marketplace access.');
     return { resumeNextCompanyId: null };
   }
 
+  console.log('[FBM sync] stage=load-integrations start');
   const integrations = await fetchActiveIntegrations(enabledCompanyIds);
+  console.log(`[FBM sync] stage=load-integrations done integrations=${integrations.length}`);
   if (!integrations.length) {
     console.log('[FBM sync] No active Amazon integrations found for companies with FBM access enabled.');
     return { resumeNextCompanyId: null };
@@ -547,6 +555,7 @@ async function main(resumeCompanyId = null) {
     companyId,
     integrations: rows
   }));
+  console.log(`[FBM sync] stage=group-by-company done companies=${companyEntries.length}`);
 
   if (resumeCompanyId) {
     const idx = companyEntries.findIndex((entry) => entry.companyId === resumeCompanyId);
@@ -591,6 +600,7 @@ async function main(resumeCompanyId = null) {
       };
     })
     .filter((entry) => entry.enabledMarkets.length > 0);
+  console.log(`[FBM sync] stage=prepare-sync done companies=${companyEntries.length}`);
 
   if (!companyEntries.length) {
     console.log('[FBM sync] No companies have enabled FBM marketplace access.');
