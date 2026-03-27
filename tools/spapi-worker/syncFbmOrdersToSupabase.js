@@ -509,10 +509,13 @@ async function syncIntegration(integration) {
   }
 
   const syncedAt = new Date().toISOString();
+  const integrationIds = Array.isArray(integration.integration_ids) && integration.integration_ids.length
+    ? integration.integration_ids
+    : [integration.id];
   await supabase
     .from('amazon_integrations')
     .update({ last_error: null, last_synced_at: syncedAt })
-    .eq('id', integration.id);
+    .in('id', integrationIds);
 
   console.log(
     `[FBM sync] integration ${integration.id} finished: orders=${totalOrders}, items=${totalItems}.`
@@ -565,11 +568,25 @@ async function main(resumeCompanyId = null) {
         ...entry,
         enabledMarkets,
         integrations: enabledMarkets.length
-          ? entry.integrations.map((integration) => ({
-              ...integration,
-              marketplace_ids: enabledMarkets,
-              marketplace_consent: marketplaceConsent
-            }))
+          ? Array.from(
+              entry.integrations.reduce((acc, integration) => {
+                const groupKey =
+                  integration.selling_partner_id ||
+                  integration.refresh_token ||
+                  integration.id;
+                if (!acc.has(groupKey)) {
+                  acc.set(groupKey, {
+                    ...integration,
+                    integration_ids: [integration.id],
+                    marketplace_ids: enabledMarkets,
+                    marketplace_consent: marketplaceConsent
+                  });
+                } else {
+                  acc.get(groupKey).integration_ids.push(integration.id);
+                }
+                return acc;
+              }, new Map()).values()
+            )
           : []
       };
     })
