@@ -20,14 +20,7 @@ const SUPPORTED_MARKETPLACES = [
 ];
 
 const ORDER_STATUSES = [
-  'PendingAvailability',
-  'Pending',
-  'Unshipped',
-  'PartiallyShipped',
-  'Shipped',
-  'InvoiceUnconfirmed',
-  'Unfulfillable',
-  'Canceled'
+  'Unshipped'
 ];
 
 const MARKETPLACE_COUNTRY = {
@@ -159,16 +152,16 @@ async function fetchEnabledMarketplaceMap(companyIds = []) {
   if (!ids.length) return new Map();
   const { data, error } = await supabase
     .from('fbm_order_sync_settings')
-    .select('company_id, marketplace_id, enabled')
+    .select('company_id, marketplace_id, enabled, consent_granted_at')
     .in('company_id', ids)
     .eq('enabled', true);
   if (error) throw error;
   const map = new Map();
   for (const row of data || []) {
     if (!map.has(row.company_id)) {
-      map.set(row.company_id, new Set());
+      map.set(row.company_id, new Map());
     }
-    map.get(row.company_id).add(row.marketplace_id);
+    map.get(row.company_id).set(row.marketplace_id, row.consent_granted_at || null);
   }
   return map;
 }
@@ -185,7 +178,7 @@ function resolveMarketplaceIds(integration) {
   return [DEFAULT_MARKETPLACE];
 }
 
-async function listAllOrders(spClient, marketplaceId) {
+async function listAllOrders(spClient, marketplaceId, createdAfterIso = null) {
   const orders = [];
   let nextToken = null;
   do {
@@ -193,7 +186,7 @@ async function listAllOrders(spClient, marketplaceId) {
       ? { NextToken: nextToken }
       : {
           MarketplaceIds: [marketplaceId],
-          CreatedAfter: isoDateDaysAgo(ORDER_WINDOW_DAYS),
+          CreatedAfter: createdAfterIso || isoDateDaysAgo(ORDER_WINDOW_DAYS),
           OrderStatuses: ORDER_STATUSES,
           MaxResultsPerPage: ORDERS_PAGE_SIZE
         };
@@ -331,7 +324,13 @@ async function syncIntegration(integration) {
   let totalItems = 0;
 
   for (const marketplaceId of marketplaceIds) {
-    const orders = await listAllOrders(spClient, marketplaceId);
+    const consentGrantedAt = integration.marketplace_consent?.[marketplaceId] || null;
+    const defaultWindowStart = isoDateDaysAgo(ORDER_WINDOW_DAYS);
+    const createdAfterIso =
+      consentGrantedAt && new Date(consentGrantedAt).toISOString() > defaultWindowStart
+        ? new Date(consentGrantedAt).toISOString()
+        : defaultWindowStart;
+    const orders = await listAllOrders(spClient, marketplaceId, createdAfterIso);
     const sellerFulfilledOrders = orders.filter((order) => {
       const channel = String(order?.FulfillmentChannel || '').trim().toLowerCase();
       return channel === 'mfn' || channel === 'sellerfulfilled' || channel === 'default';
@@ -344,6 +343,13 @@ async function syncIntegration(integration) {
     for (const order of sellerFulfilledOrders) {
       const amazonOrderId = order?.AmazonOrderId;
       if (!amazonOrderId) continue;
+
+      const { data: existingOrder } = await supabase
+        .from('fbm_orders')
+        .select('id, local_status')
+        .eq('company_id', integration.company_id)
+        .eq('amazon_order_id', amazonOrderId)
+        .maybeSingle();
 
       const [address, buyerInfo, orderItems] = await Promise.all([
         getOrderAddressSafe(spClient, amazonOrderId),
@@ -361,7 +367,10 @@ async function syncIntegration(integration) {
         amazon_order_id: amazonOrderId,
         seller_order_id: order?.SellerOrderId || null,
         amazon_order_status: order?.OrderStatus || null,
-        local_status: mapLocalStatus(order?.OrderStatus),
+        local_status:
+          existingOrder?.local_status && existingOrder.local_status !== 'pending'
+            ? existingOrder.local_status
+            : mapLocalStatus(order?.OrderStatus),
         fulfillment_channel: order?.FulfillmentChannel || null,
         sales_channel: order?.SalesChannel || null,
         shipment_service_level_category: order?.ShipmentServiceLevelCategory || null,
@@ -483,8 +492,8 @@ async function main(resumeCompanyId = null) {
   }
 
   const disabledCompanyEntries = companyEntries.filter((entry) => {
-    const enabledMarkets = Array.from(enabledMarketplaceMap.get(entry.companyId) || []).filter((id) =>
-      SUPPORTED_MARKETPLACES.includes(id)
+    const enabledMarkets = Array.from((enabledMarketplaceMap.get(entry.companyId) || new Map()).keys()).filter(
+      (id) => SUPPORTED_MARKETPLACES.includes(id)
     );
     return enabledMarkets.length === 0;
   });
@@ -497,8 +506,12 @@ async function main(resumeCompanyId = null) {
 
   companyEntries = companyEntries
     .map((entry) => {
-      const enabledMarkets = Array.from(enabledMarketplaceMap.get(entry.companyId) || []).filter((id) =>
+      const companyMarketMap = enabledMarketplaceMap.get(entry.companyId) || new Map();
+      const enabledMarkets = Array.from(companyMarketMap.keys()).filter((id) =>
         SUPPORTED_MARKETPLACES.includes(id)
+      );
+      const marketplaceConsent = Object.fromEntries(
+        enabledMarkets.map((id) => [id, companyMarketMap.get(id) || null])
       );
       return {
         ...entry,
@@ -506,7 +519,8 @@ async function main(resumeCompanyId = null) {
         integrations: enabledMarkets.length
           ? entry.integrations.map((integration) => ({
               ...integration,
-              marketplace_ids: enabledMarkets
+              marketplace_ids: enabledMarkets,
+              marketplace_consent: marketplaceConsent
             }))
           : []
       };
