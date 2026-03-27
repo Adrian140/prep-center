@@ -1297,27 +1297,32 @@ const refreshStockData = useCallback(async () => {
         setListingPresenceByItemId({});
       } else {
         const visibleStockIds = new Set(stockIds.map((id) => String(id)));
-
-        // Supabase implicit limits selects to 1,000 rows; chunk the stock IDs so we always fetch
-        // presence data for every visible item, even when a company has a large catalog.
-        const chunkSize = 500;
+        const chunkSize = 150;
+        const pageSize = 1000;
         const presenceRows = [];
         for (let i = 0; i < stockIds.length; i += chunkSize) {
           const chunk = stockIds.slice(i, i + chunkSize);
-          const { data, error } = await supabase
-            .from('amazon_listing_presence')
-            .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
-            .eq('company_id', profile.company_id)
-            .eq('exists_on_marketplace', true)
-            .in('stock_item_id', chunk);
+          let from = 0;
+          while (true) {
+            const to = from + pageSize - 1;
+            const { data, error } = await supabase
+              .from('amazon_listing_presence')
+              .select('stock_item_id, marketplace_id, exists_on_marketplace, checked_at')
+              .eq('company_id', profile.company_id)
+              .eq('exists_on_marketplace', true)
+              .in('stock_item_id', chunk)
+              .range(from, to);
 
-          if (error) {
-            console.warn('Failed to load amazon listing presence badges', error);
-            setListingPresenceByItemId({});
-            return;
+            if (error) {
+              console.warn('Failed to load amazon listing presence badges', error);
+              setListingPresenceByItemId({});
+              return;
+            }
+
+            if (Array.isArray(data)) presenceRows.push(...data);
+            if (!Array.isArray(data) || data.length < pageSize) break;
+            from += pageSize;
           }
-
-          if (Array.isArray(data)) presenceRows.push(...data);
         }
 
         const grouped = {};
@@ -1354,21 +1359,29 @@ const refreshStockData = useCallback(async () => {
       if (!stockIds.length) {
         setListingChannelsByItemId({});
       } else {
-        const chunkSize = 500;
+        const chunkSize = 150;
+        const pageSize = 1000;
         const channelRows = [];
         for (let i = 0; i < stockIds.length; i += chunkSize) {
           const chunk = stockIds.slice(i, i + chunkSize);
-          const { data, error } = await supabase
-            .from('amazon_listing_channels')
-            .select('stock_item_id, marketplace_id, fulfillment_channel, checked_at')
-            .eq('company_id', profile.company_id)
-            .in('stock_item_id', chunk);
-          if (error) {
-            console.warn('Failed to load amazon listing channels', error);
-            setListingChannelsByItemId({});
-            break;
+          let from = 0;
+          while (true) {
+            const to = from + pageSize - 1;
+            const { data, error } = await supabase
+              .from('amazon_listing_channels')
+              .select('stock_item_id, marketplace_id, fulfillment_channel, checked_at')
+              .eq('company_id', profile.company_id)
+              .in('stock_item_id', chunk)
+              .range(from, to);
+            if (error) {
+              console.warn('Failed to load amazon listing channels', error);
+              setListingChannelsByItemId({});
+              break;
+            }
+            if (Array.isArray(data)) channelRows.push(...data);
+            if (!Array.isArray(data) || data.length < pageSize) break;
+            from += pageSize;
           }
-          if (Array.isArray(data)) channelRows.push(...data);
         }
 
         const grouped = {};

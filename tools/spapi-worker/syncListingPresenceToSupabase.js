@@ -156,14 +156,16 @@ function normalizeListings(rawRows = []) {
   return rawRows
     .map((row) => {
       const sku = String(row.sku || '').trim();
-      const asin = String(row.asin || '').trim();
+      let asin = String(row.asin || '').trim();
       const status = String(row.status || '').trim();
       const productIdType = String(row.product_id_type || '').trim().toUpperCase();
       const productId = String(row.product_id || '').trim();
-      const ean = ['EAN', 'UPC', 'GTIN', 'ISBN'].includes(productIdType) ? normalizeEan(productId) : '';
       const name = String(row.name || '').trim();
+      if (!asin && productId && (!productIdType || productIdType === 'ASIN' || productIdType === '1')) {
+        asin = productId;
+      }
       if (!sku && !asin) return null;
-      return { sku: sku || null, asin: asin || null, ean: ean || null, name: name || null, status };
+      return { sku: sku || null, asin: asin || null, name: name || null, status };
     })
     .filter(Boolean);
 }
@@ -332,23 +334,20 @@ async function fetchCompanyStockItems(companyId) {
     from += pageSize;
   }
   return all.filter(
-    (row) => normalizeIdentifier(row?.asin) || normalizeIdentifier(row?.sku) || normalizeEan(row?.ean)
+    (row) => normalizeIdentifier(row?.asin) || normalizeIdentifier(row?.sku)
   );
 }
 
 function buildListingIndex(listings = []) {
   const bySku = new Map();
   const byAsin = new Map();
-  const byEan = new Map();
   for (const row of listings) {
     const skuKey = normalizeIdentifier(row?.sku);
     const asinKey = normalizeIdentifier(row?.asin);
-    const eanKey = normalizeEan(row?.ean);
     if (skuKey && !bySku.has(skuKey)) bySku.set(skuKey, row);
     if (asinKey && !byAsin.has(asinKey)) byAsin.set(asinKey, row);
-    if (eanKey && !byEan.has(eanKey)) byEan.set(eanKey, row);
   }
-  return { bySku, byAsin, byEan };
+  return { bySku, byAsin };
 }
 
 function buildStockConflictIndex(stockItems = []) {
@@ -389,11 +388,6 @@ function buildStockPatch(item, hit, conflictIndex) {
     }
   }
 
-  if (!item.ean && hit.ean) {
-    patch.ean = hit.ean;
-    changed = true;
-  }
-
   if (!String(item.name || '').trim() && String(hit.name || '').trim()) {
     patch.name = hit.name;
     changed = true;
@@ -430,7 +424,7 @@ async function syncIntegrationMarket(params) {
   const rawDoc = await downloadReportDocument(spClient, reportDocumentId);
   const rawRows = parseListingRows(rawDoc);
   const listings = normalizeListings(rawRows);
-  const { bySku, byAsin, byEan } = buildListingIndex(listings);
+  const { bySku, byAsin } = buildListingIndex(listings);
 
   if (!listings.length) {
     console.warn(
@@ -444,11 +438,9 @@ async function syncIntegrationMarket(params) {
   const rows = stockItems.map((item) => {
     const skuKey = normalizeIdentifier(item.sku);
     const asinKey = normalizeIdentifier(item.asin);
-    const eanKey = normalizeEan(item.ean);
     const hitBySku = skuKey ? bySku.get(skuKey) : null;
     const hitByAsin = !hitBySku && asinKey ? byAsin.get(asinKey) : null;
-    const hitByEan = !hitBySku && !hitByAsin && eanKey ? byEan.get(eanKey) : null;
-    const hit = hitBySku || hitByAsin || hitByEan || null;
+    const hit = hitBySku || hitByAsin || null;
     const stockPatch = buildStockPatch(item, hit, conflictIndex);
     if (stockPatch) stockPatches.push(stockPatch);
     if (shouldDebug(companyId, skuKey, asinKey)) {
@@ -459,8 +451,6 @@ async function syncIntegrationMarket(params) {
               ? 'sku_report_match'
               : hitByAsin
               ? 'asin_report_match'
-              : hitByEan
-              ? 'ean_report_match'
               : 'report_not_found'
           }`
       );
@@ -476,8 +466,6 @@ async function syncIntegrationMarket(params) {
         ? 'sku_report_match'
         : hitByAsin
         ? 'asin_report_match'
-        : hitByEan
-        ? 'ean_report_match'
         : 'report_not_found',
       raw_status: hit?.status || (hit ? 'LISTED' : 'NOT_FOUND'),
       checked_at: new Date().toISOString(),
