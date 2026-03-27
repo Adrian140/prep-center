@@ -50,6 +50,7 @@ export default function ClientFbmOrders() {
   const [settings, setSettings] = useState([]);
   const [selectedMarkets, setSelectedMarkets] = useState([]);
   const [acceptedConsent, setAcceptedConsent] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('unshipped');
 
   const createSignedUrl = async (path) => {
     if (!path) return '';
@@ -353,6 +354,7 @@ export default function ClientFbmOrders() {
     () => orderCards.filter((order) => isProcessedStatus(order.local_status)),
     [orderCards]
   );
+  const visibleOrders = statusFilter === 'shipped' ? historyOrders : activeOrders;
 
   const renderOrderCard = (order) => (
     <div key={order.id} className="rounded-xl border bg-white p-4 shadow-sm">
@@ -526,6 +528,25 @@ export default function ClientFbmOrders() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-xl border bg-white p-1">
+            {[
+              { id: 'unshipped', label: 'Unshipped' },
+              { id: 'shipped', label: 'Shipped' }
+            ].map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setStatusFilter(option.id)}
+                className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
+                  statusFilter === option.id
+                    ? 'bg-primary text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {hasConsent ? (
             <button
               type="button"
@@ -647,9 +668,9 @@ export default function ClientFbmOrders() {
         </div>
       ) : null}
 
-      {!loading && hasConsent && !activeOrders.length && !historyOrders.length ? (
+      {!loading && hasConsent && !visibleOrders.length ? (
         <div className="rounded-lg border bg-white px-4 py-6 text-center text-sm text-text-secondary">
-          No FBM orders synced yet.
+          {statusFilter === 'shipped' ? 'No shipped FBM orders yet.' : 'No unshipped FBM orders.'}
         </div>
       ) : null}
 
@@ -659,17 +680,12 @@ export default function ClientFbmOrders() {
         </div>
       ) : null}
 
-      {!loading && hasConsent && activeOrders.length ? (
+      {!loading && hasConsent && visibleOrders.length ? (
         <div className="space-y-3">
-          <div className="text-sm font-semibold text-slate-700">Unshipped orders</div>
-          {activeOrders.map(renderOrderCard)}
-        </div>
-      ) : null}
-
-      {!loading && hasConsent && historyOrders.length ? (
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-slate-700">Processed history</div>
-          {historyOrders.map(renderOrderCard)}
+          <div className="text-sm font-semibold text-slate-700">
+            {statusFilter === 'shipped' ? 'Shipped orders' : 'Unshipped orders'}
+          </div>
+          {visibleOrders.map(renderOrderCard)}
         </div>
       ) : null}
     </div>
