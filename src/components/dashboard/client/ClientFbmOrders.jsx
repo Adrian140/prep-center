@@ -136,13 +136,28 @@ export default function ClientFbmOrders() {
 
     const allItems = (data || []).flatMap((row) => row.fbm_order_items || []);
     const stockIds = Array.from(new Set(allItems.map((item) => item.stock_item_id).filter(Boolean)));
+    const asins = Array.from(new Set(allItems.map((item) => item.asin).filter(Boolean)));
     const stockMap = new Map();
+    const stockByAsin = new Map();
     if (stockIds.length) {
       const { data: stockRows } = await supabase
         .from('stock_items')
-        .select('id, name, image_url')
+        .select('id, asin, name, image_url')
         .in('id', stockIds);
-      (stockRows || []).forEach((row) => stockMap.set(row.id, row));
+      (stockRows || []).forEach((row) => {
+        stockMap.set(row.id, row);
+        if (row.asin && !stockByAsin.has(row.asin)) stockByAsin.set(row.asin, row);
+      });
+    }
+    if (asins.length) {
+      const { data: asinRows } = await supabase
+        .from('stock_items')
+        .select('id, asin, name, image_url')
+        .in('asin', asins);
+      (asinRows || []).forEach((row) => {
+        if (row.id && !stockMap.has(row.id)) stockMap.set(row.id, row);
+        if (row.asin && !stockByAsin.has(row.asin)) stockByAsin.set(row.asin, row);
+      });
     }
 
     const signedRows = await Promise.all(
@@ -150,7 +165,9 @@ export default function ClientFbmOrders() {
         ...row,
         fbm_order_items: (row.fbm_order_items || []).map((item) => ({
           ...item,
-          stock_item: item.stock_item_id ? stockMap.get(item.stock_item_id) || null : null
+          stock_item:
+            (item.stock_item_id ? stockMap.get(item.stock_item_id) || null : null) ||
+            (item.asin ? stockByAsin.get(item.asin) || null : null)
         })),
         fbm_order_files: await Promise.all(
           (row.fbm_order_files || []).map(async (file) => ({
@@ -460,11 +477,24 @@ export default function ClientFbmOrders() {
               return (
                 <tr key={item.id} className="border-b align-top last:border-b-0">
                   <td className="px-2 py-3">
-                    <div className="font-medium text-slate-900">
-                      {item.stock_item?.name || item.title || 'Untitled item'}
+                    <div className="flex items-start gap-3">
+                      {item.stock_item?.image_url ? (
+                        <img
+                          src={item.stock_item.image_url}
+                          alt={item.stock_item?.name || item.title || 'Product image'}
+                          className="h-12 w-12 rounded-lg border object-cover"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-lg border bg-slate-100" />
+                      )}
+                      <div>
+                        <div className="font-medium text-slate-900">
+                          {item.stock_item?.name || item.title || 'Untitled item'}
+                        </div>
+                        <div className="text-xs text-slate-500">ASIN {item.asin || '—'}</div>
+                        <div className="text-xs text-slate-500">SKU {item.sku || '—'}</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500">ASIN {item.asin || '—'}</div>
-                    <div className="text-xs text-slate-500">SKU {item.sku || '—'}</div>
                   </td>
                   <td className="px-2 py-3">{item.quantity_ordered || 0}</td>
                   <td className="px-2 py-3">
