@@ -815,8 +815,8 @@ export default function ClientIntegrations() {
         id="profit-desk"
         title={t('ClientIntegrations.profitDesk.title')}
         subtitle={t('ClientIntegrations.profitDesk.desc')}
-        logo="/branding/integrations/profit-path.svg"
-        fallbackLogo="/branding/integrations/profit-path.svg"
+        logo="/branding/integrations/profit-desk.svg"
+        fallbackLogo="/branding/integrations/profit-desk.svg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
@@ -907,8 +907,8 @@ export default function ClientIntegrations() {
         id="profit-path"
         title={t('ClientIntegrations.profitPath.title')}
         subtitle={t('ClientIntegrations.profitPath.desc')}
-        logo="/branding/integrations/profit-path.svg"
-        fallbackLogo="/branding/integrations/profit-path.svg"
+        logo="/branding/integrations/profit-path.png"
+        fallbackLogo="/branding/integrations/profit-path.png"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >

@@ -28,16 +28,16 @@ const INTEGRATIONS = [
     title: 'Profit Path',
     subtitle: 'Token + email pentru mapare PrepBusiness.',
     settingField: 'profitPath',
-    logo: '/branding/integrations/profit-path.svg',
-    fallbackLogo: '/branding/integrations/profit-path.svg'
+    logo: '/branding/integrations/profit-path.png',
+    fallbackLogo: '/branding/integrations/profit-path.png'
   },
   {
     id: 'profitDesk',
     title: 'ProfitDesk',
     subtitle: 'Token + email pentru mapare ProfitDesk.',
     settingField: 'profitDesk',
-    logo: '/branding/integrations/profit-path.svg',
-    fallbackLogo: '/branding/integrations/profit-path.svg'
+    logo: '/branding/integrations/profit-desk.svg',
+    fallbackLogo: '/branding/integrations/profit-desk.svg'
   },
   {
     id: 'arbitrageOne',
