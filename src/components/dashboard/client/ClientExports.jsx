@@ -5,6 +5,7 @@ import { useDashboardTranslation } from "../../../translations";
 import { useMarket } from '@/contexts/MarketContext';
 import { normalizeMarketCode } from '@/utils/market';
 import { mapStockRowsForMarket } from '@/utils/marketStock';
+import { downloadCsv } from '@/utils/csv';
 
 const labelOrFallback = (t, key, fallback) => {
   const value = t(key);
@@ -403,46 +404,9 @@ export default function ClientExports() {
 
       const filename =
         kind === 'Stock'
-          ? `Stock PrepCenter France ${new Date().toLocaleString(undefined, { month: 'long', year: 'numeric' })}.xlsx`
-          : `report-${kind}_${from || "start"}_${to || "end"}.xlsx`;
-      const XLSX = await import("xlsx");
-
-      // 3) Sheet + autofilter, lățimi, formate numerice
-      const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-      // intervalul de date (ex: A1:F{n})
-      const range = XLSX.utils.decode_range(ws['!ref']);
-      const lastColIdx = meta.headers.length - 1;
-      const lastRowIdx = range.e.r;
-
-      // a) AutoFilter pe antet
-      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s:{ r:0, c:0 }, e:{ r:lastRowIdx, c:lastColIdx } }) };
-
-      // b) Lățimi de coloană (simplu)
-      ws['!cols'] = meta.headers.map(h => ({ wch: Math.max(12, String(h).length + 4) }));
-
-      // c) Formate numerice pentru toate celulele din coloanele specificate
-      if (meta.numFmt) {
-        Object.entries(meta.numFmt).forEach(([colIdxStr, fmt]) => {
-          const c = Number(colIdxStr);              // 0-based
-          for (let r = 1; r <= lastRowIdx; r++) {   // începem de la 1: rândul 0 = antet
-            const addr = XLSX.utils.encode_cell({ r, c });
-            const cell = ws[addr];
-            if (!cell) continue;
-            if (typeof cell.v === "number") {
-              cell.t = 'n';
-              cell.z = fmt; // ex: "0", "0.00", "#,##0.00"
-            }
-          }
-        });
-      }
-
-      // 4) Workbook & sheet name
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Report");
-
-      // 5) Scriere fișier
-      XLSX.writeFile(wb, filename);
+          ? `Stock PrepCenter France ${new Date().toLocaleString(undefined, { month: 'long', year: 'numeric' })}.csv`
+          : `report-${kind}_${from || "start"}_${to || "end"}.csv`;
+      downloadCsv(aoa, filename);
     } catch (e) {
       console.error(e);
       alert(t('ClientExports.alerts.failed'));

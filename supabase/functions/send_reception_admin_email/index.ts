@@ -9,13 +9,19 @@ const corsHeaders = {
 
 const ADMIN_EMAIL = Deno.env.get("PREP_ADMIN_EMAIL") ?? "contact@prep-center.eu";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const INTERNAL_SERVICE_ROLE_KEY = Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ?? "";
 const supabase =
   SUPABASE_URL && SUPABASE_SERVICE_ROLE
     ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
         global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } },
       })
+    : null;
+const authClient =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 const FROM_EMAIL =
   Deno.env.get("PREP_FROM_EMAIL") && Deno.env.get("PREP_FROM_EMAIL")!.trim() !== ""
@@ -44,6 +50,40 @@ interface Payload {
   country?: string | null;
   destination_country?: string | null;
   warehouse_country?: string | null;
+}
+
+async function isAuthorized(req: Request, payload: Payload) {
+  const internalKey = req.headers.get("x-internal-service-key") || "";
+  const authHeader = req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const allowedKeys = new Set([INTERNAL_SERVICE_ROLE_KEY, SUPABASE_SERVICE_ROLE].filter(Boolean));
+  if (allowedKeys.size > 0 && (allowedKeys.has(internalKey) || allowedKeys.has(bearer))) {
+    return true;
+  }
+  if (!bearer || !authClient || !supabase) return false;
+
+  const { data: userData, error: userError } = await authClient.auth.getUser(bearer);
+  if (userError || !userData?.user?.id) return false;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("company_id, account_type, is_limited_admin")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+  if (profileError || !profile) return false;
+
+  const isAdmin = String(profile.account_type || "").toLowerCase() === "admin" && !Boolean(profile.is_limited_admin);
+  if (isAdmin) return true;
+  if (!payload?.shipment_id) return false;
+
+  const { data: shipment, error: shipmentError } = await supabase
+    .from("receiving_shipments")
+    .select("company_id")
+    .eq("id", payload.shipment_id)
+    .maybeSingle();
+  if (shipmentError || !shipment?.company_id) return false;
+
+  return shipment.company_id === profile.company_id;
 }
 
 const escapeHtml = (value: string) =>
@@ -203,6 +243,13 @@ Deno.serve(async (req) => {
 
   try {
     const payload = (await req.json()) as Payload;
+    const authorized = await isAuthorized(req, payload);
+    if (!authorized) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+    }
     const target = await resolveAdminEmail(payload);
     if (!target.enabled || !target.to) {
       return new Response(JSON.stringify({ ok: true, skipped: true }), {

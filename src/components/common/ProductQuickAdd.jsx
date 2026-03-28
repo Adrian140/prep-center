@@ -3,6 +3,7 @@ import { Upload, FileSpreadsheet, Trash2, Plus } from 'lucide-react';
 import { supabase, supabaseHelpers } from '@/config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
 import { buildPrepQtyPatch } from '@/utils/marketStock';
+import { downloadCsv } from '@/utils/csv';
 
 const defaultLabels = {
   title: 'Manual inventory intake',
@@ -15,7 +16,7 @@ const defaultLabels = {
   nameLabel: 'Product Name *',
   priceLabel: 'Purchase price (€)',
   addLine: 'Add line',
-  uploadTitle: 'Import from XLSX/CSV',
+  uploadTitle: 'Import from CSV',
   uploadHint: 'Required columns: EAN/ASIN and Product Name. SKU, EAN and purchase price are optional.',
   template: 'Download template',
   previewTitle: 'Pending lines',
@@ -26,7 +27,7 @@ const defaultLabels = {
     missingFields: 'Fill code and product name before adding the line.',
     invalidCode: 'Enter a valid EAN or ASIN.',
     invalidPrice: 'Enter a valid price (e.g. 12.50).',
-    fileType: 'Please upload a .xlsx or .csv file.',
+    fileType: 'Please upload a .csv file.',
     fileTooLarge: 'The file is too large. Please keep imports under 2 MB.',
     fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
     fileRows: 'No valid rows were detected in the file.',
@@ -88,22 +89,9 @@ const downloadTemplate = async (labelsInput = defaultLabels) => {
     ...labelsInput
   };
   const sanitize = (value) => String(value || '').replace(' *', '');
-  const XLSX = await import('xlsx');
-  const sheet = XLSX.utils.aoa_to_sheet([
+  downloadCsv([
     [sanitize(safeLabels.eanLabel), sanitize(safeLabels.nameLabel), sanitize(safeLabels.priceLabel)]
-  ]);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, 'Template');
-  const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'product-intake-template.xlsx';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  ], 'product-intake-template.csv');
 };
 
 const setRowIndexKeys = (map, row) => {
@@ -203,7 +191,7 @@ function ProductQuickAdd({
     const file = event.target.files?.[0];
     if (!file) return;
     event.target.value = '';
-    const validExt = /\.(xlsx|xls|csv)$/i.test(file.name);
+    const validExt = /\.csv$/i.test(file.name);
     if (!validExt) {
       setError(labels.errors?.fileType || defaultLabels.errors.fileType);
       return;
@@ -213,17 +201,14 @@ function ProductQuickAdd({
       return;
     }
     try {
-      const XLSX = await import('xlsx');
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, {
-        type: 'array',
-        cellFormula: false,
-        cellHTML: false,
-        cellStyles: false,
-        dense: true
-      });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
+      const text = await file.text();
+      const rows = text
+        .replace(/^\uFEFF/, '')
+        .split(/\r?\n/)
+        .filter((line) => line.trim().length > 0)
+        .map((line) =>
+          line.split(',').map((cell) => String(cell || '').replace(/^"(.*)"$/s, '$1').replace(/""/g, '"'))
+        );
       if (!rows.length) {
         setError(labels.errors?.fileRows || defaultLabels.errors.fileRows);
         return;
@@ -402,7 +387,7 @@ function ProductQuickAdd({
             {labels.uploadTitle}
             <input
               type="file"
-              accept=".xlsx,.xls,.csv"
+              accept=".csv"
               className="sr-only"
               onChange={handleFileChange}
             />

@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import { supabaseHelpers } from '../../config/supabase';
 import { useDashboardTranslation } from '../../translations';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
+import { downloadCsv } from '../../utils/csv';
 
 const normalizeCountry = (value) => {
   const code = String(value || '').trim().toUpperCase();
@@ -333,7 +334,6 @@ function SupabaseInvoicesList() {
     }
     setExportingXls(true);
     try {
-      const XLSX = await import('xlsx');
       const rows = [[
         'Invoice',
         'Date',
@@ -356,13 +356,10 @@ function SupabaseInvoicesList() {
           row.file_name || ''
         ]);
       });
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'UPS Invoices');
-      XLSX.writeFile(wb, `ups-invoices-${upsMonth || currentMonthKey()}.xlsx`);
+      downloadCsv(rows, `ups-invoices-${upsMonth || currentMonthKey()}.csv`);
     } catch (error) {
-      console.error('UPS XLS export failed:', error);
-      setMessage(tt('invoices.errors.upsXls', 'Could not generate UPS XLS export.'));
+      console.error('UPS CSV export failed:', error);
+      setMessage(tt('invoices.errors.upsXls', 'Could not generate UPS export.'));
     } finally {
       setExportingXls(false);
     }
