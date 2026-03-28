@@ -654,6 +654,10 @@ export default function ClientIntegrations() {
     setPdSaving(false);
   };
 
+  const hasArbitrageOneConfig = Boolean(String(pbEmail || '').trim() && String(pbMerchantId || '').trim());
+  const hasProfitPathConfig = Boolean(String(ppEmail || '').trim() && String(ppToken || '').trim());
+  const hasProfitDeskConfig = Boolean(String(pdEmail || '').trim() && String(pdToken || '').trim());
+
   return (
     <div className="space-y-6 relative">
       <header className="flex items-center gap-3">
@@ -691,8 +695,8 @@ export default function ClientIntegrations() {
         id="amazon"
         title={t('ClientIntegrations.amazonTitle', 'Amazon Seller Central')}
         subtitle={t('ClientIntegrations.instructions')}
-        logo="https://logo.clearbit.com/amazon.com"
-        fallbackLogo="/branding/integrations/amazon.svg"
+        logo="/branding/integrations/amazon.jpg"
+        fallbackLogo="/branding/integrations/amazon.jpg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >
@@ -825,11 +829,11 @@ export default function ClientIntegrations() {
             </p>
           </div>
           <div className="text-sm">
-            {pdStatus === 'active' || pdStatus === 'mapped' ? (
+            {hasProfitDeskConfig ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
                 <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
               </span>
-            ) : pdStatus === 'error' ? (
+            ) : pdStatus === 'error' && (pdEmail || pdToken) ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
                 <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
               </span>
@@ -917,11 +921,11 @@ export default function ClientIntegrations() {
             </p>
           </div>
           <div className="text-sm">
-            {ppStatus === 'active' || ppStatus === 'mapped' ? (
+            {hasProfitPathConfig ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
                 <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
               </span>
-            ) : ppStatus === 'error' ? (
+            ) : ppStatus === 'error' && (ppEmail || ppToken) ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
                 <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
               </span>
@@ -1000,11 +1004,11 @@ export default function ClientIntegrations() {
             </p>
           </div>
           <div className="text-sm">
-            {pbStatus === 'active' || pbStatus === 'mapped' ? (
+            {hasArbitrageOneConfig ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
                 <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
               </span>
-            ) : pbStatus === 'error' ? (
+            ) : pbStatus === 'error' && (pbEmail || pbMerchantId) ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
                 <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
               </span>

@@ -12,8 +12,8 @@ const INTEGRATIONS = [
     title: 'Amazon Seller Central',
     subtitle: 'Conectari SP-API active/pending.',
     settingField: 'amazon',
-    logo: 'https://logo.clearbit.com/amazon.com',
-    fallbackLogo: '/branding/integrations/amazon.svg'
+    logo: '/branding/integrations/amazon.jpg',
+    fallbackLogo: '/branding/integrations/amazon.jpg'
   },
   {
     id: 'etsy',
