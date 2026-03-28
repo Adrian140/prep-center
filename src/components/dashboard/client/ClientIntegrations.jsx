@@ -322,11 +322,6 @@ export default function ClientIntegrations() {
       }
       setPbLoading(true);
       setPbLastError('');
-      const defaultEmail =
-        profile?.email ||
-        profile?.contact_email ||
-        profile?.company_email ||
-        '';
       const { data, error } = await supabase
         .from('prep_business_integrations')
         .select('*')
@@ -336,44 +331,44 @@ export default function ClientIntegrations() {
         .maybeSingle();
       if (error) {
         setPbIntegration(null);
-        setPbEmail(defaultEmail);
+        setPbEmail('');
         setPbMerchantId('');
         setPbStatus('pending');
         setPbLastError(error.message || supportError);
         setPpToken('');
-        setPpEmail(defaultEmail);
+        setPpEmail('');
         setPpStatus('pending');
         setPpLastError(error.message || supportError);
         setPdToken('');
-        setPdEmail(defaultEmail);
+        setPdEmail('');
         setPdStatus('pending');
         setPdLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
-        setPbEmail(data.email_arbitrage_one || defaultEmail);
+        setPbEmail(data.email_arbitrage_one || '');
         setPbMerchantId(data.merchant_id || data.profit_path_token_id || '');
         setPbStatus(data.status || 'pending');
         setPbLastError(data.last_error || '');
         setPpToken(data.profit_path_token_id || data.merchant_id || '');
-        setPpEmail(data.email_prep_business || defaultEmail);
+        setPpEmail(data.email_prep_business || '');
         setPpStatus(data.status || 'pending');
         setPpLastError(data.last_error || '');
         setPdToken(data.profit_desk_token_id || '');
-        setPdEmail(data.email_profit_desk || defaultEmail);
+        setPdEmail(data.email_profit_desk || '');
         setPdStatus(data.status || 'pending');
         setPdLastError(data.last_error || '');
       } else {
         setPbIntegration(null);
-        setPbEmail(defaultEmail);
+        setPbEmail('');
         setPbMerchantId('');
         setPbStatus('pending');
         setPbLastError('');
         setPpToken('');
-        setPpEmail(defaultEmail);
+        setPpEmail('');
         setPpStatus('pending');
         setPpLastError('');
         setPdToken('');
-        setPdEmail(defaultEmail);
+        setPdEmail('');
         setPdStatus('pending');
         setPdLastError('');
       }
@@ -383,7 +378,7 @@ export default function ClientIntegrations() {
     };
     loadPrepBusiness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, profile?.email, profile?.contact_email, profile?.company_email]);
+  }, [user?.id]);
 
   useEffect(() => {
     const loadVisibility = async () => {
@@ -506,7 +501,7 @@ export default function ClientIntegrations() {
     if (!user?.id) return;
     setPbSaving(true);
     setPbLastError('');
-    const pb = (pbEmail || profile?.email || '').trim().toLowerCase();
+    const pb = (pbEmail || '').trim().toLowerCase();
     const merchant = (pbMerchantId || '').trim();
     if (!pb) {
       setPbLastError(t('ClientIntegrations.prepbusiness.errors.emailRequired'));
@@ -554,7 +549,7 @@ export default function ClientIntegrations() {
     setPpSaving(true);
     setPpLastError('');
     const token = (ppToken || '').trim();
-    const email = (ppEmail || profile?.email || '').trim().toLowerCase();
+    const email = (ppEmail || '').trim().toLowerCase();
     if (!email) {
       setPpLastError(t('ClientIntegrations.profitPath.errors.emailRequired'));
       setPpSaving(false);
@@ -610,7 +605,7 @@ export default function ClientIntegrations() {
     setPdSaving(true);
     setPdLastError('');
     const token = (pdToken || '').trim();
-    const email = (pdEmail || profile?.email || '').trim().toLowerCase();
+    const email = (pdEmail || '').trim().toLowerCase();
     if (!email) {
       setPdLastError(t('ClientIntegrations.profitDesk.errors.emailRequired'));
       setPdSaving(false);

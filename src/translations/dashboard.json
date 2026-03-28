@@ -816,7 +816,7 @@
         "flash": {
           "saved": "Arbitrage One mapping saved. We will sync receptions automatically."
         },
-        "merchantIdLabel": "Merchant ID (5 digits)",
+        "merchantIdLabel": "PrepBusiness token",
         "merchantIdPlaceholder": "e.g. 23214"
       },
       "qogita": {
@@ -875,7 +875,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Add your Profit Path token to map your PrepBusiness client correctly.",
-        "tokenLabel": "Profit Path token",
+        "tokenLabel": "PrepBusiness token",
         "tokenPlaceholder": "e.g. pp_live_...",
         "helper": "This token is used only for client mapping and sync of final PrepBusiness data.",
         "apiWhere": "In PrepBusiness go to Settings -> Api.",
@@ -894,7 +894,7 @@
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Add your ProfitDesk token to map your client correctly.",
-        "tokenLabel": "ProfitDesk token",
+        "tokenLabel": "PrepBusiness token",
         "tokenPlaceholder": "e.g. pd_live_...",
         "helper": "This token is used only for client mapping and ProfitDesk data synchronization.",
         "apiWhere": "In ProfitDesk go to Settings -> API.",
@@ -2009,7 +2009,7 @@
         "flash": {
           "saved": "Maparea Arbitrage One a fost salvată. Vom sincroniza automat recepțiile."
         },
-        "merchantIdLabel": "Merchant ID (5 cifre)",
+        "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ex: 23214"
       },
       "qogita": {
@@ -2068,7 +2068,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Adaugă token-ul Profit Path pentru maparea corectă a clientului în PrepBusiness.",
-        "tokenLabel": "Token Profit Path",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pp_live_...",
         "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor finale din PrepBusiness.",
         "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
@@ -2087,7 +2087,7 @@
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Adaugă token-ul ProfitDesk pentru maparea corectă a clientului.",
-        "tokenLabel": "Token ProfitDesk",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pd_live_...",
         "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor ProfitDesk.",
         "apiWhere": "În ProfitDesk mergi la Settings -> API.",
@@ -3371,7 +3371,7 @@
         "flash": {
           "saved": "Le mapping Arbitrage One a été enregistré. Nous synchroniserons les réceptions automatiquement."
         },
-        "merchantIdLabel": "Merchant ID (5 chiffres)",
+        "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ex : 23214"
       },
       "qogita": {
@@ -3430,7 +3430,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Ajoutez votre token Profit Path pour mapper correctement votre client PrepBusiness.",
-        "tokenLabel": "Token Profit Path",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pp_live_...",
         "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données finales PrepBusiness.",
         "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
@@ -3449,7 +3449,7 @@
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Ajoutez votre token ProfitDesk pour mapper correctement votre client.",
-        "tokenLabel": "Token ProfitDesk",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex : pd_live_...",
         "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données ProfitDesk.",
         "apiWhere": "Dans ProfitDesk, allez à Settings -> API.",
@@ -4509,7 +4509,7 @@
         "flash": {
           "saved": "Arbitrage-One-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
         },
-        "merchantIdLabel": "Merchant ID (5-stellig)",
+        "merchantIdLabel": "PrepBusiness-Token",
         "merchantIdPlaceholder": "z. B. 23214"
       },
       "qogita": {
@@ -4568,7 +4568,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Füge dein Profit-Path-Token hinzu, um den PrepBusiness-Kunden korrekt zuzuordnen.",
-        "tokenLabel": "Profit-Path-Token",
+        "tokenLabel": "PrepBusiness-Token",
         "tokenPlaceholder": "z. B. pp_live_...",
         "helper": "Dieses Token wird nur für Kunden-Mapping und die Synchronisierung finaler PrepBusiness-Daten verwendet.",
         "apiWhere": "In PrepBusiness gehe zu Settings -> Api.",
@@ -5514,7 +5514,7 @@
         "flash": {
           "saved": "Mapping Arbitrage One salvato. Sincronizzeremo automaticamente le receptions."
         },
-        "merchantIdLabel": "Merchant ID (5 cifre)",
+        "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "es: 23214"
       },
       "qogita": {
@@ -5573,7 +5573,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Aggiungi il token Profit Path per mappare correttamente il tuo cliente PrepBusiness.",
-        "tokenLabel": "Token Profit Path",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "es: pp_live_...",
         "helper": "Questo token è usato solo per il mapping cliente e la sincronizzazione dei dati finali PrepBusiness.",
         "apiWhere": "In PrepBusiness vai su Settings -> Api.",
@@ -6519,7 +6519,7 @@
         "flash": {
           "saved": "El mapeo de Arbitrage One se guardó. Sincronizaremos las recepciones automáticamente."
         },
-        "merchantIdLabel": "Merchant ID (5 dígitos)",
+        "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ej.: 23214"
       },
       "qogita": {
@@ -6578,7 +6578,7 @@
       "profitPath": {
         "title": "Profit Path",
         "desc": "Añade tu token de Profit Path para mapear correctamente tu cliente de PrepBusiness.",
-        "tokenLabel": "Token de Profit Path",
+        "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ej.: pp_live_...",
         "helper": "Este token se usa solo para el mapeo del cliente y la sincronización de datos finales de PrepBusiness.",
         "apiWhere": "En PrepBusiness ve a Settings -> Api.",
