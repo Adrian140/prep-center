@@ -6,6 +6,7 @@ import { useDashboardTranslation } from '../../../translations';
 import ClientUpsIntegration from './ClientUpsIntegration';
 import ClientEtsyIntegration from './ClientEtsyIntegration';
 import { useEtsyI18n } from '@/i18n/etsyI18n';
+import { createOAuthNonce, issueOAuthState, storeOAuthNonce } from '@/utils/oauthState';
 
 const AMAZON_REGIONS = [
   { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
@@ -176,7 +177,6 @@ export default function ClientIntegrations() {
   const isIndividualAccount =
     (profile?.account_type || profile?.accountType || profile?.type) === 'individual';
   const [region, setRegion] = useState('eu');
-  const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState('');
@@ -225,41 +225,45 @@ export default function ClientIntegrations() {
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
 
-  const statePayload = useMemo(() => {
-    if (!user?.id) return '';
-    const marketplace = AMAZON_REGIONS.find((r) => r.id === region)?.marketplaceId || 'A13V1IB3VIYZZH';
-    const payload = {
-      userId: user.id,
-      companyId: profile?.company_id || user.id,
-      region,
-      marketplaceId: marketplace,
-      redirectUri,
-      nonce: stateToken
-    };
-    return btoa(JSON.stringify(payload));
-  }, [user?.id, profile?.company_id, region, stateToken, redirectUri]);
-
-  const authorizeUrl = useMemo(() => {
-    if (!applicationId || !redirectUri || !statePayload) return '';
+  const authorizeBaseUrl = useMemo(() => {
+    if (!applicationId || !redirectUri || !user?.id) return '';
     const regionConfig = AMAZON_REGIONS.find((r) => r.id === region);
     if (!regionConfig) return '';
-    const params = new URLSearchParams({
-      application_id: applicationId,
-      state: statePayload,
-      version: 'beta',
-      redirect_uri: redirectUri
-    });
-    return `${regionConfig.consentUrl}?${params.toString()}`;
-  }, [applicationId, redirectUri, region, statePayload]);
+    return regionConfig.consentUrl;
+  }, [applicationId, redirectUri, region, user?.id]);
 
-  const handleAmazonConnect = () => {
+  const handleAmazonConnect = async () => {
     if (isIndividualAccount) {
       setFlash(t('ClientIntegrations.individualBlocked'));
       setFlashType('error');
       return;
     }
-    if (authorizeUrl) {
-      window.open(authorizeUrl, '_blank', 'noopener');
+    if (!authorizeBaseUrl || !user?.id) return;
+
+    const marketplace = AMAZON_REGIONS.find((r) => r.id === region)?.marketplaceId || 'A13V1IB3VIYZZH';
+    const nonce = createOAuthNonce();
+
+    try {
+      const { state } = await issueOAuthState(supabase, {
+        provider: 'amazon',
+        userId: user.id,
+        companyId: profile?.company_id || user.id,
+        region,
+        marketplaceId: marketplace,
+        redirectUri,
+        nonce
+      });
+      storeOAuthNonce('amazon', nonce);
+      const params = new URLSearchParams({
+        application_id: applicationId,
+        state,
+        version: 'beta',
+        redirect_uri: redirectUri
+      });
+      window.open(`${authorizeBaseUrl}?${params.toString()}`, '_blank', 'noopener');
+    } catch (error) {
+      setFlash(error?.message || 'Unable to start Amazon authorization.');
+      setFlashType('error');
     }
   };
 
@@ -747,7 +751,7 @@ export default function ClientIntegrations() {
               </div>
               <button
                 onClick={handleAmazonConnect}
-                disabled={!authorizeUrl}
+                disabled={!authorizeBaseUrl}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
               >
                 <ExternalLink className="w-4 h-4" /> {t('ClientIntegrations.connectButton')}

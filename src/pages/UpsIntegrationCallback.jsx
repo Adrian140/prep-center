@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
+import { consumeOAuthNonce, peekOAuthStatePayload } from '@/utils/oauthState';
 
 export default function UpsIntegrationCallback() {
   const [params] = useSearchParams();
@@ -23,6 +24,14 @@ export default function UpsIntegrationCallback() {
     if (!code || !state) {
       setStatus('error');
       setMessage('Missing authorization data from UPS callback.');
+      return;
+    }
+
+    const statePayload = peekOAuthStatePayload(state);
+    const nonce = statePayload?.nonce || '';
+    if (!consumeOAuthNonce('ups', nonce)) {
+      setStatus('error');
+      setMessage('Invalid or expired UPS OAuth state.');
       return;
     }
 

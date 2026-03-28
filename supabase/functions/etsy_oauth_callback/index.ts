@@ -10,10 +10,15 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+const OAUTH_STATE_SECRET =
+  Deno.env.get("OAUTH_STATE_SECRET") ||
+  Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ||
+  SUPABASE_SERVICE_ROLE_KEY;
 
 const ETSY_CLIENT_ID = Deno.env.get("ETSY_CLIENT_ID") || "";
 const ETSY_REDIRECT_URI = Deno.env.get("ETSY_REDIRECT_URI") || "";
 const ETSY_ENC_KEY = Deno.env.get("ETSY_ENC_KEY") || "";
+const encoder = new TextEncoder();
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -22,9 +27,33 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
   });
 }
 
-function decodeState(stateRaw: string) {
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 ? "=".repeat(4 - (normalized.length % 4)) : "";
+  return atob(`${normalized}${padding}`);
+}
+
+async function verifySignedState(stateRaw: string) {
   try {
-    return JSON.parse(atob(stateRaw));
+    const [version, payloadBase64, signature] = String(stateRaw || "").split(".");
+    if (version !== "v1" || !payloadBase64 || !signature) return null;
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(OAUTH_STATE_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const expected = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadBase64));
+    const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expected)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    if (expectedBase64 !== signature) return null;
+    const payload = JSON.parse(decodeBase64Url(payloadBase64));
+    if (payload?.provider !== "etsy") return null;
+    if (!payload?.exp || Date.now() > Number(payload.exp)) return null;
+    return payload;
   } catch {
     return null;
   }
@@ -88,7 +117,7 @@ serve(async (req) => {
   const codeVerifier = String(payload?.code_verifier || payload?.codeVerifier || "").trim();
   if (!code || !stateRaw || !codeVerifier) return jsonResponse({ error: "Missing code/state/code_verifier." }, 400);
 
-  const state = decodeState(stateRaw);
+  const state = await verifySignedState(stateRaw);
   if (!state?.userId) return jsonResponse({ error: "Invalid state payload." }, 400);
 
   if (state.userId !== user.id) {

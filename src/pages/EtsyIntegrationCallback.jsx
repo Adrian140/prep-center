@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
 import { PKCE_STORAGE_PREFIX } from '@/components/dashboard/client/ClientEtsyIntegration';
 import { useEtsyI18n } from '@/i18n/etsyI18n';
+import { consumeOAuthNonce, peekOAuthStatePayload } from '@/utils/oauthState';
 
 export default function EtsyIntegrationCallback() {
   const [params] = useSearchParams();
@@ -29,16 +30,11 @@ export default function EtsyIntegrationCallback() {
       return;
     }
 
-    let nonce = '';
-    try {
-      const parsed = JSON.parse(atob(state));
-      nonce = parsed?.nonce || '';
-    } catch {
-      nonce = '';
-    }
+    const parsed = peekOAuthStatePayload(state);
+    const nonce = parsed?.nonce || '';
 
     const codeVerifier = nonce ? sessionStorage.getItem(`${PKCE_STORAGE_PREFIX}${nonce}`) || '' : '';
-    if (!codeVerifier) {
+    if (!codeVerifier || !consumeOAuthNonce('etsy', nonce)) {
       setStatus('error');
       setMessage(t('client.callback.missingVerifier'));
       return;

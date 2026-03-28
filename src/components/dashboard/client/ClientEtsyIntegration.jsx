@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Loader2, RefreshCw, Unplug } from 'lucide-react';
+import { supabase } from '@/config/supabase';
 import { supabaseHelpers } from '@/config/supabase';
 import { useEtsyI18n } from '@/i18n/etsyI18n';
+import { createOAuthNonce, issueOAuthState, storeOAuthNonce } from '@/utils/oauthState';
 
 const PKCE_STORAGE_PREFIX = 'etsy_pkce_verifier:';
 const ETSY_PROD_REDIRECT_URI = 'https://prep-center.eu/auth/etsy/callback';
@@ -135,27 +137,34 @@ export default function ClientEtsyIntegration({ user, profile }) {
 
     const codeVerifier = randomPkceVerifier();
     const codeChallenge = await sha256Base64Url(codeVerifier);
-    const nonce = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const nonce = createOAuthNonce();
     sessionStorage.setItem(`${PKCE_STORAGE_PREFIX}${nonce}`, codeVerifier);
-
-    const statePayload = {
-      userId: user.id,
-      companyId,
-      integrationId: data?.id || null,
-      redirectUri: etsyRedirectUri,
-      nonce
-    };
-    const state = btoa(JSON.stringify(statePayload));
-    const query = new URLSearchParams({
-      response_type: 'code',
-      client_id: etsyClientId,
-      redirect_uri: etsyRedirectUri,
-      scope: etsyScopes,
-      state,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256'
-    });
-    window.location.href = `${etsyOauthBaseUrl}/oauth/connect?${query.toString()}`;
+    try {
+      const { state } = await issueOAuthState(supabase, {
+        provider: 'etsy',
+        userId: user.id,
+        companyId,
+        integrationId: data?.id || null,
+        redirectUri: etsyRedirectUri,
+        nonce
+      });
+      storeOAuthNonce('etsy', nonce);
+      const query = new URLSearchParams({
+        response_type: 'code',
+        client_id: etsyClientId,
+        redirect_uri: etsyRedirectUri,
+        scope: etsyScopes,
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: 'S256'
+      });
+      window.location.href = `${etsyOauthBaseUrl}/oauth/connect?${query.toString()}`;
+    } catch (issueError) {
+      sessionStorage.removeItem(`${PKCE_STORAGE_PREFIX}${nonce}`);
+      setError(issueError?.message || t('client.flash.connectError'));
+      setSaving(false);
+      return;
+    }
   };
 
   const handleDisconnectEtsy = async () => {

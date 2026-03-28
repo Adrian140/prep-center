@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/config/supabase';
+import { consumeOAuthNonce, peekOAuthStatePayload } from '@/utils/oauthState';
 
 export default function AmazonIntegrationCallback() {
   const [params] = useSearchParams();
@@ -17,6 +18,14 @@ export default function AmazonIntegrationCallback() {
     if (!code || !state) {
       setStatus('error');
       setMessage('Missing authorization data.');
+      return;
+    }
+
+    const statePayload = peekOAuthStatePayload(state);
+    const nonce = statePayload?.nonce || '';
+    if (!consumeOAuthNonce('amazon', nonce)) {
+      setStatus('error');
+      setMessage('Invalid or expired OAuth state.');
       return;
     }
 

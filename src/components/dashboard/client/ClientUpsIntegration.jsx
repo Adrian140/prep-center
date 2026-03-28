@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle, Loader2, RefreshCw, Unplug } from 'lucide-react';
+import { supabase } from '@/config/supabase';
 import { supabaseHelpers } from '@/config/supabase';
 import { useDashboardTranslation } from '@/translations';
+import { createOAuthNonce, issueOAuthState, storeOAuthNonce } from '@/utils/oauthState';
 
 const formatDateTime = (value) => {
   if (!value) return '-';
@@ -98,22 +100,30 @@ export default function ClientUpsIntegration({ user, profile }) {
       return;
     }
 
-    const statePayload = {
-      userId: user.id,
-      companyId: effectiveCompanyId,
-      integrationId: data?.id || null,
-      redirectUri: upsRedirectUri,
-      nonce: `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    };
-    const state = btoa(JSON.stringify(statePayload));
-    const query = new URLSearchParams({
-      client_id: upsClientId,
-      redirect_uri: upsRedirectUri,
-      response_type: 'code',
-      state
-    });
-    const authorizeUrl = `${upsBaseUrl}/security/v1/oauth/authorize?${query.toString()}`;
-    window.location.href = authorizeUrl;
+    const nonce = createOAuthNonce();
+    try {
+      const { state } = await issueOAuthState(supabase, {
+        provider: 'ups',
+        userId: user.id,
+        companyId: effectiveCompanyId,
+        integrationId: data?.id || null,
+        redirectUri: upsRedirectUri,
+        nonce
+      });
+      storeOAuthNonce('ups', nonce);
+      const query = new URLSearchParams({
+        client_id: upsClientId,
+        redirect_uri: upsRedirectUri,
+        response_type: 'code',
+        state
+      });
+      const authorizeUrl = `${upsBaseUrl}/security/v1/oauth/authorize?${query.toString()}`;
+      window.location.href = authorizeUrl;
+    } catch (issueError) {
+      setError(issueError?.message || t('ClientIntegrations.ups.flash.connectError'));
+      setSaving(false);
+      return;
+    }
   };
 
   const handleDisconnectUps = async () => {

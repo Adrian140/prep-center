@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link2, ExternalLink, CheckCircle, AlertTriangle, RefreshCw, Unplug } from 'lucide-react';
 import { supabase } from '@/config/supabase';
+import { createOAuthNonce, issueOAuthState, storeOAuthNonce } from '@/utils/oauthState';
 
 const AMAZON_REGIONS = [
   { id: 'eu', consentUrl: 'https://sellercentral-europe.amazon.com/apps/authorize/consent', marketplaceId: 'A13V1IB3VIYZZH' },
@@ -45,39 +46,17 @@ export default function AdminClientIntegrations({ profile }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [flash, setFlash] = useState('');
-  const [stateToken] = useState(() => Math.random().toString(36).slice(2) + Date.now().toString(36));
-
   const clientId = import.meta.env.VITE_SPAPI_CLIENT_ID || '';
   const applicationId = import.meta.env.VITE_AMZ_APP_ID || clientId || '';
   const redirectUri =
     import.meta.env.VITE_SPAPI_REDIRECT_URI || `${window.location.origin}/auth/amazon/callback`;
 
-  const statePayload = useMemo(() => {
-    if (!profile?.id) return '';
-    const marketplace = AMAZON_REGIONS.find((r) => r.id === region)?.marketplaceId || 'A13V1IB3VIYZZH';
-    const payload = {
-      userId: profile.id,
-      companyId: profile?.company_id || profile.id,
-      region,
-      marketplaceId: marketplace,
-      redirectUri,
-      nonce: stateToken
-    };
-    return btoa(JSON.stringify(payload));
-  }, [profile?.id, profile?.company_id, region, stateToken, redirectUri]);
-
-  const authorizeUrl = useMemo(() => {
-    if (!applicationId || !redirectUri || !statePayload) return '';
+  const authorizeBaseUrl = useMemo(() => {
+    if (!applicationId || !redirectUri || !profile?.id) return '';
     const regionConfig = AMAZON_REGIONS.find((r) => r.id === region);
     if (!regionConfig) return '';
-    const params = new URLSearchParams({
-      application_id: applicationId,
-      state: statePayload,
-      version: 'beta',
-      redirect_uri: redirectUri
-    });
-    return `${regionConfig.consentUrl}?${params.toString()}`;
-  }, [applicationId, redirectUri, region, statePayload]);
+    return regionConfig.consentUrl;
+  }, [applicationId, redirectUri, region, profile?.id]);
 
   const loadIntegrations = async () => {
     if (!profile?.id) return;
@@ -117,9 +96,31 @@ export default function AdminClientIntegrations({ profile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id]);
 
-  const handleAmazonConnect = () => {
-    if (!authorizeUrl) return;
-    window.open(authorizeUrl, '_blank', 'noopener');
+  const handleAmazonConnect = async () => {
+    if (!authorizeBaseUrl || !profile?.id) return;
+    const marketplace = AMAZON_REGIONS.find((r) => r.id === region)?.marketplaceId || 'A13V1IB3VIYZZH';
+    const nonce = createOAuthNonce();
+    try {
+      const { state } = await issueOAuthState(supabase, {
+        provider: 'amazon',
+        userId: profile.id,
+        companyId: profile?.company_id || profile.id,
+        region,
+        marketplaceId: marketplace,
+        redirectUri,
+        nonce
+      });
+      storeOAuthNonce('amazon', nonce);
+      const params = new URLSearchParams({
+        application_id: applicationId,
+        state,
+        version: 'beta',
+        redirect_uri: redirectUri
+      });
+      window.open(`${authorizeBaseUrl}?${params.toString()}`, '_blank', 'noopener');
+    } catch (error) {
+      setFlash(error?.message || 'Nu am putut porni autorizarea Amazon.');
+    }
   };
 
   const removeIntegration = async (id) => {
@@ -169,7 +170,7 @@ export default function AdminClientIntegrations({ profile }) {
           </div>
           <button
             onClick={handleAmazonConnect}
-            disabled={!authorizeUrl}
+            disabled={!authorizeBaseUrl}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
           >
             <ExternalLink className="w-4 h-4" /> Deschide autorizarea Amazon

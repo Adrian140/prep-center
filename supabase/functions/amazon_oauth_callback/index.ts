@@ -10,6 +10,10 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const OAUTH_STATE_SECRET =
+  Deno.env.get("OAUTH_STATE_SECRET") ||
+  Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ||
+  SUPABASE_SERVICE_ROLE_KEY;
 const LWA_CLIENT_ID = Deno.env.get("SPAPI_LWA_CLIENT_ID") ?? Deno.env.get("LWA_CLIENT_ID") ?? "";
 const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") ?? Deno.env.get("LWA_CLIENT_SECRET") ?? "";
 const DEFAULT_REDIRECT = Deno.env.get("SPAPI_REDIRECT_URI") ?? Deno.env.get("LWA_REDIRECT_URI") ?? "";
@@ -27,6 +31,39 @@ const SUPPORTED_EU_MARKETPLACES: Record<string, "eu"> = {
 };
 
 const DEFAULT_MARKETPLACE_IDS = Object.keys(SUPPORTED_EU_MARKETPLACES);
+const encoder = new TextEncoder();
+
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 ? "=".repeat(4 - (normalized.length % 4)) : "";
+  return atob(`${normalized}${padding}`);
+}
+
+async function verifySignedState(stateToken: string) {
+  try {
+    const [version, payloadBase64, signature] = String(stateToken || "").split(".");
+    if (version !== "v1" || !payloadBase64 || !signature) return null;
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(OAUTH_STATE_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const expected = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadBase64));
+    const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expected)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    if (expectedBase64 !== signature) return null;
+    const payload = JSON.parse(decodeBase64Url(payloadBase64));
+    if (payload?.provider !== "amazon") return null;
+    if (!payload?.exp || Date.now() > Number(payload.exp)) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
   console.error("Missing Supabase environment variables.");
@@ -75,21 +112,12 @@ serve(async (req) => {
       return new Response("Missing code/state", { status: 400, headers: corsHeaders });
     }
 
-    let parsedState: {
-      userId?: string;
-      companyId?: string;
-      region?: string;
-      marketplaceId?: string;
-      redirectUri?: string;
-    } | null = null;
-
-    try {
-      parsedState = JSON.parse(atob(stateRaw));
-    } catch (_e) {
+    const parsedState = await verifySignedState(stateRaw);
+    if (!parsedState) {
       return new Response("Invalid state payload", { status: 400, headers: corsHeaders });
     }
 
-    if (!parsedState?.userId) {
+    if (!parsedState?.userId || !parsedState?.nonce) {
       return new Response("State mismatch", { status: 400, headers: corsHeaders });
     }
 

@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +9,25 @@ const corsHeaders = {
 
 const FROM_EMAIL = Deno.env.get("PREP_FROM_EMAIL") ?? "no-reply@prep-center.eu";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  Deno.env.get("SUPABASE_SERVICE_ROLE") ??
+  "";
 const LOGO_URL = "https://prep-center.eu/branding/fulfillment-prep-logo.png";
+
+const adminClient =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
+        global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } }
+      })
+    : null;
+
+const authClient =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
 type DocumentType = "invoice" | "proforma";
 
@@ -102,6 +121,24 @@ const renderHtml = (payload: InvoiceEmailPayload) => {
   </div>`;
 };
 
+const isAuthorizedAdmin = async (req: Request) => {
+  const authHeader = req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!bearer || !authClient || !adminClient) return false;
+
+  const { data: userData, error: userError } = await authClient.auth.getUser(bearer);
+  if (userError || !userData?.user?.id) return false;
+
+  const { data: profile, error: profileError } = await adminClient
+    .from("profiles")
+    .select("account_type, is_limited_admin")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+  if (profileError || !profile) return false;
+
+  return String(profile.account_type || "").toLowerCase() === "admin" && !Boolean(profile.is_limited_admin);
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -114,6 +151,14 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const authorized = await isAuthorizedAdmin(req);
+    if (!authorized) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const payload = (await req.json()) as InvoiceEmailPayload;
     const recipient = String(payload.email || "").trim();
     if (!recipient) {

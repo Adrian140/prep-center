@@ -10,12 +10,17 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+const OAUTH_STATE_SECRET =
+  Deno.env.get("OAUTH_STATE_SECRET") ||
+  Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ||
+  SUPABASE_SERVICE_ROLE_KEY;
 
 const UPS_CLIENT_ID = Deno.env.get("UPS_CLIENT_ID") || "";
 const UPS_CLIENT_SECRET = Deno.env.get("UPS_CLIENT_SECRET") || "";
 const UPS_BASE_URL = (Deno.env.get("UPS_BASE_URL") || "https://onlinetools.ups.com").replace(/\/$/, "");
 const UPS_ENC_KEY = Deno.env.get("UPS_ENC_KEY") || "";
 const UPS_REDIRECT_URI = Deno.env.get("UPS_REDIRECT_URI") || "";
+const encoder = new TextEncoder();
 
 function jsonResponse(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -28,9 +33,33 @@ function base64Encode(input: string) {
   return btoa(input);
 }
 
-function decodeState(stateRaw: string) {
+function decodeBase64Url(value: string) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = normalized.length % 4 ? "=".repeat(4 - (normalized.length % 4)) : "";
+  return atob(`${normalized}${padding}`);
+}
+
+async function verifySignedState(stateRaw: string) {
   try {
-    return JSON.parse(atob(stateRaw));
+    const [version, payloadBase64, signature] = String(stateRaw || "").split(".");
+    if (version !== "v1" || !payloadBase64 || !signature) return null;
+    const key = await crypto.subtle.importKey(
+      "raw",
+      encoder.encode(OAUTH_STATE_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"]
+    );
+    const expected = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadBase64));
+    const expectedBase64 = btoa(String.fromCharCode(...new Uint8Array(expected)))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    if (expectedBase64 !== signature) return null;
+    const payload = JSON.parse(decodeBase64Url(payloadBase64));
+    if (payload?.provider !== "ups") return null;
+    if (!payload?.exp || Date.now() > Number(payload.exp)) return null;
+    return payload;
   } catch {
     return null;
   }
@@ -93,7 +122,7 @@ serve(async (req) => {
   const stateRaw = String(payload?.state || "").trim();
   if (!code || !stateRaw) return jsonResponse({ error: "Missing code/state." }, 400);
 
-  const state = decodeState(stateRaw);
+  const state = await verifySignedState(stateRaw);
   if (!state?.userId) return jsonResponse({ error: "Invalid state payload." }, 400);
 
   if (state.userId !== user.id) {
