@@ -1090,7 +1090,7 @@ export default function ClientIntegrations() {
         id="qogita"
         title={t('ClientIntegrations.qogita.title')}
         subtitle={t('ClientIntegrations.qogita.desc')}
-        logo="https://logo.clearbit.com/qogita.com"
+        logo="/branding/integrations/qogita.svg"
         fallbackLogo="/branding/integrations/qogita.svg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}

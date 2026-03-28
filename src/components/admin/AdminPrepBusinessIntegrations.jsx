@@ -60,7 +60,7 @@ const INTEGRATIONS = [
     title: 'Qogita',
     subtitle: 'Conexiuni Qogita active.',
     settingField: 'qogita',
-    logo: 'https://logo.clearbit.com/qogita.com',
+    logo: '/branding/integrations/qogita.svg',
     fallbackLogo: '/branding/integrations/qogita.svg'
   }
 ];
