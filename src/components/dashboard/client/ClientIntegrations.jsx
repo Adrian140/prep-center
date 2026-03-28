@@ -872,6 +872,7 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
             <p>{t('ClientIntegrations.profitDesk.helper')}</p>
             <p>{t('ClientIntegrations.profitDesk.apiWhere')}</p>
+            <p>{t('ClientIntegrations.profitDesk.supportLine')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -966,6 +967,7 @@ export default function ClientIntegrations() {
             <p>{t('ClientIntegrations.profitPath.helper')}</p>
             <p>{t('ClientIntegrations.profitPath.apiWhere')}</p>
             <p>{t('ClientIntegrations.profitPath.apiMerchantId')}</p>
+            <p>{t('ClientIntegrations.profitPath.supportLine')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -1051,8 +1053,10 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
             <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
             <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.helper')}</p>
             <p>{t('ClientIntegrations.prepbusiness.apiWhere')}</p>
             <p>{t('ClientIntegrations.prepbusiness.apiMerchantId')}</p>
+            <p>{t('ClientIntegrations.prepbusiness.supportLine')}</p>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -1063,9 +1067,6 @@ export default function ClientIntegrations() {
               {pbSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
               {t('ClientIntegrations.prepbusiness.save')}
             </button>
-            <p className="text-xs text-text-secondary">
-              {t('ClientIntegrations.prepbusiness.helper')}
-            </p>
           </div>
         </form>
 

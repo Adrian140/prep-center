@@ -805,11 +805,11 @@
         "clientStep": "You: enter the email used in your Arbitrage One account.",
         "teamStep": "We: map your Arbitrage One orders to your workspace and sync receptions.",
         "save": "Save & activate",
-        "helper": "Use your PrepBusiness token to map the client and sync inbound data into your workspace.",
+        "helper": "Use your PrepBusiness token to link your Arbitrage One account and sync inbound Arbitrage One shipments into your workspace.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "In PrepBusiness go to Settings -> Api.",
-        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID).",
+        "apiWhere": "In PrepBusiness go to Settings -> Api and copy the token used for Arbitrage One.",
+        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID) for your Arbitrage One mapping.",
         "errors": {
           "emailRequired": "Arbitrage One email is required."
         },
@@ -817,7 +817,8 @@
           "saved": "Arbitrage One mapping saved. We will sync receptions automatically."
         },
         "merchantIdLabel": "PrepBusiness token",
-        "merchantIdPlaceholder": "e.g. 23214"
+        "merchantIdPlaceholder": "e.g. 23214",
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -877,9 +878,9 @@
         "desc": "Add your Profit Path token to map your PrepBusiness client correctly.",
         "tokenLabel": "PrepBusiness token",
         "tokenPlaceholder": "e.g. pp_live_...",
-        "helper": "This token is used only for client mapping and PrepBusiness data synchronization.",
-        "apiWhere": "In PrepBusiness go to Settings -> Api.",
-        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID).",
+        "helper": "This PrepBusiness token is used only to link your Profit Path account and sync Profit Path data correctly.",
+        "apiWhere": "In PrepBusiness go to Settings -> Api and copy the token used for Profit Path.",
+        "apiMerchantId": "Use the 5-digit Merchant ID shown in the Api tab (App / Merchant ID) for your Profit Path mapping.",
         "save": "Save token",
         "errors": {
           "tokenRequired": "Profit Path token is required.",
@@ -889,15 +890,16 @@
           "saved": "Profit Path mapping saved. We will sync receptions automatically."
         },
         "emailLabel": "Profit Path account email",
-        "emailPlaceholder": "you@profitpath.com"
+        "emailPlaceholder": "you@profitpath.com",
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
       },
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Add your ProfitDesk token to map your client correctly.",
         "tokenLabel": "PrepBusiness token",
         "tokenPlaceholder": "e.g. pd_live_...",
-        "helper": "This token is used only for client mapping and PrepBusiness data synchronization.",
-        "apiWhere": "In PrepBusiness go to Settings -> Api.",
+        "helper": "This PrepBusiness token is used only to link your ProfitDesk account and sync ProfitDesk data correctly.",
+        "apiWhere": "In PrepBusiness go to Settings -> Api and copy the token used for ProfitDesk.",
         "save": "Save token",
         "errors": {
           "tokenRequired": "ProfitDesk token is required.",
@@ -907,7 +909,8 @@
           "saved": "ProfitDesk mapping saved. We will sync data automatically."
         },
         "emailLabel": "ProfitDesk account email",
-        "emailPlaceholder": "you@profitdesk.com"
+        "emailPlaceholder": "you@profitdesk.com",
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
       }
     },
     "ClientAffiliates": {
@@ -1998,11 +2001,11 @@
         "clientStep": "Tu: introdu emailul folosit în contul tău Arbitrage One.",
         "teamStep": "Noi: mapăm comenzile Arbitrage One la workspace-ul tău și sincronizăm recepțiile.",
         "save": "Salvează și activează",
-        "helper": "Folosește tokenul din PrepBusiness pentru maparea clientului și sincronizarea datelor inbound în workspace.",
+        "helper": "Folosește tokenul din PrepBusiness pentru a conecta contul Arbitrage One și a sincroniza corect recepțiile inbound Arbitrage One în workspace.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
-        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID).",
+        "apiWhere": "În PrepBusiness mergi la Settings -> Api și copiază tokenul folosit pentru Arbitrage One.",
+        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID) pentru maparea Arbitrage One.",
         "errors": {
           "emailRequired": "Emailul pentru Arbitrage One este obligatoriu."
         },
@@ -2010,7 +2013,8 @@
           "saved": "Maparea Arbitrage One a fost salvată. Vom sincroniza automat recepțiile."
         },
         "merchantIdLabel": "Token PrepBusiness",
-        "merchantIdPlaceholder": "ex: 23214"
+        "merchantIdPlaceholder": "ex: 23214",
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -2070,9 +2074,9 @@
         "desc": "Adaugă token-ul Profit Path pentru maparea corectă a clientului în PrepBusiness.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pp_live_...",
-        "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor finale din PrepBusiness.",
-        "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
-        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID).",
+        "helper": "Acest token din PrepBusiness este folosit doar pentru a conecta contul Profit Path și pentru a sincroniza corect datele Profit Path.",
+        "apiWhere": "În PrepBusiness mergi la Settings -> Api și copiază tokenul folosit pentru Profit Path.",
+        "apiMerchantId": "Folosește Merchant ID-ul de 5 cifre din tab-ul Api (App / Merchant ID) pentru maparea Profit Path.",
         "save": "Salvează token",
         "errors": {
           "tokenRequired": "Token-ul Profit Path este obligatoriu.",
@@ -2082,15 +2086,16 @@
           "saved": "Maparea Profit Path a fost salvată. Vom sincroniza automat recepțiile."
         },
         "emailLabel": "Email cont Profit Path",
-        "emailPlaceholder": "tu@profitpath.com"
+        "emailPlaceholder": "tu@profitpath.com",
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
       },
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Adaugă token-ul ProfitDesk pentru maparea corectă a clientului.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pd_live_...",
-        "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor din PrepBusiness.",
-        "apiWhere": "În PrepBusiness mergi la Settings -> Api.",
+        "helper": "Acest token din PrepBusiness este folosit doar pentru a conecta contul ProfitDesk și pentru a sincroniza corect datele ProfitDesk.",
+        "apiWhere": "În PrepBusiness mergi la Settings -> Api și copiază tokenul folosit pentru ProfitDesk.",
         "save": "Salvează token",
         "errors": {
           "tokenRequired": "Token-ul ProfitDesk este obligatoriu.",
@@ -2100,7 +2105,8 @@
           "saved": "Maparea ProfitDesk a fost salvată. Vom sincroniza automat datele."
         },
         "emailLabel": "Email cont ProfitDesk",
-        "emailPlaceholder": "tu@profitdesk.com"
+        "emailPlaceholder": "tu@profitdesk.com",
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
       }
     },
     "ClientAffiliates": {
@@ -2627,8 +2633,7 @@
       "request": {
         "title": "Demander votre code d’affiliation",
         "desc": "Expliquez-nous comment vous comptez promouvoir Prep Center. Nous examinons chaque demande manuellement.",
-        "applyCta": "Pas encore de code ? Demandez-le et commencez à gagner avec vos parrainages."
-        ,
+        "applyCta": "Pas encore de code ? Demandez-le et commencez à gagner avec vos parrainages.",
         "preferred": "Code souhaité",
         "preferredPh": "Ex. ADRIAN10",
         "generate": "Suggérer un code",
@@ -3360,11 +3365,11 @@
         "clientStep": "Vous : saisissez l’email utilisé sur votre compte Arbitrage One.",
         "teamStep": "Nous : nous associons vos commandes Arbitrage One à votre espace et synchronisons les réceptions.",
         "save": "Enregistrer & activer",
-        "helper": "Utilisez votre token PrepBusiness pour mapper le client et synchroniser les données inbound dans votre espace.",
+        "helper": "Utilisez votre token PrepBusiness pour connecter votre compte Arbitrage One et synchroniser correctement les réceptions inbound Arbitrage One dans votre espace.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
-        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID).",
+        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api et copiez le token utilisé pour Arbitrage One.",
+        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID) pour le mapping Arbitrage One.",
         "errors": {
           "emailRequired": "L’e-mail Arbitrage One est requis."
         },
@@ -3372,7 +3377,8 @@
           "saved": "Le mapping Arbitrage One a été enregistré. Nous synchroniserons les réceptions automatiquement."
         },
         "merchantIdLabel": "Token PrepBusiness",
-        "merchantIdPlaceholder": "ex : 23214"
+        "merchantIdPlaceholder": "ex : 23214",
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -3432,9 +3438,9 @@
         "desc": "Ajoutez votre token Profit Path pour mapper correctement votre client PrepBusiness.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex: pp_live_...",
-        "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données finales PrepBusiness.",
-        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
-        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID).",
+        "helper": "Ce token PrepBusiness est utilisé uniquement pour connecter votre compte Profit Path et synchroniser correctement les données Profit Path.",
+        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api et copiez le token utilisé pour Profit Path.",
+        "apiMerchantId": "Utilisez le Merchant ID à 5 chiffres affiché dans l’onglet Api (App / Merchant ID) pour le mapping Profit Path.",
         "save": "Enregistrer le token",
         "errors": {
           "tokenRequired": "Le token Profit Path est requis.",
@@ -3444,15 +3450,16 @@
           "saved": "Le mapping Profit Path a été enregistré. Nous synchroniserons les réceptions automatiquement."
         },
         "emailLabel": "Email du compte Profit Path",
-        "emailPlaceholder": "vous@profitpath.com"
+        "emailPlaceholder": "vous@profitpath.com",
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
       },
       "profitDesk": {
         "title": "ProfitDesk",
         "desc": "Ajoutez votre token ProfitDesk pour mapper correctement votre client.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ex : pd_live_...",
-        "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données PrepBusiness.",
-        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api.",
+        "helper": "Ce token PrepBusiness est utilisé uniquement pour connecter votre compte ProfitDesk et synchroniser correctement les données ProfitDesk.",
+        "apiWhere": "Dans PrepBusiness, allez à Settings -> Api et copiez le token utilisé pour ProfitDesk.",
         "save": "Enregistrer le token",
         "errors": {
           "tokenRequired": "Le token ProfitDesk est requis.",
@@ -3462,7 +3469,8 @@
           "saved": "Le mapping ProfitDesk a été enregistré. Nous synchroniserons automatiquement les données."
         },
         "emailLabel": "Email du compte ProfitDesk",
-        "emailPlaceholder": "vous@profitdesk.com"
+        "emailPlaceholder": "vous@profitdesk.com",
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
       }
     },
     "reportsMenu": {
@@ -4498,11 +4506,11 @@
         "clientStep": "Du: Gib die E-Mail deines Arbitrage-One-Kontos ein.",
         "teamStep": "Wir: Wir ordnen deine Arbitrage-One-Bestellungen deinem Workspace zu und synchronisieren die Receptions.",
         "save": "Speichern & aktivieren",
-        "helper": "Verwende dein PrepBusiness-Token für das Kunden-Mapping und die Synchronisierung eingehender Daten in deinen Workspace.",
+        "helper": "Verwende dein PrepBusiness-Token, um dein Arbitrage-One-Konto zu verbinden und eingehende Arbitrage-One-Sendungen korrekt mit deinem Workspace zu synchronisieren.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "In PrepBusiness gehe zu Settings -> Api.",
-        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID).",
+        "apiWhere": "Gehe in PrepBusiness zu Settings -> Api und kopiere das Token für Arbitrage One.",
+        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID) für das Arbitrage-One-Mapping.",
         "errors": {
           "emailRequired": "Die Arbitrage-One-E-Mail ist erforderlich."
         },
@@ -4510,7 +4518,8 @@
           "saved": "Arbitrage-One-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
         },
         "merchantIdLabel": "PrepBusiness-Token",
-        "merchantIdPlaceholder": "z. B. 23214"
+        "merchantIdPlaceholder": "z. B. 23214",
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -4570,9 +4579,9 @@
         "desc": "Füge dein Profit-Path-Token hinzu, um den PrepBusiness-Kunden korrekt zuzuordnen.",
         "tokenLabel": "PrepBusiness-Token",
         "tokenPlaceholder": "z. B. pp_live_...",
-        "helper": "Dieses Token wird nur für Kunden-Mapping und die Synchronisierung finaler PrepBusiness-Daten verwendet.",
-        "apiWhere": "In PrepBusiness gehe zu Settings -> Api.",
-        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID).",
+        "helper": "Dieses PrepBusiness-Token wird nur verwendet, um dein Profit-Path-Konto zu verbinden und Profit-Path-Daten korrekt zu synchronisieren.",
+        "apiWhere": "Gehe in PrepBusiness zu Settings -> Api und kopiere das Token für Profit Path.",
+        "apiMerchantId": "Verwende die 5-stellige Merchant ID aus dem Api-Tab (App / Merchant ID) für das Profit-Path-Mapping.",
         "save": "Token speichern",
         "errors": {
           "tokenRequired": "Das Profit-Path-Token ist erforderlich.",
@@ -4582,7 +4591,27 @@
           "saved": "Profit-Path-Mapping gespeichert. Wir synchronisieren die Wareneingänge automatisch."
         },
         "emailLabel": "Profit-Path-Konto-E-Mail",
-        "emailPlaceholder": "du@profitpath.com"
+        "emailPlaceholder": "du@profitpath.com",
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Füge dein ProfitDesk-Token hinzu, um deinen Kunden korrekt zuzuordnen.",
+        "tokenLabel": "PrepBusiness-Token",
+        "tokenPlaceholder": "z. B. pd_live_...",
+        "helper": "Dieses PrepBusiness-Token wird nur verwendet, um dein ProfitDesk-Konto zu verbinden und ProfitDesk-Daten korrekt zu synchronisieren.",
+        "apiWhere": "Gehe in PrepBusiness zu Settings -> Api und kopiere das Token für ProfitDesk.",
+        "save": "Token speichern",
+        "errors": {
+          "tokenRequired": "Das ProfitDesk-Token ist erforderlich.",
+          "emailRequired": "Die ProfitDesk-E-Mail ist erforderlich."
+        },
+        "flash": {
+          "saved": "ProfitDesk-Mapping gespeichert. Wir synchronisieren die Daten automatisch."
+        },
+        "emailLabel": "ProfitDesk-Konto-E-Mail",
+        "emailPlaceholder": "du@profitdesk.com",
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
       }
     },
     "reportsMenu": {
@@ -5503,11 +5532,11 @@
         "clientStep": "Tu: inserisci l’email usata nel tuo account Arbitrage One.",
         "teamStep": "Noi: colleghiamo i tuoi ordini Arbitrage One al tuo workspace e sincronizziamo le receptions.",
         "save": "Salva e attiva",
-        "helper": "Usa il token PrepBusiness per il mapping del cliente e la sincronizzazione dei dati inbound nel tuo workspace.",
+        "helper": "Usa il token PrepBusiness per collegare il tuo account Arbitrage One e sincronizzare correttamente le spedizioni inbound Arbitrage One nel tuo workspace.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "In PrepBusiness vai su Settings -> Api.",
-        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID).",
+        "apiWhere": "In PrepBusiness vai su Settings -> Api e copia il token usato per Arbitrage One.",
+        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID) per il mapping Arbitrage One.",
         "errors": {
           "emailRequired": "L’email Arbitrage One è obbligatoria."
         },
@@ -5515,7 +5544,8 @@
           "saved": "Mapping Arbitrage One salvato. Sincronizzeremo automaticamente le receptions."
         },
         "merchantIdLabel": "Token PrepBusiness",
-        "merchantIdPlaceholder": "es: 23214"
+        "merchantIdPlaceholder": "es: 23214",
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -5575,9 +5605,9 @@
         "desc": "Aggiungi il token Profit Path per mappare correttamente il tuo cliente PrepBusiness.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "es: pp_live_...",
-        "helper": "Questo token è usato solo per il mapping cliente e la sincronizzazione dei dati finali PrepBusiness.",
-        "apiWhere": "In PrepBusiness vai su Settings -> Api.",
-        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID).",
+        "helper": "Questo token PrepBusiness è usato solo per collegare il tuo account Profit Path e sincronizzare correttamente i dati Profit Path.",
+        "apiWhere": "In PrepBusiness vai su Settings -> Api e copia il token usato per Profit Path.",
+        "apiMerchantId": "Usa il Merchant ID a 5 cifre mostrato nella scheda Api (App / Merchant ID) per il mapping Profit Path.",
         "save": "Salva token",
         "errors": {
           "tokenRequired": "Il token Profit Path è obbligatorio.",
@@ -5587,7 +5617,27 @@
           "saved": "Mapping Profit Path salvato. Sincronizzeremo automaticamente le receptions."
         },
         "emailLabel": "Email account Profit Path",
-        "emailPlaceholder": "tu@profitpath.com"
+        "emailPlaceholder": "tu@profitpath.com",
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Aggiungi il token ProfitDesk per mappare correttamente il tuo cliente.",
+        "tokenLabel": "Token PrepBusiness",
+        "tokenPlaceholder": "es: pd_live_...",
+        "helper": "Questo token PrepBusiness è usato solo per collegare il tuo account ProfitDesk e sincronizzare correttamente i dati ProfitDesk.",
+        "apiWhere": "In PrepBusiness vai su Settings -> Api e copia il token usato per ProfitDesk.",
+        "save": "Salva token",
+        "errors": {
+          "tokenRequired": "Il token ProfitDesk è obbligatorio.",
+          "emailRequired": "L’email ProfitDesk è obbligatoria."
+        },
+        "flash": {
+          "saved": "Mapping ProfitDesk salvato. Sincronizzeremo automaticamente i dati."
+        },
+        "emailLabel": "Email account ProfitDesk",
+        "emailPlaceholder": "tu@profitdesk.com",
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
       }
     },
     "reportsMenu": {
@@ -6508,11 +6558,11 @@
         "clientStep": "Tú: introduce el correo usado en tu cuenta de Arbitrage One.",
         "teamStep": "Nosotros: asociamos tus pedidos de Arbitrage One a tu workspace y sincronizamos las recepciones.",
         "save": "Guardar y activar",
-        "helper": "Usa tu token de PrepBusiness para el mapeo del cliente y la sincronización de los datos inbound en tu workspace.",
+        "helper": "Usa tu token de PrepBusiness para conectar tu cuenta de Arbitrage One y sincronizar correctamente los envíos inbound de Arbitrage One en tu workspace.",
         "envHint": "",
         "tagHint": "",
-        "apiWhere": "En PrepBusiness ve a Settings -> Api.",
-        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID).",
+        "apiWhere": "En PrepBusiness ve a Settings -> Api y copia el token usado para Arbitrage One.",
+        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID) para el mapeo de Arbitrage One.",
         "errors": {
           "emailRequired": "El correo de Arbitrage One es obligatorio."
         },
@@ -6520,7 +6570,8 @@
           "saved": "El mapeo de Arbitrage One se guardó. Sincronizaremos las recepciones automáticamente."
         },
         "merchantIdLabel": "Token PrepBusiness",
-        "merchantIdPlaceholder": "ej.: 23214"
+        "merchantIdPlaceholder": "ej.: 23214",
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -6580,9 +6631,9 @@
         "desc": "Añade tu token de Profit Path para mapear correctamente tu cliente de PrepBusiness.",
         "tokenLabel": "Token PrepBusiness",
         "tokenPlaceholder": "ej.: pp_live_...",
-        "helper": "Este token se usa solo para el mapeo del cliente y la sincronización de datos finales de PrepBusiness.",
-        "apiWhere": "En PrepBusiness ve a Settings -> Api.",
-        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID).",
+        "helper": "Este token de PrepBusiness se usa solo para conectar tu cuenta de Profit Path y sincronizar correctamente los datos de Profit Path.",
+        "apiWhere": "En PrepBusiness ve a Settings -> Api y copia el token usado para Profit Path.",
+        "apiMerchantId": "Usa el Merchant ID de 5 dígitos que aparece en la pestaña Api (App / Merchant ID) para el mapeo de Profit Path.",
         "save": "Guardar token",
         "errors": {
           "tokenRequired": "El token de Profit Path es obligatorio.",
@@ -6592,7 +6643,27 @@
           "saved": "El mapeo de Profit Path se guardó. Sincronizaremos las recepciones automáticamente."
         },
         "emailLabel": "Correo de la cuenta Profit Path",
-        "emailPlaceholder": "tu@profitpath.com"
+        "emailPlaceholder": "tu@profitpath.com",
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Añade tu token de ProfitDesk para mapear correctamente tu cliente.",
+        "tokenLabel": "Token PrepBusiness",
+        "tokenPlaceholder": "ej.: pd_live_...",
+        "helper": "Este token de PrepBusiness se usa solo para conectar tu cuenta de ProfitDesk y sincronizar correctamente los datos de ProfitDesk.",
+        "apiWhere": "En PrepBusiness ve a Settings -> Api y copia el token usado para ProfitDesk.",
+        "save": "Guardar token",
+        "errors": {
+          "tokenRequired": "El token de ProfitDesk es obligatorio.",
+          "emailRequired": "El correo de ProfitDesk es obligatorio."
+        },
+        "flash": {
+          "saved": "El mapeo de ProfitDesk se guardó. Sincronizaremos los datos automáticamente."
+        },
+        "emailLabel": "Correo de la cuenta ProfitDesk",
+        "emailPlaceholder": "tu@profitdesk.com",
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
       }
     },
     "reportsMenu": {
