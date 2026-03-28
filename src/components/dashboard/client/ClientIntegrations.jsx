@@ -890,10 +890,13 @@ export default function ClientIntegrations() {
                 t('ClientIntegrations.profitDesk.step4'),
                 t('ClientIntegrations.profitDesk.step5'),
                 t('ClientIntegrations.profitDesk.step6'),
-                t('ClientIntegrations.profitDesk.step7'),
-                t('ClientIntegrations.profitDesk.step8')
+                t('ClientIntegrations.profitDesk.step7')
               ]}
             />
+            <div className="mt-3 space-y-1">
+              <p>{t('ClientIntegrations.profitDesk.step8')}</p>
+              <p>{t('ClientIntegrations.profitDesk.supportLine')}</p>
+            </div>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -993,10 +996,13 @@ export default function ClientIntegrations() {
                 t('ClientIntegrations.profitPath.step4'),
                 t('ClientIntegrations.profitPath.step5'),
                 t('ClientIntegrations.profitPath.step6'),
-                t('ClientIntegrations.profitPath.step7'),
-                t('ClientIntegrations.profitPath.step8')
+                t('ClientIntegrations.profitPath.step7')
               ]}
             />
+            <div className="mt-3 space-y-1">
+              <p>{t('ClientIntegrations.profitPath.step8')}</p>
+              <p>{t('ClientIntegrations.profitPath.supportLine')}</p>
+            </div>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -1088,10 +1094,13 @@ export default function ClientIntegrations() {
                 t('ClientIntegrations.prepbusiness.step4'),
                 t('ClientIntegrations.prepbusiness.step5'),
                 t('ClientIntegrations.prepbusiness.step6'),
-                t('ClientIntegrations.prepbusiness.step7'),
-                t('ClientIntegrations.prepbusiness.step8')
+                t('ClientIntegrations.prepbusiness.step7')
               ]}
             />
+            <div className="mt-3 space-y-1">
+              <p>{t('ClientIntegrations.prepbusiness.step8')}</p>
+              <p>{t('ClientIntegrations.prepbusiness.supportLine')}</p>
+            </div>
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
