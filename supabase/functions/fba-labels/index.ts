@@ -10,6 +10,7 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 
 const LWA_CLIENT_ID = Deno.env.get("SPAPI_LWA_CLIENT_ID") || "";
 const LWA_CLIENT_SECRET = Deno.env.get("SPAPI_LWA_CLIENT_SECRET") || "";
@@ -20,6 +21,15 @@ const SPAPI_ROLE_ARN = Deno.env.get("SPAPI_ROLE_ARN") || "";
 const SUPABASE_SELLER_ID = Deno.env.get("SPAPI_SELLER_ID") || "";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const authClient = SUPABASE_URL && SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+type AuthContext = {
+  userId: string;
+  companyId: string | null;
+  isAdmin: boolean;
+};
 
 function maskValue(val: string) {
   if (!val) return "";
@@ -323,14 +333,50 @@ async function resolveSellerId(companyId?: string | null, existing?: string | nu
   return data?.seller_id || SUPABASE_SELLER_ID || "";
 }
 
+async function requireAuthContext(req: Request): Promise<AuthContext | null> {
+  const authHeader = req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!bearer || !authClient) return null;
+
+  const { data: userData, error: userError } = await authClient.auth.getUser(bearer);
+  if (userError || !userData?.user?.id) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("company_id, is_admin, is_limited_admin")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+  if (profileError || !profile) return null;
+
+  return {
+    userId: userData.user.id,
+    companyId: profile.company_id || null,
+    isAdmin: Boolean(profile.is_admin) && !Boolean(profile.is_limited_admin)
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { ...corsHeaders, "content-type": "application/json" }
+    });
   }
 
   const traceId = crypto.randomUUID();
 
   try {
+    const auth = await requireAuthContext(req);
+    if (!auth) {
+      return new Response(JSON.stringify({ error: "Unauthorized", traceId }), {
+        status: 401,
+        headers: { ...corsHeaders, "content-type": "application/json" }
+      });
+    }
+
     const body = await req.json();
     const requestId = body.request_id || body.requestId || null;
     let companyId = body.company_id || body.companyId || null;
@@ -356,10 +402,18 @@ serve(async (req) => {
     if (!companyId && requestId) {
       const { data: reqRow, error: reqErr } = await supabase
         .from("prep_requests")
-        .select("id, company_id, destination_country, prep_request_items(id, sku, asin, units_requested, units_sent)")
+        .select("id, company_id, user_id, destination_country, prep_request_items(id, sku, asin, units_requested, units_sent)")
         .eq("id", requestId)
         .maybeSingle();
       if (!reqErr && reqRow) {
+        const sameCompany = !!auth.companyId && reqRow.company_id === auth.companyId;
+        const sameOwner = reqRow.user_id === auth.userId;
+        if (!auth.isAdmin && !sameCompany && !sameOwner) {
+          return new Response(JSON.stringify({ error: "Forbidden", traceId }), {
+            status: 403,
+            headers: { ...corsHeaders, "content-type": "application/json" }
+          });
+        }
         companyId = reqRow.company_id || companyId;
         if (Array.isArray(reqRow.prep_request_items) && !items.length) {
           items = reqRow.prep_request_items.map((it) => ({
@@ -386,6 +440,15 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" }
       });
+    }
+    if (!auth.isAdmin) {
+      const sameCompany = !!auth.companyId && companyId === auth.companyId;
+      if (!sameCompany) {
+        return new Response(JSON.stringify({ error: "Forbidden", traceId }), {
+          status: 403,
+          headers: { ...corsHeaders, "content-type": "application/json" }
+        });
+      }
     }
     if (!items.length) {
       const msg = "No items provided";

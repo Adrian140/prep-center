@@ -33,6 +33,8 @@ type ProfileRow = {
 
 type ShipmentRow = {
   id: string;
+  company_id: string | null;
+  user_id: string | null;
   tracking_id: string | null;
   tracking_ids: string[] | null;
   warehouse_country: string | null;
@@ -88,13 +90,19 @@ const SMTP_SECURE = ["1", "true", "yes", "on"].includes(
 );
 const SMTP_FROM_NAME = Deno.env.get("SMTP_FROM_NAME") ?? "Prep Center";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const SUPABASE_SERVICE_ROLE =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE") ?? "";
+const INTERNAL_SERVICE_ROLE_KEY = Deno.env.get("INTERNAL_SERVICE_ROLE_KEY") ?? "";
 const LOGO_URL = "https://prep-center.eu/branding/fulfillment-prep-logo.png";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE}` } },
 });
+const authClient =
+  SUPABASE_URL && SUPABASE_ANON_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
 
 const toNum = (value: unknown) => {
   const parsed = Number(value ?? 0);
@@ -158,7 +166,7 @@ async function fetchProfile(userId: string): Promise<ProfileRow | null> {
 async function fetchShipment(shipmentId: string): Promise<ShipmentRow | null> {
   const { data, error } = await supabase
     .from("receiving_shipments")
-    .select("id,tracking_id,tracking_ids,warehouse_country,destination_country,status")
+    .select("id,company_id,user_id,tracking_id,tracking_ids,warehouse_country,destination_country,status")
     .eq("id", shipmentId)
     .maybeSingle();
   if (error) {
@@ -166,6 +174,43 @@ async function fetchShipment(shipmentId: string): Promise<ShipmentRow | null> {
     return null;
   }
   return (data as ShipmentRow | null) || null;
+}
+
+async function isAuthorized(req: Request, payload: RequestPayload) {
+  const internalKey = req.headers.get("x-internal-service-key") || "";
+  const authHeader = req.headers.get("authorization") || "";
+  const bearer = authHeader.replace(/^Bearer\s+/i, "").trim();
+  const allowedKeys = new Set([INTERNAL_SERVICE_ROLE_KEY, SUPABASE_SERVICE_ROLE].filter(Boolean));
+  if (allowedKeys.size > 0 && (allowedKeys.has(internalKey) || allowedKeys.has(bearer))) {
+    return { ok: true, canProcessQueue: true };
+  }
+  if (!bearer || !authClient) return { ok: false, canProcessQueue: false };
+
+  const { data: userData, error: userError } = await authClient.auth.getUser(bearer);
+  if (userError || !userData?.user?.id) return { ok: false, canProcessQueue: false };
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("company_id, account_type, is_limited_admin")
+    .eq("id", userData.user.id)
+    .maybeSingle();
+  if (profileError || !profile) return { ok: false, canProcessQueue: false };
+
+  const isAdmin = String(profile.account_type || "").toLowerCase() === "admin" && !Boolean(profile.is_limited_admin);
+  const shipmentId = String(payload?.shipment_id || "").trim();
+  if (!shipmentId) {
+    return { ok: isAdmin, canProcessQueue: isAdmin };
+  }
+
+  const shipment = await fetchShipment(shipmentId);
+  if (!shipment) return { ok: false, canProcessQueue: false };
+
+  const sameOwner = shipment.user_id === userData.user.id;
+  const sameCompany = !!profile.company_id && shipment.company_id === profile.company_id;
+  return {
+    ok: isAdmin || sameOwner || sameCompany,
+    canProcessQueue: isAdmin
+  };
 }
 
 async function buildSnapshot(row: QueueRow): Promise<Snapshot | null> {
@@ -512,6 +557,14 @@ Deno.serve(async (req) => {
       payload = {};
     }
 
+    const authorization = await isAuthorized(req, payload);
+    if (!authorization.ok) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const targetShipmentId = String(payload?.shipment_id || "").trim();
     const sent: string[] = [];
     const skipped: string[] = [];
@@ -528,6 +581,12 @@ Deno.serve(async (req) => {
         ];
       }
     } else {
+      if (!authorization.canProcessQueue) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
       pendingRows = await fetchDueQueue(50);
     }
 
