@@ -156,6 +156,18 @@ function IntegrationPanel({
   );
 }
 
+function IntegrationSteps({ items }) {
+  const steps = items.filter(Boolean);
+  if (!steps.length) return null;
+  return (
+    <ol className="list-decimal list-inside space-y-1">
+      {steps.map((step) => (
+        <li key={step}>{step}</li>
+      ))}
+    </ol>
+  );
+}
+
 export default function ClientIntegrations() {
   const { user, profile } = useSupabaseAuth();
   const { t, tp } = useDashboardTranslation();
@@ -869,10 +881,16 @@ export default function ClientIntegrations() {
               required
             />
           </div>
-          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>{t('ClientIntegrations.profitDesk.helper')}</p>
-            <p>{t('ClientIntegrations.profitDesk.apiWhere')}</p>
-            <p>{t('ClientIntegrations.profitDesk.supportLine')}</p>
+          <div className="md:col-span-2 text-sm text-text-secondary">
+            <IntegrationSteps
+              items={[
+                t('ClientIntegrations.profitDesk.clientStep'),
+                t('ClientIntegrations.profitDesk.teamStep'),
+                t('ClientIntegrations.profitDesk.helper'),
+                t('ClientIntegrations.profitDesk.apiWhere'),
+                t('ClientIntegrations.profitDesk.supportLine')
+              ]}
+            />
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -963,11 +981,17 @@ export default function ClientIntegrations() {
               required
             />
           </div>
-          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>{t('ClientIntegrations.profitPath.helper')}</p>
-            <p>{t('ClientIntegrations.profitPath.apiWhere')}</p>
-            <p>{t('ClientIntegrations.profitPath.apiMerchantId')}</p>
-            <p>{t('ClientIntegrations.profitPath.supportLine')}</p>
+          <div className="md:col-span-2 text-sm text-text-secondary">
+            <IntegrationSteps
+              items={[
+                t('ClientIntegrations.profitPath.clientStep'),
+                t('ClientIntegrations.profitPath.teamStep'),
+                t('ClientIntegrations.profitPath.helper'),
+                t('ClientIntegrations.profitPath.apiWhere'),
+                t('ClientIntegrations.profitPath.apiMerchantId'),
+                t('ClientIntegrations.profitPath.supportLine')
+              ]}
+            />
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button
@@ -1050,13 +1074,17 @@ export default function ClientIntegrations() {
               placeholder={t('ClientIntegrations.prepbusiness.merchantIdPlaceholder')}
             />
           </div>
-          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
-            <p>{t('ClientIntegrations.prepbusiness.clientStep')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.teamStep')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.helper')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.apiWhere')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.apiMerchantId')}</p>
-            <p>{t('ClientIntegrations.prepbusiness.supportLine')}</p>
+          <div className="md:col-span-2 text-sm text-text-secondary">
+            <IntegrationSteps
+              items={[
+                t('ClientIntegrations.prepbusiness.clientStep'),
+                t('ClientIntegrations.prepbusiness.teamStep'),
+                t('ClientIntegrations.prepbusiness.helper'),
+                t('ClientIntegrations.prepbusiness.apiWhere'),
+                t('ClientIntegrations.prepbusiness.apiMerchantId'),
+                t('ClientIntegrations.prepbusiness.supportLine')
+              ]}
+            />
           </div>
           <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
             <button

@@ -891,7 +891,9 @@
         },
         "emailLabel": "Profit Path account email",
         "emailPlaceholder": "you@profitpath.com",
-        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration.",
+        "clientStep": "You: enter the email used in your Profit Path account.",
+        "teamStep": "We: link your Profit Path account to your workspace and sync the relevant PrepBusiness data."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -910,7 +912,9 @@
         },
         "emailLabel": "ProfitDesk account email",
         "emailPlaceholder": "you@profitdesk.com",
-        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration.",
+        "clientStep": "You: enter the email used in your ProfitDesk account.",
+        "teamStep": "We: link your ProfitDesk account to your workspace and sync the relevant PrepBusiness data."
       }
     },
     "ClientAffiliates": {
@@ -2087,7 +2091,9 @@
         },
         "emailLabel": "Email cont Profit Path",
         "emailPlaceholder": "tu@profitpath.com",
-        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete.",
+        "clientStep": "Tu: introdu emailul folosit în contul tău Profit Path.",
+        "teamStep": "Noi: conectăm contul Profit Path la workspace-ul tău și sincronizăm datele relevante din PrepBusiness."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -2106,7 +2112,9 @@
         },
         "emailLabel": "Email cont ProfitDesk",
         "emailPlaceholder": "tu@profitdesk.com",
-        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete.",
+        "clientStep": "Tu: introdu emailul folosit în contul tău ProfitDesk.",
+        "teamStep": "Noi: conectăm contul ProfitDesk la workspace-ul tău și sincronizăm datele relevante din PrepBusiness."
       }
     },
     "ClientAffiliates": {
@@ -3451,7 +3459,9 @@
         },
         "emailLabel": "Email du compte Profit Path",
         "emailPlaceholder": "vous@profitpath.com",
-        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations.",
+        "clientStep": "Vous : saisissez l’email utilisé sur votre compte Profit Path.",
+        "teamStep": "Nous : nous relions votre compte Profit Path à votre espace et synchronisons les données PrepBusiness concernées."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -3470,7 +3480,9 @@
         },
         "emailLabel": "Email du compte ProfitDesk",
         "emailPlaceholder": "vous@profitdesk.com",
-        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations.",
+        "clientStep": "Vous : saisissez l’email utilisé sur votre compte ProfitDesk.",
+        "teamStep": "Nous : nous relions votre compte ProfitDesk à votre espace et synchronisons les données PrepBusiness concernées."
       }
     },
     "reportsMenu": {
@@ -4592,7 +4604,9 @@
         },
         "emailLabel": "Profit-Path-Konto-E-Mail",
         "emailPlaceholder": "du@profitpath.com",
-        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration.",
+        "clientStep": "Du: Gib die E-Mail deines Profit-Path-Kontos ein.",
+        "teamStep": "Wir: Wir verbinden dein Profit-Path-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -4611,7 +4625,9 @@
         },
         "emailLabel": "ProfitDesk-Konto-E-Mail",
         "emailPlaceholder": "du@profitdesk.com",
-        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration.",
+        "clientStep": "Du: Gib die E-Mail deines ProfitDesk-Kontos ein.",
+        "teamStep": "Wir: Wir verbinden dein ProfitDesk-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten."
       }
     },
     "reportsMenu": {
@@ -5618,7 +5634,9 @@
         },
         "emailLabel": "Email account Profit Path",
         "emailPlaceholder": "tu@profitpath.com",
-        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni.",
+        "clientStep": "Tu: inserisci l’email usata nel tuo account Profit Path.",
+        "teamStep": "Noi: colleghiamo il tuo account Profit Path al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -5637,7 +5655,9 @@
         },
         "emailLabel": "Email account ProfitDesk",
         "emailPlaceholder": "tu@profitdesk.com",
-        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni.",
+        "clientStep": "Tu: inserisci l’email usata nel tuo account ProfitDesk.",
+        "teamStep": "Noi: colleghiamo il tuo account ProfitDesk al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti."
       }
     },
     "reportsMenu": {
@@ -6644,7 +6664,9 @@
         },
         "emailLabel": "Correo de la cuenta Profit Path",
         "emailPlaceholder": "tu@profitpath.com",
-        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones.",
+        "clientStep": "Tú: introduce el correo usado en tu cuenta de Profit Path.",
+        "teamStep": "Nosotros: vinculamos tu cuenta de Profit Path a tu workspace y sincronizamos los datos de PrepBusiness relevantes."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -6663,7 +6685,9 @@
         },
         "emailLabel": "Correo de la cuenta ProfitDesk",
         "emailPlaceholder": "tu@profitdesk.com",
-        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones.",
+        "clientStep": "Tú: introduce el correo usado en tu cuenta de ProfitDesk.",
+        "teamStep": "Nosotros: vinculamos tu cuenta de ProfitDesk a tu workspace y sincronizamos los datos de PrepBusiness relevantes."
       }
     },
     "reportsMenu": {
