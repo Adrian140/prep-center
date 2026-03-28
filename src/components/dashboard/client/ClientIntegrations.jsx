@@ -118,6 +118,7 @@ function IntegrationPanel({
   subtitle,
   logo,
   fallbackLogo,
+  logoClassName,
   openId,
   onToggle,
   children
@@ -142,7 +143,7 @@ function IntegrationPanel({
           onError={() => {
             if (fallbackLogo && imgSrc !== fallbackLogo) setImgSrc(fallbackLogo);
           }}
-          className="w-20 h-14 rounded-lg object-contain border bg-white p-1"
+          className={`w-20 h-14 rounded-lg object-contain border bg-white p-1 ${logoClassName || ''}`}
         />
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
@@ -909,6 +910,7 @@ export default function ClientIntegrations() {
         subtitle={t('ClientIntegrations.profitPath.desc')}
         logo="/branding/integrations/profit-path.png"
         fallbackLogo="/branding/integrations/profit-path.png"
+        logoClassName="object-cover p-0"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
       >

@@ -29,7 +29,8 @@ const INTEGRATIONS = [
     subtitle: 'Token + email pentru mapare PrepBusiness.',
     settingField: 'profitPath',
     logo: '/branding/integrations/profit-path.png',
-    fallbackLogo: '/branding/integrations/profit-path.png'
+    fallbackLogo: '/branding/integrations/profit-path.png',
+    logoClassName: 'object-cover p-0'
   },
   {
     id: 'profitDesk',
@@ -116,7 +117,7 @@ function StatusBadge({ status }) {
   return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700">Pending</span>;
 }
 
-function IntegrationPanel({ title, subtitle, logo, fallbackLogo, open, onToggle, visible, onVisibilityChange, children }) {
+function IntegrationPanel({ title, subtitle, logo, fallbackLogo, logoClassName, open, onToggle, visible, onVisibilityChange, children }) {
   const [imgSrc, setImgSrc] = useState(logo);
 
   useEffect(() => {
@@ -136,7 +137,7 @@ function IntegrationPanel({ title, subtitle, logo, fallbackLogo, open, onToggle,
           onError={() => {
             if (fallbackLogo && imgSrc !== fallbackLogo) setImgSrc(fallbackLogo);
           }}
-          className="w-20 h-14 rounded-lg object-contain border bg-white p-1"
+          className={`w-20 h-14 rounded-lg object-contain border bg-white p-1 ${logoClassName || ''}`}
         />
         <div className="flex-1 min-w-0">
           <h3 className="text-lg font-semibold text-text-primary">{title}</h3>
@@ -537,6 +538,7 @@ export default function AdminPrepBusinessIntegrations() {
             subtitle={integration.id === 'etsy' ? et('admin.integrationCardSubtitle') : integration.subtitle}
             logo={integration.logo}
             fallbackLogo={integration.fallbackLogo}
+            logoClassName={integration.logoClassName}
               open={openPanel === integration.id}
               onToggle={() => setOpenPanel((prev) => (prev === integration.id ? '' : integration.id))}
               visible={globalVisibility[integration.settingField] !== false}
