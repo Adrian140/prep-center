@@ -988,7 +988,7 @@ export default function ClientIntegrations() {
         id="arbitrage-one"
         title={t('ClientIntegrations.prepbusiness.title')}
         subtitle={t('ClientIntegrations.prepbusiness.desc')}
-        logo="https://logo.clearbit.com/arbitrageone.de"
+        logo="/branding/integrations/arbitrage-one.svg"
         fallbackLogo="/branding/integrations/arbitrage-one.svg"
         openId={openIntegration}
         onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}

@@ -44,7 +44,7 @@ const INTEGRATIONS = [
     title: 'Arbitrage One',
     subtitle: 'Email + Merchant ID pentru inbound sync.',
     settingField: 'arbitrageOne',
-    logo: 'https://logo.clearbit.com/arbitrageone.de',
+    logo: '/branding/integrations/arbitrage-one.svg',
     fallbackLogo: '/branding/integrations/arbitrage-one.svg'
   },
   {
