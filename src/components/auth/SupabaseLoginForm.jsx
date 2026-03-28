@@ -4,6 +4,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import { useSupabaseAuth } from '../../contexts/SupabaseAuthContext';
 import { supabase } from '../../config/supabase';
+import { sanitizeInternalPath } from '../../utils/routeSafety';
 
 function SupabaseLoginForm() {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -24,7 +25,10 @@ function SupabaseLoginForm() {
   const fromLocation = location.state?.from;
   const from =
     fromLocation
-      ? `${fromLocation.pathname || ''}${fromLocation.search || ''}${fromLocation.hash || ''}`
+      ? sanitizeInternalPath(
+          `${fromLocation.pathname || ''}${fromLocation.search || ''}${fromLocation.hash || ''}`,
+          '/dashboard'
+        )
       : '/dashboard';
 
   const finishLogin = async (result) => {

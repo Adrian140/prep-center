@@ -1,11 +1,12 @@
 // src/pages/AuthCallback.jsx
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { sanitizeInternalPath } from '../utils/routeSafety';
 
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = params.get('next') || '/login';
+  const next = sanitizeInternalPath(params.get('next'), '/login');
 
   useEffect(() => {
     const t = setTimeout(() => navigate(`${next}?verified=1`, { replace: true }), 800);

@@ -27,8 +27,10 @@ const defaultLabels = {
     invalidCode: 'Enter a valid EAN or ASIN.',
     invalidPrice: 'Enter a valid price (e.g. 12.50).',
     fileType: 'Please upload a .xlsx or .csv file.',
-  fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
+    fileTooLarge: 'The file is too large. Please keep imports under 2 MB.',
+    fileHeaders: 'Missing required columns. Expected headers: EAN/ASIN and Product Name.',
     fileRows: 'No valid rows were detected in the file.',
+    fileRowLimit: 'The file has too many rows. Please split it into smaller imports.',
     save: 'Unable to add products: {msg}'
   },
   success: '{count} placeholders added to inventory.'
@@ -41,6 +43,8 @@ const normalizeHeader = (value) =>
 
 const randomId = () =>
   (globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 10)).toString();
+const MAX_IMPORT_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 1000;
 
 const buildCodeKey = (code, type) => {
   if (!code) return null;
@@ -204,14 +208,28 @@ function ProductQuickAdd({
       setError(labels.errors?.fileType || defaultLabels.errors.fileType);
       return;
     }
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setError(labels.errors?.fileTooLarge || defaultLabels.errors.fileTooLarge);
+      return;
+    }
     try {
       const XLSX = await import('xlsx');
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
+      const workbook = XLSX.read(data, {
+        type: 'array',
+        cellFormula: false,
+        cellHTML: false,
+        cellStyles: false,
+        dense: true
+      });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false });
       if (!rows.length) {
         setError(labels.errors?.fileRows || defaultLabels.errors.fileRows);
+        return;
+      }
+      if (rows.length > MAX_IMPORT_ROWS + 1) {
+        setError(labels.errors?.fileRowLimit || defaultLabels.errors.fileRowLimit);
         return;
       }
       const headers = rows.shift().map(normalizeHeader);

@@ -33,6 +33,7 @@ import VisitorTracker from './components/analytics/VisitorTracker';
 
 import { supabase } from './config/supabase';
 import { tabSessionStorage, tabLocalStorage } from './utils/tabStorage';
+import { sanitizeInternalPath } from './utils/routeSafety';
 
 const LAST_PATH_KEY = 'lastPath';
 const MAINTENANCE_FETCH_TIMEOUT_MS = 6000;
@@ -97,8 +98,9 @@ function StartupRedirect() {
   const navigate = useNavigate();
   React.useEffect(() => {
     const last = getTabLastPath();
-    if (window.location.pathname === '/' && last && last !== '/') {
-      navigate(last, { replace: true });
+    const safeLast = sanitizeInternalPath(last, '/dashboard');
+    if (window.location.pathname === '/' && safeLast && safeLast !== '/') {
+      navigate(safeLast, { replace: true });
     }
   }, [navigate]);
   return null;
