@@ -884,11 +884,14 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary">
             <IntegrationSteps
               items={[
-                t('ClientIntegrations.profitDesk.clientStep'),
-                t('ClientIntegrations.profitDesk.teamStep'),
-                t('ClientIntegrations.profitDesk.helper'),
-                t('ClientIntegrations.profitDesk.apiWhere'),
-                t('ClientIntegrations.profitDesk.supportLine')
+                t('ClientIntegrations.profitDesk.step1'),
+                t('ClientIntegrations.profitDesk.step2'),
+                t('ClientIntegrations.profitDesk.step3'),
+                t('ClientIntegrations.profitDesk.step4'),
+                t('ClientIntegrations.profitDesk.step5'),
+                t('ClientIntegrations.profitDesk.step6'),
+                t('ClientIntegrations.profitDesk.step7'),
+                t('ClientIntegrations.profitDesk.step8')
               ]}
             />
           </div>
@@ -984,12 +987,14 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary">
             <IntegrationSteps
               items={[
-                t('ClientIntegrations.profitPath.clientStep'),
-                t('ClientIntegrations.profitPath.teamStep'),
-                t('ClientIntegrations.profitPath.helper'),
-                t('ClientIntegrations.profitPath.apiWhere'),
-                t('ClientIntegrations.profitPath.apiMerchantId'),
-                t('ClientIntegrations.profitPath.supportLine')
+                t('ClientIntegrations.profitPath.step1'),
+                t('ClientIntegrations.profitPath.step2'),
+                t('ClientIntegrations.profitPath.step3'),
+                t('ClientIntegrations.profitPath.step4'),
+                t('ClientIntegrations.profitPath.step5'),
+                t('ClientIntegrations.profitPath.step6'),
+                t('ClientIntegrations.profitPath.step7'),
+                t('ClientIntegrations.profitPath.step8')
               ]}
             />
           </div>
@@ -1077,12 +1082,14 @@ export default function ClientIntegrations() {
           <div className="md:col-span-2 text-sm text-text-secondary">
             <IntegrationSteps
               items={[
-                t('ClientIntegrations.prepbusiness.clientStep'),
-                t('ClientIntegrations.prepbusiness.teamStep'),
-                t('ClientIntegrations.prepbusiness.helper'),
-                t('ClientIntegrations.prepbusiness.apiWhere'),
-                t('ClientIntegrations.prepbusiness.apiMerchantId'),
-                t('ClientIntegrations.prepbusiness.supportLine')
+                t('ClientIntegrations.prepbusiness.step1'),
+                t('ClientIntegrations.prepbusiness.step2'),
+                t('ClientIntegrations.prepbusiness.step3'),
+                t('ClientIntegrations.prepbusiness.step4'),
+                t('ClientIntegrations.prepbusiness.step5'),
+                t('ClientIntegrations.prepbusiness.step6'),
+                t('ClientIntegrations.prepbusiness.step7'),
+                t('ClientIntegrations.prepbusiness.step8')
               ]}
             />
           </div>

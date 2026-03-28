@@ -818,7 +818,15 @@
         },
         "merchantIdLabel": "PrepBusiness token",
         "merchantIdPlaceholder": "e.g. 23214",
-        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration."
+        "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration.",
+        "step1": "Add your email address and save it.",
+        "step2": "Wait for the invitation email from our PrepBusiness system.",
+        "step3": "Create your PrepBusiness account using the link received by email.",
+        "step4": "Go to Channels -> Amazon and connect your Amazon account.",
+        "step5": "Open Your Profile -> API and generate your API key.",
+        "step6": "Copy the API Key into Arbitrage One.",
+        "step7": "Copy the Merchant ID into our platform.",
+        "step8": "Once completed, all data will sync automatically."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -893,7 +901,15 @@
         "emailPlaceholder": "you@profitpath.com",
         "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration.",
         "clientStep": "You: enter the email used in your Profit Path account.",
-        "teamStep": "We: link your Profit Path account to your workspace and sync the relevant PrepBusiness data."
+        "teamStep": "We: link your Profit Path account to your workspace and sync the relevant PrepBusiness data.",
+        "step1": "Add your email address and save it.",
+        "step2": "Wait for the invitation email from our PrepBusiness system.",
+        "step3": "Create your PrepBusiness account using the link received by email.",
+        "step4": "Go to Channels -> Amazon and connect your Amazon account.",
+        "step5": "Open Your Profile -> API and generate your API key.",
+        "step6": "Copy the API Key into Profit Path.",
+        "step7": "Copy the Merchant ID into our platform.",
+        "step8": "Once completed, all data will sync automatically."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -914,7 +930,15 @@
         "emailPlaceholder": "you@profitdesk.com",
         "supportLine": "You can contact us anytime on WhatsApp at +33675116218 for help, and someone from our team will assist you with the full integration.",
         "clientStep": "You: enter the email used in your ProfitDesk account.",
-        "teamStep": "We: link your ProfitDesk account to your workspace and sync the relevant PrepBusiness data."
+        "teamStep": "We: link your ProfitDesk account to your workspace and sync the relevant PrepBusiness data.",
+        "step1": "Add your email address and save it.",
+        "step2": "Wait for the invitation email from our PrepBusiness system.",
+        "step3": "Create your PrepBusiness account using the link received by email.",
+        "step4": "Go to Channels -> Amazon and connect your Amazon account.",
+        "step5": "Open Your Profile -> API and generate your API key.",
+        "step6": "Copy the API Key into ProfitDesk.",
+        "step7": "Copy the Merchant ID into our platform.",
+        "step8": "Once completed, all data will sync automatically."
       }
     },
     "ClientAffiliates": {
@@ -2018,7 +2042,15 @@
         },
         "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ex: 23214",
-        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete."
+        "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete.",
+        "step1": "Adaugă adresa ta de email și salveaz-o.",
+        "step2": "Așteaptă emailul de invitație din sistemul nostru PrepBusiness.",
+        "step3": "Creează-ți contul PrepBusiness folosind linkul primit pe email.",
+        "step4": "Intră în Channels -> Amazon și conectează contul tău Amazon.",
+        "step5": "Deschide Your Profile -> API și generează cheia ta API.",
+        "step6": "Copiază cheia API în Arbitrage One.",
+        "step7": "Copiază Merchant ID-ul în platforma noastră.",
+        "step8": "După finalizare, toate datele se vor sincroniza automat."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -2093,7 +2125,15 @@
         "emailPlaceholder": "tu@profitpath.com",
         "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete.",
         "clientStep": "Tu: introdu emailul folosit în contul tău Profit Path.",
-        "teamStep": "Noi: conectăm contul Profit Path la workspace-ul tău și sincronizăm datele relevante din PrepBusiness."
+        "teamStep": "Noi: conectăm contul Profit Path la workspace-ul tău și sincronizăm datele relevante din PrepBusiness.",
+        "step1": "Adaugă adresa ta de email și salveaz-o.",
+        "step2": "Așteaptă emailul de invitație din sistemul nostru PrepBusiness.",
+        "step3": "Creează-ți contul PrepBusiness folosind linkul primit pe email.",
+        "step4": "Intră în Channels -> Amazon și conectează contul tău Amazon.",
+        "step5": "Deschide Your Profile -> API și generează cheia ta API.",
+        "step6": "Copiază cheia API în Profit Path.",
+        "step7": "Copiază Merchant ID-ul în platforma noastră.",
+        "step8": "După finalizare, toate datele se vor sincroniza automat."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -2114,7 +2154,15 @@
         "emailPlaceholder": "tu@profitdesk.com",
         "supportLine": "Ne puteți contacta oricând pe WhatsApp la +33675116218 pentru ajutor și cineva din echipă vă va ajuta să faceți integrările complete.",
         "clientStep": "Tu: introdu emailul folosit în contul tău ProfitDesk.",
-        "teamStep": "Noi: conectăm contul ProfitDesk la workspace-ul tău și sincronizăm datele relevante din PrepBusiness."
+        "teamStep": "Noi: conectăm contul ProfitDesk la workspace-ul tău și sincronizăm datele relevante din PrepBusiness.",
+        "step1": "Adaugă adresa ta de email și salveaz-o.",
+        "step2": "Așteaptă emailul de invitație din sistemul nostru PrepBusiness.",
+        "step3": "Creează-ți contul PrepBusiness folosind linkul primit pe email.",
+        "step4": "Intră în Channels -> Amazon și conectează contul tău Amazon.",
+        "step5": "Deschide Your Profile -> API și generează cheia ta API.",
+        "step6": "Copiază cheia API în ProfitDesk.",
+        "step7": "Copiază Merchant ID-ul în platforma noastră.",
+        "step8": "După finalizare, toate datele se vor sincroniza automat."
       }
     },
     "ClientAffiliates": {
@@ -3386,7 +3434,15 @@
         },
         "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ex : 23214",
-        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations."
+        "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations.",
+        "step1": "Ajoutez votre adresse e-mail et enregistrez-la.",
+        "step2": "Attendez l’e-mail d’invitation de notre système PrepBusiness.",
+        "step3": "Créez votre compte PrepBusiness à l’aide du lien reçu par e-mail.",
+        "step4": "Allez dans Channels -> Amazon et connectez votre compte Amazon.",
+        "step5": "Ouvrez Your Profile -> API et générez votre clé API.",
+        "step6": "Copiez la clé API dans Arbitrage One.",
+        "step7": "Copiez le Merchant ID dans notre plateforme.",
+        "step8": "Une fois terminé, toutes les données se synchroniseront automatiquement."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -3461,7 +3517,15 @@
         "emailPlaceholder": "vous@profitpath.com",
         "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations.",
         "clientStep": "Vous : saisissez l’email utilisé sur votre compte Profit Path.",
-        "teamStep": "Nous : nous relions votre compte Profit Path à votre espace et synchronisons les données PrepBusiness concernées."
+        "teamStep": "Nous : nous relions votre compte Profit Path à votre espace et synchronisons les données PrepBusiness concernées.",
+        "step1": "Ajoutez votre adresse e-mail et enregistrez-la.",
+        "step2": "Attendez l’e-mail d’invitation de notre système PrepBusiness.",
+        "step3": "Créez votre compte PrepBusiness à l’aide du lien reçu par e-mail.",
+        "step4": "Allez dans Channels -> Amazon et connectez votre compte Amazon.",
+        "step5": "Ouvrez Your Profile -> API et générez votre clé API.",
+        "step6": "Copiez la clé API dans Profit Path.",
+        "step7": "Copiez le Merchant ID dans notre plateforme.",
+        "step8": "Une fois terminé, toutes les données se synchroniseront automatiquement."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -3482,7 +3546,15 @@
         "emailPlaceholder": "vous@profitdesk.com",
         "supportLine": "Vous pouvez nous contacter à tout moment sur WhatsApp au +33675116218 pour obtenir de l’aide, et un membre de notre équipe vous aidera à finaliser les intégrations.",
         "clientStep": "Vous : saisissez l’email utilisé sur votre compte ProfitDesk.",
-        "teamStep": "Nous : nous relions votre compte ProfitDesk à votre espace et synchronisons les données PrepBusiness concernées."
+        "teamStep": "Nous : nous relions votre compte ProfitDesk à votre espace et synchronisons les données PrepBusiness concernées.",
+        "step1": "Ajoutez votre adresse e-mail et enregistrez-la.",
+        "step2": "Attendez l’e-mail d’invitation de notre système PrepBusiness.",
+        "step3": "Créez votre compte PrepBusiness à l’aide du lien reçu par e-mail.",
+        "step4": "Allez dans Channels -> Amazon et connectez votre compte Amazon.",
+        "step5": "Ouvrez Your Profile -> API et générez votre clé API.",
+        "step6": "Copiez la clé API dans ProfitDesk.",
+        "step7": "Copiez le Merchant ID dans notre plateforme.",
+        "step8": "Une fois terminé, toutes les données se synchroniseront automatiquement."
       }
     },
     "reportsMenu": {
@@ -4531,7 +4603,15 @@
         },
         "merchantIdLabel": "PrepBusiness-Token",
         "merchantIdPlaceholder": "z. B. 23214",
-        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration."
+        "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration.",
+        "step1": "Füge deine E-Mail-Adresse hinzu und speichere sie.",
+        "step2": "Warte auf die Einladungs-E-Mail aus unserem PrepBusiness-System.",
+        "step3": "Erstelle dein PrepBusiness-Konto über den Link aus der E-Mail.",
+        "step4": "Gehe zu Channels -> Amazon und verbinde dein Amazon-Konto.",
+        "step5": "Öffne Your Profile -> API und erstelle deinen API-Schlüssel.",
+        "step6": "Kopiere den API-Schlüssel in Arbitrage One.",
+        "step7": "Kopiere die Merchant ID in unsere Plattform.",
+        "step8": "Sobald alles erledigt ist, werden alle Daten automatisch synchronisiert."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -4606,7 +4686,15 @@
         "emailPlaceholder": "du@profitpath.com",
         "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration.",
         "clientStep": "Du: Gib die E-Mail deines Profit-Path-Kontos ein.",
-        "teamStep": "Wir: Wir verbinden dein Profit-Path-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten."
+        "teamStep": "Wir: Wir verbinden dein Profit-Path-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten.",
+        "step1": "Füge deine E-Mail-Adresse hinzu und speichere sie.",
+        "step2": "Warte auf die Einladungs-E-Mail aus unserem PrepBusiness-System.",
+        "step3": "Erstelle dein PrepBusiness-Konto über den Link aus der E-Mail.",
+        "step4": "Gehe zu Channels -> Amazon und verbinde dein Amazon-Konto.",
+        "step5": "Öffne Your Profile -> API und erstelle deinen API-Schlüssel.",
+        "step6": "Kopiere den API-Schlüssel in Profit Path.",
+        "step7": "Kopiere die Merchant ID in unsere Plattform.",
+        "step8": "Sobald alles erledigt ist, werden alle Daten automatisch synchronisiert."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -4627,7 +4715,15 @@
         "emailPlaceholder": "du@profitdesk.com",
         "supportLine": "Du kannst uns jederzeit über WhatsApp unter +33675116218 kontaktieren, und jemand aus unserem Team hilft dir bei der vollständigen Integration.",
         "clientStep": "Du: Gib die E-Mail deines ProfitDesk-Kontos ein.",
-        "teamStep": "Wir: Wir verbinden dein ProfitDesk-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten."
+        "teamStep": "Wir: Wir verbinden dein ProfitDesk-Konto mit deinem Workspace und synchronisieren die relevanten PrepBusiness-Daten.",
+        "step1": "Füge deine E-Mail-Adresse hinzu und speichere sie.",
+        "step2": "Warte auf die Einladungs-E-Mail aus unserem PrepBusiness-System.",
+        "step3": "Erstelle dein PrepBusiness-Konto über den Link aus der E-Mail.",
+        "step4": "Gehe zu Channels -> Amazon und verbinde dein Amazon-Konto.",
+        "step5": "Öffne Your Profile -> API und erstelle deinen API-Schlüssel.",
+        "step6": "Kopiere den API-Schlüssel in ProfitDesk.",
+        "step7": "Kopiere die Merchant ID in unsere Plattform.",
+        "step8": "Sobald alles erledigt ist, werden alle Daten automatisch synchronisiert."
       }
     },
     "reportsMenu": {
@@ -5561,7 +5657,15 @@
         },
         "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "es: 23214",
-        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni."
+        "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni.",
+        "step1": "Aggiungi il tuo indirizzo email e salvalo.",
+        "step2": "Attendi l’email di invito dal nostro sistema PrepBusiness.",
+        "step3": "Crea il tuo account PrepBusiness usando il link ricevuto via email.",
+        "step4": "Vai su Channels -> Amazon e collega il tuo account Amazon.",
+        "step5": "Apri Your Profile -> API e genera la tua chiave API.",
+        "step6": "Copia la chiave API in Arbitrage One.",
+        "step7": "Copia il Merchant ID nella nostra piattaforma.",
+        "step8": "Una volta completato, tutti i dati si sincronizzeranno automaticamente."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -5636,7 +5740,15 @@
         "emailPlaceholder": "tu@profitpath.com",
         "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni.",
         "clientStep": "Tu: inserisci l’email usata nel tuo account Profit Path.",
-        "teamStep": "Noi: colleghiamo il tuo account Profit Path al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti."
+        "teamStep": "Noi: colleghiamo il tuo account Profit Path al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti.",
+        "step1": "Aggiungi il tuo indirizzo email e salvalo.",
+        "step2": "Attendi l’email di invito dal nostro sistema PrepBusiness.",
+        "step3": "Crea il tuo account PrepBusiness usando il link ricevuto via email.",
+        "step4": "Vai su Channels -> Amazon e collega il tuo account Amazon.",
+        "step5": "Apri Your Profile -> API e genera la tua chiave API.",
+        "step6": "Copia la chiave API in Profit Path.",
+        "step7": "Copia il Merchant ID nella nostra piattaforma.",
+        "step8": "Una volta completato, tutti i dati si sincronizzeranno automaticamente."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -5657,7 +5769,15 @@
         "emailPlaceholder": "tu@profitdesk.com",
         "supportLine": "Puoi contattarci in qualsiasi momento su WhatsApp al +33675116218 per ricevere aiuto e un membro del nostro team ti assisterà per completare le integrazioni.",
         "clientStep": "Tu: inserisci l’email usata nel tuo account ProfitDesk.",
-        "teamStep": "Noi: colleghiamo il tuo account ProfitDesk al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti."
+        "teamStep": "Noi: colleghiamo il tuo account ProfitDesk al tuo workspace e sincronizziamo i dati PrepBusiness rilevanti.",
+        "step1": "Aggiungi il tuo indirizzo email e salvalo.",
+        "step2": "Attendi l’email di invito dal nostro sistema PrepBusiness.",
+        "step3": "Crea il tuo account PrepBusiness usando il link ricevuto via email.",
+        "step4": "Vai su Channels -> Amazon e collega il tuo account Amazon.",
+        "step5": "Apri Your Profile -> API e genera la tua chiave API.",
+        "step6": "Copia la chiave API in ProfitDesk.",
+        "step7": "Copia il Merchant ID nella nostra piattaforma.",
+        "step8": "Una volta completato, tutti i dati si sincronizzeranno automaticamente."
       }
     },
     "reportsMenu": {
@@ -6591,7 +6711,15 @@
         },
         "merchantIdLabel": "Token PrepBusiness",
         "merchantIdPlaceholder": "ej.: 23214",
-        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones."
+        "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones.",
+        "step1": "Añade tu dirección de correo y guárdala.",
+        "step2": "Espera el correo de invitación de nuestro sistema PrepBusiness.",
+        "step3": "Crea tu cuenta de PrepBusiness usando el enlace recibido por correo.",
+        "step4": "Ve a Channels -> Amazon y conecta tu cuenta de Amazon.",
+        "step5": "Abre Your Profile -> API y genera tu clave API.",
+        "step6": "Copia la clave API en Arbitrage One.",
+        "step7": "Copia el Merchant ID en nuestra plataforma.",
+        "step8": "Una vez completado, todos los datos se sincronizarán automáticamente."
       },
       "qogita": {
         "modalTitle": "Sign in to Qogita",
@@ -6666,7 +6794,15 @@
         "emailPlaceholder": "tu@profitpath.com",
         "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones.",
         "clientStep": "Tú: introduce el correo usado en tu cuenta de Profit Path.",
-        "teamStep": "Nosotros: vinculamos tu cuenta de Profit Path a tu workspace y sincronizamos los datos de PrepBusiness relevantes."
+        "teamStep": "Nosotros: vinculamos tu cuenta de Profit Path a tu workspace y sincronizamos los datos de PrepBusiness relevantes.",
+        "step1": "Añade tu dirección de correo y guárdala.",
+        "step2": "Espera el correo de invitación de nuestro sistema PrepBusiness.",
+        "step3": "Crea tu cuenta de PrepBusiness usando el enlace recibido por correo.",
+        "step4": "Ve a Channels -> Amazon y conecta tu cuenta de Amazon.",
+        "step5": "Abre Your Profile -> API y genera tu clave API.",
+        "step6": "Copia la clave API en Profit Path.",
+        "step7": "Copia el Merchant ID en nuestra plataforma.",
+        "step8": "Una vez completado, todos los datos se sincronizarán automáticamente."
       },
       "profitDesk": {
         "title": "ProfitDesk",
@@ -6687,7 +6823,15 @@
         "emailPlaceholder": "tu@profitdesk.com",
         "supportLine": "Puedes contactarnos en cualquier momento por WhatsApp al +33675116218 para recibir ayuda, y alguien de nuestro equipo te ayudará a completar las integraciones.",
         "clientStep": "Tú: introduce el correo usado en tu cuenta de ProfitDesk.",
-        "teamStep": "Nosotros: vinculamos tu cuenta de ProfitDesk a tu workspace y sincronizamos los datos de PrepBusiness relevantes."
+        "teamStep": "Nosotros: vinculamos tu cuenta de ProfitDesk a tu workspace y sincronizamos los datos de PrepBusiness relevantes.",
+        "step1": "Añade tu dirección de correo y guárdala.",
+        "step2": "Espera el correo de invitación de nuestro sistema PrepBusiness.",
+        "step3": "Crea tu cuenta de PrepBusiness usando el enlace recibido por correo.",
+        "step4": "Ve a Channels -> Amazon y conecta tu cuenta de Amazon.",
+        "step5": "Abre Your Profile -> API y genera tu clave API.",
+        "step6": "Copia la clave API en ProfitDesk.",
+        "step7": "Copia el Merchant ID en nuestra plataforma.",
+        "step8": "Una vez completado, todos los datos se sincronizarán automáticamente."
       }
     },
     "reportsMenu": {
