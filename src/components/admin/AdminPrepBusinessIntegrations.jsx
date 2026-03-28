@@ -32,6 +32,14 @@ const INTEGRATIONS = [
     fallbackLogo: '/branding/integrations/profit-path.svg'
   },
   {
+    id: 'profitDesk',
+    title: 'ProfitDesk',
+    subtitle: 'Token + email pentru mapare ProfitDesk.',
+    settingField: 'profitDesk',
+    logo: '/branding/integrations/profit-path.svg',
+    fallbackLogo: '/branding/integrations/profit-path.svg'
+  },
+  {
     id: 'arbitrageOne',
     title: 'Arbitrage One',
     subtitle: 'Email + Merchant ID pentru inbound sync.',
@@ -61,6 +69,7 @@ const defaultVisibility = {
   amazon: true,
   etsy: true,
   profitPath: true,
+  profitDesk: true,
   arbitrageOne: true,
   ups: true,
   qogita: true
@@ -167,8 +176,10 @@ export default function AdminPrepBusinessIntegrations() {
 
   const [merchantDrafts, setMerchantDrafts] = useState({});
   const [tokenDrafts, setTokenDrafts] = useState({});
+  const [deskTokenDrafts, setDeskTokenDrafts] = useState({});
   const [savingMerchant, setSavingMerchant] = useState('');
   const [savingToken, setSavingToken] = useState('');
+  const [savingDeskToken, setSavingDeskToken] = useState('');
   const [amazonPage, setAmazonPage] = useState(1);
 
   const load = async () => {
@@ -274,9 +285,11 @@ export default function AdminPrepBusinessIntegrations() {
 
     const merchantMap = {};
     const tokenMap = {};
+    const deskTokenMap = {};
     Object.entries(prepMap).forEach(([userId, row]) => {
       merchantMap[userId] = row?.merchant_id ? String(row.merchant_id) : '';
       tokenMap[userId] = row?.profit_path_token_id ? String(row.profit_path_token_id) : '';
+      deskTokenMap[userId] = row?.profit_desk_token_id ? String(row.profit_desk_token_id) : '';
     });
 
     const settingsValue = settingsRes.data?.value || {};
@@ -284,6 +297,7 @@ export default function AdminPrepBusinessIntegrations() {
       amazon: settingsValue.amazon !== false,
       etsy: settingsValue.etsy !== false,
       profitPath: settingsValue.profitPath !== false,
+      profitDesk: settingsValue.profitDesk !== false,
       arbitrageOne: settingsValue.arbitrageOne !== false,
       ups: settingsValue.ups !== false,
       qogita: settingsValue.qogita !== false
@@ -297,6 +311,7 @@ export default function AdminPrepBusinessIntegrations() {
     setQogitaByUser(qogitaMap);
     setMerchantDrafts(merchantMap);
     setTokenDrafts(tokenMap);
+    setDeskTokenDrafts(deskTokenMap);
 
     setRefreshing(false);
     setLoading(false);
@@ -338,6 +353,8 @@ export default function AdminPrepBusinessIntegrations() {
       email_prep_business: current.email_prep_business || current.email_arbitrage_one || profile.email || null,
       merchant_id: current.merchant_id || null,
       profit_path_token_id: current.profit_path_token_id || null,
+      email_profit_desk: current.email_profit_desk || profile.email || null,
+      profit_desk_token_id: current.profit_desk_token_id || null,
       status: patch.status || (current.status && !['inactive', 'unassociated'].includes(current.status) ? current.status : 'pending'),
       last_error: current.last_error || null,
       created_at: current.created_at || new Date().toISOString(),
@@ -390,6 +407,25 @@ export default function AdminPrepBusinessIntegrations() {
     }
   };
 
+  const handleSaveDeskToken = async (profile) => {
+    const userId = profile?.id;
+    if (!userId) return;
+    setSavingDeskToken(userId);
+    try {
+      const tokenValue = String(deskTokenDrafts[userId] || '').trim();
+      await upsertPrep(profile, {
+        profit_desk_token_id: tokenValue || null,
+        email_profit_desk: prepRowsByUser[userId]?.email_profit_desk || profile.email || null,
+        status: 'active'
+      });
+      await load();
+    } catch (err) {
+      setMessage(err?.message || 'Could not save ProfitDesk token.');
+    } finally {
+      setSavingDeskToken('');
+    }
+  };
+
   const amazonRows = useMemo(() => {
     return Object.entries(amazonByUser)
       .map(([rowKey, item]) => ({
@@ -419,6 +455,17 @@ export default function AdminPrepBusinessIntegrations() {
         const status = String(row?.status || '').toLowerCase();
         const activeStatus = ['active', 'mapped', 'error', 'pending'].includes(status);
         return Boolean(row?.profit_path_token_id || (row?.email_prep_business && activeStatus));
+      })
+      .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
+      .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
+  }, [prepRowsByUser, profilesById]);
+
+  const profitDeskRows = useMemo(() => {
+    return Object.entries(prepRowsByUser)
+      .filter(([, row]) => {
+        const status = String(row?.status || '').toLowerCase();
+        const activeStatus = ['active', 'mapped', 'error', 'pending'].includes(status);
+        return Boolean(row?.profit_desk_token_id || (row?.email_profit_desk && activeStatus));
       })
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
@@ -596,6 +643,40 @@ export default function AdminPrepBusinessIntegrations() {
                             className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
                           >
                             {savingToken === userId ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                            Save token
+                          </button>
+                        </div>
+                        <StatusBadge status={row.status || 'inactive'} />
+                      </div>
+                    ))}
+                  </div>
+                ) : emptyBlock
+              )}
+
+              {integration.id === 'profitDesk' && (
+                profitDeskRows.length ? (
+                  <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
+                    {profitDeskRows.map(({ userId, row, profile }) => (
+                      <div key={`pd-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
+                        <div className="flex-1 min-w-[280px]">
+                          <div className="font-medium text-text-primary">{displayClient(profile)}</div>
+                          <div className="text-xs text-text-secondary">Email: {row.email_profit_desk || profile?.email || '—'}</div>
+                          <div className="text-xs text-text-secondary">Token: {row.profit_desk_token_id || '—'}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            className="w-44 px-2 py-1 border rounded text-xs"
+                            placeholder="ProfitDesk token"
+                            value={deskTokenDrafts[userId] ?? ''}
+                            onChange={(e) => setDeskTokenDrafts((prev) => ({ ...prev, [userId]: e.target.value }))}
+                          />
+                          <button
+                            onClick={() => handleSaveDeskToken(profile)}
+                            disabled={savingDeskToken === userId}
+                            className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded bg-gray-900 text-white text-xs disabled:opacity-60"
+                          >
+                            {savingDeskToken === userId ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                             Save token
                           </button>
                         </div>

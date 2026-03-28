@@ -890,6 +890,24 @@
         },
         "emailLabel": "Profit Path account email",
         "emailPlaceholder": "you@profitpath.com"
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Add your ProfitDesk token to map your client correctly.",
+        "tokenLabel": "ProfitDesk token",
+        "tokenPlaceholder": "e.g. pd_live_...",
+        "helper": "This token is used only for client mapping and ProfitDesk data synchronization.",
+        "apiWhere": "In ProfitDesk go to Settings -> API.",
+        "save": "Save token",
+        "errors": {
+          "tokenRequired": "ProfitDesk token is required.",
+          "emailRequired": "ProfitDesk email is required."
+        },
+        "flash": {
+          "saved": "ProfitDesk mapping saved. We will sync data automatically."
+        },
+        "emailLabel": "ProfitDesk account email",
+        "emailPlaceholder": "you@profitdesk.com"
       }
     },
     "ClientAffiliates": {
@@ -2065,6 +2083,24 @@
         },
         "emailLabel": "Email cont Profit Path",
         "emailPlaceholder": "tu@profitpath.com"
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Adaugă token-ul ProfitDesk pentru maparea corectă a clientului.",
+        "tokenLabel": "Token ProfitDesk",
+        "tokenPlaceholder": "ex: pd_live_...",
+        "helper": "Token-ul este folosit doar pentru mapare client și sincronizarea datelor ProfitDesk.",
+        "apiWhere": "În ProfitDesk mergi la Settings -> API.",
+        "save": "Salvează token",
+        "errors": {
+          "tokenRequired": "Token-ul ProfitDesk este obligatoriu.",
+          "emailRequired": "Emailul ProfitDesk este obligatoriu."
+        },
+        "flash": {
+          "saved": "Maparea ProfitDesk a fost salvată. Vom sincroniza automat datele."
+        },
+        "emailLabel": "Email cont ProfitDesk",
+        "emailPlaceholder": "tu@profitdesk.com"
       }
     },
     "ClientAffiliates": {
@@ -3409,6 +3445,24 @@
         },
         "emailLabel": "Email du compte Profit Path",
         "emailPlaceholder": "vous@profitpath.com"
+      },
+      "profitDesk": {
+        "title": "ProfitDesk",
+        "desc": "Ajoutez votre token ProfitDesk pour mapper correctement votre client.",
+        "tokenLabel": "Token ProfitDesk",
+        "tokenPlaceholder": "ex : pd_live_...",
+        "helper": "Ce token est utilisé uniquement pour le mapping client et la synchronisation des données ProfitDesk.",
+        "apiWhere": "Dans ProfitDesk, allez à Settings -> API.",
+        "save": "Enregistrer le token",
+        "errors": {
+          "tokenRequired": "Le token ProfitDesk est requis.",
+          "emailRequired": "L’e-mail ProfitDesk est requis."
+        },
+        "flash": {
+          "saved": "Le mapping ProfitDesk a été enregistré. Nous synchroniserons automatiquement les données."
+        },
+        "emailLabel": "Email du compte ProfitDesk",
+        "emailPlaceholder": "vous@profitdesk.com"
       }
     },
     "reportsMenu": {

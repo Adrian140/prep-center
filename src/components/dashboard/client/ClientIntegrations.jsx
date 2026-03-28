@@ -190,10 +190,17 @@ export default function ClientIntegrations() {
   const [ppLastError, setPpLastError] = useState('');
   const [ppLoading, setPpLoading] = useState(true);
   const [ppSaving, setPpSaving] = useState(false);
+  const [pdToken, setPdToken] = useState('');
+  const [pdEmail, setPdEmail] = useState('');
+  const [pdStatus, setPdStatus] = useState('pending');
+  const [pdLastError, setPdLastError] = useState('');
+  const [pdLoading, setPdLoading] = useState(true);
+  const [pdSaving, setPdSaving] = useState(false);
   const [visibility, setVisibility] = useState({
     amazon: true,
     etsy: true,
     profitPath: true,
+    profitDesk: true,
     arbitrageOne: true,
     ups: true,
     qogita: true
@@ -310,6 +317,7 @@ export default function ClientIntegrations() {
       if (!user?.id) {
         setPbLoading(false);
         setPpLoading(false);
+        setPdLoading(false);
         return;
       }
       setPbLoading(true);
@@ -336,6 +344,10 @@ export default function ClientIntegrations() {
         setPpEmail(defaultEmail);
         setPpStatus('pending');
         setPpLastError(error.message || supportError);
+        setPdToken('');
+        setPdEmail(defaultEmail);
+        setPdStatus('pending');
+        setPdLastError(error.message || supportError);
       } else if (data) {
         setPbIntegration(data);
         setPbEmail(data.email_arbitrage_one || defaultEmail);
@@ -346,6 +358,10 @@ export default function ClientIntegrations() {
         setPpEmail(data.email_prep_business || defaultEmail);
         setPpStatus(data.status || 'pending');
         setPpLastError(data.last_error || '');
+        setPdToken(data.profit_desk_token_id || '');
+        setPdEmail(data.email_profit_desk || defaultEmail);
+        setPdStatus(data.status || 'pending');
+        setPdLastError(data.last_error || '');
       } else {
         setPbIntegration(null);
         setPbEmail(defaultEmail);
@@ -356,9 +372,14 @@ export default function ClientIntegrations() {
         setPpEmail(defaultEmail);
         setPpStatus('pending');
         setPpLastError('');
+        setPdToken('');
+        setPdEmail(defaultEmail);
+        setPdStatus('pending');
+        setPdLastError('');
       }
       setPbLoading(false);
       setPpLoading(false);
+      setPdLoading(false);
     };
     loadPrepBusiness();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -376,6 +397,7 @@ export default function ClientIntegrations() {
         amazon: value.amazon !== false,
         etsy: value.etsy !== false,
         profitPath: value.profitPath !== false,
+        profitDesk: value.profitDesk !== false,
         arbitrageOne: value.arbitrageOne !== false,
         ups: value.ups !== false,
         qogita: value.qogita !== false
@@ -389,6 +411,7 @@ export default function ClientIntegrations() {
       amazon: visibility.amazon,
       etsy: visibility.etsy,
       'profit-path': visibility.profitPath,
+      'profit-desk': visibility.profitDesk,
       'arbitrage-one': visibility.arbitrageOne,
       ups: visibility.ups,
       qogita: visibility.qogita
@@ -552,8 +575,10 @@ export default function ClientIntegrations() {
           company_id: profile?.company_id || null,
           email_arbitrage_one: pbIntegration?.email_arbitrage_one || null,
           email_prep_business: email,
+          email_profit_desk: pbIntegration?.email_profit_desk || null,
           merchant_id: pbIntegration?.merchant_id || token,
           profit_path_token_id: token,
+          profit_desk_token_id: pbIntegration?.profit_desk_token_id || null,
           status: pbIntegration?.status || 'pending',
           last_error: null,
           updated_at: new Date().toISOString(),
@@ -577,6 +602,61 @@ export default function ClientIntegrations() {
       setFlashType('success');
     }
     setPpSaving(false);
+  };
+
+  const handleSaveProfitDesk = async (event) => {
+    event.preventDefault();
+    if (!user?.id) return;
+    setPdSaving(true);
+    setPdLastError('');
+    const token = (pdToken || '').trim();
+    const email = (pdEmail || profile?.email || '').trim().toLowerCase();
+    if (!email) {
+      setPdLastError(t('ClientIntegrations.profitDesk.errors.emailRequired'));
+      setPdSaving(false);
+      return;
+    }
+    if (!token) {
+      setPdLastError(t('ClientIntegrations.profitDesk.errors.tokenRequired'));
+      setPdSaving(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('prep_business_integrations')
+      .upsert(
+        {
+          id: pbIntegration?.id,
+          user_id: user.id,
+          company_id: profile?.company_id || null,
+          email_arbitrage_one: pbIntegration?.email_arbitrage_one || null,
+          email_prep_business: pbIntegration?.email_prep_business || null,
+          email_profit_desk: email,
+          merchant_id: pbIntegration?.merchant_id || null,
+          profit_path_token_id: pbIntegration?.profit_path_token_id || null,
+          profit_desk_token_id: token,
+          status: pbIntegration?.status || 'pending',
+          last_error: null,
+          updated_at: new Date().toISOString(),
+          created_at: pbIntegration?.created_at || new Date().toISOString()
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      setPdLastError(error.message || supportError);
+    } else {
+      setPbIntegration(data);
+      setPdEmail(data?.email_profit_desk || email);
+      setPdToken(data?.profit_desk_token_id || token);
+      setPdStatus(data?.status || 'pending');
+      setPdLastError('');
+      setFlash(t('ClientIntegrations.profitDesk.flash.saved'));
+      setFlashType('success');
+    }
+    setPdSaving(false);
   };
 
   return (
@@ -729,6 +809,86 @@ export default function ClientIntegrations() {
             </div>
           )}
         </div>
+      </section>
+      </IntegrationPanel>}
+
+      {visibility.profitDesk && <IntegrationPanel
+        id="profit-desk"
+        title={t('ClientIntegrations.profitDesk.title')}
+        subtitle={t('ClientIntegrations.profitDesk.desc')}
+        logo="/branding/integrations/profit-path.svg"
+        fallbackLogo="/branding/integrations/profit-path.svg"
+        openId={openIntegration}
+        onToggle={(id) => setOpenIntegration((prev) => (prev === id ? '' : id))}
+      >
+      <section className="border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">{t('ClientIntegrations.profitDesk.title')}</h2>
+            <p className="text-sm text-text-secondary">
+              {t('ClientIntegrations.profitDesk.desc')}
+            </p>
+          </div>
+          <div className="text-sm">
+            {pdStatus === 'active' || pdStatus === 'mapped' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                <CheckCircle className="w-4 h-4" /> {t('ClientIntegrations.status.active')}
+              </span>
+            ) : pdStatus === 'error' ? (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
+                <AlertTriangle className="w-4 h-4" /> {t('ClientIntegrations.status.error')}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 text-amber-700">
+                <Loader2 className="w-4 h-4" /> {t('ClientIntegrations.status.pending')}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveProfitDesk} className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitDesk.emailLabel')}</label>
+            <input
+              type="email"
+              value={pdEmail}
+              onChange={(e) => setPdEmail(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.profitDesk.emailPlaceholder')}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-primary">{t('ClientIntegrations.profitDesk.tokenLabel')}</label>
+            <input
+              type="text"
+              value={pdToken}
+              onChange={(e) => setPdToken(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg bg-white"
+              placeholder={t('ClientIntegrations.profitDesk.tokenPlaceholder')}
+              required
+            />
+          </div>
+          <div className="md:col-span-2 text-sm text-text-secondary space-y-1">
+            <p>{t('ClientIntegrations.profitDesk.helper')}</p>
+            <p>{t('ClientIntegrations.profitDesk.apiWhere')}</p>
+          </div>
+          <div className="md:col-span-2 flex flex-wrap gap-3 items-center">
+            <button
+              type="submit"
+              disabled={pdSaving || pdLoading}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+            >
+              {pdSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+              {t('ClientIntegrations.profitDesk.save')}
+            </button>
+          </div>
+        </form>
+
+        {pdLastError && (
+          <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">{pdLastError}</div>
+        )}
+
       </section>
       </IntegrationPanel>}
 
