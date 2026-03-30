@@ -5402,6 +5402,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       plan?.sourceAddress || warehouseShipFrom
     );
     return packGroups.map((g, idx) => {
+      const { planGroup } = resolvePlanGroupForPackGroup(g);
       const boxCount = Math.max(1, Number(g.boxes) || 1);
       const dims = g.boxDimensions || {};
       const packingGroupId = getPackingGroupKey(g);
@@ -5410,6 +5411,22 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         (shipmentId ? baseByShipmentId.get(shipmentId) : null) ||
         (packingGroupId ? baseByGroupId.get(packingGroupId) : null) ||
         {};
+      const groupUnitsFromItems = Array.isArray(g?.items)
+        ? g.items.reduce((sum, item) => sum + (Number(item?.quantity || item?.units || 0) || 0), 0)
+        : 0;
+      const groupUnitsFromPlan = Array.isArray(planGroup?.boxItems)
+        ? planGroup.boxItems.reduce((sum, box) => {
+            return (
+              sum +
+              Object.values(box || {}).reduce((acc, qty) => acc + (Number(qty || 0) || 0), 0)
+            );
+          }, 0)
+        : 0;
+      const resolvedGroupUnits =
+        (Number(g.units) || 0) ||
+        groupUnitsFromItems ||
+        groupUnitsFromPlan ||
+        0;
       const boxesDetail = Array.from({ length: boxCount }, () => ({
         groupId: packingGroupId || g.id,
         length: dims.length || null,
@@ -5435,7 +5452,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         to: base?.to || plan?.marketplace || plan?.destination || '—',
         boxes: boxCount,
         skuCount: Number(g.skuCount || 0) || 0,
-        units: Number(g.units || 0) || 0,
+        units: resolvedGroupUnits,
         weight: totalWeight || null,
         capability: base?.capability || 'Standard',
         boxesDetail,
