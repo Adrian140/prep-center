@@ -94,6 +94,8 @@ const formatDayKey = (date) => {
 const formatChartDate = (date) =>
   new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(date));
 
+const PAGE_VISITS_BATCH_SIZE = 1000;
+
 const StatCard = ({ icon: Icon, label, value, subValue, trend, color = "primary" }) => {
   const classes = COLOR_CLASSES[color] || COLOR_CLASSES.primary;
 
@@ -173,23 +175,32 @@ export default function AdminAnalytics() {
 
     try {
       const { start, end } = getDateRange();
+      const visits = [];
+      let from = 0;
 
-      const { data: visits, error: visitsError } = await supabase
-        .from("page_visits")
-        .select("*")
-        .gte("created_at", start.toISOString())
-        .lte("created_at", end.toISOString())
-        .order("created_at", { ascending: true });
+      while (true) {
+        const to = from + PAGE_VISITS_BATCH_SIZE - 1;
+        const { data, error: visitsError } = await supabase
+          .from("page_visits")
+          .select("*")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+          .order("created_at", { ascending: true })
+          .range(from, to);
 
-      if (visitsError) throw visitsError;
+        if (visitsError) throw visitsError;
+        visits.push(...(data || []));
+        if (!data || data.length < PAGE_VISITS_BATCH_SIZE) break;
+        from += PAGE_VISITS_BATCH_SIZE;
+      }
 
-      setRawVisits(visits || []);
+      setRawVisits(visits);
 
-      const totalVisits = visits?.length || 0;
-      const uniqueVisitors = new Set(visits?.map((v) => v.visitor_id) || []).size;
+      const totalVisits = visits.length || 0;
+      const uniqueVisitors = new Set(visits.map((v) => v.visitor_id) || []).size;
 
       const visitorCounts = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         visitorCounts[v.visitor_id] = (visitorCounts[v.visitor_id] || 0) + 1;
       });
 
@@ -204,7 +215,7 @@ export default function AdminAnalytics() {
       });
 
       const visitsByDay = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         const day = formatDayKey(v.created_at);
         if (!visitsByDay[day]) {
           visitsByDay[day] = { date: day, visits: 0, visitors: new Set() };
@@ -223,25 +234,25 @@ export default function AdminAnalytics() {
         .sort((a, b) => new Date(a.fullDate) - new Date(b.fullDate));
 
       const deviceBreakdown = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         const device = v.device_type || "Unknown";
         deviceBreakdown[device] = (deviceBreakdown[device] || 0) + 1;
       });
 
       const browserBreakdown = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         const browser = v.browser || "Unknown";
         browserBreakdown[browser] = (browserBreakdown[browser] || 0) + 1;
       });
 
       const pageBreakdown = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         const page = v.page_path || "/";
         pageBreakdown[page] = (pageBreakdown[page] || 0) + 1;
       });
 
       const referrerBreakdown = {};
-      visits?.forEach((v) => {
+      visits.forEach((v) => {
         if (v.referrer) {
           try {
             const url = new URL(v.referrer);
