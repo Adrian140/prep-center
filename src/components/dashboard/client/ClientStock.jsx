@@ -79,6 +79,14 @@ const buildSellerCentralUrl = (countryCode, asin) => {
   return `https://sellercentral.amazon.${tld}/catalog?searchTerms=${term}`;
 };
 
+const isMissingColumnError = (error, column) => {
+  if (!error) return false;
+  const needle = String(column || '').toLowerCase();
+  return [error.message, error.details, error.hint]
+    .map((part) => String(part || '').toLowerCase())
+    .some((part) => part.includes(needle));
+};
+
 const normalizeFulfillmentChannel = (value) => {
   const normalized = String(value || '').trim().toUpperCase();
   if (!normalized) return null;
@@ -2435,7 +2443,12 @@ const resetReceptionForm = () => {
           next
         );
       }
-      const { error } = await supabase.from('stock_items').update(patch).eq('id', row.id);
+      let { error } = await supabase.from('stock_items').update(patch).eq('id', row.id);
+      if (error && isMissingColumnError(error, 'destination_qty_by_country')) {
+        const { destination_qty_by_country, ...fallbackPatch } = patch;
+        const retry = await supabase.from('stock_items').update(fallbackPatch).eq('id', row.id);
+        error = retry.error;
+      }
       if (error) throw error;
       setRows((prev) =>
         prev.map((item) =>
@@ -4169,10 +4182,21 @@ const saveReqChanges = async () => {
                     return;
                   }
                   setDestinationEditor((prev) => ({ ...prev, saving: true, error: '' }));
-                  const { error } = await supabase
+                  let { error } = await supabase
                     .from('stock_items')
                     .update({ destination_qty_by_country: cleaned })
                     .eq('id', row.id);
+                  if (error && isMissingColumnError(error, 'destination_qty_by_country')) {
+                    setDestinationEditor((prev) => ({
+                      ...prev,
+                      saving: false,
+                      error: tr(
+                        'ClientStock.destinationEditor.errors.destinationSplitUnavailable',
+                        'Destination split is not available on this database yet.'
+                      )
+                    }));
+                    return;
+                  }
                   if (error) {
                     setDestinationEditor((prev) => ({
                       ...prev,
