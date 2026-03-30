@@ -3653,32 +3653,32 @@ export default function FbaStep1Inventory({
 
       {labelModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-[10px] font-semibold text-slate-900">{tr('printSkuLabels')}</div>
-              <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-sm">{tr('close')}</button>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-xl">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-900">{tr('printSkuLabels')}</div>
+              <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-xs">{tr('close')}</button>
             </div>
 
-            <div className="px-6 py-5 space-y-4">
+            <div className="px-4 py-4 space-y-3">
               {labelModal.sku && (
-                <div className="flex gap-3">
+                <div className="flex gap-2.5">
                   <img
                     src={labelModal.sku.image || placeholderImg}
                     alt={labelModal.sku.title}
-                    className="w-12 h-12 object-contain border border-slate-200 rounded"
+                    className="w-10 h-10 object-contain border border-slate-200 rounded"
                   />
-                  <div className="text-sm text-slate-800">
-                    <div className="font-semibold text-slate-900 leading-snug">{labelModal.sku.title}</div>
-                    <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
-                    <div className="text-xs text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
-                    <div className="text-xs text-slate-600">{tr('fulfillmentStorageType')}: {labelModal.sku.storageType}</div>
+                  <div className="text-xs text-slate-800">
+                    <div className="font-semibold text-sm text-slate-900 leading-snug">{labelModal.sku.title}</div>
+                    <div className="text-[11px] text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
+                    <div className="text-[11px] text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
+                    <div className="text-[11px] text-slate-600">{tr('fulfillmentStorageType')}: {labelModal.sku.storageType}</div>
                   </div>
                 </div>
               )}
 
-              <div className="grid md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-3 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">{tr('choosePrintingFormat')}</label>
+                  <label className="text-xs font-semibold text-slate-800">{tr('choosePrintingFormat')}</label>
                   <select
                     value={labelModal.format}
                     onChange={(e) => {
@@ -3691,56 +3691,56 @@ export default function FbaStep1Inventory({
                         height: preset.height
                       }));
                     }}
-                    className="border rounded-md px-3 py-2 text-sm"
+                    className="border rounded-md px-2.5 py-1.5 text-sm"
                   >
                     <option value="thermal">{tr('thermalPrinting')}</option>
                     <option value="standard">{tr('standardFormats')}</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">{tr('widthMm')}</label>
+                  <label className="text-xs font-semibold text-slate-800">{tr('widthMm')}</label>
                   <input
                     type="number"
                     min={1}
                     value={labelModal.width}
                     onChange={(e) => setLabelModal((prev) => ({ ...prev, width: e.target.value }))}
-                    className="border rounded-md px-3 py-2 text-sm"
+                    className="border rounded-md px-2.5 py-1.5 text-sm"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm font-semibold text-slate-800">{tr('heightMm')}</label>
+                  <label className="text-xs font-semibold text-slate-800">{tr('heightMm')}</label>
                   <input
                     type="number"
                     min={1}
                     value={labelModal.height}
                     onChange={(e) => setLabelModal((prev) => ({ ...prev, height: e.target.value }))}
-                    className="border rounded-md px-3 py-2 text-sm"
+                    className="border rounded-md px-2.5 py-1.5 text-sm"
                   />
                 </div>
               </div>
 
               <div className="border border-slate-200 rounded-md">
-                <div className="px-4 py-3 text-sm font-semibold text-slate-800 border-b border-slate-200">{tr('tableSkuDetails')}</div>
+                <div className="px-3 py-2 text-xs font-semibold text-slate-800 border-b border-slate-200">{tr('tableSkuDetails')}</div>
                 {labelModal.sku && (
-                  <div className="px-4 py-3 flex items-center gap-3">
+                  <div className="px-3 py-2.5 flex items-center gap-2.5">
                     <img
                       src={labelModal.sku.image || placeholderImg}
                       alt={labelModal.sku.title}
-                      className="w-10 h-10 object-contain border border-slate-200 rounded"
+                      className="w-9 h-9 object-contain border border-slate-200 rounded"
                     />
-                    <div className="flex-1 text-sm text-slate-800">
-                      <div className="font-semibold text-slate-900 leading-snug line-clamp-2">{labelModal.sku.title}</div>
-                      <div className="text-xs text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
-                      <div className="text-xs text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
+                    <div className="flex-1 text-xs text-slate-800">
+                      <div className="font-semibold text-sm text-slate-900 leading-snug line-clamp-2">{labelModal.sku.title}</div>
+                      <div className="text-[11px] text-slate-600">{tr('skuLabelShort')}: {labelModal.sku.sku}</div>
+                      <div className="text-[11px] text-slate-600">{tr('asinLabelShort')}: {labelModal.sku.asin}</div>
                     </div>
                     <div className="flex flex-col gap-1 items-end">
-                      <label className="text-xs text-slate-600">{tr('printLabels')}</label>
+                      <label className="text-[11px] text-slate-600">{tr('printLabels')}</label>
                       <input
                         type="number"
                         min={1}
                         value={labelModal.quantity}
                         onChange={(e) => setLabelModal((prev) => ({ ...prev, quantity: e.target.value }))}
-                        className="border rounded-md px-3 py-2 text-sm w-24 text-right"
+                        className="border rounded-md px-2.5 py-1.5 text-sm w-20 text-right"
                       />
                     </div>
                   </div>
@@ -3748,20 +3748,20 @@ export default function FbaStep1Inventory({
               </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-              <button onClick={closeLabelModal} className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 text-sm">
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button onClick={closeLabelModal} className="px-3 py-1.5 rounded-md border border-slate-300 text-slate-700 text-sm">
                 {tr('cancel')}
               </button>
               <button
                 onClick={handleDownloadLabels}
                 disabled={labelLoading}
-                className={`px-4 py-2 rounded-md text-white text-sm font-semibold shadow-sm ${labelLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`px-3 py-1.5 rounded-md text-white text-sm font-semibold shadow-sm ${labelLoading ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 {labelLoading ? tr('downloading') : tr('downloadLabels')}
               </button>
             </div>
             {labelError && (
-              <div className="px-6 pb-4 text-sm text-red-600">
+              <div className="px-4 pb-3 text-xs text-red-600">
                 {labelError}
               </div>
             )}
