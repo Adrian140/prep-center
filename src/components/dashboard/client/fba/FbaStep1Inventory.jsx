@@ -83,6 +83,51 @@ const parsePositiveInteger = (value) => {
   return Math.floor(num);
 };
 
+const BOX_DIMENSION_PRESETS_STORAGE_KEY = 'step1-box-dimension-presets';
+const DEFAULT_BOX_DIMENSION_PRESETS = [
+  { id: '60x60x60', label: '60 x 60 x 60', length: 60, width: 60, height: 60 },
+  { id: '50x40x30', label: '50 x 40 x 30', length: 50, width: 40, height: 30 },
+  { id: '40x30x20', label: '40 x 30 x 20', length: 40, width: 30, height: 20 }
+];
+
+const normalizePresetDimension = (value) => {
+  const num = parseLocalizedDecimal(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.round(num * 100) / 100;
+};
+
+const buildBoxDimensionPreset = (length, width, height) => {
+  const l = normalizePresetDimension(length);
+  const w = normalizePresetDimension(width);
+  const h = normalizePresetDimension(height);
+  if (!(l && w && h)) return null;
+  return {
+    id: `${l}x${w}x${h}`,
+    label: `${l} x ${w} x ${h}`,
+    length: l,
+    width: w,
+    height: h
+  };
+};
+
+const loadBoxDimensionPresets = () => {
+  if (typeof window === 'undefined') return DEFAULT_BOX_DIMENSION_PRESETS;
+  try {
+    const raw = window.localStorage.getItem(BOX_DIMENSION_PRESETS_STORAGE_KEY);
+    const parsed = JSON.parse(raw || '[]');
+    const normalized = (Array.isArray(parsed) ? parsed : [])
+      .map((item) => buildBoxDimensionPreset(item?.length, item?.width, item?.height))
+      .filter(Boolean);
+    const merged = [...DEFAULT_BOX_DIMENSION_PRESETS];
+    normalized.forEach((preset) => {
+      if (!merged.some((item) => item.id === preset.id)) merged.push(preset);
+    });
+    return merged;
+  } catch {
+    return DEFAULT_BOX_DIMENSION_PRESETS;
+  }
+};
+
 const PACKING_TYPE = {
   CASE: 'case',
   INDIVIDUAL: 'individual',
@@ -720,8 +765,18 @@ export default function FbaStep1Inventory({
   const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
+  const [boxDimensionPresets, setBoxDimensionPresets] = useState(loadBoxDimensionPresets);
   const [singleBoxMode, setSingleBoxMode] = useState(false);
   const boxScrollRefs = useRef({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(BOX_DIMENSION_PRESETS_STORAGE_KEY, JSON.stringify(boxDimensionPresets));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [boxDimensionPresets]);
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -1156,6 +1211,43 @@ export default function FbaStep1Inventory({
     },
     [updateGroupPlan]
   );
+
+  const resolveBoxPresetId = useCallback(
+    (length, width, height) => {
+      const l = normalizePresetDimension(length);
+      const w = normalizePresetDimension(width);
+      const h = normalizePresetDimension(height);
+      const match = boxDimensionPresets.find(
+        (preset) => preset.length === l && preset.width === w && preset.height === h
+      );
+      return match?.id || '';
+    },
+    [boxDimensionPresets]
+  );
+
+  const addBoxDimensionPreset = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const raw = window.prompt('Add box size as LxWxH, for example 60x60x60');
+    if (!raw) return null;
+    const parts = String(raw)
+      .split(/[^0-9.,]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length !== 3) {
+      window.alert('Invalid format. Use LxWxH, for example 60x60x60.');
+      return null;
+    }
+    const preset = buildBoxDimensionPreset(parts[0], parts[1], parts[2]);
+    if (!preset) {
+      window.alert('Dimensions must be positive numbers.');
+      return null;
+    }
+    setBoxDimensionPresets((prev) => {
+      if (prev.some((item) => item.id === preset.id)) return prev;
+      return [...prev, preset];
+    });
+    return preset;
+  }, []);
 
   const handleBoxDetailsTab = useCallback((event) => {
     if (event.key !== 'Tab') return;
@@ -3161,6 +3253,11 @@ export default function FbaStep1Inventory({
                               const draft = boxDimDrafts[buildKey(field)];
                               return draft !== undefined && draft !== null ? draft : fallback;
                             };
+                            const selectedPresetId = resolveBoxPresetId(
+                              valueForField('length_cm', set?.length_cm ?? ''),
+                              valueForField('width_cm', set?.width_cm ?? ''),
+                              valueForField('height_cm', set?.height_cm ?? '')
+                            );
                             const commitSet = (field, rawValue) => {
                               updateDimensionSet(
                                 group.groupId,
@@ -3205,6 +3302,99 @@ export default function FbaStep1Inventory({
                                     )}
                                   </div>
                                   <div className="mt-1 flex items-center gap-1">
+                                    <select
+                                      value={selectedPresetId}
+                                      onChange={(e) => {
+                                        const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
+                                        if (!preset) return;
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'length_cm',
+                                          preset.length,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'width_cm',
+                                          preset.width,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'height_cm',
+                                          preset.height,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        setBoxDimDrafts((prev) => {
+                                          const next = { ...(prev || {}) };
+                                          delete next[buildKey('length_cm')];
+                                          delete next[buildKey('width_cm')];
+                                          delete next[buildKey('height_cm')];
+                                          return next;
+                                        });
+                                      }}
+                                      className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white"
+                                    >
+                                      <option value="">Select size</option>
+                                      {boxDimensionPresets.map((preset) => (
+                                        <option key={preset.id} value={preset.id}>
+                                          {preset.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
+                                      onClick={() => {
+                                        const preset = addBoxDimensionPreset();
+                                        if (!preset) return;
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'length_cm',
+                                          preset.length,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'width_cm',
+                                          preset.width,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        updateDimensionSet(
+                                          group.groupId,
+                                          set.id,
+                                          'height_cm',
+                                          preset.height,
+                                          group.label,
+                                          set,
+                                          dimensionAssignments
+                                        );
+                                        setBoxDimDrafts((prev) => {
+                                          const next = { ...(prev || {}) };
+                                          delete next[buildKey('length_cm')];
+                                          delete next[buildKey('width_cm')];
+                                          delete next[buildKey('height_cm')];
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      + Add size
+                                    </button>
                                     <input
                                       type="number"
                                       min={0}
