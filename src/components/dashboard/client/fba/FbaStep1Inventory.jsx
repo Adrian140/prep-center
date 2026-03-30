@@ -2574,6 +2574,7 @@ export default function FbaStep1Inventory({
     try {
       const payload = {
         company_id: data.companyId,
+        request_id: requestId || data?.requestId || data?.request_id || null,
         marketplace_id: marketplaceId,
         items: [
           {

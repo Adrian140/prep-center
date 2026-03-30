@@ -122,6 +122,8 @@ const aggregateInvoiceItems = (items = []) => {
 export default function AdminUserDetail({ profile, onBack }) {
   const { profile: currentAdmin } = useSupabaseAuth();
   const { currentMarket, availableMarkets } = useMarket();
+  const hasExtendedClientOpsAccess =
+    currentAdmin?.id === 'bc3ce361-b5c8-435f-a1b6-7ee9d33b3e67';
   const isLimitedAdmin = Boolean(currentAdmin?.is_limited_admin);
   const canManageInvoices = !isLimitedAdmin;
   const [companyId, setCompanyId] = useState(profile?.company_id || null);
@@ -142,7 +144,8 @@ export default function AdminUserDetail({ profile, onBack }) {
   const [proformaCounters, setProformaCounters] = useState({ FR: 1, DE: 1, RO: 1 });
   const hasBillingSelection = canManageInvoices && Object.keys(billingSelections).length > 0;
   const serviceSections = ['fba', 'fbm', 'other', 'stock', 'returns', 'requests'];
-  const allowedSections = isLimitedAdmin ? ['stock'] : serviceSections;
+  const allowedSections =
+    isLimitedAdmin && !hasExtendedClientOpsAccess ? ['stock'] : serviceSections;
   const allowedIssuerCountries = (
     Array.isArray(availableMarkets)
       ? availableMarkets
