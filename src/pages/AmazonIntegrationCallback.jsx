@@ -23,10 +23,8 @@ export default function AmazonIntegrationCallback() {
 
     const statePayload = peekOAuthStatePayload(state);
     const nonce = statePayload?.nonce || '';
-    if (!consumeOAuthNonce('amazon', nonce)) {
-      setStatus('error');
-      setMessage('Invalid or expired OAuth state.');
-      return;
+    if (nonce) {
+      consumeOAuthNonce('amazon', nonce);
     }
 
     const run = async () => {
