@@ -3655,7 +3655,7 @@ export default function FbaStep1Inventory({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
-              <div className="text-lg font-semibold text-slate-900">{tr('printSkuLabels')}</div>
+              <div className="text-[10px] font-semibold text-slate-900">{tr('printSkuLabels')}</div>
               <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-sm">{tr('close')}</button>
             </div>
 
