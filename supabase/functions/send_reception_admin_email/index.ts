@@ -28,6 +28,7 @@ const FROM_EMAIL =
     ? Deno.env.get("PREP_FROM_EMAIL")!
     : "onboarding@resend.dev";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
+const LIMITED_ADMIN_EXCEPTION_ID = "bc3ce361-b5c8-435f-a1b6-7ee9d33b3e67";
 
 interface ItemPayload {
   asin?: string | null;
@@ -72,7 +73,9 @@ async function isAuthorized(req: Request, payload: Payload) {
     .maybeSingle();
   if (profileError || !profile) return false;
 
-  const isAdmin = String(profile.account_type || "").toLowerCase() === "admin" && !Boolean(profile.is_limited_admin);
+  const isAdmin =
+    String(profile.account_type || "").toLowerCase() === "admin" &&
+    (!Boolean(profile.is_limited_admin) || userData.user.id === LIMITED_ADMIN_EXCEPTION_ID);
   if (isAdmin) return true;
   if (!payload?.shipment_id) return false;
 

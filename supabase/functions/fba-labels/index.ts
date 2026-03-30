@@ -31,6 +31,8 @@ type AuthContext = {
   isAdmin: boolean;
 };
 
+const LIMITED_ADMIN_EXCEPTION_ID = "bc3ce361-b5c8-435f-a1b6-7ee9d33b3e67";
+
 function maskValue(val: string) {
   if (!val) return "";
   if (val.length <= 8) return "***";
@@ -351,7 +353,9 @@ async function requireAuthContext(req: Request): Promise<AuthContext | null> {
   return {
     userId: userData.user.id,
     companyId: profile.company_id || null,
-    isAdmin: Boolean(profile.is_admin) && !Boolean(profile.is_limited_admin)
+    isAdmin:
+      Boolean(profile.is_admin) &&
+      (!Boolean(profile.is_limited_admin) || userData.user.id === LIMITED_ADMIN_EXCEPTION_ID)
   };
 }
 
