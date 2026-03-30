@@ -31,4 +31,20 @@ create policy "Admins can update stock"
   using (public.has_client_stock_ops_access(auth.uid()))
   with check (public.has_client_stock_ops_access(auth.uid()));
 
+create or replace function public.fn_stock_limited_update()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if (
+    (new.ean is distinct from old.ean or new.qty is distinct from old.qty)
+    and not public.has_client_stock_ops_access(auth.uid())
+  ) then
+    raise exception 'You are not allowed to modify EAN or quantity';
+  end if;
+  return new;
+end;
+$$;
+
 commit;
