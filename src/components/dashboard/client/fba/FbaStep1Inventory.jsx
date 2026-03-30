@@ -766,6 +766,8 @@ export default function FbaStep1Inventory({
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
   const [boxDimensionPresets, setBoxDimensionPresets] = useState(() => loadBoxDimensionPresets(marketCodeForPricing));
+  const [boxPresetMenuOpen, setBoxPresetMenuOpen] = useState({});
+  const [boxPresetAddDrafts, setBoxPresetAddDrafts] = useState({});
   const [singleBoxMode, setSingleBoxMode] = useState(false);
   const boxScrollRefs = useRef({});
 
@@ -1232,21 +1234,12 @@ export default function FbaStep1Inventory({
     [boxDimensionPresets]
   );
 
-  const addBoxDimensionPreset = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    const raw = window.prompt('Add box size as LxWxH, for example 60x60x60');
-    if (!raw) return null;
-    const parts = String(raw)
-      .split(/[^0-9.,]+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (parts.length !== 3) {
-      window.alert('Invalid format. Use LxWxH, for example 60x60x60.');
-      return null;
-    }
-    const preset = buildBoxDimensionPreset(parts[0], parts[1], parts[2]);
+  const addBoxDimensionPreset = useCallback((length, width, height) => {
+    const preset = buildBoxDimensionPreset(length, width, height);
     if (!preset) {
-      window.alert('Dimensions must be positive numbers.');
+      if (typeof window !== 'undefined') {
+        window.alert('Dimensions must be positive numbers.');
+      }
       return null;
     }
     setBoxDimensionPresets((prev) => {
@@ -3319,6 +3312,7 @@ export default function FbaStep1Inventory({
                           </tr>
 
                           {dimensionSets.map((set, setIdx) => {
+                            const presetDraftKey = `${group.groupId}:${set.id}`;
                             const buildKey = (field) => getDimSetDraftKey(group.groupId, set.id, field);
                             const valueForField = (field, fallback) => {
                               const draft = boxDimDrafts[buildKey(field)];
@@ -3354,6 +3348,11 @@ export default function FbaStep1Inventory({
                               }
                               preventEnterSubmit(event);
                             };
+                            const presetAddDraft = boxPresetAddDrafts[presetDraftKey] || {
+                              length: '',
+                              width: '',
+                              height: ''
+                            };
                             return (
                               <tr key={set.id}>
                                 <td className="sticky left-0 z-10 bg-white border-b border-slate-200 px-3 py-2 align-top">
@@ -3374,42 +3373,114 @@ export default function FbaStep1Inventory({
                                   </div>
                                   <div className="mt-1 flex items-start gap-1">
                                     <div className="flex flex-col gap-1">
-                                      <select
-                                        value={selectedPresetId}
-                                        onChange={(e) => {
-                                          const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
-                                          if (!preset) return;
-                                          applyPresetToDimensionSet(
-                                            group.groupId,
-                                            set.id,
-                                            preset,
-                                            group.label,
-                                            set,
-                                            dimensionAssignments
-                                          );
-                                          setBoxDimDrafts((prev) => {
-                                            const next = { ...(prev || {}) };
-                                            delete next[buildKey('length_cm')];
-                                            delete next[buildKey('width_cm')];
-                                            delete next[buildKey('height_cm')];
-                                            return next;
-                                          });
-                                        }}
-                                        className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white"
-                                      >
-                                        <option value="">Select size</option>
-                                        {boxDimensionPresets.map((preset) => (
-                                          <option key={preset.id} value={preset.id}>
-                                            {preset.label}
-                                          </option>
+                                      <div className="relative">
+                                        <button
+                                          type="button"
+                                          className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white text-left flex items-center justify-between"
+                                          onClick={() => {
+                                            setBoxPresetMenuOpen((prev) => ({
+                                              ...(prev || {}),
+                                              [presetDraftKey]: !prev?.[presetDraftKey]
+                                            }));
+                                          }}
+                                        >
+                                          <span>{selectedPresetId ? boxDimensionPresets.find((item) => item.id === selectedPresetId)?.label || 'Select size' : 'Select size'}</span>
+                                          <span className="text-slate-500">▾</span>
+                                        </button>
+                                        {boxPresetMenuOpen[presetDraftKey] && (
+                                          <div className="absolute left-0 top-9 z-30 w-40 rounded-md border border-slate-200 bg-white shadow-lg">
+                                            <button
+                                              type="button"
+                                              className="w-full text-left px-3 py-2 text-[11px] text-slate-600 hover:bg-slate-50"
+                                              onClick={() =>
+                                                setBoxPresetMenuOpen((prev) => ({
+                                                  ...(prev || {}),
+                                                  [presetDraftKey]: false
+                                                }))
+                                              }
+                                            >
+                                              Select size
+                                            </button>
+                                            {boxDimensionPresets.map((preset) => (
+                                              <div key={preset.id} className="flex items-center justify-between gap-2 px-3 py-2 text-[11px] hover:bg-slate-50">
+                                                <button
+                                                  type="button"
+                                                  className="flex-1 text-left"
+                                                  onClick={() => {
+                                                    applyPresetToDimensionSet(
+                                                      group.groupId,
+                                                      set.id,
+                                                      preset,
+                                                      group.label,
+                                                      set,
+                                                      dimensionAssignments
+                                                    );
+                                                    setBoxDimDrafts((prev) => {
+                                                      const next = { ...(prev || {}) };
+                                                      delete next[buildKey('length_cm')];
+                                                      delete next[buildKey('width_cm')];
+                                                      delete next[buildKey('height_cm')];
+                                                      return next;
+                                                    });
+                                                    setBoxPresetMenuOpen((prev) => ({
+                                                      ...(prev || {}),
+                                                      [presetDraftKey]: false
+                                                    }));
+                                                  }}
+                                                >
+                                                  {preset.label}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  className="text-red-500 hover:text-red-700"
+                                                  onClick={(event) => {
+                                                    event.stopPropagation();
+                                                    const removed = removeBoxDimensionPreset(preset.id);
+                                                    if (removed && selectedPresetId === preset.id) {
+                                                      setBoxPresetMenuOpen((prev) => ({
+                                                        ...(prev || {}),
+                                                        [presetDraftKey]: false
+                                                      }));
+                                                    }
+                                                  }}
+                                                >
+                                                  x
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        {['length', 'width', 'height'].map((field) => (
+                                          <input
+                                            key={field}
+                                            type="number"
+                                            min={0}
+                                            step="0.1"
+                                            value={presetAddDraft[field] ?? ''}
+                                            onChange={(e) =>
+                                              setBoxPresetAddDrafts((prev) => ({
+                                                ...(prev || {}),
+                                                [presetDraftKey]: {
+                                                  ...(prev?.[presetDraftKey] || { length: '', width: '', height: '' }),
+                                                  [field]: e.target.value
+                                                }
+                                              }))
+                                            }
+                                            className="w-11 h-7 border rounded-sm px-1 py-1 text-[11px] text-center"
+                                            placeholder={field === 'length' ? 'L' : field === 'width' ? 'W' : 'H'}
+                                          />
                                         ))}
-                                      </select>
-                                      <div className="flex items-center gap-2">
                                         <button
                                           type="button"
                                           className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
                                           onClick={() => {
-                                            const preset = addBoxDimensionPreset();
+                                            const preset = addBoxDimensionPreset(
+                                              presetAddDraft.length,
+                                              presetAddDraft.width,
+                                              presetAddDraft.height
+                                            );
                                             if (!preset) return;
                                             applyPresetToDimensionSet(
                                               group.groupId,
@@ -3419,6 +3490,10 @@ export default function FbaStep1Inventory({
                                               set,
                                               dimensionAssignments
                                             );
+                                            setBoxPresetAddDrafts((prev) => ({
+                                              ...(prev || {}),
+                                              [presetDraftKey]: { length: '', width: '', height: '' }
+                                            }));
                                             setBoxDimDrafts((prev) => {
                                               const next = { ...(prev || {}) };
                                               delete next[buildKey('length_cm')];
@@ -3428,15 +3503,7 @@ export default function FbaStep1Inventory({
                                             });
                                           }}
                                         >
-                                          + Add size
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={!selectedPresetId}
-                                          className="text-[11px] text-slate-500 hover:text-red-600 disabled:opacity-40 disabled:hover:text-slate-500 whitespace-nowrap"
-                                          onClick={() => removeBoxDimensionPreset(selectedPresetId)}
-                                        >
-                                          Delete size
+                                          + Add
                                         </button>
                                       </div>
                                     </div>
