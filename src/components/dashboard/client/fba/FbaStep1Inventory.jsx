@@ -83,11 +83,12 @@ const parsePositiveInteger = (value) => {
   return Math.floor(num);
 };
 
-const BOX_DIMENSION_PRESETS_STORAGE_KEY = 'step1-box-dimension-presets';
+const BOX_DIMENSION_PRESETS_STORAGE_KEY_PREFIX = 'step1-box-dimension-presets';
 const DEFAULT_BOX_DIMENSION_PRESETS = [
   { id: '60x60x60', label: '60 x 60 x 60', length: 60, width: 60, height: 60 },
-  { id: '50x40x30', label: '50 x 40 x 30', length: 50, width: 40, height: 30 },
-  { id: '40x30x20', label: '40 x 30 x 20', length: 40, width: 30, height: 20 }
+  { id: '60x40x40', label: '60 x 40 x 40', length: 60, width: 40, height: 40 },
+  { id: '42x42x42', label: '42 x 42 x 42', length: 42, width: 42, height: 42 },
+  { id: '52x42x32', label: '52 x 42 x 32', length: 52, width: 42, height: 32 }
 ];
 
 const normalizePresetDimension = (value) => {
@@ -110,19 +111,18 @@ const buildBoxDimensionPreset = (length, width, height) => {
   };
 };
 
-const loadBoxDimensionPresets = () => {
+const getBoxDimensionPresetsStorageKey = (market) =>
+  `${BOX_DIMENSION_PRESETS_STORAGE_KEY_PREFIX}-${String(market || 'DEFAULT').toUpperCase()}`;
+
+const loadBoxDimensionPresets = (market) => {
   if (typeof window === 'undefined') return DEFAULT_BOX_DIMENSION_PRESETS;
   try {
-    const raw = window.localStorage.getItem(BOX_DIMENSION_PRESETS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(getBoxDimensionPresetsStorageKey(market));
     const parsed = JSON.parse(raw || '[]');
     const normalized = (Array.isArray(parsed) ? parsed : [])
       .map((item) => buildBoxDimensionPreset(item?.length, item?.width, item?.height))
       .filter(Boolean);
-    const merged = [...DEFAULT_BOX_DIMENSION_PRESETS];
-    normalized.forEach((preset) => {
-      if (!merged.some((item) => item.id === preset.id)) merged.push(preset);
-    });
-    return merged;
+    return normalized.length ? normalized : DEFAULT_BOX_DIMENSION_PRESETS;
   } catch {
     return DEFAULT_BOX_DIMENSION_PRESETS;
   }
@@ -765,18 +765,25 @@ export default function FbaStep1Inventory({
   const [boxIndexDrafts, setBoxIndexDrafts] = useState({});
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
-  const [boxDimensionPresets, setBoxDimensionPresets] = useState(loadBoxDimensionPresets);
+  const [boxDimensionPresets, setBoxDimensionPresets] = useState(() => loadBoxDimensionPresets(marketCodeForPricing));
   const [singleBoxMode, setSingleBoxMode] = useState(false);
   const boxScrollRefs = useRef({});
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      window.localStorage.setItem(BOX_DIMENSION_PRESETS_STORAGE_KEY, JSON.stringify(boxDimensionPresets));
+      window.localStorage.setItem(
+        getBoxDimensionPresetsStorageKey(marketCodeForPricing),
+        JSON.stringify(boxDimensionPresets)
+      );
     } catch {
       // ignore storage write failures
     }
-  }, [boxDimensionPresets]);
+  }, [boxDimensionPresets, marketCodeForPricing]);
+
+  useEffect(() => {
+    setBoxDimensionPresets(loadBoxDimensionPresets(marketCodeForPricing));
+  }, [marketCodeForPricing]);
 
   const normalizedPackGroups = Array.isArray(packGroupsPreview) ? packGroupsPreview : [];
   const hasPackGroups = normalizedPackGroups.some((g) => Array.isArray(g?.items) && g.items.length > 0);
@@ -1248,6 +1255,70 @@ export default function FbaStep1Inventory({
     });
     return preset;
   }, []);
+
+  const removeBoxDimensionPreset = useCallback((presetId) => {
+    if (!presetId || typeof window === 'undefined') return false;
+    const preset = boxDimensionPresets.find((item) => item.id === presetId);
+    if (!preset) return false;
+    const confirmed = window.confirm(`Delete box size ${preset.label} for ${marketCodeForPricing}?`);
+    if (!confirmed) return false;
+    setBoxDimensionPresets((prev) => prev.filter((item) => item.id !== presetId));
+    return true;
+  }, [boxDimensionPresets, marketCodeForPricing]);
+
+  const applyPresetToDimensionSet = useCallback(
+    (groupId, setId, preset, labelFallback, seedSet = null, seedAssignments = null) => {
+      if (!preset) return;
+      updateGroupPlan(
+        groupId,
+        (current) => {
+          const nextBoxes = [...(current.boxes || [])];
+          const nextAssignments = {
+            ...(seedAssignments && Object.keys(current.dimension_assignments || {}).length === 0
+              ? seedAssignments
+              : current.dimension_assignments || {})
+          };
+          const nextSets = Array.isArray(current.dimension_sets) ? [...current.dimension_sets] : [];
+          let idx = nextSets.findIndex((s) => s.id === setId);
+          if (idx < 0) {
+            nextSets.push({
+              id: setId,
+              length_cm: seedSet?.length_cm ?? '',
+              width_cm: seedSet?.width_cm ?? '',
+              height_cm: seedSet?.height_cm ?? ''
+            });
+            idx = nextSets.length - 1;
+          }
+          const nextSet = {
+            ...nextSets[idx],
+            length_cm: preset.length,
+            width_cm: preset.width,
+            height_cm: preset.height
+          };
+          nextSets[idx] = nextSet;
+          nextBoxes.forEach((box, boxIdx) => {
+            const boxId = box?.id || `${groupId}-box-${boxIdx}`;
+            if (nextAssignments[boxId] === setId) {
+              nextBoxes[boxIdx] = {
+                ...box,
+                length_cm: nextSet.length_cm,
+                width_cm: nextSet.width_cm,
+                height_cm: nextSet.height_cm
+              };
+            }
+          });
+          return {
+            ...current,
+            boxes: nextBoxes,
+            dimension_sets: nextSets,
+            dimension_assignments: nextAssignments
+          };
+        },
+        labelFallback
+      );
+    },
+    [updateGroupPlan]
+  );
 
   const handleBoxDetailsTab = useCallback((event) => {
     if (event.key !== 'Tab') return;
@@ -3301,100 +3372,74 @@ export default function FbaStep1Inventory({
                                       </button>
                                     )}
                                   </div>
-                                  <div className="mt-1 flex items-center gap-1">
-                                    <select
-                                      value={selectedPresetId}
-                                      onChange={(e) => {
-                                        const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
-                                        if (!preset) return;
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'length_cm',
-                                          preset.length,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'width_cm',
-                                          preset.width,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'height_cm',
-                                          preset.height,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        setBoxDimDrafts((prev) => {
-                                          const next = { ...(prev || {}) };
-                                          delete next[buildKey('length_cm')];
-                                          delete next[buildKey('width_cm')];
-                                          delete next[buildKey('height_cm')];
-                                          return next;
-                                        });
-                                      }}
-                                      className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white"
-                                    >
-                                      <option value="">Select size</option>
-                                      {boxDimensionPresets.map((preset) => (
-                                        <option key={preset.id} value={preset.id}>
-                                          {preset.label}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      type="button"
-                                      className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
-                                      onClick={() => {
-                                        const preset = addBoxDimensionPreset();
-                                        if (!preset) return;
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'length_cm',
-                                          preset.length,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'width_cm',
-                                          preset.width,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        updateDimensionSet(
-                                          group.groupId,
-                                          set.id,
-                                          'height_cm',
-                                          preset.height,
-                                          group.label,
-                                          set,
-                                          dimensionAssignments
-                                        );
-                                        setBoxDimDrafts((prev) => {
-                                          const next = { ...(prev || {}) };
-                                          delete next[buildKey('length_cm')];
-                                          delete next[buildKey('width_cm')];
-                                          delete next[buildKey('height_cm')];
-                                          return next;
-                                        });
-                                      }}
-                                    >
-                                      + Add size
-                                    </button>
+                                  <div className="mt-1 flex items-start gap-1">
+                                    <div className="flex flex-col gap-1">
+                                      <select
+                                        value={selectedPresetId}
+                                        onChange={(e) => {
+                                          const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
+                                          if (!preset) return;
+                                          applyPresetToDimensionSet(
+                                            group.groupId,
+                                            set.id,
+                                            preset,
+                                            group.label,
+                                            set,
+                                            dimensionAssignments
+                                          );
+                                          setBoxDimDrafts((prev) => {
+                                            const next = { ...(prev || {}) };
+                                            delete next[buildKey('length_cm')];
+                                            delete next[buildKey('width_cm')];
+                                            delete next[buildKey('height_cm')];
+                                            return next;
+                                          });
+                                        }}
+                                        className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white"
+                                      >
+                                        <option value="">Select size</option>
+                                        {boxDimensionPresets.map((preset) => (
+                                          <option key={preset.id} value={preset.id}>
+                                            {preset.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
+                                          onClick={() => {
+                                            const preset = addBoxDimensionPreset();
+                                            if (!preset) return;
+                                            applyPresetToDimensionSet(
+                                              group.groupId,
+                                              set.id,
+                                              preset,
+                                              group.label,
+                                              set,
+                                              dimensionAssignments
+                                            );
+                                            setBoxDimDrafts((prev) => {
+                                              const next = { ...(prev || {}) };
+                                              delete next[buildKey('length_cm')];
+                                              delete next[buildKey('width_cm')];
+                                              delete next[buildKey('height_cm')];
+                                              return next;
+                                            });
+                                          }}
+                                        >
+                                          + Add size
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={!selectedPresetId}
+                                          className="text-[11px] text-slate-500 hover:text-red-600 disabled:opacity-40 disabled:hover:text-slate-500 whitespace-nowrap"
+                                          onClick={() => removeBoxDimensionPreset(selectedPresetId)}
+                                        >
+                                          Delete size
+                                        </button>
+                                      </div>
+                                    </div>
                                     <input
                                       type="number"
                                       min={0}
