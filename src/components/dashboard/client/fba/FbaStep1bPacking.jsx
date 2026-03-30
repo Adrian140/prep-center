@@ -1230,10 +1230,78 @@ export default function FbaStep1bPacking({
                         width: draftDims.width ?? group.boxDimensions?.width ?? '',
                         height: draftDims.height ?? group.boxDimensions?.height ?? ''
                       };
+                      const selectedPresetId = (() => {
+                        const l = normalizePresetDimension(currentDims.length);
+                        const w = normalizePresetDimension(currentDims.width);
+                        const h = normalizePresetDimension(currentDims.height);
+                        const match = boxDimensionPresets.find(
+                          (preset) => preset.length === l && preset.width === w && preset.height === h
+                        );
+                        return match?.id || '';
+                      })();
                       return (
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
                           <div className="sm:col-span-3">
-                            <label className="text-xs text-slate-600 block mb-1">Box dimensions (cm)</label>
+                            <div className="flex items-center gap-2 mb-1">
+                              <label className="text-xs text-slate-600 block">Box dimensions (cm)</label>
+                              <select
+                                value={selectedPresetId}
+                                onChange={(e) => {
+                                  const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
+                                  if (!preset) return;
+                                  setDraftValue(group.id, {
+                                    boxDimensions: {
+                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                      length: preset.length,
+                                      width: preset.width,
+                                      height: preset.height
+                                    }
+                                  });
+                                  onUpdateGroup(group.id, {
+                                    boxDimensions: {
+                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                      length: preset.length,
+                                      width: preset.width,
+                                      height: preset.height
+                                    }
+                                  });
+                                }}
+                                className="border rounded-md px-2 py-1 text-xs w-40 bg-white"
+                              >
+                                <option value="">Select size</option>
+                                {boxDimensionPresets.map((preset) => (
+                                  <option key={preset.id} value={preset.id}>
+                                    {preset.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const preset = addBoxDimensionPreset();
+                                  if (!preset) return;
+                                  setDraftValue(group.id, {
+                                    boxDimensions: {
+                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                      length: preset.length,
+                                      width: preset.width,
+                                      height: preset.height
+                                    }
+                                  });
+                                  onUpdateGroup(group.id, {
+                                    boxDimensions: {
+                                      ...(getDraft(group).boxDimensions || group.boxDimensions || {}),
+                                      length: preset.length,
+                                      width: preset.width,
+                                      height: preset.height
+                                    }
+                                  });
+                                }}
+                                className="text-xs text-blue-700 hover:text-blue-800 whitespace-nowrap"
+                              >
+                                + Add size
+                              </button>
+                            </div>
                             <div className="flex items-center gap-2">
                               <input
                                 type="number"
