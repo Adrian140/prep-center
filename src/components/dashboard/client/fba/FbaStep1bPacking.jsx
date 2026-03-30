@@ -5,6 +5,50 @@ const MAX_STANDARD_BOX_KG = 23; // 50.71 lb, Amazon standard-size limit
 const MAX_STANDARD_BOX_MSG = `Limita maxima este ${MAX_STANDARD_BOX_KG} kg per cutie.`;
 const MAX_STANDARD_BOX_CM = 63.5;
 const MAX_STANDARD_BOX_DIM_MSG = `Limita maxima este ${MAX_STANDARD_BOX_CM} cm pe latura (exceptie: 1 unitate oversize).`;
+const BOX_DIMENSION_PRESETS_STORAGE_KEY = 'fba-box-dimension-presets';
+const DEFAULT_BOX_DIMENSION_PRESETS = [
+  { id: '60x60x60', label: '60 × 60 × 60', length: 60, width: 60, height: 60 },
+  { id: '50x40x30', label: '50 × 40 × 30', length: 50, width: 40, height: 30 },
+  { id: '40x30x20', label: '40 × 30 × 20', length: 40, width: 30, height: 20 }
+];
+
+const normalizePresetDimension = (value) => {
+  const num = Number(String(value ?? '').replace(',', '.'));
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.round(num * 100) / 100;
+};
+
+const buildBoxDimensionPreset = (length, width, height) => {
+  const l = normalizePresetDimension(length);
+  const w = normalizePresetDimension(width);
+  const h = normalizePresetDimension(height);
+  if (!(l && w && h)) return null;
+  return {
+    id: `${l}x${w}x${h}`,
+    label: `${l} × ${w} × ${h}`,
+    length: l,
+    width: w,
+    height: h
+  };
+};
+
+const loadBoxDimensionPresets = () => {
+  if (typeof window === 'undefined') return DEFAULT_BOX_DIMENSION_PRESETS;
+  try {
+    const raw = window.localStorage.getItem(BOX_DIMENSION_PRESETS_STORAGE_KEY);
+    const parsed = JSON.parse(raw || '[]');
+    const normalized = (Array.isArray(parsed) ? parsed : [])
+      .map((item) => buildBoxDimensionPreset(item?.length, item?.width, item?.height))
+      .filter(Boolean);
+    const merged = [...DEFAULT_BOX_DIMENSION_PRESETS];
+    normalized.forEach((preset) => {
+      if (!merged.some((item) => item.id === preset.id)) merged.push(preset);
+    });
+    return merged;
+  } catch {
+    return DEFAULT_BOX_DIMENSION_PRESETS;
+  }
+};
 
 export default function FbaStep1bPacking({
   packGroups,
@@ -105,7 +149,17 @@ export default function FbaStep1bPacking({
   const [continueError, setContinueError] = useState('');
   const [activeWebFormGroupId, setActiveWebFormGroupId] = useState(null);
   const [isWebFormOpen, setIsWebFormOpen] = useState(false);
+  const [boxDimensionPresets, setBoxDimensionPresets] = useState(loadBoxDimensionPresets);
   const lastActiveGroupRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(BOX_DIMENSION_PRESETS_STORAGE_KEY, JSON.stringify(boxDimensionPresets));
+    } catch {
+      // ignore storage write failures
+    }
+  }, [boxDimensionPresets]);
 
   const contentOptions = [
     { value: 'BOX_CONTENT_PROVIDED', label: 'Enter through a web form', enabled: true },
@@ -139,6 +193,30 @@ export default function FbaStep1bPacking({
     setIsWebFormOpen(false);
     setActiveWebFormGroupId(null);
     lastActiveGroupRef.current = null;
+  };
+
+  const addBoxDimensionPreset = () => {
+    if (typeof window === 'undefined') return null;
+    const raw = window.prompt('Adauga dimensiunea cutiei in format LxWxH, de exemplu 60x60x60');
+    if (!raw) return null;
+    const parts = String(raw)
+      .split(/[^0-9.,]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (parts.length !== 3) {
+      window.alert('Format invalid. Foloseste LxWxH, de exemplu 60x60x60.');
+      return null;
+    }
+    const preset = buildBoxDimensionPreset(parts[0], parts[1], parts[2]);
+    if (!preset) {
+      window.alert('Dimensiunile trebuie sa fie numere pozitive.');
+      return null;
+    }
+    setBoxDimensionPresets((prev) => {
+      if (prev.some((item) => item.id === preset.id)) return prev;
+      return [...prev, preset];
+    });
+    return preset;
   };
 
   const commitDraft = (group, fields) => {
@@ -622,6 +700,15 @@ export default function FbaStep1bPacking({
     };
 
     const dimensionSets = resolveDimensionSets();
+    const resolvePresetValue = (set) => {
+      const l = normalizePresetDimension(set?.length);
+      const w = normalizePresetDimension(set?.width);
+      const h = normalizePresetDimension(set?.height);
+      const match = boxDimensionPresets.find(
+        (preset) => preset.length === l && preset.width === w && preset.height === h
+      );
+      return match?.id || '';
+    };
 
     const totalsBySku = new Map();
     skuList.forEach((it) => {
@@ -825,6 +912,47 @@ export default function FbaStep1bPacking({
               </div>
               {dimensionSets.map((set, setIdx) => (
                 <div key={setIdx} className="flex items-center gap-3">
+                  <select
+                    value={resolvePresetValue(set)}
+                    onChange={(e) => {
+                      const preset = boxDimensionPresets.find((item) => item.id === e.target.value);
+                      if (!preset) return;
+                      const next = [...dimensionSets];
+                      next[setIdx] = {
+                        ...next[setIdx],
+                        length: preset.length,
+                        width: preset.width,
+                        height: preset.height
+                      };
+                      updateDimensionSets(next);
+                    }}
+                    className="border rounded-md px-2 py-1 w-40 text-sm"
+                  >
+                    <option value="">Select box size</option>
+                    {boxDimensionPresets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const preset = addBoxDimensionPreset();
+                      if (!preset) return;
+                      const next = [...dimensionSets];
+                      next[setIdx] = {
+                        ...next[setIdx],
+                        length: preset.length,
+                        width: preset.width,
+                        height: preset.height
+                      };
+                      updateDimensionSets(next);
+                    }}
+                    className="text-xs text-blue-700 hover:text-blue-800 whitespace-nowrap"
+                  >
+                    + Add size
+                  </button>
                   {['length', 'width', 'height'].map((field) => (
                     <input
                       key={field}
