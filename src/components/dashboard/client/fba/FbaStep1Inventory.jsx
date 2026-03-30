@@ -766,7 +766,8 @@ export default function FbaStep1Inventory({
   const [boxQtyDrafts, setBoxQtyDrafts] = useState({});
   const [boxDimDrafts, setBoxDimDrafts] = useState({});
   const [boxDimensionPresets, setBoxDimensionPresets] = useState(() => loadBoxDimensionPresets(marketCodeForPricing));
-  const [boxPresetMenuOpen, setBoxPresetMenuOpen] = useState({});
+  const [boxPresetMenuState, setBoxPresetMenuState] = useState({ key: null, top: 0, left: 0 });
+  const [boxPresetAddOpen, setBoxPresetAddOpen] = useState({});
   const [boxPresetAddDrafts, setBoxPresetAddDrafts] = useState({});
   const [singleBoxMode, setSingleBoxMode] = useState(false);
   const boxScrollRefs = useRef({});
@@ -3313,6 +3314,7 @@ export default function FbaStep1Inventory({
 
                           {dimensionSets.map((set, setIdx) => {
                             const presetDraftKey = `${group.groupId}:${set.id}`;
+                            const isPresetAddOpen = Boolean(boxPresetAddOpen[presetDraftKey]);
                             const buildKey = (field) => getDimSetDraftKey(group.groupId, set.id, field);
                             const valueForField = (field, fallback) => {
                               const draft = boxDimDrafts[buildKey(field)];
@@ -3377,27 +3379,31 @@ export default function FbaStep1Inventory({
                                         <button
                                           type="button"
                                           className="w-32 h-8 border rounded-sm px-2 py-1 text-[11px] bg-white text-left flex items-center justify-between"
-                                          onClick={() => {
-                                            setBoxPresetMenuOpen((prev) => ({
-                                              ...(prev || {}),
-                                              [presetDraftKey]: !prev?.[presetDraftKey]
-                                            }));
+                                          onClick={(event) => {
+                                            const rect = event.currentTarget.getBoundingClientRect();
+                                            setBoxPresetMenuState((prev) =>
+                                              prev.key === presetDraftKey
+                                                ? { key: null, top: 0, left: 0 }
+                                                : {
+                                                    key: presetDraftKey,
+                                                    top: rect.bottom + 4,
+                                                    left: rect.left
+                                                  }
+                                            );
                                           }}
                                         >
                                           <span>{selectedPresetId ? boxDimensionPresets.find((item) => item.id === selectedPresetId)?.label || 'Select size' : 'Select size'}</span>
                                           <span className="text-slate-500">▾</span>
                                         </button>
-                                        {boxPresetMenuOpen[presetDraftKey] && (
-                                          <div className="absolute left-0 top-9 z-30 w-40 rounded-md border border-slate-200 bg-white shadow-lg">
+                                        {boxPresetMenuState.key === presetDraftKey && (
+                                          <div
+                                            className="fixed z-[100] w-40 rounded-md border border-slate-200 bg-white shadow-lg"
+                                            style={{ top: boxPresetMenuState.top, left: boxPresetMenuState.left }}
+                                          >
                                             <button
                                               type="button"
                                               className="w-full text-left px-3 py-2 text-[11px] text-slate-600 hover:bg-slate-50"
-                                              onClick={() =>
-                                                setBoxPresetMenuOpen((prev) => ({
-                                                  ...(prev || {}),
-                                                  [presetDraftKey]: false
-                                                }))
-                                              }
+                                              onClick={() => setBoxPresetMenuState({ key: null, top: 0, left: 0 })}
                                             >
                                               Select size
                                             </button>
@@ -3422,10 +3428,7 @@ export default function FbaStep1Inventory({
                                                       delete next[buildKey('height_cm')];
                                                       return next;
                                                     });
-                                                    setBoxPresetMenuOpen((prev) => ({
-                                                      ...(prev || {}),
-                                                      [presetDraftKey]: false
-                                                    }));
+                                                    setBoxPresetMenuState({ key: null, top: 0, left: 0 });
                                                   }}
                                                 >
                                                   {preset.label}
@@ -3437,10 +3440,7 @@ export default function FbaStep1Inventory({
                                                     event.stopPropagation();
                                                     const removed = removeBoxDimensionPreset(preset.id);
                                                     if (removed && selectedPresetId === preset.id) {
-                                                      setBoxPresetMenuOpen((prev) => ({
-                                                        ...(prev || {}),
-                                                        [presetDraftKey]: false
-                                                      }));
+                                                      setBoxPresetMenuState({ key: null, top: 0, left: 0 });
                                                     }
                                                   }}
                                                 >
@@ -3451,61 +3451,80 @@ export default function FbaStep1Inventory({
                                           </div>
                                         )}
                                       </div>
-                                      <div className="flex items-center gap-1">
-                                        {['length', 'width', 'height'].map((field) => (
-                                          <input
-                                            key={field}
-                                            type="number"
-                                            min={0}
-                                            step="0.1"
-                                            value={presetAddDraft[field] ?? ''}
-                                            onChange={(e) =>
-                                              setBoxPresetAddDrafts((prev) => ({
-                                                ...(prev || {}),
-                                                [presetDraftKey]: {
-                                                  ...(prev?.[presetDraftKey] || { length: '', width: '', height: '' }),
-                                                  [field]: e.target.value
-                                                }
-                                              }))
-                                            }
-                                            className="w-11 h-7 border rounded-sm px-1 py-1 text-[11px] text-center"
-                                            placeholder={field === 'length' ? 'L' : field === 'width' ? 'W' : 'H'}
-                                          />
-                                        ))}
+                                      {!isPresetAddOpen ? (
                                         <button
                                           type="button"
-                                          className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
-                                          onClick={() => {
-                                            const preset = addBoxDimensionPreset(
-                                              presetAddDraft.length,
-                                              presetAddDraft.width,
-                                              presetAddDraft.height
-                                            );
-                                            if (!preset) return;
-                                            applyPresetToDimensionSet(
-                                              group.groupId,
-                                              set.id,
-                                              preset,
-                                              group.label,
-                                              set,
-                                              dimensionAssignments
-                                            );
-                                            setBoxPresetAddDrafts((prev) => ({
+                                          className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap text-left"
+                                          onClick={() =>
+                                            setBoxPresetAddOpen((prev) => ({
                                               ...(prev || {}),
-                                              [presetDraftKey]: { length: '', width: '', height: '' }
-                                            }));
-                                            setBoxDimDrafts((prev) => {
-                                              const next = { ...(prev || {}) };
-                                              delete next[buildKey('length_cm')];
-                                              delete next[buildKey('width_cm')];
-                                              delete next[buildKey('height_cm')];
-                                              return next;
-                                            });
-                                          }}
+                                              [presetDraftKey]: true
+                                            }))
+                                          }
                                         >
                                           + Add
                                         </button>
-                                      </div>
+                                      ) : (
+                                        <div className="flex items-center gap-1">
+                                          {['length', 'width', 'height'].map((field) => (
+                                            <input
+                                              key={field}
+                                              type="number"
+                                              min={0}
+                                              step="0.1"
+                                              value={presetAddDraft[field] ?? ''}
+                                              onChange={(e) =>
+                                                setBoxPresetAddDrafts((prev) => ({
+                                                  ...(prev || {}),
+                                                  [presetDraftKey]: {
+                                                    ...(prev?.[presetDraftKey] || { length: '', width: '', height: '' }),
+                                                    [field]: e.target.value
+                                                  }
+                                                }))
+                                              }
+                                              className="w-11 h-7 border rounded-sm px-1 py-1 text-[11px] text-center"
+                                              placeholder={field === 'length' ? 'L' : field === 'width' ? 'W' : 'H'}
+                                            />
+                                          ))}
+                                          <button
+                                            type="button"
+                                            className="text-[11px] text-blue-700 hover:text-blue-800 whitespace-nowrap"
+                                            onClick={() => {
+                                              const preset = addBoxDimensionPreset(
+                                                presetAddDraft.length,
+                                                presetAddDraft.width,
+                                                presetAddDraft.height
+                                              );
+                                              if (!preset) return;
+                                              applyPresetToDimensionSet(
+                                                group.groupId,
+                                                set.id,
+                                                preset,
+                                                group.label,
+                                                set,
+                                                dimensionAssignments
+                                              );
+                                              setBoxPresetAddDrafts((prev) => ({
+                                                ...(prev || {}),
+                                                [presetDraftKey]: { length: '', width: '', height: '' }
+                                              }));
+                                              setBoxPresetAddOpen((prev) => ({
+                                                ...(prev || {}),
+                                                [presetDraftKey]: false
+                                              }));
+                                              setBoxDimDrafts((prev) => {
+                                                const next = { ...(prev || {}) };
+                                                delete next[buildKey('length_cm')];
+                                                delete next[buildKey('width_cm')];
+                                                delete next[buildKey('height_cm')];
+                                                return next;
+                                              });
+                                            }}
+                                          >
+                                            + Add
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                     <input
                                       type="number"
