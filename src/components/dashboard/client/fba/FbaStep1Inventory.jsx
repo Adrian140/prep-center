@@ -3653,7 +3653,7 @@ export default function FbaStep1Inventory({
 
       {labelModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-xl">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-900">{tr('printSkuLabels')}</div>
               <button onClick={closeLabelModal} className="text-slate-500 hover:text-slate-700 text-xs">{tr('close')}</button>
@@ -3676,7 +3676,7 @@ export default function FbaStep1Inventory({
                 </div>
               )}
 
-              <div className="grid md:grid-cols-3 gap-3">
+              <div className="grid md:grid-cols-[minmax(0,1fr)_120px_120px] gap-3 items-end">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-slate-800">{tr('choosePrintingFormat')}</label>
                   <select
@@ -3704,7 +3704,7 @@ export default function FbaStep1Inventory({
                     min={1}
                     value={labelModal.width}
                     onChange={(e) => setLabelModal((prev) => ({ ...prev, width: e.target.value }))}
-                    className="border rounded-md px-2.5 py-1.5 text-sm"
+                    className="w-[120px] border rounded-md px-2.5 py-1.5 text-sm"
                   />
                 </div>
                 <div className="flex flex-col gap-1">
@@ -3714,7 +3714,7 @@ export default function FbaStep1Inventory({
                     min={1}
                     value={labelModal.height}
                     onChange={(e) => setLabelModal((prev) => ({ ...prev, height: e.target.value }))}
-                    className="border rounded-md px-2.5 py-1.5 text-sm"
+                    className="w-[120px] border rounded-md px-2.5 py-1.5 text-sm"
                   />
                 </div>
               </div>
