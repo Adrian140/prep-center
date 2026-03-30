@@ -49,6 +49,11 @@ export default function FbaStep3Labels({
           <div key={s.id} className="border border-slate-200 rounded-lg">
             <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
+                {s.packGroupLabel ? (
+                  <div className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-1">
+                    {s.packGroupLabel}
+                  </div>
+                ) : null}
                 <div className="font-semibold text-slate-900">{s.name}</div>
                 <div className="text-sm text-slate-600">{tp('Fba.step3.shipFrom', { value: s.from })}</div>
                 <div className="text-sm text-slate-600">{tp('Fba.step3.shipTo', { value: s.to })}</div>

@@ -88,6 +88,13 @@ const resolveShipmentUnits = (shipment, fallback) => {
       shipment?.sku_items
   );
   if (Number.isFinite(fromItems)) return fromItems;
+  const fromPackages = Array.isArray(shipment?.packages)
+    ? shipment.packages.reduce((sum, pkg) => {
+        const qty = getFiniteNumber(pkg?.contentUnits);
+        return sum + (Number.isFinite(qty) ? qty : 0);
+      }, 0)
+    : null;
+  if (Number.isFinite(fromPackages) && fromPackages > 0) return fromPackages;
   const fallbackUnits = getFiniteNumber(fallback?.units);
   if (Number.isFinite(fallbackUnits)) return fallbackUnits;
   return 0;
@@ -5422,6 +5429,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         id: shipmentId || base?.shipmentId || base?.id || packingGroupId || `s-${idx + 1}`,
         shipmentId: shipmentId || base?.shipmentId || base?.id || null,
         packingGroupId,
+        packGroupLabel: g?.title || g?.label || `Pack group ${idx + 1}`,
         name: base?.name || `Shipment #${idx + 1}`,
         from: base?.from || formatAddress(canonicalShipFrom || {}),
         to: base?.to || plan?.marketplace || plan?.destination || '—',
