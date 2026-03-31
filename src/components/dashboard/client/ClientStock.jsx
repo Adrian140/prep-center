@@ -2957,6 +2957,8 @@ const openReqEditor = async (requestId) => {
     setReqLines(lines.map(it => ({
       id: it.id,
       stock_item_id: it.stock_item_id ?? null,
+      ean: it.ean ?? '',
+      product_name: it.product_name ?? '',
       asin: it.asin ?? '',
       sku: it.sku ?? '',
       units_requested: Number(it.units_requested || 0),
@@ -2979,10 +2981,11 @@ const removeReqLine = (id) => {
 };
 // ——— meta (EAN + nume) din stock pe baza stock_item_id
 const getStockMeta = (line) => {
-  const st = line?.stock_item_id ? rows.find(r => r.id === line.stock_item_id) : null;
+  const st = (line?.stock_item_id ? rows.find(r => r.id === line.stock_item_id) : null) || findStockMatch(line, rows);
   return {
     ean: (line?.ean || st?.ean || '') || '',
-    name: st?.name || '',
+    name: line?.product_name || st?.name || '',
+    image_url: st?.image_url || '',
   };
 };
 
@@ -3908,6 +3911,7 @@ const saveReqChanges = async () => {
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 text-text-secondary">
                   <tr>
+                    <th className="px-2 py-2 text-left w-20">Photo</th>
                     <th className="px-2 py-2 text-left">EAN</th>
                     <th className="px-2 py-2 text-left">Product name</th>
                     <th className="px-2 py-2 text-left">ASIN / SKU</th>
@@ -3918,7 +3922,7 @@ const saveReqChanges = async () => {
                 <tbody>
                   {reqLines.length === 0 ? (
                     <tr className="border-t">
-                      <td colSpan={reqEditable ? 5 : 4} className="px-2 py-6 text-center text-gray-400">
+                      <td colSpan={reqEditable ? 6 : 5} className="px-2 py-6 text-center text-gray-400">
                         No items in this request
                       </td>
                     </tr>
@@ -3928,6 +3932,19 @@ const saveReqChanges = async () => {
                       const code = String(line.asin || '').trim() || String(line.sku || '').trim() || '—';
                       return (
                         <tr key={line.id || line.stock_item_id} className="border-t">
+                          <td className="px-2 py-2 align-top">
+                            {meta.image_url ? (
+                              <img
+                                src={meta.image_url}
+                                alt={meta.name || 'Product image'}
+                                className="w-11 h-11 object-contain rounded border"
+                              />
+                            ) : (
+                              <div className="w-11 h-11 bg-gray-100 border rounded flex items-center justify-center text-[10px] text-gray-400">
+                                N/A
+                              </div>
+                            )}
+                          </td>
                           <td className="px-2 py-2 font-mono text-xs">{meta.ean || '—'}</td>
                           <td className="px-2 py-2">{meta.name || '—'}</td>
                           <td className="px-2 py-2">
