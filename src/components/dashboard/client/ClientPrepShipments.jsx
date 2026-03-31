@@ -343,13 +343,19 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
   }, [stock, inventorySearch]);
 
   const getStockMeta = (line) => {
-    const st = line?.stock_item_id ? stock.find((r) => r.id === line.stock_item_id) : null;
+    const requestStock =
+      line?.stock_item && typeof line.stock_item === 'object'
+        ? line.stock_item
+        : null;
+    const st =
+      requestStock ||
+      (line?.stock_item_id ? stock.find((r) => String(r.id) === String(line.stock_item_id)) : null);
     return {
-      ean: (line?.ean || st?.ean || '') || '',
-      name: st?.name || line?.product_name || '',
-      image_url: st?.image_url || null,
-      asin: st?.asin || line?.asin || '',
-      sku: st?.sku || line?.sku || ''
+      ean: (line?.ean || requestStock?.ean || st?.ean || '') || '',
+      name: requestStock?.name || st?.name || line?.product_name || '',
+      image_url: requestStock?.image_url || st?.image_url || null,
+      asin: requestStock?.asin || st?.asin || line?.asin || '',
+      sku: requestStock?.sku || st?.sku || line?.sku || ''
     };
   };
 
@@ -611,6 +617,7 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
           id: line.id,
           client_uid: line.id ? null : createClientUid(),
           stock_item_id: line.stock_item_id ?? null,
+          stock_item: line.stock_item || null,
           asin: line.asin ?? '',
           sku: line.sku ?? '',
           units_requested: Number(line.units_requested || 0),
