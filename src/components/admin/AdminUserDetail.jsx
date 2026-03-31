@@ -499,7 +499,8 @@ if (!templateSettingsRes?.error && templateSettingsRes?.data?.value) {
           net: roundMoney(totals?.net ?? 0),
           vat: roundMoney(totals?.vat ?? 0),
           gross: roundMoney(totals?.gross ?? 0),
-          vatLabel: totals?.vatLabel || 'TVA'
+          vatLabel: totals?.vatLabel || 'TVA',
+          vatRate: Number(totals?.vatRate ?? 0)
         },
         legalNote: totals?.legalNote || '',
         templateImage: templateImage || invoiceTemplates?.[issuerCode] || null
