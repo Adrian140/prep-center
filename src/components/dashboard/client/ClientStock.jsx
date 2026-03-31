@@ -2964,6 +2964,7 @@ const openReqEditor = async (requestId) => {
       asin: it.asin ?? '',
       sku: it.sku ?? '',
       units_requested: Number(it.units_requested || 0),
+      stock_item: it.stock_item || null,
     }));
 
     const fallbackIds = Array.from(new Set(
@@ -3031,13 +3032,21 @@ const removeReqLine = (id) => {
 };
 // ——— meta (EAN + nume) din stock pe baza stock_item_id
 const getStockMeta = (line) => {
-  const st = (line?.stock_item_id ? rows.find(r => r.id === line.stock_item_id) : null) || findStockMatch(line, rows);
+  const requestStock =
+    line?.stock_item && typeof line.stock_item === 'object'
+      ? line.stock_item
+      : null;
+  const st =
+    requestStock ||
+    (line?.stock_item_id ? rows.find(r => String(r.id) === String(line.stock_item_id)) : null) ||
+    findStockMatch(line, rows);
   return {
-    ean: (line?.ean || st?.ean || '') || '',
-    name: line?.product_name || st?.name || '',
+    ean: (line?.ean || requestStock?.ean || st?.ean || '') || '',
+    name: line?.product_name || requestStock?.name || st?.name || '',
     image_url:
+      (requestStock?.image_url && !isBadImageUrl(requestStock.image_url) ? requestStock.image_url : '') ||
       (st?.image_url && !isBadImageUrl(st.image_url) ? st.image_url : '') ||
-      (st?.id ? reqPhotoUrls[st.id] || '' : ''),
+      (String(requestStock?.id || st?.id || '').trim() ? reqPhotoUrls[String(requestStock?.id || st?.id)] || '' : ''),
   };
 };
 
