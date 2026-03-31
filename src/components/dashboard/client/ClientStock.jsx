@@ -1188,6 +1188,7 @@ const [reqLoading, setReqLoading] = useState(false);
 const [reqEditable, setReqEditable] = useState(false);
 const [reqHeader, setReqHeader] = useState(null);    // {id, destination_country, status, created_at, ...}
 const [reqLines, setReqLines] = useState([]);        // [{id, stock_item_id, asin, sku, units_requested, ean?}]
+const [reqPhotoUrls, setReqPhotoUrls] = useState({});
 const [reqErrors, setReqErrors] = useState([]);
 const [adding, setAdding] = useState(false);         // UI add new line
 const [addingSel, setAddingSel] = useState('');      // stock item id (string)
@@ -2940,6 +2941,7 @@ const openReqEditor = async (requestId) => {
   setReqOpen(true);
   setReqLoading(true);
   setReqErrors([]);
+  setReqPhotoUrls({});
   try {
     const { data, error } = await supabaseHelpers.getPrepRequest(requestId);
     if (error) throw error;
@@ -2954,7 +2956,7 @@ const openReqEditor = async (requestId) => {
     });
 
     const lines = Array.isArray(data.prep_request_items) ? data.prep_request_items : [];
-    setReqLines(lines.map(it => ({
+    const lineItems = lines.map(it => ({
       id: it.id,
       stock_item_id: it.stock_item_id ?? null,
       ean: it.ean ?? '',
@@ -2962,7 +2964,55 @@ const openReqEditor = async (requestId) => {
       asin: it.asin ?? '',
       sku: it.sku ?? '',
       units_requested: Number(it.units_requested || 0),
-    })));
+    }));
+
+    const fallbackIds = Array.from(new Set(
+      lineItems
+        .map((line) => {
+          const stock = (line?.stock_item_id ? rows.find((r) => r.id === line.stock_item_id) : null) || findStockMatch(line, rows);
+          return stock?.id || null;
+        })
+        .filter((id) => {
+          const imageUrl = rows.find((r) => r.id === id)?.image_url || '';
+          return id && isBadImageUrl(imageUrl);
+        })
+    ));
+
+    if (fallbackIds.length > 0) {
+      const { data: imageRows, error: imageError } = await supabase
+        .from('product_images')
+        .select('stock_item_id, storage_path, created_at')
+        .in('stock_item_id', fallbackIds)
+        .order('created_at');
+      if (imageError) throw imageError;
+
+      const firstImageByStockId = {};
+      for (const image of imageRows || []) {
+        if (!image?.stock_item_id || !image?.storage_path || firstImageByStockId[image.stock_item_id]) continue;
+        firstImageByStockId[image.stock_item_id] = image.storage_path;
+      }
+
+      const signedEntries = await Promise.all(
+        Object.entries(firstImageByStockId).map(async ([stockItemId, storagePath]) => {
+          const { data: signed, error: signedError } = await supabase
+            .storage
+            .from('product-images')
+            .createSignedUrl(storagePath, 600);
+          if (signedError || !signed?.signedUrl) return null;
+          return [stockItemId, signed.signedUrl];
+        })
+      );
+
+      setReqPhotoUrls(
+        signedEntries.reduce((acc, entry) => {
+          if (!entry) return acc;
+          const [stockItemId, signedUrl] = entry;
+          acc[stockItemId] = signedUrl;
+          return acc;
+        }, {})
+      );
+    }
+    setReqLines(lineItems);
 
     setReqEditable((data.status || 'pending') === 'pending');
   } catch (e) {
@@ -2985,7 +3035,9 @@ const getStockMeta = (line) => {
   return {
     ean: (line?.ean || st?.ean || '') || '',
     name: line?.product_name || st?.name || '',
-    image_url: st?.image_url || '',
+    image_url:
+      (st?.image_url && !isBadImageUrl(st.image_url) ? st.image_url : '') ||
+      (st?.id ? reqPhotoUrls[st.id] || '' : ''),
   };
 };
 
