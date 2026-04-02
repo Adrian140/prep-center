@@ -186,6 +186,8 @@ const normalizeReadyStartIso = (dateStr) => {
   return base.toISOString();
 };
 
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const getTomorrowIsoDate = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -5760,28 +5762,48 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
       const packageCount = Number(shipment?.boxes || 0) || 1;
       const needsPageParams = !partnered || isPalletShipment;
-      const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
-        body: {
-          action: 'get_labels_v0',
-          request_id: requestId,
-          shipment_id: confirmationId,
-          page_type: formatToPageType(labelFormat, partnered),
-          label_type: 'BARCODE_2D',
-          ...(isPalletShipment
-            ? { number_of_pallets: palletCount || Number(palletDetails.quantity || 0) || undefined }
-            : { number_of_packages: packageCount || undefined }),
-          ...(needsPageParams
-            ? {
-                page_size: Math.min(1000, isPalletShipment ? (palletCount || Number(palletDetails.quantity || 1)) : packageCount),
-                page_start_index: 0
-              }
-            : {})
+      const invokeBody = {
+        action: 'get_labels_v0',
+        request_id: requestId,
+        shipment_id: confirmationId,
+        page_type: formatToPageType(labelFormat, partnered),
+        label_type: 'BARCODE_2D',
+        ...(isPalletShipment
+          ? { number_of_pallets: palletCount || Number(palletDetails.quantity || 0) || undefined }
+          : { number_of_packages: packageCount || undefined }),
+        ...(needsPageParams
+          ? {
+              page_size: Math.min(1000, isPalletShipment ? (palletCount || Number(palletDetails.quantity || 1)) : packageCount),
+              page_start_index: 0
+            }
+          : {})
+      };
+
+      const maxAttempts = 6;
+      let lastErrorMessage = '';
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const { data, error } = await supabase.functions.invoke('fba-inbound-actions', {
+          body: invokeBody
+        });
+        if (!error && openAmazonDocumentUrl(data?.data)) {
+          return;
         }
-      });
-      if (error) throw error;
-      if (!openAmazonDocumentUrl(data?.data)) {
-        setLabelsError(tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.'));
+
+        const payload = data?.data || data || null;
+        const transientMessage =
+          payload?.message ||
+          payload?.error ||
+          error?.message ||
+          tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.');
+        lastErrorMessage = transientMessage;
+
+        if (attempt < maxAttempts) {
+          await wait(1800 * attempt);
+          continue;
+        }
       }
+
+      setLabelsError(lastErrorMessage || tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.'));
     } catch (e) {
       setLabelsError(e?.message || tt('labelsErrorGenerateFailed', 'Could not generate labels.'));
     } finally {
