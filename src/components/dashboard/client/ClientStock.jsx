@@ -1633,20 +1633,31 @@ const refreshStockData = useCallback(async () => {
     setEtsyOrdersByItemId({});
   }
 
-  const seed = {};
-  for (const r of mappedAll) {
-    seed[r.id] = {
-      name: r.name || '',
-      asin: r.asin || '',
-      ean: r.ean || '',
-      product_link: r.product_link || '',
-      purchase_price: r.purchase_price != null ? String(r.purchase_price) : '',
-      sku: r.sku || '',
-      units_to_send: 0,
-      fba_units: 0
-    };
-  }
-  setRowEdits(seed);
+  setRowEdits((prev) => {
+    const next = {};
+    for (const r of mappedAll) {
+      const current = prev?.[r.id] || {};
+      const unitsToSend = Math.max(0, Number(current.units_to_send || 0));
+      const fbaUnits = Math.max(0, Math.min(Number(current.fba_units || 0), unitsToSend));
+      next[r.id] = {
+        name: Object.prototype.hasOwnProperty.call(current, 'name') ? current.name : r.name || '',
+        asin: Object.prototype.hasOwnProperty.call(current, 'asin') ? current.asin : r.asin || '',
+        ean: Object.prototype.hasOwnProperty.call(current, 'ean') ? current.ean : r.ean || '',
+        product_link: Object.prototype.hasOwnProperty.call(current, 'product_link')
+          ? current.product_link
+          : r.product_link || '',
+        purchase_price: Object.prototype.hasOwnProperty.call(current, 'purchase_price')
+          ? current.purchase_price
+          : r.purchase_price != null
+          ? String(r.purchase_price)
+          : '',
+        sku: Object.prototype.hasOwnProperty.call(current, 'sku') ? current.sku : r.sku || '',
+        units_to_send: unitsToSend,
+        fba_units: fbaUnits
+      };
+    }
+    return next;
+  });
   setQtyInputs({});
 
   if (all.length > 0) {
