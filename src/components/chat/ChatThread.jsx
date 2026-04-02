@@ -326,12 +326,20 @@ export default function ChatThread({
     if (!url) return null;
     if (att.mime_type && att.mime_type.startsWith('image/')) {
       return (
-        <img
+        <a
           key={att.id}
-          src={url}
-          alt={att.file_name}
-          className="mt-2 max-h-48 rounded-lg border border-slate-200"
-        />
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 block w-fit"
+          title="Open image in new tab"
+        >
+          <img
+            src={url}
+            alt={att.file_name}
+            className="max-h-48 rounded-lg border border-slate-200 transition-opacity hover:opacity-90"
+          />
+        </a>
       );
     }
     return (
