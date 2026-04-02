@@ -389,10 +389,16 @@ const LISTING_COLUMN_ALIASES = new Map([
   ['stato', 'status'],
   ['stato-prodotto', 'status'],
   ['fulfillment-channel', 'fulfillmentChannel'],
+  ['fulfillment channel', 'fulfillmentChannel'],
   ['canal-traitement', 'fulfillmentChannel'],
   ['canal-de-gestion', 'fulfillmentChannel'],
   ['canal gestion', 'fulfillmentChannel'],
   ['canale-di-evasione', 'fulfillmentChannel'],
+  ['versandkanal', 'fulfillmentChannel'],
+  ['versand-kanal', 'fulfillmentChannel'],
+  ['fulfillmentkanal', 'fulfillmentChannel'],
+  ['fulfillment-kanal', 'fulfillmentChannel'],
+  ['versand durch', 'fulfillmentChannel'],
   ['image-url', 'imageUrl'],
   ['imageurl', 'imageUrl'],
   ['url-image', 'imageUrl'],
@@ -529,13 +535,21 @@ function normalizeListings(rawRows = []) {
 }
 
 function normalizeFulfillmentChannel(value) {
-  const normalized = String(value || '')
-    .trim()
-    .toUpperCase();
+  const normalized = stripDiacritics(
+    String(value || '')
+      .trim()
+      .toUpperCase()
+  );
   if (!normalized) return null;
   if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
   if (
     normalized.includes('MERCHANT') ||
+    normalized.includes('SELLER') ||
+    normalized.includes('VENDEUR') ||
+    normalized.includes('VENDEDOR') ||
+    normalized.includes('VENDITORE') ||
+    normalized.includes('VERKAUFER') ||
+    normalized.includes('VERKAEUFER') ||
     normalized === 'MFN' ||
     normalized === 'DEFAULT'
   ) {

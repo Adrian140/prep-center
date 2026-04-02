@@ -87,12 +87,23 @@ const isMissingColumnError = (error, column) => {
     .some((part) => part.includes(needle));
 };
 
+const stripDiacritics = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
 const normalizeFulfillmentChannel = (value) => {
-  const normalized = String(value || '').trim().toUpperCase();
+  const normalized = stripDiacritics(String(value || '').trim().toUpperCase());
   if (!normalized) return null;
   if (normalized.includes('AMAZON') || normalized === 'AFN') return 'FBA';
   if (
     normalized.includes('MERCHANT') ||
+    normalized.includes('SELLER') ||
+    normalized.includes('VENDEUR') ||
+    normalized.includes('VENDEDOR') ||
+    normalized.includes('VENDITORE') ||
+    normalized.includes('VERKAUFER') ||
+    normalized.includes('VERKAEUFER') ||
     normalized === 'MFN' ||
     normalized === 'DEFAULT'
   ) {
