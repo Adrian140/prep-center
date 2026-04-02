@@ -76,9 +76,12 @@ const resolveShipmentUnits = (shipment, fallback) => {
     shipment?.quantity,
     shipment?.qty
   ];
+  let sawZeroCandidate = false;
   for (const val of candidates) {
     const num = getFiniteNumber(val);
-    if (Number.isFinite(num)) return num;
+    if (!Number.isFinite(num)) continue;
+    if (num > 0) return num;
+    if (num === 0) sawZeroCandidate = true;
   }
   const fromItems = sumUnitsFromItems(
     shipment?.items ||
@@ -87,7 +90,7 @@ const resolveShipmentUnits = (shipment, fallback) => {
       shipment?.skuItems ||
       shipment?.sku_items
   );
-  if (Number.isFinite(fromItems)) return fromItems;
+  if (Number.isFinite(fromItems) && fromItems > 0) return fromItems;
   const fromPackages = Array.isArray(shipment?.packages)
     ? shipment.packages.reduce((sum, pkg) => {
         const qty = getFiniteNumber(pkg?.contentUnits);
@@ -96,6 +99,9 @@ const resolveShipmentUnits = (shipment, fallback) => {
     : null;
   if (Number.isFinite(fromPackages) && fromPackages > 0) return fromPackages;
   const fallbackUnits = getFiniteNumber(fallback?.units);
+  if (Number.isFinite(fallbackUnits) && fallbackUnits > 0) return fallbackUnits;
+  if (sawZeroCandidate) return 0;
+  if (Number.isFinite(fromItems)) return fromItems;
   if (Number.isFinite(fallbackUnits)) return fallbackUnits;
   return 0;
 };
