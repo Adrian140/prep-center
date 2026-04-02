@@ -1461,6 +1461,60 @@ resetPassword: async (email) => {
       .single();
   },
 
+  listUpsPickupRequests: async ({ userId, companyId, integrationId, limit = 200 } = {}) => {
+    let query = supabase
+      .from('ups_pickup_requests')
+      .select('*')
+      .order('pickup_date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (userId) query = query.eq('user_id', userId);
+    if (companyId) query = query.eq('company_id', companyId);
+    if (integrationId) query = query.eq('integration_id', integrationId);
+    return await query;
+  },
+
+  createUpsPickupRequest: async (payload = {}) => {
+    if (!payload?.integration_id) return { data: null, error: new Error('Missing integration id') };
+    if (!payload?.user_id) return { data: null, error: new Error('Missing user id') };
+    const row = {
+      integration_id: payload.integration_id,
+      user_id: payload.user_id,
+      company_id: payload.company_id || null,
+      warehouse_country: payload.warehouse_country || 'FR',
+      status: payload.status || 'draft',
+      reference_number: payload.reference_number || null,
+      prn: payload.prn || null,
+      service_code: payload.service_code || null,
+      destination_country_code: payload.destination_country_code || null,
+      container_code: payload.container_code || '01',
+      package_count: Number(payload.package_count || 1),
+      total_weight: payload.total_weight ?? null,
+      weight_unit: payload.weight_unit || 'KGS',
+      pickup_date: payload.pickup_date || null,
+      ready_time: payload.ready_time || null,
+      close_time: payload.close_time || null,
+      total_charge: payload.total_charge ?? null,
+      currency: payload.currency || null,
+      pickup_address: payload.pickup_address || {},
+      request_payload: payload.request_payload || null,
+      response_payload: payload.response_payload || null,
+      last_error: payload.last_error || null
+    };
+    return await supabase
+      .from('ups_pickup_requests')
+      .insert(row)
+      .select('*')
+      .single();
+  },
+
+  processUpsPickupRequest: async ({ pickup_request_id } = {}) => {
+    if (!pickup_request_id) return { data: null, error: new Error('Missing pickup_request_id') };
+    return await supabase.functions.invoke('ups-create-pickup', {
+      body: { pickup_request_id }
+    });
+  },
+
   updateUpsShippingOrder: async (orderId, patch = {}) => {
     if (!orderId) return { data: null, error: new Error('Missing order id') };
     return await supabase

@@ -74,18 +74,22 @@ const PREP_WAREHOUSES = {
     company_name: 'EcomPrep Hub',
     contact_first_name: 'Adrian',
     contact_last_name: 'Bucur',
+    contact_name: 'Adrian Bucur',
     address1: '5 Rue des Enclos, Cellule 7',
     city: 'La Gouesniere',
     postal_code: '35350',
+    phone: '+33 6 75 11 62 18',
     country_code: 'FR'
   },
   DE: {
     company_name: 'EcomPrep Hub',
     contact_first_name: 'Radu',
     contact_last_name: 'Cenusa',
+    contact_name: 'Radu Cenusa',
     address1: 'Zienestrasse 12',
     city: 'Wolfach',
     postal_code: '77709',
+    phone: '+49 176 24963618',
     country_code: 'DE'
   }
 };
@@ -215,12 +219,47 @@ const buildInitialForm = () => ({
   height_cm: ''
 });
 
+const buildInitialPickupForm = () => ({
+  warehouse_country: 'FR',
+  service_code: '008',
+  container_code: '01',
+  package_count: '1',
+  total_weight: '',
+  destination_country_code: 'FR',
+  pickup_date: new Date(Date.now() + 86400000).toISOString().slice(0, 10),
+  ready_time: '09:00',
+  close_time: '17:00',
+  reference_number: ''
+});
+
+const sanitizeDigits = (value) => String(value || '').replace(/[^\d]/g, '');
+
+const formatPickupTime = (value, fallback) => {
+  const digits = sanitizeDigits(value);
+  if (digits.length === 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  if (digits.length === 3) return `0${digits.slice(0, 1)}:${digits.slice(1)}`;
+  return fallback;
+};
+
+const normalizePickupTimeForApi = (value, fallback) => {
+  const digits = sanitizeDigits(value);
+  if (digits.length === 4) return digits;
+  if (digits.length === 3) return `0${digits}`;
+  return sanitizeDigits(fallback) || '0900';
+};
+
+const toPickupServiceCode = (value) => {
+  const digits = sanitizeDigits(value);
+  return digits ? digits.padStart(3, '0').slice(-3) : '008';
+};
+
 export default function AdminUPS() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [integrations, setIntegrations] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [pickupRequests, setPickupRequests] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
@@ -235,10 +274,12 @@ export default function AdminUPS() {
   const [showCityMenu, setShowCityMenu] = useState(false);
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [pickupCreating, setPickupCreating] = useState(false);
   const [rateQuote, setRateQuote] = useState(null);
   const [rateQuoteMeta, setRateQuoteMeta] = useState(null);
   const [promoMessage, setPromoMessage] = useState('');
   const [form, setForm] = useState(buildInitialForm());
+  const [pickupForm, setPickupForm] = useState(buildInitialPickupForm());
   const countryByCode = useMemo(
     () => countryOptions.reduce((acc, row) => ({ ...acc, [row.code]: row.name }), {}),
     [countryOptions]
@@ -266,6 +307,11 @@ export default function AdminUPS() {
     return orders.filter((row) => row.integration_id === selectedIntegration.id);
   }, [orders, selectedIntegration]);
 
+  const clientPickupRequests = useMemo(() => {
+    if (!selectedIntegration) return [];
+    return pickupRequests.filter((row) => row.integration_id === selectedIntegration.id);
+  }, [pickupRequests, selectedIntegration]);
+
   const filteredPostalSuggestions = useMemo(() => {
     const postalInput = String(form.destination_postal_code || '').trim();
     if (!postalInput) return [];
@@ -292,19 +338,23 @@ export default function AdminUPS() {
   }, [countryOptions, form.destination_country_name]);
 
   const loadAll = async () => {
-    const [intRes, ordRes] = await Promise.all([
+    const [intRes, ordRes, pickupRes] = await Promise.all([
       supabaseHelpers.listUpsIntegrations(),
-      supabaseHelpers.listUpsShippingOrders({ limit: 500 })
+      supabaseHelpers.listUpsShippingOrders({ limit: 500 }),
+      supabaseHelpers.listUpsPickupRequests({ limit: 500 })
     ]);
     if (intRes.error) throw intRes.error;
     if (ordRes.error) throw ordRes.error;
+    if (pickupRes.error) throw pickupRes.error;
 
     const integrationsData = intRes.data || [];
     const ordersData = ordRes.data || [];
+    const pickupData = pickupRes.data || [];
     setIntegrations(integrationsData);
     setOrders(ordersData);
+    setPickupRequests(pickupData);
 
-    const companyIds = Array.from(new Set([...integrationsData, ...ordersData].map((row) => row?.company_id).filter(Boolean)));
+    const companyIds = Array.from(new Set([...integrationsData, ...ordersData, ...pickupData].map((row) => row?.company_id).filter(Boolean)));
     if (!companyIds.length) {
       setCompanyNames({});
       return;
@@ -367,6 +417,10 @@ export default function AdminUPS() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const setPickupField = (key, value) => {
+    setPickupForm((prev) => ({ ...prev, [key]: value }));
+  };
+
   const syncCityFromPostal = () => {
     const postal = String(form.destination_postal_code || '').trim();
     if (!postal) return;
@@ -427,6 +481,14 @@ export default function AdminUPS() {
       from_country_code: wh.country_code
     }));
   }, [form.warehouse_country, form.use_default_sender, senderTouched]);
+
+  useEffect(() => {
+    const countryCode = String(pickupForm.warehouse_country || 'FR').toUpperCase();
+    setPickupForm((prev) => {
+      if (prev.destination_country_code === countryCode) return prev;
+      return { ...prev, destination_country_code: countryCode };
+    });
+  }, [pickupForm.warehouse_country]);
 
   useEffect(() => {
     if (!isClientWindowOpen) return;
@@ -511,6 +573,11 @@ export default function AdminUPS() {
     if (!integration) return;
     setOpenedIntegrationId(integrationId);
     setForm((prev) => ({ ...buildInitialForm(), integration_id: integrationId, warehouse_country: prev.warehouse_country }));
+    setPickupForm((prev) => ({
+      ...buildInitialPickupForm(),
+      warehouse_country: prev.warehouse_country || 'FR',
+      destination_country_code: prev.warehouse_country || 'FR'
+    }));
     setSenderTouched(false);
     setRateQuote(null);
     setRateQuoteMeta(null);
@@ -524,6 +591,7 @@ export default function AdminUPS() {
     setRateQuote(null);
     setRateQuoteMeta(null);
     setPromoMessage('');
+    setPickupForm(buildInitialPickupForm());
   };
 
   const validateDestinationPostalCode = async () => {
@@ -774,6 +842,88 @@ export default function AdminUPS() {
       setError(error.message || 'Nu am putut crea comanda UPS.');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleCreatePickup = async () => {
+    setFlash('');
+
+    if (!selectedIntegration) {
+      setError('Deschide mai întâi clientul pentru care creezi ridicarea UPS.');
+      return;
+    }
+    if (!selectedIntegration.ups_account_number) {
+      setError('Contul UPS al clientului nu are UPS Account Number.');
+      return;
+    }
+
+    const warehouseCountry = String(pickupForm.warehouse_country || 'FR').trim().toUpperCase();
+    const warehouse = PREP_WAREHOUSES[warehouseCountry] || PREP_WAREHOUSES.FR;
+    const packageCount = Math.max(1, Number(pickupForm.package_count || 1));
+    const totalWeight = asNumberOrNull(pickupForm.total_weight);
+    if (!totalWeight || totalWeight <= 0) {
+      setError('Completează greutatea totală pentru ridicarea UPS.');
+      return;
+    }
+
+    setPickupCreating(true);
+    try {
+      const createRes = await supabaseHelpers.createUpsPickupRequest({
+        integration_id: selectedIntegration.id,
+        user_id: selectedIntegration.user_id,
+        company_id: selectedIntegration.company_id || selectedIntegration.user_id,
+        warehouse_country: warehouseCountry,
+        status: 'pending',
+        reference_number:
+          String(pickupForm.reference_number || '').trim() ||
+          `PICKUP-${warehouseCountry}-${new Date().toISOString().slice(0, 10)}`,
+        service_code: toPickupServiceCode(pickupForm.service_code || '008'),
+        destination_country_code: String(pickupForm.destination_country_code || warehouseCountry).trim().toUpperCase(),
+        container_code: String(pickupForm.container_code || '01').trim() || '01',
+        package_count: packageCount,
+        total_weight: totalWeight,
+        weight_unit: 'KGS',
+        pickup_date: pickupForm.pickup_date || null,
+        ready_time: normalizePickupTimeForApi(pickupForm.ready_time, '09:00'),
+        close_time: normalizePickupTimeForApi(pickupForm.close_time, '17:00'),
+        pickup_address: {
+          company_name: warehouse.company_name,
+          contact_first_name: warehouse.contact_first_name,
+          contact_last_name: warehouse.contact_last_name,
+          contact_name: warehouse.contact_name,
+          address1: warehouse.address1,
+          city: warehouse.city,
+          postal_code: warehouse.postal_code,
+          country_code: warehouse.country_code,
+          phone: warehouse.phone
+        }
+      });
+
+      if (createRes.error || !createRes.data?.id) {
+        throw createRes.error || new Error('Nu am putut salva pickup request-ul UPS.');
+      }
+
+      const processRes = await supabaseHelpers.processUpsPickupRequest({
+        pickup_request_id: createRes.data.id
+      });
+      const processError = processRes.error || processRes.data?.error;
+      if (processError) {
+        throw new Error(
+          typeof processError === 'string' ? processError : processError.message || 'UPS pickup creation failed.'
+        );
+      }
+
+      setSuccess(`Ridicarea UPS a fost creată. PRN: ${processRes.data?.prn || '-'}`);
+      setPickupForm((prev) => ({
+        ...buildInitialPickupForm(),
+        warehouse_country: prev.warehouse_country || 'FR',
+        destination_country_code: prev.warehouse_country || 'FR'
+      }));
+      await refresh();
+    } catch (error) {
+      setError(error.message || 'Nu am putut crea ridicarea UPS.');
+    } finally {
+      setPickupCreating(false);
     }
   };
 
@@ -1139,36 +1289,145 @@ export default function AdminUPS() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border p-4 h-fit">
-                  <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
-                  <div className="text-sm text-text-secondary space-y-2">
-                    <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
-                    <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
-                    <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
-                    <div><b>Service:</b> {form.service_code || '-'}</div>
-                    <div><b>Reference:</b> {form.reference_code || '-'}</div>
-                    <div><b>Promo:</b> {form.promo_code || '-'}</div>
-                    <div><b>Estimated:</b> {rateQuote?.amount != null ? `${Number(rateQuote.amount).toFixed(2)} ${rateQuote.currency || 'EUR'}` : '-'}</div>
-                    <div><b>Quote source:</b> {rateQuoteMeta?.quote_source || '-'}</div>
-                    <div><b>Request ID:</b> {rateQuoteMeta?.trans_id || '-'}</div>
+                <div className="space-y-4">
+                  <div className="rounded-lg border p-4 h-fit">
+                    <h4 className="font-semibold text-text-primary mb-3">Summary</h4>
+                    <div className="text-sm text-text-secondary space-y-2">
+                      <div><b>From:</b> {form.from_postal_code} {form.from_city}, {form.from_country_code}</div>
+                      <div><b>To:</b> {form.destination_postal_code || '-'} {form.destination_city || '-'}, {form.destination_country_name || form.destination_country_code || '-'}</div>
+                      <div><b>Parcel:</b> {form.weight_kg || '0'} kg, {form.length_cm || 0} x {form.width_cm || 0} x {form.height_cm || 0} cm</div>
+                      <div><b>Service:</b> {form.service_code || '-'}</div>
+                      <div><b>Reference:</b> {form.reference_code || '-'}</div>
+                      <div><b>Promo:</b> {form.promo_code || '-'}</div>
+                      <div><b>Estimated:</b> {rateQuote?.amount != null ? `${Number(rateQuote.amount).toFixed(2)} ${rateQuote.currency || 'EUR'}` : '-'}</div>
+                      <div><b>Quote source:</b> {rateQuoteMeta?.quote_source || '-'}</div>
+                      <div><b>Request ID:</b> {rateQuoteMeta?.trans_id || '-'}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => runRateQuote({ promoTriggered: false })}
+                      disabled={quoteLoading}
+                      className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
+                    >
+                      {quoteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                      Preview Price
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
+                    >
+                      {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                      Save & Buy Label
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => runRateQuote({ promoTriggered: false })}
-                    disabled={quoteLoading}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border"
-                  >
-                    {quoteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                    Preview Price
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-white disabled:opacity-60"
-                  >
-                    {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
-                    Save & Buy Label
-                  </button>
+
+                  <div className="rounded-lg border p-4 h-fit">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <h4 className="font-semibold text-text-primary">Pickup Request</h4>
+                        <p className="text-xs text-text-secondary mt-1">
+                          Adresa se ia automat din depozitul selectat. UPS Expedited rămâne preset.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      <select
+                        value={pickupForm.warehouse_country}
+                        onChange={(e) => setPickupField('warehouse_country', e.target.value)}
+                        className="px-3 py-2 border rounded-lg"
+                      >
+                        <option value="FR">Pickup from France warehouse</option>
+                        <option value="DE">Pickup from Germany warehouse</option>
+                      </select>
+                      <div className="rounded-lg bg-gray-50 border px-3 py-2 text-sm text-text-secondary">
+                        <div>{(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).company_name}</div>
+                        <div>{(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).address1}</div>
+                        <div>
+                          {(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).postal_code}{' '}
+                          {(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).city},{' '}
+                          {(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).country_code}
+                        </div>
+                        <div>{(PREP_WAREHOUSES[pickupForm.warehouse_country] || PREP_WAREHOUSES.FR).phone}</div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={pickupForm.package_count}
+                          onChange={(e) => setPickupField('package_count', e.target.value)}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Boxes"
+                        />
+                        <input
+                          type="number"
+                          min="0.01"
+                          step="0.01"
+                          value={pickupForm.total_weight}
+                          onChange={(e) => setPickupField('total_weight', e.target.value)}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Total kg"
+                        />
+                        <select
+                          value={pickupForm.container_code}
+                          onChange={(e) => setPickupField('container_code', e.target.value)}
+                          className="px-3 py-2 border rounded-lg"
+                        >
+                          <option value="01">Package</option>
+                          <option value="03">Pallet</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={pickupForm.service_code}
+                          onChange={(e) => setPickupField('service_code', toPickupServiceCode(e.target.value))}
+                          className="px-3 py-2 border rounded-lg"
+                        >
+                          <option value="008">UPS Expedited (default)</option>
+                          <option value="011">UPS Standard</option>
+                          <option value="007">UPS Worldwide Express</option>
+                          <option value="054">UPS Worldwide Express Plus</option>
+                          <option value="065">UPS Saver</option>
+                        </select>
+                        <input
+                          value={pickupForm.reference_number}
+                          onChange={(e) => setPickupField('reference_number', e.target.value)}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Reference (optional)"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input
+                          type="date"
+                          value={pickupForm.pickup_date}
+                          onChange={(e) => setPickupField('pickup_date', e.target.value)}
+                          className="px-3 py-2 border rounded-lg"
+                        />
+                        <input
+                          value={pickupForm.ready_time}
+                          onChange={(e) => setPickupField('ready_time', formatPickupTime(e.target.value, pickupForm.ready_time))}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Ready 09:00"
+                        />
+                        <input
+                          value={pickupForm.close_time}
+                          onChange={(e) => setPickupField('close_time', formatPickupTime(e.target.value, pickupForm.close_time))}
+                          className="px-3 py-2 border rounded-lg"
+                          placeholder="Close 17:00"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCreatePickup}
+                      disabled={pickupCreating}
+                      className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 disabled:opacity-60"
+                    >
+                      {pickupCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <PlusCircle className="w-4 h-4" />}
+                      Create UPS Pickup
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1225,6 +1484,44 @@ export default function AdminUPS() {
                           <td className="px-4 py-3">{row.ship_to?.postal_code || '-'} {row.ship_to?.city || ''} {row.ship_to?.country_code || ''}</td>
                           <td className="px-4 py-3">{row.total_charge != null ? `${Number(row.total_charge).toFixed(2)} ${row.currency || 'EUR'}` : '-'}</td>
                           <td className="px-4 py-3">{formatDateTime(row.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            <section className="mt-6 bg-white border rounded-xl overflow-hidden">
+              <div className="px-5 py-4 border-b">
+                <h4 className="text-lg font-semibold text-text-primary">Client UPS pickup requests</h4>
+              </div>
+              {clientPickupRequests.length === 0 ? (
+                <div className="px-5 py-6 text-sm text-text-secondary">Nicio ridicare UPS pentru acest client.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 text-text-secondary text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-3 text-left">PRN</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-left">Warehouse</th>
+                        <th className="px-4 py-3 text-left">Pieces</th>
+                        <th className="px-4 py-3 text-left">Weight</th>
+                        <th className="px-4 py-3 text-left">Charge</th>
+                        <th className="px-4 py-3 text-left">Pickup date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clientPickupRequests.map((row) => (
+                        <tr key={row.id} className="border-t">
+                          <td className="px-4 py-3">{row.prn || row.reference_number || row.id}</td>
+                          <td className="px-4 py-3">{row.status || '-'}</td>
+                          <td className="px-4 py-3">{row.warehouse_country || '-'}</td>
+                          <td className="px-4 py-3">{row.package_count || '-'}</td>
+                          <td className="px-4 py-3">{row.total_weight != null ? `${row.total_weight} ${row.weight_unit || 'KGS'}` : '-'}</td>
+                          <td className="px-4 py-3">{row.total_charge != null ? `${Number(row.total_charge).toFixed(2)} ${row.currency || 'EUR'}` : '-'}</td>
+                          <td className="px-4 py-3">{row.pickup_date || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
