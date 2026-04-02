@@ -6624,6 +6624,9 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const payload = buildPackingPayload(packGroupsForAuto);
       const submitted = await submitPackingInformation({ packingGroups: payload.packingGroups, skipRefresh: true });
       if (submitted) return;
+      setCompletedSteps((prev) => Array.from(new Set([...prev, '1'])));
+      setCurrentStep('1b');
+      return;
     }
 
     // Pentru case-packed flow fără UI Step 1b, Seller Central face în fundal setPackingInformation.
@@ -6847,7 +6850,14 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   );
   const packUnits = useMemo(() => {
     if (Array.isArray(packGroups) && packGroups.length) {
-      return packGroups.reduce((s, g) => s + (Number(g.units) || 0), 0);
+      return packGroups.reduce((s, g) => {
+        const directUnits = Number(g.units) || 0;
+        if (directUnits > 0) return s + directUnits;
+        const itemsUnits = Array.isArray(g.items)
+          ? g.items.reduce((acc, item) => acc + (Number(item?.quantity || 0) || 0), 0)
+          : 0;
+        return s + itemsUnits;
+      }, 0);
     }
     // Fallback: derive from step1 box plan if pack groups are empty
     const groups = step1BoxPlanForMarket?.groups || {};
