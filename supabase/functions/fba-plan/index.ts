@@ -2544,15 +2544,6 @@ serve(async (req) => {
         sellerId,
         traceId
       });
-      const canonicalSku = normalizeSku((status as any)?.canonicalSku || c.sku);
-      if (canonicalSku && canonicalSku !== c.sku) {
-        console.log("sku_case_normalized", {
-          traceId,
-          inputSku: c.sku,
-          canonicalSku
-        });
-        c.sku = canonicalSku;
-      }
       skuStatuses.push({
         sku: c.sku,
         asin: c.asin || null,

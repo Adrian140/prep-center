@@ -1774,7 +1774,6 @@ serve(async (req) => {
       const skuMeta = new Map<string, { title: string | null; image: string | null; defaultQty: number }>();
       const confirmedQuantities: Record<string, number> = {};
       const skuDisplayByKey: Record<string, string> = {};
-      const prepItemIdBySkuKey: Record<string, string> = {};
 
       (prepItems || []).forEach((it: any) => {
         const skuRaw = normalizeSku(it.sku);
@@ -1786,10 +1785,6 @@ serve(async (req) => {
         if (!skuDisplayByKey[skuKey]) {
           skuDisplayByKey[skuKey] = skuRaw || skuKey;
         }
-        if (it?.id && !prepItemIdBySkuKey[skuKey]) {
-          prepItemIdBySkuKey[skuKey] = String(it.id);
-        }
-
         const itemAsin = String(it?.asin || "").trim().toUpperCase();
         const fromAsin = itemAsin ? stockByAsin[itemAsin] || null : null;
         const image = fromAsin?.image_url || null;
@@ -1801,10 +1796,10 @@ serve(async (req) => {
         });
       });
 
-      return { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey, prepItems: prepItems || [] };
+      return { skuMeta, confirmedQuantities, skuDisplayByKey, prepItems: prepItems || [] };
     };
 
-    const { skuMeta, confirmedQuantities, skuDisplayByKey, prepItemIdBySkuKey, prepItems } = await fetchSkuMeta();
+    const { skuMeta, confirmedQuantities, skuDisplayByKey, prepItems } = await fetchSkuMeta();
 
     // Normalize packing groups for UI (ensure id/boxes/packMode fields exist) and decorate items
     const normalizeItems = (items: any[] = []) =>
@@ -2025,124 +2020,14 @@ serve(async (req) => {
 
     // Compare confirmed quantities (DB) vs quantities in packing groups (Amazon)
     const summedFromAmazon: Record<string, number> = {};
-    const amazonSkuByAsin = new Map<string, { skuRaw: string; skuKey: string; ambiguous: boolean }>();
     (effectivePackingGroups || []).forEach((g: any) => {
       (g?.items || []).forEach((it: any) => {
         const sku = normalizeSkuKey(it?.sku || it?.msku || "");
-        const skuRaw = normalizeSku(it?.sku || it?.msku || "");
-        const asin = String(it?.asin || "").trim().toUpperCase();
         const q = Number(it?.quantity || 0) || 0;
         if (!sku) return;
         summedFromAmazon[sku] = (summedFromAmazon[sku] || 0) + q;
-        if (asin && skuRaw) {
-          const existing = amazonSkuByAsin.get(asin);
-          if (!existing) {
-            amazonSkuByAsin.set(asin, { skuRaw, skuKey: sku, ambiguous: false });
-          } else if (existing.skuKey !== sku) {
-            amazonSkuByAsin.set(asin, { ...existing, ambiguous: true });
-          }
-        }
       });
     });
-
-    const canonicalSkuUpdates = (Array.isArray(prepItems) ? prepItems : [])
-      .map((row: any) => {
-        const currentSkuRaw = normalizeSku(row?.sku || "");
-        const currentSkuKey = normalizeSkuKey(currentSkuRaw);
-        const asin = String(row?.asin || "").trim().toUpperCase();
-        if (!asin) return null;
-        if (currentSkuKey && Number(summedFromAmazon[currentSkuKey] || 0) > 0) return null;
-        const target = amazonSkuByAsin.get(asin);
-        if (!target || target.ambiguous || !target.skuKey || target.skuKey === currentSkuKey) return null;
-        return {
-          id: String(row?.id || ""),
-          fromSkuRaw: currentSkuRaw,
-          fromSkuKey: currentSkuKey,
-          toSkuRaw: target.skuRaw,
-          toSkuKey: target.skuKey,
-          qty: Number(row?.units_sent ?? row?.units_requested ?? 0) || 0
-        };
-      })
-      .filter((entry: any) => entry?.id);
-
-    if (canonicalSkuUpdates.length) {
-      for (const entry of canonicalSkuUpdates) {
-        const { error: canonicalUpdateErr } = await supabase
-          .from("prep_request_items")
-          .update({ sku: entry.toSkuRaw })
-          .eq("id", entry.id);
-        if (canonicalUpdateErr) {
-          console.warn("packingGroups canonical sku sync failed", {
-            traceId,
-            requestId,
-            prepItemId: entry.id,
-            fromSku: entry.fromSkuRaw,
-            toSku: entry.toSkuRaw,
-            error: canonicalUpdateErr.message
-          });
-          continue;
-        }
-        confirmedQuantities[entry.toSkuKey] =
-          (Number(confirmedQuantities[entry.toSkuKey] || 0) || 0) + entry.qty;
-        skuDisplayByKey[entry.toSkuKey] = entry.toSkuRaw;
-        prepItemIdBySkuKey[entry.toSkuKey] = entry.id;
-        if (entry.fromSkuKey) {
-          confirmedQuantities[entry.fromSkuKey] = 0;
-          delete prepItemIdBySkuKey[entry.fromSkuKey];
-        }
-      }
-      console.log(
-        JSON.stringify({
-          tag: "packingGroups_canonical_skus_synced",
-          traceId,
-          requestId,
-          updates: canonicalSkuUpdates.map((entry: any) => ({
-            prepItemId: entry.id,
-            fromSku: entry.fromSkuRaw,
-            toSku: entry.toSkuRaw
-          }))
-        })
-      );
-    }
-
-    const staleSkuKeys = Object.keys(confirmedQuantities || {}).filter((sku) => {
-      const confirmed = Number(confirmedQuantities[sku] || 0) || 0;
-      const amazon = Number(summedFromAmazon[sku] || 0) || 0;
-      return confirmed > 0 && amazon <= 0;
-    });
-
-    if (staleSkuKeys.length) {
-      const staleIds = staleSkuKeys
-        .map((sku) => prepItemIdBySkuKey[sku])
-        .filter(Boolean);
-      if (staleIds.length) {
-        const { error: staleUpdateErr } = await supabase
-          .from("prep_request_items")
-          .update({ units_sent: 0 })
-          .in("id", staleIds);
-        if (!staleUpdateErr) {
-          staleSkuKeys.forEach((sku) => {
-            confirmedQuantities[sku] = 0;
-          });
-          console.log(
-            JSON.stringify({
-              tag: "packingGroups_stale_skus_cleared",
-              traceId,
-              requestId,
-              staleSkuKeys,
-              staleIds
-            })
-          );
-        } else {
-          console.warn("packingGroups stale sku cleanup failed", {
-            traceId,
-            requestId,
-            staleSkuKeys,
-            error: staleUpdateErr.message
-          });
-        }
-      }
-    }
 
     const quantityMismatches = Object.keys(confirmedQuantities || {})
       .map((sku) => {
@@ -2151,6 +2036,14 @@ serve(async (req) => {
         return { sku: skuDisplayByKey[sku] || sku, confirmed, amazon, delta: amazon - confirmed };
       })
       .filter((r) => r.delta !== 0);
+
+    const unexpectedAmazonSkus = Object.keys(summedFromAmazon || {})
+      .map((sku) => ({
+        sku,
+        amazon: Number(summedFromAmazon[sku] || 0) || 0,
+        confirmed: Number(confirmedQuantities[sku] || 0) || 0
+      }))
+      .filter((row) => row.amazon > 0 && row.confirmed === 0);
 
     try {
       console.log(
@@ -2162,6 +2055,7 @@ serve(async (req) => {
             packingOptionId,
             placementOptionId,
             count: effectivePackingGroups.length,
+            unexpectedAmazonSkus,
             groups: effectivePackingGroups.map((g: any) => ({
               id: g.packingGroupId,
               boxes: g.boxes,
@@ -2276,7 +2170,8 @@ serve(async (req) => {
         packingConfirmDenied,
         amazonIntegrationId: integId || null,
         confirmedQuantities,
-        quantityMismatches
+        quantityMismatches,
+        unexpectedAmazonSkus
       }),
       { status: 200, headers: { ...corsHeaders, "content-type": "application/json" } }
     );
