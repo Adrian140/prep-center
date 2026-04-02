@@ -278,6 +278,8 @@ export default function AdminUPS() {
   const [orders, setOrders] = useState([]);
   const [pickupRequests, setPickupRequests] = useState([]);
   const [companyNames, setCompanyNames] = useState({});
+  const [accountDrafts, setAccountDrafts] = useState({});
+  const [accountSavingId, setAccountSavingId] = useState('');
   const [flash, setFlash] = useState('');
   const [flashType, setFlashType] = useState('error');
   const [openedIntegrationId, setOpenedIntegrationId] = useState('');
@@ -397,6 +399,13 @@ export default function AdminUPS() {
     const ordersData = ordRes.data || [];
     const pickupData = pickupRes.data || [];
     setIntegrations(integrationsData);
+    setAccountDrafts((prev) => {
+      const next = { ...prev };
+      integrationsData.forEach((row) => {
+        if (!(row.id in next)) next[row.id] = row.ups_account_number || '';
+      });
+      return next;
+    });
     setOrders(ordersData);
     setPickupRequests(pickupData);
 
@@ -442,6 +451,31 @@ export default function AdminUPS() {
       setError(error.message || 'Nu am putut încărca datele UPS.');
     }
     setRefreshing(false);
+  };
+
+  const saveUpsAccountNumber = async (integration) => {
+    const nextNumber = String(accountDrafts[integration.id] || '').trim();
+    if (!nextNumber) {
+      setError('Completează UPS Account Number înainte să salvezi.');
+      return;
+    }
+
+    setAccountSavingId(integration.id);
+    setFlash('');
+    try {
+      const { data, error } = await supabaseHelpers.upsertUpsIntegration({
+        ...integration,
+        ups_account_number: nextNumber,
+        metadata: integration?.metadata || {}
+      });
+      if (error) throw error;
+      setIntegrations((prev) => prev.map((row) => (row.id === integration.id ? { ...row, ...(data || {}), ups_account_number: nextNumber } : row)));
+      setSuccess('UPS Account Number a fost salvat.');
+    } catch (error) {
+      setError(error.message || 'Nu am putut salva UPS Account Number.');
+    } finally {
+      setAccountSavingId('');
+    }
   };
 
   useEffect(() => {
@@ -1025,6 +1059,7 @@ export default function AdminUPS() {
                   <th className="px-4 py-3 text-left">Company</th>
                   <th className="px-4 py-3 text-left">Connected</th>
                   <th className="px-4 py-3 text-left">Last Error</th>
+                  <th className="px-4 py-3 text-left">Save</th>
                   <th className="px-4 py-3 text-left">Open</th>
                 </tr>
               </thead>
@@ -1040,11 +1075,28 @@ export default function AdminUPS() {
                         row.status || '-'
                       )}
                     </td>
-                    <td className="px-4 py-3">{row.ups_account_number || '-'}</td>
+                    <td className="px-4 py-3">
+                      <input
+                        value={accountDrafts[row.id] ?? row.ups_account_number ?? ''}
+                        onChange={(e) => setAccountDrafts((prev) => ({ ...prev, [row.id]: e.target.value }))}
+                        className="w-44 px-2 py-1.5 border rounded-lg"
+                        placeholder="UPS Account Number"
+                      />
+                    </td>
                     <td className="px-4 py-3">{row.user_id || '-'}</td>
                     <td className="px-4 py-3">{companyNames[row.company_id] || row.company_id || '-'}</td>
                     <td className="px-4 py-3">{formatDateTime(row.connected_at)}</td>
                     <td className="px-4 py-3">{row.last_error || '-'}</td>
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => saveUpsAccountNumber(row)}
+                        disabled={accountSavingId === row.id}
+                        className="px-2.5 py-1.5 text-xs border rounded-lg hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        {accountSavingId === row.id ? 'Saving...' : 'Save'}
+                      </button>
+                    </td>
                     <td className="px-4 py-3">
                       <button
                         type="button"
