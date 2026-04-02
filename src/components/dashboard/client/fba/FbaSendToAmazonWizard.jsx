@@ -5803,7 +5803,11 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         }
       }
 
-      setLabelsError(lastErrorMessage || tt('labelsErrorMissingUrl', 'Amazon did not return a URL for labels.'));
+      const retryHint = tt(
+        'labelsRetryManual',
+        'Amazon did not return the label yet. Click Print again to retry.'
+      );
+      setLabelsError(lastErrorMessage ? `${lastErrorMessage} ${retryHint}` : retryHint);
     } catch (e) {
       setLabelsError(e?.message || tt('labelsErrorGenerateFailed', 'Could not generate labels.'));
     } finally {
