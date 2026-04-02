@@ -343,6 +343,35 @@ export default function AdminUPS() {
     return raw || 'Nu am putut crea ridicarea UPS.';
   };
 
+  const extractEdgeFunctionErrorMessage = async (invokeResult) => {
+    const fallback =
+      invokeResult?.data?.error ||
+      invokeResult?.error?.message ||
+      'Nu am putut crea ridicarea UPS.';
+
+    const response = invokeResult?.error?.context;
+    if (!response || typeof response.clone !== 'function') return String(fallback);
+
+    try {
+      const payload = await response.clone().json();
+      const detailed =
+        payload?.error ||
+        (Array.isArray(payload?.ups_messages) && payload.ups_messages.filter(Boolean).join(' | ')) ||
+        payload?.message ||
+        null;
+      if (detailed) return String(detailed);
+    } catch (_) {
+      try {
+        const text = await response.clone().text();
+        if (String(text || '').trim()) return String(text).trim();
+      } catch {
+        // ignore and keep fallback
+      }
+    }
+
+    return String(fallback);
+  };
+
   const byIntegrationId = useMemo(
     () => integrations.reduce((acc, item) => ({ ...acc, [item.id]: item }), {}),
     [integrations]
@@ -986,9 +1015,8 @@ export default function AdminUPS() {
       });
       const processError = processRes.error || processRes.data?.error;
       if (processError) {
-        throw new Error(
-          typeof processError === 'string' ? processError : processError.message || 'UPS pickup creation failed.'
-        );
+        const detailedMessage = await extractEdgeFunctionErrorMessage(processRes);
+        throw new Error(detailedMessage || 'UPS pickup creation failed.');
       }
 
       setSuccess(`Ridicarea UPS a fost creată. PRN: ${processRes.data?.prn || '-'}`);
