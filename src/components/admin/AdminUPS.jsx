@@ -292,6 +292,8 @@ export default function AdminUPS() {
   const [showCountryMenu, setShowCountryMenu] = useState(false);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [pickupCreating, setPickupCreating] = useState(false);
+  const [pickupFlash, setPickupFlash] = useState('');
+  const [pickupFlashType, setPickupFlashType] = useState('error');
   const [rateQuote, setRateQuote] = useState(null);
   const [rateQuoteMeta, setRateQuoteMeta] = useState(null);
   const [promoMessage, setPromoMessage] = useState('');
@@ -314,6 +316,29 @@ export default function AdminUPS() {
   const setError = (message) => {
     setFlash(message);
     setFlashType('error');
+  };
+
+  const setPickupSuccess = (message) => {
+    setPickupFlash(message);
+    setPickupFlashType('success');
+  };
+
+  const setPickupError = (message) => {
+    setPickupFlash(message);
+    setPickupFlashType('error');
+  };
+
+  const normalizePickupErrorMessage = (error) => {
+    const raw = String(error?.message || error || '').trim();
+    const text = raw.toLowerCase();
+    if (
+      text.includes('ups_pickup_requests') ||
+      text.includes('relation') ||
+      text.includes('does not exist')
+    ) {
+      return 'Tabela ups_pickup_requests nu există încă în Supabase. Rulează SQL-ul migrației în SQL Editor.';
+    }
+    return raw || 'Nu am putut crea ridicarea UPS.';
   };
 
   const byIntegrationId = useMemo(
@@ -865,13 +890,14 @@ export default function AdminUPS() {
 
   const handleCreatePickup = async () => {
     setFlash('');
+    setPickupFlash('');
     const selectedPickupIntegration = byIntegrationId[pickupForm.integration_id] || null;
     if (!selectedPickupIntegration) {
-      setError('Nu există încă un cont UPS configurat pentru depozitul selectat.');
+      setPickupError('Nu există încă un cont UPS configurat pentru depozitul selectat.');
       return;
     }
     if (!selectedPickupIntegration.ups_account_number) {
-      setError('Contul UPS selectat nu are UPS Account Number.');
+      setPickupError('Contul UPS selectat nu are UPS Account Number.');
       return;
     }
 
@@ -880,7 +906,7 @@ export default function AdminUPS() {
     const packageCount = Math.max(1, Number(pickupForm.package_count || 1));
     const totalWeight = asNumberOrNull(pickupForm.total_weight);
     if (!totalWeight || totalWeight <= 0) {
-      setError('Completează greutatea totală pentru ridicarea UPS.');
+      setPickupError('Completează greutatea totală pentru ridicarea UPS.');
       return;
     }
 
@@ -932,6 +958,7 @@ export default function AdminUPS() {
       }
 
       setSuccess(`Ridicarea UPS a fost creată. PRN: ${processRes.data?.prn || '-'}`);
+      setPickupSuccess(`Ridicarea UPS a fost creată. PRN: ${processRes.data?.prn || '-'}`);
       setPickupForm((prev) => ({
         ...buildInitialPickupForm(),
         integration_id: pickDefaultPickupIntegrationId(prev.warehouse_country || 'FR', activeIntegrations),
@@ -940,7 +967,10 @@ export default function AdminUPS() {
       }));
       await refresh();
     } catch (error) {
-      setError(error.message || 'Nu am putut crea ridicarea UPS.');
+      const message = normalizePickupErrorMessage(error);
+      console.error('Admin UPS pickup failed', error);
+      setError(message);
+      setPickupError(message);
     } finally {
       setPickupCreating(false);
     }
@@ -1176,6 +1206,17 @@ export default function AdminUPS() {
               <div><b>Service:</b> {pickupForm.service_code || '008'}</div>
               <div><b>Date:</b> {pickupForm.pickup_date || '-'}</div>
             </div>
+            {pickupFlash ? (
+              <div
+                className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
+                  pickupFlashType === 'success'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-red-200 bg-red-50 text-red-700'
+                }`}
+              >
+                {pickupFlash}
+              </div>
+            ) : null}
             <button
               type="button"
               onClick={handleCreatePickup}
