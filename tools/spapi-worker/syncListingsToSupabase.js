@@ -16,6 +16,15 @@ const MAX_INTEGRATIONS_PER_RUN = Number(
     process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
     20
 );
+const MAX_INTEGRATIONS_PER_RUN_LIMIT =
+  Number.isFinite(MAX_INTEGRATIONS_PER_RUN) && MAX_INTEGRATIONS_PER_RUN > 0
+    ? MAX_INTEGRATIONS_PER_RUN
+    : Number.POSITIVE_INFINITY;
+const LISTING_SYNC_STATE_KEY =
+  process.env.SPAPI_LISTING_SYNC_STATE_KEY ||
+  process.env.SPAPI_LISTING_MARKETPLACE_ID ||
+  DEFAULT_MARKETPLACE;
+const LISTING_SYNC_STATE_APP_SETTINGS_KEY = `listing_sync_state:${LISTING_SYNC_STATE_KEY}`;
 const DEBUG_LISTING_HEADERS =
   String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').toLowerCase() === 'true' ||
   String(process.env.SPAPI_LISTING_DEBUG_HEADERS || '').trim() === '1';
@@ -60,6 +69,100 @@ function assertBaseEnv() {
   }
 }
 
+function defaultSyncState() {
+  return {
+    key: LISTING_SYNC_STATE_KEY,
+    next_integration_index: 0,
+    cycle_started_at: null,
+    cycle_completed_at: null,
+    last_batch_size: 0,
+    updated_at: new Date().toISOString()
+  };
+}
+
+async function getSyncState() {
+  const { data, error } = await supabase
+    .from('app_settings')
+    .select('key, value, updated_at')
+    .eq('key', LISTING_SYNC_STATE_APP_SETTINGS_KEY)
+    .maybeSingle();
+  if (error) throw error;
+
+  if (data?.value && typeof data.value === 'object' && !Array.isArray(data.value)) {
+    return {
+      ...defaultSyncState(),
+      ...data.value,
+      key: LISTING_SYNC_STATE_KEY
+    };
+  }
+
+  const seed = defaultSyncState();
+  const { error: upsertError } = await supabase
+    .from('app_settings')
+    .upsert(
+      {
+        key: LISTING_SYNC_STATE_APP_SETTINGS_KEY,
+        value: seed,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
+  if (upsertError) throw upsertError;
+  return seed;
+}
+
+async function saveSyncState(patch) {
+  const current = await getSyncState();
+  const merged = {
+    ...current,
+    ...patch,
+    key: LISTING_SYNC_STATE_KEY,
+    updated_at: new Date().toISOString()
+  };
+  const { error } = await supabase
+    .from('app_settings')
+    .upsert(
+      {
+        key: LISTING_SYNC_STATE_APP_SETTINGS_KEY,
+        value: merged,
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'key' }
+    );
+  if (error) throw error;
+}
+
+function selectIntegrationBatch(integrations, syncState) {
+  if (!Array.isArray(integrations) || integrations.length === 0) {
+    return {
+      batch: [],
+      startIndex: 0,
+      nextIndex: 0,
+      cycleCompleted: false,
+      total: 0
+    };
+  }
+
+  const total = integrations.length;
+  const batchSize = Number.isFinite(MAX_INTEGRATIONS_PER_RUN_LIMIT)
+    ? Math.min(MAX_INTEGRATIONS_PER_RUN_LIMIT, total)
+    : total;
+  const requestedStart = Math.max(0, Number(syncState?.next_integration_index || 0));
+  const startIndex = requestedStart >= total ? 0 : requestedStart;
+  const endExclusive = Math.min(startIndex + batchSize, total);
+  const batch = integrations.slice(startIndex, endExclusive);
+  const cycleCompleted = endExclusive >= total;
+  const nextIndex = cycleCompleted ? 0 : endExclusive;
+
+  return {
+    batch,
+    startIndex,
+    nextIndex,
+    cycleCompleted,
+    total
+  };
+}
+
 function singleModeIntegration() {
   if (
     process.env.SUPABASE_STOCK_COMPANY_ID &&
@@ -98,9 +201,7 @@ async function fetchActiveIntegrations() {
     query = query.eq('marketplace_id', filterMarketplace);
   }
 
-  const { data, error } = await query.order('last_synced_at', {
-    ascending: true
-  });
+  const { data, error } = await query.order('id', { ascending: true });
 
   if (error) throw error;
 
@@ -164,10 +265,7 @@ async function fetchActiveIntegrations() {
     })
     .filter(Boolean);
 
-  if (withTokens.length <= MAX_INTEGRATIONS_PER_RUN) {
-    return withTokens;
-  }
-  return withTokens.slice(0, MAX_INTEGRATIONS_PER_RUN);
+  return withTokens;
 }
 
 function delay(ms) {
@@ -1966,11 +2064,32 @@ async function main() {
     return;
   }
 
-  for (const integration of integrations) {
+  const syncState = await getSyncState();
+  const batchPlan = selectIntegrationBatch(integrations, syncState);
+  const cycleStartedAt =
+    batchPlan.startIndex === 0 || !syncState.cycle_started_at
+      ? new Date().toISOString()
+      : syncState.cycle_started_at;
+
+  console.log(
+    `[Listings sync] batch start marketplace=${process.env.SPAPI_LISTING_MARKETPLACE_ID || DEFAULT_MARKETPLACE} total=${batchPlan.total} startIndex=${batchPlan.startIndex} batchSize=${batchPlan.batch.length} nextIndex=${batchPlan.nextIndex} cycleCompleted=${batchPlan.cycleCompleted}`
+  );
+
+  for (const integration of batchPlan.batch) {
     await syncListingsIntegration(integration);
   }
 
-  console.log('All listing integrations processed ✅');
+  await saveSyncState({
+    next_integration_index: batchPlan.nextIndex,
+    cycle_started_at: cycleStartedAt,
+    cycle_completed_at: batchPlan.cycleCompleted ? new Date().toISOString() : null,
+    last_batch_size: batchPlan.batch.length
+  });
+
+  console.log(
+    `[Listings sync] batch done processed=${batchPlan.batch.length}/${batchPlan.total} nextIndex=${batchPlan.nextIndex} cycleCompleted=${batchPlan.cycleCompleted}`
+  );
+  console.log('Listing integrations batch processed ✅');
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
