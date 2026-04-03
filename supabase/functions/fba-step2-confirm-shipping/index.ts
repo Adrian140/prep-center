@@ -1044,6 +1044,27 @@ serve(async (req) => {
         message: p?.message || null,
         details: p?.details || null
       }));
+    const buildAmazonOperationFailure = (
+      fallbackError: string,
+      res: Awaited<ReturnType<typeof signedFetch>> | null,
+      extra: Record<string, unknown> = {}
+    ) => {
+      const operationProblems = summarizeOperationProblems(res);
+      const firstProblem = operationProblems.find((problem: any) => problem?.message || problem?.details) || null;
+      const amazonMessage =
+        firstProblem?.message ||
+        firstProblem?.details ||
+        fallbackError;
+      const amazonCode = firstProblem?.code || null;
+      return {
+        error: amazonMessage || fallbackError,
+        message: amazonMessage || fallbackError,
+        code: amazonCode,
+        operationProblems,
+        traceId,
+        ...extra
+      };
+    };
 
     const isRetryableOperationFailure = (res: Awaited<ReturnType<typeof signedFetch>> | null) => {
       const probs = getOperationProblems(res);
@@ -1613,7 +1634,7 @@ serve(async (req) => {
         const placementStatusRes = await pollOperationStatus(placementOpId);
         const stateUp = getOperationState(placementStatusRes) || String(placementStatusRes?.res?.status || "").toUpperCase();
         if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-          return new Response(JSON.stringify({ error: "Placement confirmation failed", traceId, state: stateUp }), {
+          return new Response(JSON.stringify(buildAmazonOperationFailure("Placement confirmation failed", placementStatusRes, { state: stateUp })), {
             status: 502,
             headers: { ...corsHeaders, "content-type": "application/json" }
           });
@@ -5237,10 +5258,13 @@ serve(async (req) => {
       });
       const stateUp = getOperationState(confirmStatus) || String(confirmStatus?.res?.status || "").toUpperCase();
       if (["FAILED", "CANCELED", "ERRORED", "ERROR"].includes(stateUp)) {
-        return new Response(JSON.stringify({ error: "Transportation confirmation failed", traceId, state: stateUp }), {
+        return new Response(
+          JSON.stringify(buildAmazonOperationFailure("Transportation confirmation failed", confirmStatus, { state: stateUp })),
+          {
           status: 502,
           headers: { ...corsHeaders, "content-type": "application/json" }
-        });
+          }
+        );
       }
     }
 

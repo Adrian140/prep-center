@@ -5294,7 +5294,21 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         setShippingSummary(null);
         setPlanLoaded(false); // trigger reload so UI syncs requestId/inboundPlanId
       }
-      const detail = parsed?.message || payload?.error || "Failed to confirm shipping";
+      const amazonProblemMessage =
+        Array.isArray(payload?.operationProblems) &&
+        payload.operationProblems.find((problem) => problem?.message || problem?.details)
+          ? (
+              payload.operationProblems.find((problem) => problem?.message || problem?.details)?.message ||
+              payload.operationProblems.find((problem) => problem?.message || problem?.details)?.details ||
+              null
+            )
+          : null;
+      const detail =
+        amazonProblemMessage ||
+        payload?.message ||
+        parsed?.message ||
+        payload?.error ||
+        "Failed to confirm shipping";
       console.error("confirmShippingOptions failed", e);
       setShippingError(detail);
     } finally {
