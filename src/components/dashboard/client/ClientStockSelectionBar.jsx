@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 const ClientStockSelectionBar = ({
   t,
@@ -41,6 +41,8 @@ const ClientStockSelectionBar = ({
   savingReturn
 }) => {
   if (!selectedIds?.size) return null;
+  const [storeFieldOpen, setStoreFieldOpen] = useState(false);
+  const [notesFieldOpen, setNotesFieldOpen] = useState(false);
   const rawReturnLabel = t('ClientStock.return.cta') || t('ClientStock.cta.return');
   const returnLabel =
     rawReturnLabel && !String(rawReturnLabel).includes('ClientStock.cta.return')
@@ -86,6 +88,14 @@ const ClientStockSelectionBar = ({
   const itemsLabel = selectedCount === 1 ? 'item' : 'items';
   const unitsLabel = selectedUnits === 1 ? 'unit' : 'units';
 
+  useEffect(() => {
+    if (receptionForm?.storeName) setStoreFieldOpen(true);
+  }, [receptionForm?.storeName]);
+
+  useEffect(() => {
+    if (receptionForm?.notes) setNotesFieldOpen(true);
+  }, [receptionForm?.notes]);
+
   const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
       <label className="text-[12px] font-medium text-gray-600">
@@ -106,7 +116,7 @@ const ClientStockSelectionBar = ({
   );
 
   return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 shadow-md border border-gray-200 rounded-[36px] px-6 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/80 w-full max-w-[640px] sm:px-8">
+    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 shadow-md border border-gray-200 rounded-[32px] px-5 py-2 flex flex-col gap-2 items-center backdrop-blur-md bg-white/80 w-full max-w-[640px] sm:px-6">
       <div className="flex flex-col sm:flex-row items-center gap-2 w-full justify-between">
         <select
         value={submitType}
@@ -125,12 +135,12 @@ const ClientStockSelectionBar = ({
 
       {showReceptionFields && (
         <div className="w-full flex flex-col gap-2">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:gap-3">
             <div className="flex-1 min-w-[200px]">
               <select
                 value={receptionForm.carrier}
                 onChange={(e) => onReceptionFormChange('carrier', e.target.value)}
-                className={`border rounded-md px-2 py-1 w-full ${
+                className={`border rounded-md px-2 py-1 w-full h-10 ${
                   receptionForm.carrier ? 'text-text-primary' : 'text-gray-400'
                 }`}
               >
@@ -147,25 +157,53 @@ const ClientStockSelectionBar = ({
                   value={receptionForm.carrierOther}
                   onChange={(e) => onReceptionFormChange('carrierOther', e.target.value)}
                   placeholder={t('ClientStock.receptionForm.carrierOther')}
-                  className="border rounded-md px-2 py-1 mt-2 w-full"
+                  className="border rounded-md px-2 py-1 mt-2 w-full h-10"
                 />
               )}
               {showStoreName && (
                 <>
-                  <input
-                    type="text"
-                    value={receptionForm.storeName}
-                    onChange={(e) => onReceptionFormChange('storeName', e.target.value)}
-                    placeholder={t('ClientReceiving.store_name_ph') || 'Store / merchant name'}
-                    className="border rounded-md px-2 py-1 mt-2 w-full"
-                  />
-                  <textarea
-                    value={receptionForm.notes}
-                    onChange={(e) => onReceptionFormChange('notes', e.target.value)}
-                    placeholder={t('notes_ph') || 'Notes / info for the team'}
-                    className="border rounded-md px-2 py-1 mt-2 w-full"
-                    rows={2}
-                  />
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setStoreFieldOpen((prev) => !prev)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 font-medium transition-colors ${
+                        storeFieldOpen || receptionForm.storeName
+                          ? 'border-primary bg-blue-50 text-primary'
+                          : 'border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {t('ClientReceiving.store_name_ph') || 'Store or order reference'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNotesFieldOpen((prev) => !prev)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 font-medium transition-colors ${
+                        notesFieldOpen || receptionForm.notes
+                          ? 'border-primary bg-blue-50 text-primary'
+                          : 'border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      {t('notes') || 'Notes'}
+                    </button>
+                  </div>
+                  {storeFieldOpen && (
+                    <input
+                      type="text"
+                      value={receptionForm.storeName}
+                      onChange={(e) => onReceptionFormChange('storeName', e.target.value)}
+                      placeholder={t('ClientReceiving.store_name_ph') || 'Store / merchant name'}
+                      className="border rounded-md px-2 py-1 mt-2 w-full h-10"
+                    />
+                  )}
+                  {notesFieldOpen && (
+                    <textarea
+                      value={receptionForm.notes}
+                      onChange={(e) => onReceptionFormChange('notes', e.target.value)}
+                      placeholder={t('notes_ph') || 'Notes / info for the team'}
+                      className="border rounded-md px-2 py-2 mt-2 w-full"
+                      rows={2}
+                    />
+                  )}
                 </>
               )}
               {selectedCount > 0 && (
@@ -180,7 +218,7 @@ const ClientStockSelectionBar = ({
               )}
             </div>
 
-          <div className="flex flex-col flex-[1.2] min-w-[220px]">
+            <div className="flex flex-col flex-[1.2] min-w-[220px]">
             <div className="flex items-center gap-2">
               <input
                   type="text"
@@ -193,12 +231,12 @@ const ClientStockSelectionBar = ({
                     }
                   }}
                   placeholder={t('ClientStock.receptionForm.tracking')}
-                  className="border rounded-md px-2 py-1 w-full"
+                  className="border rounded-md px-2 py-1 w-full h-10"
                 />
                 <button
                   type="button"
                   onClick={onTrackingAdd}
-                  className="px-3 py-1 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark whitespace-nowrap"
+                  className="px-3 h-10 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary-dark whitespace-nowrap"
                 >
                   {t('ClientStock.receptionForm.trackingAddShort') ?? 'Add'}
                 </button>
