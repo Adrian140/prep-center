@@ -7,6 +7,7 @@ import { supabaseHelpers } from '@/config/supabase';
 import { useT } from '@/i18n/useT';
 
 const OFFER_COUNTRY_OPTIONS = ['FR', 'DE'];
+const CHAT_OPEN_B2B_EVENT = 'client-chat:open-b2b';
 
 const BUTIC_COPY = {
   en: {
@@ -349,7 +350,26 @@ export default function Butic() {
   const saveEditListing = async (listing) => { if (!listing?.id || busyListingId) return; const parsedPrice = Number(editDraft.priceEur); const parsedQty = Number(editDraft.quantity); if (!editDraft.country || !OFFER_COUNTRY_OPTIONS.includes(editDraft.country)) { setListingActionError(copy.selectCountryError); return; } if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) { setListingActionError(copy.invalidPrice); return; } if (!Number.isFinite(parsedQty) || parsedQty < 1) { setListingActionError(copy.quantityInvalidError); return; } setBusyListingId(listing.id); setListingActionError(''); const res = await supabaseHelpers.updateClientMarketListing({ listingId: listing.id, productName: editDraft.productName, asin: editDraft.asin, ean: editDraft.ean, country: editDraft.country, priceEur: parsedPrice, quantity: Math.floor(parsedQty), note: editDraft.note, linkFr: editDraft.linkFr, linkDe: editDraft.linkDe }); if (res?.error) { const errMsg = String(res.error?.message || ''); setListingActionError(errMsg ? `${copy.editFailed} (${errMsg})` : copy.editFailed); } else { await loadAllListings(); cancelEditListing(); } setBusyListingId(null); };
   const openListingChat = async (listing) => {
     if (!listing?.id || !me) return;
-    await supabaseHelpers.getOrCreateClientMarketConversation({ listingId: listing.id });
+    setListingActionError('');
+    const res = await supabaseHelpers.getOrCreateClientMarketConversation({ listingId: listing.id });
+    if (res?.error) {
+      const errMsg = String(res.error?.message || '').trim();
+      setListingActionError(errMsg ? `${copy.sendFailed} (${errMsg})` : copy.sendFailed);
+      return;
+    }
+    const conversationId = res?.data?.id || null;
+    if (!conversationId) {
+      setListingActionError(copy.sendFailed);
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent(CHAT_OPEN_B2B_EVENT, {
+        detail: {
+          conversationId,
+          market: String(listing.country || market || 'FR').toUpperCase()
+        }
+      })
+    );
   };
 
   const handleImgError = (key) => { setFailedImageIds((prev) => { const next = new Set(prev); next.add(key); return next; }); };
