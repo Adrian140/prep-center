@@ -2988,14 +2988,21 @@ const openPrep = async (force = false) => {
     user_id: profile.id,
     warehouse_country: currentMarket,
     destination_country: destination,
-    items: selectedRows.map(r => ({
-      stock_item_id: r.id,
-      ean: r.ean || null,
-      product_name: r.name || null,
-      asin: r.asin || null,
-      sku: r.sku || null,
-      units_requested: Number(rowEdits[r.id]?.units_to_send || 0),
-    })),
+    items: selectedRows.map(r => {
+      const transparencyInfo = receptionTransparencyByRowId[r.id] || null;
+      return {
+        stock_item_id: r.id,
+        ean: r.ean || null,
+        product_name: r.name || null,
+        asin: r.asin || null,
+        sku: r.sku || null,
+        units_requested: Number(rowEdits[r.id]?.units_to_send || 0),
+        transparency_file_path: transparencyInfo?.path || null,
+        transparency_file_name: transparencyInfo?.fileName || null,
+        transparency_uploaded_at: transparencyInfo?.uploadedAt || null,
+        transparency_uploaded_by: transparencyInfo?.uploadedBy || null,
+      };
+    }),
     status: 'pending',
   };
 
@@ -3013,6 +3020,8 @@ const openPrep = async (force = false) => {
     setSelectionActionError('');
     setToast({ type: 'success', text: 'Preparation request sent successfully.' });
     resetSelectionsAndUnits();
+    setReceptionTransparencyByRowId({});
+    setReceptionTransparencyUploadingByRowId({});
     setSelectedIdList([]);
     await refreshStockData();
   } catch (err) {
