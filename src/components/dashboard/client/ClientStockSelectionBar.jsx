@@ -127,12 +127,16 @@ const ClientStockSelectionBar = ({
       </select>
     </div>
   );
+  const tt = (key, fallback) => {
+    const value = t(`ClientStock.transparency.${key}`);
+    return value && !String(value).includes(`ClientStock.transparency.${key}`) ? value : fallback;
+  };
 
   const renderTransparencyPanel = () =>
     transparencyFieldOpen && selectedRows.length > 0 ? (
       <div className="mt-3 border rounded-md bg-white max-h-48 overflow-y-auto divide-y">
         <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide bg-gray-50 text-text-secondary border-b">
-          Transparency PDFs per ASIN
+          {tt('panelTitle', 'Transparency PDFs per ASIN')}
         </div>
         {selectedRows.map((row) => {
           const uploadState = receptionTransparencyByRowId[row.id] || null;
@@ -148,11 +152,11 @@ const ClientStockSelectionBar = ({
                   {row.name || row.asin || row.sku || row.ean || 'Item'}
                 </div>
                 <div className="mt-1 text-[11px] text-text-secondary break-all">
-                  ASIN: {row.asin || '—'} · SKU: {row.sku || '—'}
+                  {tt('asinLabel', 'ASIN')}: {row.asin || '—'} · {tt('skuLabel', 'SKU')}: {row.sku || '—'}
                 </div>
                 {hasFile && (
                   <div className="mt-1 text-[11px] text-green-700 break-all">
-                    PDF uploaded{uploadState?.fileName ? `: ${uploadState.fileName}` : ''}
+                    {tt('uploaded', 'PDF uploaded')}{uploadState?.fileName ? `: ${uploadState.fileName}` : ''}
                   </div>
                 )}
               </div>
@@ -163,7 +167,11 @@ const ClientStockSelectionBar = ({
                   disabled={uploadBusy}
                   onClick={() => transparencyInputRefs.current[row.id]?.click()}
                 >
-                  {uploadBusy ? 'Uploading…' : hasFile ? 'Replace PDF' : 'Add Transparency'}
+                  {uploadBusy
+                    ? tt('uploading', 'Uploading…')
+                    : hasFile
+                      ? tt('replace', 'Replace PDF')
+                      : tt('add', 'Add Transparency')}
                 </button>
                 {hasFile && (
                   <button
@@ -172,7 +180,7 @@ const ClientStockSelectionBar = ({
                     disabled={uploadBusy}
                     onClick={() => onReceptionTransparencyRemove?.(row)}
                   >
-                    Remove
+                    {tt('remove', 'Remove')}
                   </button>
                 )}
                 <input
@@ -224,7 +232,7 @@ const ClientStockSelectionBar = ({
                 : 'border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
             }`}
           >
-            Transparency PDFs
+            {tt('chip', 'Transparency PDFs')}
           </button>
         </div>
       )}
@@ -292,7 +300,7 @@ const ClientStockSelectionBar = ({
                           : 'border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
                       }`}
                     >
-                      Transparency PDFs
+                      {tt('chip', 'Transparency PDFs')}
                     </button>
                   </div>
                   {storeFieldOpen && (

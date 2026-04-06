@@ -2398,18 +2398,22 @@ const resetReceptionForm = () => {
   setReceptionTransparencyByRowId({});
   setReceptionTransparencyUploadingByRowId({});
 };
+const stockTransparencyText = (key, fallback, vars = {}) => {
+  const raw = t(`ClientStock.transparency.${key}`, vars);
+  return raw && !String(raw).includes(`ClientStock.transparency.${key}`) ? raw : fallback;
+};
 
 const handleReceptionTransparencyUpload = async (row, file) => {
   if (!row?.id) {
-    setToast({ type: 'error', text: 'Missing product reference for Transparency upload.' });
+    setToast({ type: 'error', text: stockTransparencyText('missingProduct', 'Missing product reference for Transparency upload.') });
     return;
   }
   if (!profile?.company_id) {
-    setToast({ type: 'error', text: 'Missing company id for Transparency upload.' });
+    setToast({ type: 'error', text: stockTransparencyText('missingCompany', 'Missing company id for Transparency upload.') });
     return;
   }
   if (!file || String(file.type || '').toLowerCase() !== 'application/pdf') {
-    setToast({ type: 'error', text: 'Upload a PDF file for Transparency labels.' });
+    setToast({ type: 'error', text: stockTransparencyText('pdfOnly', 'Upload a PDF file for Transparency labels.') });
     return;
   }
   try {
@@ -2434,9 +2438,14 @@ const handleReceptionTransparencyUpload = async (row, file) => {
         uploadedBy: profile?.id || null
       }
     }));
-    setToast({ type: 'success', text: `Transparency PDF uploaded for ${row.asin || row.sku || 'item'}.` });
+    setToast({
+      type: 'success',
+      text: stockTransparencyText('uploadSuccess', `Transparency PDF uploaded for ${row.asin || row.sku || 'item'}.`, {
+        identifier: row.asin || row.sku || 'item'
+      })
+    });
   } catch (error) {
-    setToast({ type: 'error', text: error?.message || 'Unable to upload Transparency PDF.' });
+    setToast({ type: 'error', text: error?.message || stockTransparencyText('uploadError', 'Unable to upload Transparency PDF.') });
   } finally {
     setReceptionTransparencyUploadingByRowId((prev) => ({ ...prev, [row.id]: false }));
   }
@@ -2455,9 +2464,14 @@ const handleReceptionTransparencyRemove = async (row) => {
       delete next[rowId];
       return next;
     });
-    setToast({ type: 'success', text: `Transparency PDF removed for ${row?.asin || row?.sku || 'item'}.` });
+    setToast({
+      type: 'success',
+      text: stockTransparencyText('removeSuccess', `Transparency PDF removed for ${row?.asin || row?.sku || 'item'}.`, {
+        identifier: row?.asin || row?.sku || 'item'
+      })
+    });
   } catch (error) {
-    setToast({ type: 'error', text: error?.message || 'Unable to remove Transparency PDF.' });
+    setToast({ type: 'error', text: error?.message || stockTransparencyText('removeError', 'Unable to remove Transparency PDF.') });
   }
 };
 

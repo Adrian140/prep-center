@@ -25,6 +25,10 @@ const STATUS_SORT_DATE = {
   received: 'updated_at',
   processed: 'updated_at'
 };
+const trTransparency = (t, key, fallback) => {
+  const value = t(`ClientReceiving.transparency.${key}`);
+  return value && !String(value).includes(`ClientReceiving.transparency.${key}`) ? value : fallback;
+};
 
 const toNull = (v) => {
   const s = String(v ?? '').trim();
@@ -700,7 +704,7 @@ const resolveBoxesCount = (shipment) => {
       link.click();
       link.remove();
     } catch (error) {
-      setMessage(error?.message || 'Unable to download Transparency PDF.');
+      setMessage(error?.message || trTransparency(t, 'downloadError', 'Unable to download Transparency PDF.'));
       setMessageType('error');
     } finally {
       setTransparencyDownloadingByItem((prev) => ({ ...prev, [itemId]: false }));
@@ -710,17 +714,17 @@ const resolveBoxesCount = (shipment) => {
   const handleTransparencyUpload = async (item, file) => {
     const itemId = item?.id;
     if (!itemId) {
-      setMessage('Save the reception first, then upload the Transparency PDF.');
+      setMessage(trTransparency(t, 'saveFirst', 'Save the reception first, then upload the Transparency PDF.'));
       setMessageType('error');
       return;
     }
     if (!profile?.company_id) {
-      setMessage('Missing company id for Transparency upload.');
+      setMessage(trTransparency(t, 'missingCompany', 'Missing company id for Transparency upload.'));
       setMessageType('error');
       return;
     }
     if (!isPdfFile(file)) {
-      setMessage('Upload a PDF file for Transparency labels.');
+      setMessage(trTransparency(t, 'pdfOnly', 'Upload a PDF file for Transparency labels.'));
       setMessageType('error');
       return;
     }
@@ -755,10 +759,10 @@ const resolveBoxesCount = (shipment) => {
           : prev
       );
       setEditItems((prev) => prev.map((row) => (row.id === itemId ? { ...row, ...patch } : row)));
-      setMessage('Transparency PDF uploaded successfully.');
+      setMessage(trTransparency(t, 'uploadSuccess', 'Transparency PDF uploaded successfully.'));
       setMessageType('success');
     } catch (error) {
-      setMessage(error?.message || 'Unable to upload Transparency PDF.');
+      setMessage(error?.message || trTransparency(t, 'uploadError', 'Unable to upload Transparency PDF.'));
       setMessageType('error');
     } finally {
       setTransparencyUploadingByItem((prev) => ({ ...prev, [itemId]: false }));
@@ -1305,8 +1309,8 @@ const resolveBoxesCount = (shipment) => {
                                   className="text-blue-600 underline disabled:opacity-60"
                                 >
                                   {hasTransparencyPdf
-                                    ? (uploadBusy ? 'Uploading…' : 'Replace Transparency PDF')
-                                    : (uploadBusy ? 'Uploading…' : 'Add Transparency PDF')}
+                                    ? (uploadBusy ? trTransparency(t, 'uploading', 'Uploading…') : trTransparency(t, 'replaceButton', 'Replace Transparency PDF'))
+                                    : (uploadBusy ? trTransparency(t, 'uploading', 'Uploading…') : trTransparency(t, 'addButton', 'Add Transparency PDF'))}
                                 </button>
                                 {hasTransparencyPdf && (
                                   <button
@@ -1315,7 +1319,7 @@ const resolveBoxesCount = (shipment) => {
                                     disabled={downloadBusy}
                                     className="text-emerald-700 underline disabled:opacity-60"
                                   >
-                                    {downloadBusy ? 'Downloading…' : 'Download Transparency PDF'}
+                                    {downloadBusy ? trTransparency(t, 'downloading', 'Downloading…') : trTransparency(t, 'downloadButton', 'Download Transparency PDF')}
                                   </button>
                                 )}
                                 <input
@@ -1332,12 +1336,12 @@ const resolveBoxesCount = (shipment) => {
                                 />
                               </>
                             ) : (
-                              <span className="text-text-secondary">Save the reception first to add Transparency PDF.</span>
+                              <span className="text-text-secondary">{trTransparency(t, 'saveFirstInline', 'Save the reception first to add Transparency PDF.')}</span>
                             )}
                             <span className={hasTransparencyPdf ? 'text-emerald-700' : 'text-slate-500'}>
                               {hasTransparencyPdf
-                                ? `PDF uploaded${item.transparency_file_name ? `: ${item.transparency_file_name}` : ''}`
-                                : 'No Transparency PDF uploaded'}
+                                ? `${trTransparency(t, 'uploaded', 'PDF uploaded')}${item.transparency_file_name ? `: ${item.transparency_file_name}` : ''}`
+                                : trTransparency(t, 'noPdf', 'No Transparency PDF uploaded')}
                             </span>
                           </div>
                           {itemEvents.length > 0 && (

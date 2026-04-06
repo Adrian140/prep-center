@@ -390,6 +390,24 @@
         "destinationLabel": "Destination country",
         "destinationHint": "Use this country for prep requests and receptions."
       },
+      "transparency": {
+        "chip": "Transparency PDFs",
+        "panelTitle": "Transparency PDFs per ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF uploaded",
+        "uploading": "Uploading…",
+        "add": "Add Transparency",
+        "replace": "Replace PDF",
+        "remove": "Remove",
+        "missingProduct": "Missing product reference for Transparency upload.",
+        "missingCompany": "Missing company id for Transparency upload.",
+        "pdfOnly": "Upload a PDF file for Transparency labels.",
+        "uploadSuccess": "Transparency PDF uploaded for {identifier}.",
+        "uploadError": "Unable to upload Transparency PDF.",
+        "removeSuccess": "Transparency PDF removed for {identifier}.",
+        "removeError": "Unable to remove Transparency PDF."
+      },
       "actions": {
         "selectAllOnPage": "Select all on page",
         "sendToPrep": "Send to preparation",
@@ -1176,7 +1194,23 @@
       "delete_success": "Reception deleted.",
       "note_warning_label": "Client note",
       "store_name": "Store name",
-      "store_name_ph": "Store or order reference"
+      "store_name_ph": "Store or order reference",
+      "transparency": {
+        "saveFirst": "Save the reception first, then upload the Transparency PDF.",
+        "saveFirstInline": "Save the reception first to add Transparency PDF.",
+        "missingCompany": "Missing company id for Transparency upload.",
+        "pdfOnly": "Upload a PDF file for Transparency labels.",
+        "uploadSuccess": "Transparency PDF uploaded successfully.",
+        "uploadError": "Unable to upload Transparency PDF.",
+        "downloadError": "Unable to download Transparency PDF.",
+        "uploading": "Uploading…",
+        "downloading": "Downloading…",
+        "addButton": "Add Transparency PDF",
+        "replaceButton": "Replace Transparency PDF",
+        "downloadButton": "Download Transparency PDF",
+        "uploaded": "PDF uploaded",
+        "noPdf": "No Transparency PDF uploaded"
+      }
     },
     "ClientOtherReport": {
       "title": "Other services",
@@ -1666,6 +1700,24 @@
         "countryTag": "Țară",
         "destinationLabel": "Țara de destinație",
         "destinationHint": "Vom folosi această țară pentru recepții și cereri de prep."
+      },
+      "transparency": {
+        "chip": "PDF-uri Transparency",
+        "panelTitle": "PDF-uri Transparency per ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF încărcat",
+        "uploading": "Se încarcă…",
+        "add": "Adaugă Transparency",
+        "replace": "Înlocuiește PDF-ul",
+        "remove": "Șterge",
+        "missingProduct": "Lipsește referința produsului pentru încărcarea Transparency.",
+        "missingCompany": "Lipsește company id pentru încărcarea Transparency.",
+        "pdfOnly": "Încarcă un fișier PDF pentru etichetele Transparency.",
+        "uploadSuccess": "PDF-ul Transparency a fost încărcat pentru {identifier}.",
+        "uploadError": "Nu am putut încărca PDF-ul Transparency.",
+        "removeSuccess": "PDF-ul Transparency a fost eliminat pentru {identifier}.",
+        "removeError": "Nu am putut elimina PDF-ul Transparency."
       },
       "actions": {
         "selectAllOnPage": "Selectează toate de pe pagină",
@@ -2386,7 +2438,23 @@
       "delete_success": "Recepția a fost ștearsă.",
       "note_warning_label": "Notă client",
       "store_name": "Store Name",
-      "store_name_ph": "Magazin / referință comandă"
+      "store_name_ph": "Magazin / referință comandă",
+      "transparency": {
+        "saveFirst": "Salvează mai întâi recepția, apoi încarcă PDF-ul Transparency.",
+        "saveFirstInline": "Salvează mai întâi recepția ca să adaugi PDF-ul Transparency.",
+        "missingCompany": "Lipsește company id pentru încărcarea Transparency.",
+        "pdfOnly": "Încarcă un fișier PDF pentru etichetele Transparency.",
+        "uploadSuccess": "PDF-ul Transparency a fost încărcat cu succes.",
+        "uploadError": "Nu am putut încărca PDF-ul Transparency.",
+        "downloadError": "Nu am putut descărca PDF-ul Transparency.",
+        "uploading": "Se încarcă…",
+        "downloading": "Se descarcă…",
+        "addButton": "Adaugă PDF Transparency",
+        "replaceButton": "Înlocuiește PDF-ul Transparency",
+        "downloadButton": "Descarcă PDF-ul Transparency",
+        "uploaded": "PDF încărcat",
+        "noPdf": "Nu există PDF Transparency încărcat"
+      }
     },
     "ClientOtherReport": {
       "title": "Servicii diverse",
@@ -3060,6 +3128,24 @@
         "destinationLabel": "Pays de destination",
         "destinationHint": "Nous utiliserons ce pays pour les demandes et réceptions."
       },
+      "transparency": {
+        "chip": "PDFs Transparency",
+        "panelTitle": "PDFs Transparency par ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF téléversé",
+        "uploading": "Téléversement…",
+        "add": "Ajouter Transparency",
+        "replace": "Remplacer le PDF",
+        "remove": "Supprimer",
+        "missingProduct": "Référence produit manquante pour le téléversement Transparency.",
+        "missingCompany": "Company id manquant pour le téléversement Transparency.",
+        "pdfOnly": "Téléversez un PDF pour les étiquettes Transparency.",
+        "uploadSuccess": "PDF Transparency téléversé pour {identifier}.",
+        "uploadError": "Impossible de téléverser le PDF Transparency.",
+        "removeSuccess": "PDF Transparency supprimé pour {identifier}.",
+        "removeError": "Impossible de supprimer le PDF Transparency."
+      },
       "actions": {
         "selectAllOnPage": "Sélectionner tout sur la page",
         "sendToPrep": "Envoyer en préparation",
@@ -3695,7 +3781,23 @@
       "delete_success": "Réception supprimée.",
       "note_warning_label": "Note client",
       "store_name": "Nom du magasin",
-      "store_name_ph": "Magasin ou référence commande"
+      "store_name_ph": "Magasin ou référence commande",
+      "transparency": {
+        "saveFirst": "Enregistrez d’abord la réception, puis téléversez le PDF Transparency.",
+        "saveFirstInline": "Enregistrez d’abord la réception pour ajouter le PDF Transparency.",
+        "missingCompany": "Company id manquant pour le téléversement Transparency.",
+        "pdfOnly": "Téléversez un PDF pour les étiquettes Transparency.",
+        "uploadSuccess": "PDF Transparency téléversé avec succès.",
+        "uploadError": "Impossible de téléverser le PDF Transparency.",
+        "downloadError": "Impossible de télécharger le PDF Transparency.",
+        "uploading": "Téléversement…",
+        "downloading": "Téléchargement…",
+        "addButton": "Ajouter le PDF Transparency",
+        "replaceButton": "Remplacer le PDF Transparency",
+        "downloadButton": "Télécharger le PDF Transparency",
+        "uploaded": "PDF téléversé",
+        "noPdf": "Aucun PDF Transparency téléversé"
+      }
     },
     "ClientOtherReport": {
       "title": "Autres services",
@@ -4229,6 +4331,24 @@
         "countryTag": "Land",
         "destinationLabel": "Zielland",
         "destinationHint": "Wir verwenden dieses Land für Anlieferungen und Prep-Anfragen."
+      },
+      "transparency": {
+        "chip": "Transparency-PDFs",
+        "panelTitle": "Transparency-PDFs pro ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF hochgeladen",
+        "uploading": "Wird hochgeladen…",
+        "add": "Transparency hinzufügen",
+        "replace": "PDF ersetzen",
+        "remove": "Entfernen",
+        "missingProduct": "Produktreferenz für den Transparency-Upload fehlt.",
+        "missingCompany": "Company-ID für den Transparency-Upload fehlt.",
+        "pdfOnly": "Bitte eine PDF-Datei für Transparency-Etiketten hochladen.",
+        "uploadSuccess": "Transparency-PDF für {identifier} hochgeladen.",
+        "uploadError": "Transparency-PDF konnte nicht hochgeladen werden.",
+        "removeSuccess": "Transparency-PDF für {identifier} entfernt.",
+        "removeError": "Transparency-PDF konnte nicht entfernt werden."
       },
       "actions": {
         "selectAllOnPage": "Alle auf der Seite auswählen",
@@ -4777,7 +4897,8 @@
         "close": "Schließen",
         "save": "Änderungen speichern",
         "empty": "Keine Artikel in dieser Anfrage.",
-        "locked": "Anfrage kann nicht mehr bearbeitet werden."
+        "locked": "Anfrage kann nicht mehr bearbeitet werden.",
+        "removedFromShippingPlan": "Aus dem Versandplan entfernt"
       },
       "return": {
         "button": "Retoure",
@@ -4833,7 +4954,23 @@
       "delete_success": "Wareneingang gelöscht.",
       "note_warning_label": "Kundennotiz",
       "store_name": "Store-Name",
-      "store_name_ph": "Shop oder Bestellreferenz"
+      "store_name_ph": "Shop oder Bestellreferenz",
+      "transparency": {
+        "saveFirst": "Speichere zuerst den Wareneingang und lade dann das Transparency-PDF hoch.",
+        "saveFirstInline": "Speichere zuerst den Wareneingang, um ein Transparency-PDF hinzuzufügen.",
+        "missingCompany": "Company-ID für den Transparency-Upload fehlt.",
+        "pdfOnly": "Bitte eine PDF-Datei für Transparency-Etiketten hochladen.",
+        "uploadSuccess": "Transparency-PDF erfolgreich hochgeladen.",
+        "uploadError": "Transparency-PDF konnte nicht hochgeladen werden.",
+        "downloadError": "Transparency-PDF konnte nicht heruntergeladen werden.",
+        "uploading": "Wird hochgeladen…",
+        "downloading": "Wird heruntergeladen…",
+        "addButton": "Transparency-PDF hinzufügen",
+        "replaceButton": "Transparency-PDF ersetzen",
+        "downloadButton": "Transparency-PDF herunterladen",
+        "uploaded": "PDF hochgeladen",
+        "noPdf": "Kein Transparency-PDF hochgeladen"
+      }
     },
     "ClientOtherReport": {
       "title": "Weitere Leistungen",
@@ -5283,6 +5420,24 @@
         "countryTag": "Paese",
         "destinationLabel": "Paese di destinazione",
         "destinationHint": "Useremo questo paese per le richieste e le ricezioni."
+      },
+      "transparency": {
+        "chip": "PDF Transparency",
+        "panelTitle": "PDF Transparency per ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF caricato",
+        "uploading": "Caricamento…",
+        "add": "Aggiungi Transparency",
+        "replace": "Sostituisci PDF",
+        "remove": "Rimuovi",
+        "missingProduct": "Riferimento prodotto mancante per il caricamento Transparency.",
+        "missingCompany": "Company id mancante per il caricamento Transparency.",
+        "pdfOnly": "Carica un file PDF per le etichette Transparency.",
+        "uploadSuccess": "PDF Transparency caricato per {identifier}.",
+        "uploadError": "Impossibile caricare il PDF Transparency.",
+        "removeSuccess": "PDF Transparency rimosso per {identifier}.",
+        "removeError": "Impossibile rimuovere il PDF Transparency."
       },
       "actions": {
         "selectAllOnPage": "Seleziona tutti nella pagina",
@@ -5831,7 +5986,8 @@
         "close": "Chiudi",
         "save": "Salva modifiche",
         "empty": "Nessun articolo in questa richiesta.",
-        "locked": "La richiesta non è più modificabile."
+        "locked": "La richiesta non è più modificabile.",
+        "removedFromShippingPlan": "Rimosso dal piano di spedizione"
       },
       "return": {
         "button": "Reso",
@@ -5887,7 +6043,23 @@
       "delete_success": "Ricezione eliminata.",
       "note_warning_label": "Nota cliente",
       "store_name": "Nome negozio",
-      "store_name_ph": "Negozio o riferimento ordine"
+      "store_name_ph": "Negozio o riferimento ordine",
+      "transparency": {
+        "saveFirst": "Salva prima la ricezione, poi carica il PDF Transparency.",
+        "saveFirstInline": "Salva prima la ricezione per aggiungere il PDF Transparency.",
+        "missingCompany": "Company id mancante per il caricamento Transparency.",
+        "pdfOnly": "Carica un file PDF per le etichette Transparency.",
+        "uploadSuccess": "PDF Transparency caricato con successo.",
+        "uploadError": "Impossibile caricare il PDF Transparency.",
+        "downloadError": "Impossibile scaricare il PDF Transparency.",
+        "uploading": "Caricamento…",
+        "downloading": "Download…",
+        "addButton": "Aggiungi PDF Transparency",
+        "replaceButton": "Sostituisci PDF Transparency",
+        "downloadButton": "Scarica PDF Transparency",
+        "uploaded": "PDF caricato",
+        "noPdf": "Nessun PDF Transparency caricato"
+      }
     },
     "ClientOtherReport": {
       "title": "Altri servizi",
@@ -6337,6 +6509,24 @@
         "countryTag": "País",
         "destinationLabel": "País de destino",
         "destinationHint": "Usaremos este país para las solicitudes y recepciones."
+      },
+      "transparency": {
+        "chip": "PDFs Transparency",
+        "panelTitle": "PDFs Transparency por ASIN",
+        "asinLabel": "ASIN",
+        "skuLabel": "SKU",
+        "uploaded": "PDF subido",
+        "uploading": "Subiendo…",
+        "add": "Añadir Transparency",
+        "replace": "Reemplazar PDF",
+        "remove": "Eliminar",
+        "missingProduct": "Falta la referencia del producto para la subida de Transparency.",
+        "missingCompany": "Falta el company id para la subida de Transparency.",
+        "pdfOnly": "Sube un archivo PDF para las etiquetas Transparency.",
+        "uploadSuccess": "PDF Transparency subido para {identifier}.",
+        "uploadError": "No se pudo subir el PDF Transparency.",
+        "removeSuccess": "PDF Transparency eliminado para {identifier}.",
+        "removeError": "No se pudo eliminar el PDF Transparency."
       },
       "actions": {
         "selectAllOnPage": "Seleccionar todo en la página",
@@ -6885,7 +7075,8 @@
         "close": "Cerrar",
         "save": "Guardar cambios",
         "empty": "No hay artículos en esta solicitud.",
-        "locked": "La solicitud ya no se puede editar."
+        "locked": "La solicitud ya no se puede editar.",
+        "removedFromShippingPlan": "Eliminado del plan de envío"
       },
       "return": {
         "button": "Devolución",
@@ -6941,7 +7132,23 @@
       "delete_success": "Recepción eliminada.",
       "note_warning_label": "Nota del cliente",
       "store_name": "Nombre de tienda",
-      "store_name_ph": "Tienda o referencia de pedido"
+      "store_name_ph": "Tienda o referencia de pedido",
+      "transparency": {
+        "saveFirst": "Guarda primero la recepción y luego sube el PDF Transparency.",
+        "saveFirstInline": "Guarda primero la recepción para añadir el PDF Transparency.",
+        "missingCompany": "Falta el company id para la subida de Transparency.",
+        "pdfOnly": "Sube un archivo PDF para las etiquetas Transparency.",
+        "uploadSuccess": "PDF Transparency subido correctamente.",
+        "uploadError": "No se pudo subir el PDF Transparency.",
+        "downloadError": "No se pudo descargar el PDF Transparency.",
+        "uploading": "Subiendo…",
+        "downloading": "Descargando…",
+        "addButton": "Añadir PDF Transparency",
+        "replaceButton": "Reemplazar PDF Transparency",
+        "downloadButton": "Descargar PDF Transparency",
+        "uploaded": "PDF subido",
+        "noPdf": "No hay PDF Transparency subido"
+      }
     },
     "ClientOtherReport": {
       "title": "Otros servicios",
