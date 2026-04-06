@@ -2815,11 +2815,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const handleAddSku = async (skuInput) => {
     const skuId = typeof skuInput === 'string' ? skuInput : skuInput?.id || null;
+    const selectedQty = Math.max(1, Number(skuInput?.quantity || 0) || 1);
     const requestId = resolveRequestId();
 
     if (skuId) {
       const existingRow = (Array.isArray(plan?.skus) ? plan.skus : []).find((sku) => sku.id === skuId) || null;
-      const nextQty = Math.max(1, Number(existingRow?.units || 0) || 1);
+      const nextQty = Math.max(1, Number(skuInput?.quantity || existingRow?.units || 0) || 1);
       setPlan((prev) => ({
         ...prev,
         skus: (prev.skus || []).map((sku) =>
@@ -2863,7 +2864,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       return (normalizedSku && rowSku === normalizedSku) || (normalizedAsin && rowAsin === normalizedAsin);
     });
     if (existing?.id) {
-      const nextQty = Math.max(1, Number(existing.units || 0) || 1);
+      const nextQty = Math.max(1, Number(skuInput?.quantity || existing.units || 0) || 1);
       setPlan((prev) => ({
         ...prev,
         skus: (prev.skus || []).map((row) =>
@@ -2902,8 +2903,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       asin: String(skuInput.asin || '').trim() || null,
       sku: String(skuInput.sku || '').trim() || null,
       product_name: String(skuInput.title || '').trim() || null,
-      units_requested: 1,
-      units_sent: 1
+      units_requested: selectedQty,
+      units_sent: selectedQty
     };
     try {
       const { data: inserted, error: insertErr } = await supabase

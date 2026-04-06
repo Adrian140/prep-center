@@ -326,6 +326,7 @@ export default function FbaStep1Inventory({
   const [inventoryResults, setInventoryResults] = useState([]);
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [addSkuBusyKey, setAddSkuBusyKey] = useState('');
+  const [addSkuQtyByKey, setAddSkuQtyByKey] = useState({});
   const [recheckingSkuId, setRecheckingSkuId] = useState('');
   const [listingAttrDraftsBySku, setListingAttrDraftsBySku] = useState({});
   const [listingAttrSavingBySku, setListingAttrSavingBySku] = useState({});
@@ -367,6 +368,12 @@ export default function FbaStep1Inventory({
       return haystack.includes(normalizedQuery);
     });
   }, [addSkuQuery, rawSkus]);
+
+  const getAddSkuQty = useCallback((key) => {
+    const raw = addSkuQtyByKey?.[key];
+    const parsed = parsePositiveInteger(raw);
+    return parsed || 1;
+  }, [addSkuQtyByKey]);
   const activeSkuKeys = useMemo(() => {
     const set = new Set();
     skus.forEach((sku) => {
@@ -2875,28 +2882,44 @@ export default function FbaStep1Inventory({
                         {tr('skuLabelShort')}: {item.sku || '—'} · {tr('asinLabelShort')}: {item.asin || '—'} · {tr('stockLabelShort')}: {stockQty}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2 py-1 rounded"
-                      onClick={async () => {
-                        try {
-                          setAddSkuBusyKey(key);
-                          await onAddSku?.({
-                            source: 'inventory',
-                            stockItemId: item.id,
-                            sku: item.sku || null,
-                            asin: item.asin || null,
-                            title: item.name || null,
-                            image: item.image_url || null
-                          });
-                        } finally {
-                          setAddSkuBusyKey('');
-                        }
-                      }}
-                    >
-                      {tr('add')}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        inputMode="numeric"
+                        value={getAddSkuQty(key)}
+                        onChange={(e) => setAddSkuQtyByKey((prev) => ({
+                          ...(prev || {}),
+                          [key]: e.target.value
+                        }))}
+                        className="w-20 border rounded px-2 py-1 text-xs bg-white"
+                        aria-label={`${tr('quantity') || 'Quantity'} ${item.name || item.sku || item.asin || ''}`.trim()}
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white px-2 py-1 rounded"
+                        onClick={async () => {
+                          try {
+                            setAddSkuBusyKey(key);
+                            await onAddSku?.({
+                              source: 'inventory',
+                              stockItemId: item.id,
+                              sku: item.sku || null,
+                              asin: item.asin || null,
+                              title: item.name || null,
+                              image: item.image_url || null,
+                              quantity: getAddSkuQty(key)
+                            });
+                          } finally {
+                            setAddSkuBusyKey('');
+                          }
+                        }}
+                      >
+                        {tr('add')}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -2911,32 +2934,49 @@ export default function FbaStep1Inventory({
               {addSkuCandidates.length === 0 ? (
                 <div className="px-3 py-2 text-xs text-slate-500">{tr('noHiddenProducts')}</div>
               ) : (
-                addSkuCandidates.slice(0, 50).map((sku) => (
-                  <div key={`add-${sku.id}`} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0">
-                    <div className="min-w-0">
-                      <div className="text-sm text-slate-800 truncate">{sku.title || sku.product_name || sku.sku || sku.asin}</div>
-                      <div className="text-xs text-slate-500 truncate">
-                        {tr('skuLabelShort')}: {sku.sku || '—'} · {tr('asinLabelShort')}: {sku.asin || '—'}
+                addSkuCandidates.slice(0, 50).map((sku) => {
+                  const key = `existing-${sku.id}`;
+                  return (
+                    <div key={`add-${sku.id}`} className="px-3 py-2 flex items-center justify-between gap-3 border-b last:border-b-0">
+                      <div className="min-w-0">
+                        <div className="text-sm text-slate-800 truncate">{sku.title || sku.product_name || sku.sku || sku.asin}</div>
+                        <div className="text-xs text-slate-500 truncate">
+                          {tr('skuLabelShort')}: {sku.sku || '—'} · {tr('asinLabelShort')}: {sku.asin || '—'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          inputMode="numeric"
+                          value={getAddSkuQty(key)}
+                          onChange={(e) => setAddSkuQtyByKey((prev) => ({
+                            ...(prev || {}),
+                            [key]: e.target.value
+                          }))}
+                          className="w-20 border rounded px-2 py-1 text-xs bg-white"
+                          aria-label={`${tr('quantity') || 'Quantity'} ${sku.title || sku.product_name || sku.sku || sku.asin || ''}`.trim()}
+                        />
+                        <button
+                          type="button"
+                          disabled={addSkuBusyKey === key}
+                          className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-2 py-1 rounded"
+                          onClick={async () => {
+                            try {
+                              setAddSkuBusyKey(key);
+                              await onAddSku?.({ id: sku.id, quantity: getAddSkuQty(key) });
+                            } finally {
+                              setAddSkuBusyKey('');
+                            }
+                          }}
+                        >
+                          {tr('add')}
+                        </button>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={addSkuBusyKey === `existing-${sku.id}`}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-2 py-1 rounded"
-                      onClick={async () => {
-                        try {
-                          const key = `existing-${sku.id}`;
-                          setAddSkuBusyKey(key);
-                          await onAddSku?.(sku.id);
-                        } finally {
-                          setAddSkuBusyKey('');
-                        }
-                      }}
-                    >
-                      {tr('add')}
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
