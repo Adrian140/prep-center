@@ -920,6 +920,13 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
       return lineKeys.some((key) => allowedKeys.has(key));
     });
   }, [reqLines, reqSelectedShipment]);
+  const hasAmazonPlanContext = Boolean(
+    reqSelectedShipment ||
+      reqStep2Shipments.length ||
+      reqHeader?.amazon_snapshot ||
+      reqHeader?.amazon_shipment_name ||
+      reqHeader?.fba_shipment_id
+  );
   const reqTotals = useMemo(() => {
     const totalUnitsExpected = displayedReqLines.reduce((sum, line) => {
       const val = Number(line.amazon_units_expected ?? line.units_sent ?? line.units_requested ?? 0);
@@ -1539,8 +1546,15 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                           const asin = String(line.asin || '').trim();
                           const sku = String(line.sku || '').trim();
                           const lineServices = Array.isArray(line.services) ? line.services : [];
+                          const removedFromShippingPlan =
+                            hasAmazonPlanContext &&
+                            Number(line.units_requested || 0) > 0 &&
+                            Number(line.units_sent ?? line.units_requested ?? 0) <= 0;
                           return (
-                            <tr key={lineKey || line.stock_item_id} className="border-t">
+                            <tr
+                              key={lineKey || line.stock_item_id}
+                              className={`border-t ${removedFromShippingPlan ? 'bg-red-50/60' : ''}`}
+                            >
                               <td className="px-2 py-2">
                                 {meta.image_url ? (
                                   <img
@@ -1558,6 +1572,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                 <div className="break-words">
                                   {meta.name || '—'}
                                 </div>
+                                {removedFromShippingPlan && (
+                                  <div className="mt-1 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                                    {t('ClientPrepShipments.drawer.removedFromShippingPlan') || 'Removed from shipping plan'}
+                                  </div>
+                                )}
                               </td>
                               <td className="px-2 py-2 align-top">
                                 {lineServices.length > 0 ? (
@@ -1612,6 +1631,11 @@ export default function ClientPrepShipments({ profileOverride } = {}) {
                                     <div className="text-base font-semibold text-text-primary leading-5">
                                       {line.amazon_units_expected ?? line.units_sent ?? line.units_requested ?? '—'}
                                     </div>
+                                    {removedFromShippingPlan && (
+                                      <div className="text-[11px] font-semibold text-red-700">
+                                        {t('ClientPrepShipments.drawer.removedFromShippingPlan') || 'Removed from shipping plan'}
+                                      </div>
+                                    )}
                                     <div
                                       className={`text-sm font-semibold ${
                                         line.amazon_units_received != null &&

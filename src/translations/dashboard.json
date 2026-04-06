@@ -1088,7 +1088,8 @@
         "close": "Close",
         "save": "Save changes",
         "empty": "No items in this request.",
-        "locked": "Request is no longer editable (status changed)."
+        "locked": "Request is no longer editable (status changed).",
+        "removedFromShippingPlan": "Removed from shipping plan"
       },
       "return": {
         "button": "Return",
@@ -2297,7 +2298,8 @@
         "close": "Închide",
         "save": "Salvează modificările",
         "empty": "Nu există articole în această cerere.",
-        "locked": "Cererea nu mai poate fi editată."
+        "locked": "Cererea nu mai poate fi editată.",
+        "removedFromShippingPlan": "Eliminat din planul de expediere"
       },
       "return": {
         "button": "Retur",
@@ -3605,7 +3607,8 @@
         "close": "Fermer",
         "save": "Enregistrer les modifications",
         "empty": "Aucun article dans cette demande.",
-        "locked": "La demande ne peut plus être modifiée."
+        "locked": "La demande ne peut plus être modifiée.",
+        "removedFromShippingPlan": "Retiré du plan d'expédition"
       },
       "return": {
         "button": "Retour",
