@@ -1500,5 +1500,14 @@ export const supabaseHelpers = {
       body: { action: 'receive', receiving_shipment_id: receivingShipmentId }
     });
     return { data, error };
+  },
+  syncPrepBusinessQuantities: async (receivingShipmentId) => {
+    if (!receivingShipmentId) {
+      return { data: null, error: new Error('Missing receiving shipment id') };
+    }
+    const { data, error } = await supabase.functions.invoke('prepbusiness-sync', {
+      body: { action: 'sync_quantities', receiving_shipment_id: receivingShipmentId }
+    });
+    return { data, error };
   }
 };

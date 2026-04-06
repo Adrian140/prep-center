@@ -763,9 +763,10 @@ function scoreInboundItemMatch(
   localIndex: number,
   remoteIndex: number
 ) {
-  const localSku = normalizeComparable(localItem?.sku);
-  const localAsin = normalizeComparable(localItem?.asin);
-  const localEan = normalizeComparable(localItem?.ean || localItem?.ean_asin);
+  const stockItem = (localItem?.stock_item as Record<string, unknown> | null) || {};
+  const localSku = normalizeComparable(localItem?.sku || stockItem?.sku);
+  const localAsin = normalizeComparable(localItem?.asin || stockItem?.asin);
+  const localEan = normalizeComparable(localItem?.ean || stockItem?.ean || localItem?.ean_asin);
   const localName = normalizeLooseComparable(localItem?.product_name);
   const localQty = Number(localItem?.quantity_received ?? 0) || 0;
 
@@ -807,7 +808,7 @@ async function syncInboundReceivedQuantities({
 }) {
   const { data: localItems, error: localItemsError } = await supabase
     .from("receiving_items")
-    .select("id, line_number, product_name, asin, sku, ean, ean_asin, quantity_received, received_units, is_received")
+    .select("id, line_number, product_name, ean_asin, quantity_received, received_units, is_received, stock_item_id, stock_item:stock_items(id, asin, sku, ean, name)")
     .eq("shipment_id", receivingShipmentId)
     .order("line_number", { ascending: true });
   if (localItemsError) {
@@ -880,22 +881,18 @@ async function syncInboundReceivedQuantities({
     const actualQuantity = Math.max(0, Number(local.confirmed_quantity ?? 0) || 0);
     const payload = {
       item_id: itemId,
-      expected: [
-        {
-          quantity: expectedQuantity,
-          item_group_configurations: Array.isArray(remote.expected_item_group_configurations)
-            ? remote.expected_item_group_configurations
-            : []
-        }
-      ],
-      actual: [
-        {
-          quantity: actualQuantity,
-          item_group_configurations: Array.isArray(remote.actual_item_group_configurations)
-            ? remote.actual_item_group_configurations
-            : []
-        }
-      ]
+      expected: {
+        quantity: expectedQuantity,
+        item_group_configurations: Array.isArray(remote.expected_item_group_configurations)
+          ? remote.expected_item_group_configurations
+          : []
+      },
+      actual: {
+        quantity: actualQuantity,
+        item_group_configurations: Array.isArray(remote.actual_item_group_configurations)
+          ? remote.actual_item_group_configurations
+          : []
+      }
     };
 
     const resp = await fetch(`${base}/shipments/inbound/${sourceId}/update-item`, {
@@ -1124,6 +1121,152 @@ async function syncPendingReceives() {
   return results;
 }
 
+async function backfillReceivedImports(maxBatches = 25) {
+  const batches: Array<Record<string, unknown>> = [];
+  let totalProcessed = 0;
+  let totalErrors = 0;
+
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const results = await syncPendingReceives();
+    const processedNow = results.filter((row) => row?.ok).length;
+    const errorsNow = results.filter((row) => row?.error).length;
+
+    batches.push({
+      batch: batch + 1,
+      processed: processedNow,
+      errors: errorsNow,
+      results
+    });
+
+    totalProcessed += processedNow;
+    totalErrors += errorsNow;
+
+    if (results.length === 0) break;
+    if (processedNow === 0) break;
+  }
+
+  return {
+    ok: true,
+    action: "backfill-received",
+    processed: totalProcessed,
+    errors: totalErrors,
+    batches
+  };
+}
+
+async function syncAllReceivedPrepBusinessImports(limit = 200) {
+  const { data: imports, error: importsError } = await supabase
+    .from("prep_business_imports")
+    .select("id, source_id, merchant_id, receiving_shipment_id, status")
+    .neq("status", "archived")
+    .not("source_id", "is", null)
+    .not("merchant_id", "is", null)
+    .not("receiving_shipment_id", "is", null)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (importsError || !imports?.length) return [];
+
+  const results: Array<Record<string, unknown>> = [];
+  for (const row of imports) {
+    const receivingShipmentId = normalizeText((row as any).receiving_shipment_id);
+    const sourceId = normalizeText((row as any).source_id);
+    const merchantId = normalizeText((row as any).merchant_id);
+    if (!receivingShipmentId || !sourceId || !merchantId) continue;
+
+    const { data: shipment, error: shipmentError } = await supabase
+      .from("receiving_shipments")
+      .select("status")
+      .eq("id", receivingShipmentId)
+      .maybeSingle();
+    if (shipmentError || !shipment) continue;
+    if (!["received", "processed"].includes(String(shipment.status || "").toLowerCase())) continue;
+
+    try {
+      const quantitySync = await syncInboundReceivedQuantities({
+        receivingShipmentId,
+        merchantId,
+        sourceId
+      });
+
+      const base = PREP_BASE_URL.replace(/\/+$/, "");
+      const url = `${base}/shipments/inbound/${sourceId}/receive`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${PREP_TOKEN}`,
+          "X-Api-Key": PREP_TOKEN,
+          "X-Selected-Client-Id": String(merchantId),
+          Accept: "application/json"
+        }
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        results.push({
+          error: `Receive sync failed: PrepBusiness API error ${resp.status}: ${text || resp.statusText}`,
+          source_id: sourceId,
+          merchant_id: merchantId
+        });
+        continue;
+      }
+
+      await supabase
+        .from("prep_business_imports")
+        .update({ status: "received" })
+        .eq("id", (row as any).id);
+
+      results.push({
+        ok: true,
+        source_id: sourceId,
+        merchant_id: merchantId,
+        action: "receive-sync-all",
+        quantity_sync: quantitySync
+      });
+    } catch (error) {
+      results.push({
+        error: `Receive quantity sync failed: ${error instanceof Error ? error.message : String(error)}`,
+        source_id: sourceId,
+        merchant_id: merchantId
+      });
+    }
+  }
+
+  return results;
+}
+
+async function backfillAllReceivedImports(maxBatches = 25) {
+  const batches: Array<Record<string, unknown>> = [];
+  let totalProcessed = 0;
+  let totalErrors = 0;
+
+  for (let batch = 0; batch < maxBatches; batch += 1) {
+    const results = await syncAllReceivedPrepBusinessImports(200);
+    const processedNow = results.filter((row) => row?.ok).length;
+    const errorsNow = results.filter((row) => row?.error).length;
+
+    batches.push({
+      batch: batch + 1,
+      processed: processedNow,
+      errors: errorsNow,
+      results
+    });
+
+    totalProcessed += processedNow;
+    totalErrors += errorsNow;
+
+    if (results.length === 0) break;
+    if (processedNow === 0 && errorsNow === 0) break;
+    break;
+  }
+
+  return {
+    ok: true,
+    action: "backfill-all-received",
+    processed: totalProcessed,
+    errors: totalErrors,
+    batches
+  };
+}
+
 async function handleSync(req: Request) {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1202,6 +1345,70 @@ async function handleSync(req: Request) {
     }
 
     return jsonResponse({ ok: true, source_id: sourceId, merchant_id: merchantId, quantity_sync: quantitySync });
+  }
+
+  if (req.method === "POST" && normalizeText(body.action) === "sync_quantities") {
+    if (!PREP_BASE_URL || !PREP_TOKEN) {
+      return jsonResponse({ error: "Missing PREPBUSINESS_API_BASE_URL or PREPBUSINESS_API_TOKEN." }, 400);
+    }
+
+    const receivingShipmentId = normalizeText(body.receiving_shipment_id) || normalizeText(body.receivingShipmentId);
+    let sourceId = normalizeText(body.source_id) || normalizeText(body.sourceId);
+    let merchantId = normalizeText(body.merchant_id) || normalizeText(body.merchantId);
+
+    if (!sourceId || !merchantId) {
+      if (!receivingShipmentId) {
+        return jsonResponse({ error: "Missing receiving_shipment_id or source_id." }, 400);
+      }
+      const { data, error } = await supabase
+        .from("prep_business_imports")
+        .select("source_id, merchant_id")
+        .eq("receiving_shipment_id", receivingShipmentId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error || !data) {
+        return jsonResponse({ error: "No PrepBusiness import found for receiving_shipment_id." }, 404);
+      }
+      sourceId = sourceId || normalizeText(data.source_id);
+      merchantId = merchantId || normalizeText(data.merchant_id);
+    }
+
+    if (!receivingShipmentId || !sourceId || !merchantId) {
+      return jsonResponse({ error: "Missing receiving_shipment_id, source_id or merchant_id for PrepBusiness quantity sync." }, 400);
+    }
+
+    const quantitySync = await syncInboundReceivedQuantities({
+      receivingShipmentId,
+      merchantId,
+      sourceId
+    });
+
+    return jsonResponse({ ok: true, source_id: sourceId, merchant_id: merchantId, quantity_sync: quantitySync });
+  }
+
+  if (req.method === "POST" && normalizeText(body.action) === "backfill_received") {
+    if (!PREP_BASE_URL || !PREP_TOKEN) {
+      return jsonResponse({ error: "Missing PREPBUSINESS_API_BASE_URL or PREPBUSINESS_API_TOKEN." }, 400);
+    }
+    const requestedBatches = Number(body.max_batches ?? body.maxBatches ?? 25);
+    const maxBatches = Number.isFinite(requestedBatches)
+      ? Math.max(1, Math.min(100, Math.floor(requestedBatches)))
+      : 25;
+    const result = await backfillReceivedImports(maxBatches);
+    return jsonResponse(result);
+  }
+
+  if (req.method === "POST" && normalizeText(body.action) === "backfill_all_received") {
+    if (!PREP_BASE_URL || !PREP_TOKEN) {
+      return jsonResponse({ error: "Missing PREPBUSINESS_API_BASE_URL or PREPBUSINESS_API_TOKEN." }, 400);
+    }
+    const requestedBatches = Number(body.max_batches ?? body.maxBatches ?? 25);
+    const maxBatches = Number.isFinite(requestedBatches)
+      ? Math.max(1, Math.min(100, Math.floor(requestedBatches)))
+      : 25;
+    const result = await backfillAllReceivedImports(maxBatches);
+    return jsonResponse(result);
   }
 
   if (req.method === "POST" && ["archive", "delete"].includes(String(normalizeText(body.action) || "").toLowerCase())) {

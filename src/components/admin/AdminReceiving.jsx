@@ -396,7 +396,19 @@ function AdminReceivingDetail({ shipment, onBack, onUpdate, carriers = [] }) {
         delete next[item.id];
         return next;
       });
-      setMessage('Received units updated successfully.');
+      let syncWarning = '';
+      if (shipment.import_source === 'prepbusiness') {
+        const { error: syncError } = await supabaseHelpers.syncPrepBusinessQuantities(shipment.id);
+        if (syncError) {
+          console.error('PrepBusiness partial quantity sync failed', syncError);
+          syncWarning = syncError.message || 'PrepBusiness quantity sync failed.';
+        }
+      }
+      setMessage(
+        syncWarning
+          ? `Received units updated locally, but PrepBusiness sync failed: ${syncWarning}`
+          : 'Received units updated successfully.'
+      );
     } catch (error) {
       setMessage(`Error: ${error.message}`);
     } finally {
