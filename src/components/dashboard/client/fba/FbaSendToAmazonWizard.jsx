@@ -2157,7 +2157,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
         if (Array.isArray(pGroups)) {
           const normalized = normalizePackGroups(pGroups);
-          setPackGroups((prev) => mergePackGroups(prev, normalized));
+          setPackGroups(normalized);
           setPackGroupsLoaded(hasRealPackGroups(normalized));
         }
         if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);
@@ -2809,7 +2809,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       delete next[skuId];
       return next;
     });
-    // La remove nu recalculăm pack groups și nu invalidăm planul curent.
+    invalidateFrom('1');
     setStep1SaveError('');
   };
 
@@ -6404,7 +6404,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       if (response?.placementOptionId) setPlacementOptionId(response.placementOptionId);
       if (Array.isArray(pGroups)) {
         const normalized = normalizePackGroups(pGroups);
-        setPackGroups((prev) => mergePackGroups(prev, normalized));
+        setPackGroups(normalized);
         setPackGroupsLoaded(hasRealPackGroups(normalized));
       }
       if (Array.isArray(pShipments) && pShipments.length) setShipments(pShipments);

@@ -81,6 +81,7 @@ type AmazonIntegration = {
   marketplace_id: string;
   region: string;
   refresh_token: string;
+  sellercentral_cookie?: string | null;
 };
 
 type OwnerVal = "NONE" | "SELLER" | "AMAZON";
@@ -1225,6 +1226,17 @@ function regionHost(region: string) {
   }
 }
 
+function sellerCentralHost(region: string) {
+  switch ((region || "eu").toLowerCase()) {
+    case "na":
+      return "sellercentral.amazon.com";
+    case "fe":
+      return "sellercentral-japan.amazon.com";
+    default:
+      return "sellercentral-europe.amazon.com";
+  }
+}
+
 async function assumeRole(roleArn: string) {
   // STS is global; sign in us-east-1
   const host = "sts.amazonaws.com";
@@ -1368,6 +1380,97 @@ async function fetchJsonWithOptionalAuth(url: string, headers?: Record<string, s
     json = null;
   }
   return { res, text, json };
+}
+
+async function sellerCentralProxyGet(opts: {
+  host: string;
+  path: string;
+  query?: string;
+  cookie?: string;
+  traceId?: string;
+  operationName?: string;
+  marketplaceId?: string;
+  sellerId?: string;
+  extraHeaders?: Record<string, string>;
+}) {
+  const { host, path, query, cookie, traceId, operationName, marketplaceId, sellerId, extraHeaders } = opts;
+  const url = `https://${host}${path}${query ? `?${query}` : ""}`;
+  const requestHeaders: Record<string, string> = {
+    accept: "application/json",
+    ...extraHeaders
+  };
+  if (cookie) {
+    requestHeaders.cookie = cookie;
+  }
+
+  console.log(
+    JSON.stringify(
+      {
+        tag: "SELLERCENTRAL_REQUEST",
+        traceId: traceId || null,
+        timestamp: new Date().toISOString(),
+        operation: operationName || path,
+        method: "GET",
+        url,
+        marketplaceId: marketplaceId || null,
+        sellerId: sellerId || null,
+        requestHeaders: maskHeaders(requestHeaders),
+        requestBody: ""
+      },
+      null,
+      2
+    )
+  );
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: requestHeaders
+    });
+    const text = await res.text();
+    let json: any = null;
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      json = null;
+    }
+
+    console.log(
+      JSON.stringify(
+        {
+          tag: "SELLERCENTRAL_RESPONSE",
+          traceId: traceId || null,
+          timestamp: new Date().toISOString(),
+          operation: operationName || path,
+          status: res.status,
+          responseHeaders: maskHeaders(res.headers),
+          responseBody: text
+        },
+        null,
+        2
+      )
+    );
+
+    return { res, text, json };
+  } catch (error: any) {
+    console.error(
+      JSON.stringify(
+        {
+          tag: "SELLERCENTRAL_ERROR",
+          traceId: traceId || null,
+          timestamp: new Date().toISOString(),
+          operation: operationName || path,
+          errorName: error?.name || "Error",
+          errorMessage: error?.message || String(error),
+          errorStack: error?.stack || "",
+          raw: safeJson(error)
+        },
+        null,
+        2
+      )
+    );
+    throw error;
+  }
 }
 
 type CatalogApiResult = {
@@ -1818,7 +1921,10 @@ async function checkSkuStatus(params: {
   if (asin) {
     try {
       const restrictionsPath = "/listings/2021-08-01/restrictions";
-      const restrictionsQuery = `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}`;
+      const restrictionsQuery =
+        `marketplaceIds=${encodeURIComponent(marketplaceId)}` +
+        `&asin=${encodeURIComponent(asin)}` +
+        `&sellerId=${encodeURIComponent(sellerId)}`;
       const { res, json, text } = await spapiGet({
         host,
         region,
@@ -2342,7 +2448,7 @@ serve(async (req) => {
     if (inferredMarketplace) {
       const { data: integRows, error } = await supabase
         .from("amazon_integrations")
-        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("*")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .eq("marketplace_id", inferredMarketplace)
@@ -2358,7 +2464,7 @@ serve(async (req) => {
     if (!integ) {
       const { data: integRows, error: integErr } = await supabase
         .from("amazon_integrations")
-        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("*")
         .eq("company_id", reqData.company_id)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
@@ -2371,7 +2477,7 @@ serve(async (req) => {
     if (!integ) {
       const { data: pendingRows, error: pendingErr } = await supabase
         .from("amazon_integrations")
-        .select("id, refresh_token, marketplace_id, region, updated_at, selling_partner_id, status")
+        .select("*")
         .eq("company_id", reqData.company_id)
         .in("status", ["pending"])
         .order("updated_at", { ascending: false })
@@ -2396,6 +2502,13 @@ serve(async (req) => {
 
     const refreshToken = integ.refresh_token;
     const amazonIntegrationId = (integ as any)?.id || null;
+    const sellerCentralSessionCookie =
+      String(
+        (integ as any)?.sellercentral_cookie ||
+          Deno.env.get("SELLERCENTRAL_SESSION_COOKIE") ||
+          Deno.env.get("AMAZON_SELLERCENTRAL_COOKIE") ||
+          ""
+      ).trim() || null;
     const sellerId = await resolveSellerId(reqData.company_id, integ.selling_partner_id);
     if (!sellerId) {
       return new Response(JSON.stringify({ error: "Missing seller id. Set selling_partner_id in amazon_integrations or SPAPI_SELLER_ID env.", traceId }), {
@@ -2408,6 +2521,7 @@ serve(async (req) => {
     const regionCode = (integ.region || "eu").toLowerCase();
     const awsRegion = regionCode === "na" ? "us-east-1" : regionCode === "fe" ? "us-west-2" : "eu-west-1";
     const host = regionHost(regionCode);
+    const sellerCentralUiHost = sellerCentralHost(regionCode);
 
     // Get temp creds via STS AssumeRole
     const tempCreds = await assumeRole(SPAPI_ROLE_ARN);
@@ -2761,6 +2875,20 @@ serve(async (req) => {
       }
     }
 
+    const prepOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
+    const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
+    const prepCategoryBySku: Record<string, string | null> = {};
+    const transparencyBySku: Record<string, { required: boolean; messages: string[] }> = {};
+    const transparencyByProductType = new Map<string, { required: boolean; messages: string[] }>();
+    let transparencyDetectionPromise: Promise<void> | null = null;
+
+    const ensureTransparencyRequirements = async () => {
+      if (!transparencyDetectionPromise) {
+        transparencyDetectionPromise = detectTransparencyRequirements();
+      }
+      return transparencyDetectionPromise;
+    };
+
     // Debug info for auth context (mascat)
     console.log("fba-plan auth-context", {
       traceId,
@@ -2774,6 +2902,8 @@ serve(async (req) => {
       accessKey: AWS_ACCESS_KEY_ID ? `...${AWS_ACCESS_KEY_ID.slice(-4)}` : "",
       scopes: lwaScopes.length ? lwaScopes : "opaque_token_not_decoded"
     });
+
+    await ensureTransparencyRequirements();
 
     // Pre-eligibility check per SKU for destination marketplace
     const skuStatuses: { sku: string; asin: string | null; state: string; reason: string; inputSku?: string; fnsku?: string | null }[] = [];
@@ -2817,6 +2947,7 @@ serve(async (req) => {
       if (prepGuidanceWarning) warningParts.push(prepGuidanceWarning);
       const warning = warningParts.filter(Boolean).join(" ");
       if (blocking.length || missing.length) {
+      await ensureTransparencyRequirements();
       const skus = collapsedItems.map((c, idx) => {
         const key = normalizeSku(c.sku || c.asin || "");
         const prepInfo = prepGuidanceMap[key] || {};
@@ -2883,12 +3014,6 @@ serve(async (req) => {
         });
       }
     }
-
-    const prepOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
-    const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
-    const prepCategoryBySku: Record<string, string | null> = {};
-    const transparencyBySku: Record<string, { required: boolean; messages: string[] }> = {};
-    const transparencyByProductType = new Map<string, { required: boolean; messages: string[] }>();
 
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
@@ -3508,7 +3633,7 @@ serve(async (req) => {
       return { warnings };
     };
 
-    const fetchTransparencyForProductType = async (productTypeRaw: string) => {
+    async function fetchTransparencyForProductType(productTypeRaw: string) {
       const productType = String(productTypeRaw || "").trim();
       if (!productType) return { required: false, messages: [] };
       if (transparencyByProductType.has(productType)) {
@@ -3564,14 +3689,46 @@ serve(async (req) => {
       };
       transparencyByProductType.set(productType, normalized);
       return normalized;
-    };
+    }
 
-    const detectTransparencyRequirements = async () => {
+    async function detectTransparencyRequirements() {
       const uniqueSkus = Array.from(new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean)));
       for (const skuKey of uniqueSkus) {
         const itemForSku = collapsedItems.find((c) => normalizeSku(c.sku) === skuKey) || null;
         const asin = String(itemForSku?.asin || "").trim();
         const transparencyMessages = new Set<string>();
+        let internalSignal = { required: false, messages: [] as string[] };
+
+        if (asin) {
+          const commonInternalReq = {
+            host: sellerCentralUiHost,
+            path: `/fba/i2i/proxyService/transparencyProgramEnrollment/${encodeURIComponent(asin)}`,
+            query: `marketplaceId=${encodeURIComponent(marketplaceId)}`,
+            traceId,
+            marketplaceId,
+            sellerId,
+            extraHeaders: {
+              referer: `https://${sellerCentralUiHost}/fba/sendtoamazon/confirm_content_step`,
+              "x-requested-with": "XMLHttpRequest"
+            }
+          };
+
+          if (sellerCentralSessionCookie) {
+            const cookieRes = await sellerCentralProxyGet({
+              ...commonInternalReq,
+              cookie: sellerCentralSessionCookie,
+              operationName: "sellercentral.transparencyProgramEnrollment.cookie"
+            });
+            const cookieValue =
+              cookieRes.json && typeof cookieRes.json === "object"
+                ? cookieRes.json[asin] ?? cookieRes.json[String(asin)] ?? null
+                : null;
+            if (cookieRes.res.ok && cookieValue === true) {
+              internalSignal = { required: true, messages: ["Transparency code required"] };
+              transparencyMessages.add("Transparency code required");
+            }
+          }
+        }
 
         const getRes = await spapiGet({
           host,
@@ -3610,8 +3767,8 @@ serve(async (req) => {
         let restrictionsSignal = { required: false, messages: [] as string[] };
         if (asin) {
           const restrictionsQueries = [
-            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}&conditionType=${encodeURIComponent("new_new")}`,
-            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}`
+            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}&sellerId=${encodeURIComponent(sellerId)}&conditionType=${encodeURIComponent("new_new")}`,
+            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}&sellerId=${encodeURIComponent(sellerId)}`
           ];
 
           for (const restrictionsQuery of restrictionsQueries) {
@@ -3638,7 +3795,9 @@ serve(async (req) => {
           }
         }
 
-        const required = Boolean(schemaSignal.required || issueSignal.required || restrictionsSignal.required);
+        const required = Boolean(
+          internalSignal.required || schemaSignal.required || issueSignal.required || restrictionsSignal.required
+        );
         if (!required) continue;
 
         transparencyBySku[skuKey] = {
@@ -3646,7 +3805,7 @@ serve(async (req) => {
           messages: Array.from(transparencyMessages)
         };
       }
-    };
+    }
 
     const formatAddress = (addr?: Record<string, string | undefined | null>) => {
       if (!addr) return "—";
@@ -3979,8 +4138,6 @@ serve(async (req) => {
       const preflight = await preflightPrepDetailsForStep1();
       if (preflight.warnings.length) planWarnings.push(...preflight.warnings);
     }
-    await detectTransparencyRequirements();
-
     const lockId = `LOCK-${traceId}`;
     let hasPlanLock = false;
     let attempt = 0;
@@ -4347,6 +4504,7 @@ serve(async (req) => {
       .filter(Boolean) as string[];
 
     if (missingExpiry.length) {
+      await ensureTransparencyRequirements();
       const warn = `Unele SKU-uri necesită dată de expirare: ${missingExpiry.join(", ")}. Completează expirarea și reîncearcă.`;
       const skus = collapsedItems.map((c, idx) => {
         const key = normalizeSku(c.sku || c.asin || "");
@@ -4446,6 +4604,7 @@ serve(async (req) => {
         );
         // Nu mai blocăm Step 1: lăsăm UI să continue cu planul activ, packing se face în 1b.
       } else {
+        await ensureTransparencyRequirements();
         console.error("createInboundPlan primary error", {
           traceId,
           status: createHttpStatus,
@@ -4860,6 +5019,7 @@ serve(async (req) => {
       });
     });
 
+    await ensureTransparencyRequirements();
     const skus = collapsedItems.map((c, idx) => {
       const skuKey = normalizeSku(c.sku);
       const prepInfo = prepGuidanceMap[skuKey] || {};
