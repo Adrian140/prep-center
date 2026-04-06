@@ -352,6 +352,11 @@ function normalizeTransparencyMessage(input: string) {
   return text;
 }
 
+function hasTransparencyKeyword(input: unknown) {
+  const text = String(input || "").toLowerCase();
+  return /\btransparency\b/.test(text) || /transparency[_\s-]*code/.test(text);
+}
+
 function extractTransparencySignals(value: any) {
   const messages = new Set<string>();
   let required = false;
@@ -361,7 +366,7 @@ function extractTransparencySignals(value: any) {
     if (node === null || node === undefined || depth > 6) return;
 
     if (typeof node === "string") {
-      if (/transparen/i.test(node) || /transparency code required/i.test(node)) {
+      if (hasTransparencyKeyword(node)) {
         const normalized = normalizeTransparencyMessage(node);
         if (normalized) messages.add(normalized);
         required = true;
@@ -370,7 +375,7 @@ function extractTransparencySignals(value: any) {
     }
 
     if (typeof node === "boolean") {
-      if (node && /transparen/i.test(path)) {
+      if (node && hasTransparencyKeyword(path)) {
         messages.add("Transparency code required");
         required = true;
       }
@@ -388,7 +393,7 @@ function extractTransparencySignals(value: any) {
 
     for (const [key, val] of Object.entries(node)) {
       const nextPath = path ? `${path}.${key}` : key;
-      if (/transparen/i.test(key)) {
+      if (hasTransparencyKeyword(key)) {
         if (toBool(val) === true) {
           messages.add("Transparency code required");
           required = true;
@@ -428,6 +433,44 @@ function buildTransparencyAlert(prepInfo: PrepGuidance) {
   return normalizeTransparencyMessage(firstMessage || "Transparency code required");
 }
 
+function extractTransparencyFromRestrictionsResponse(json: any) {
+  const restrictions = json?.restrictions || json?.payload?.restrictions || json?.payload || [];
+  const signal = extractTransparencySignals(restrictions);
+  if (signal.required) {
+    return {
+      required: true,
+      messages: signal.messages.length ? signal.messages : ["Transparency code required"]
+    };
+  }
+
+  const normalizedRestrictions = Array.isArray(restrictions) ? restrictions : [];
+  const messages = new Set<string>();
+
+  for (const restriction of normalizedRestrictions) {
+    const reasons = Array.isArray(restriction?.reasons) ? restriction.reasons : [];
+    const links = Array.isArray(restriction?.links) ? restriction.links : [];
+
+    for (const reason of reasons) {
+      const reasonSignal = extractTransparencySignals(reason);
+      if (reasonSignal.required) {
+        for (const message of reasonSignal.messages) messages.add(message);
+      }
+    }
+
+    for (const link of links) {
+      const linkSignal = extractTransparencySignals(link);
+      if (linkSignal.required) {
+        for (const message of linkSignal.messages) messages.add(message);
+      }
+    }
+  }
+
+  return {
+    required: messages.size > 0,
+    messages: messages.size ? Array.from(messages) : []
+  };
+}
+
 function normalizeLocaleForMarketplace(marketplaceId: string) {
   const map: Record<string, string> = {
     A13V1IB3VIYZZH: "fr_FR",
@@ -456,7 +499,7 @@ function detectTransparencyFromSchema(schema: any): TransparencySchemaSignal {
     if (node === null || node === undefined || depth > 10) return;
 
     if (typeof node === "string") {
-      if (/transparen/i.test(node)) {
+      if (hasTransparencyKeyword(node)) {
         addMatch(path, node);
         required = required || ancestorRequired;
       }
@@ -480,7 +523,7 @@ function detectTransparencyFromSchema(schema: any): TransparencySchemaSignal {
 
     for (const [key, val] of Object.entries(node)) {
       const nextPath = path ? `${path}.${key}` : key;
-      const keyHasTransparency = /transparen/i.test(key);
+      const keyHasTransparency = hasTransparencyKeyword(key);
       const desc =
         typeof (node as any).title === "string"
           ? (node as any).title
@@ -494,21 +537,21 @@ function detectTransparencyFromSchema(schema: any): TransparencySchemaSignal {
         required = required || childRequired || localRequired.has(String(key)) || path.endsWith(".required");
       }
 
-      if (typeof val === "string" && /transparen/i.test(val)) {
+      if (typeof val === "string" && hasTransparencyKeyword(val)) {
         addMatch(nextPath, val);
         required = required || childRequired;
       }
 
       if (Array.isArray(val) && /enumNames|enum|examples/i.test(key)) {
         for (const item of val) {
-          if (typeof item === "string" && /transparen/i.test(item)) {
+          if (typeof item === "string" && hasTransparencyKeyword(item)) {
             addMatch(nextPath, item);
             required = required || childRequired;
           }
         }
       }
 
-      if ((key === "title" || key === "description" || key === "displayName") && typeof val === "string" && /transparen/i.test(val)) {
+      if ((key === "title" || key === "description" || key === "displayName") && typeof val === "string" && hasTransparencyKeyword(val)) {
         addMatch(nextPath, val);
         required = required || ancestorRequired;
       }
@@ -3526,6 +3569,10 @@ serve(async (req) => {
     const detectTransparencyRequirements = async () => {
       const uniqueSkus = Array.from(new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean)));
       for (const skuKey of uniqueSkus) {
+        const itemForSku = collapsedItems.find((c) => normalizeSku(c.sku) === skuKey) || null;
+        const asin = String(itemForSku?.asin || "").trim();
+        const transparencyMessages = new Set<string>();
+
         const getRes = await spapiGet({
           host,
           region: awsRegion,
@@ -3546,16 +3593,57 @@ serve(async (req) => {
             (s: any) => String(s?.marketplaceId || s?.marketplace_id || "") === String(marketplaceId)
           ) || (Array.isArray(summaries) ? summaries[0] : null);
         const productType = String(summary?.productType || summary?.product_type || "").trim();
-        if (!productType) continue;
-
-        const schemaSignal = await fetchTransparencyForProductType(productType);
         const issueSignal = extractTransparencySignals(getRes.json?.issues || getRes.json?.payload?.issues || []);
-        const required = Boolean(schemaSignal.required || issueSignal.required);
+
+        if (issueSignal.required) {
+          for (const message of issueSignal.messages || []) transparencyMessages.add(message);
+        }
+
+        let schemaSignal = { required: false, messages: [] as string[] };
+        if (productType) {
+          schemaSignal = await fetchTransparencyForProductType(productType);
+          if (schemaSignal.required) {
+            for (const message of schemaSignal.messages || []) transparencyMessages.add(message);
+          }
+        }
+
+        let restrictionsSignal = { required: false, messages: [] as string[] };
+        if (asin) {
+          const restrictionsQueries = [
+            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}&conditionType=${encodeURIComponent("new_new")}`,
+            `marketplaceIds=${encodeURIComponent(marketplaceId)}&asin=${encodeURIComponent(asin)}`
+          ];
+
+          for (const restrictionsQuery of restrictionsQueries) {
+            const restrictionsRes = await spapiGet({
+              host,
+              region: awsRegion,
+              path: "/listings/2021-08-01/restrictions",
+              query: restrictionsQuery,
+              lwaToken: lwaAccessToken,
+              tempCreds,
+              traceId,
+              operationName: "listings.getRestrictions.transparency",
+              marketplaceId,
+              sellerId
+            });
+            if (!restrictionsRes.res.ok) continue;
+
+            const parsed = extractTransparencyFromRestrictionsResponse(restrictionsRes.json);
+            if (parsed.required) {
+              restrictionsSignal = parsed;
+              for (const message of parsed.messages || []) transparencyMessages.add(message);
+              break;
+            }
+          }
+        }
+
+        const required = Boolean(schemaSignal.required || issueSignal.required || restrictionsSignal.required);
         if (!required) continue;
 
         transparencyBySku[skuKey] = {
           required: true,
-          messages: Array.from(new Set([...(schemaSignal.messages || []), ...(issueSignal.messages || [])]))
+          messages: Array.from(transparencyMessages)
         };
       }
     };
