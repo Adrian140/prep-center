@@ -1570,6 +1570,7 @@ export default function FbaStep1Inventory({
       });
     });
     const rows = [];
+    let visibleGroupIndex = 0;
     normalizedPackGroups.forEach((group, idx) => {
       const items = Array.isArray(group?.items) ? group.items : [];
       if (!items.length) return;
@@ -1594,14 +1595,19 @@ export default function FbaStep1Inventory({
             sku: matched,
             key: matched.id,
             groupId,
-            groupLabel: tr('packGroupN', '', { index: idx + 1 })
+            groupLabel: ''
           });
         }
       });
       if (!matchedRows.length) return;
+      visibleGroupIndex += 1;
+      const visibleGroupLabel = tr('packGroupN', '', { index: visibleGroupIndex });
+      matchedRows.forEach((row) => {
+        row.groupLabel = visibleGroupLabel;
+      });
       rows.push({
         type: 'group',
-        label: tr('packGroupN', '', { index: idx + 1 }),
+        label: visibleGroupLabel,
         subtitle: tr('itemsBelowPackedTogether'),
         key: groupId,
         groupId
