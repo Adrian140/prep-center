@@ -1,7 +1,15 @@
 <svg width="160" height="96" viewBox="0 0 160 96" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="160" height="96" rx="14" fill="#FFF6EE"/>
-  <rect x="8" y="8" width="144" height="80" rx="10" fill="white" stroke="#F2E2D3"/>
-  <path d="M47.03 62V34H65.68V38.73H52.63V45.43H64.84V50.16H52.63V57.27H66.02V62H47.03Z" fill="#F1641E"/>
-  <path d="M73.22 62V34H78.82V46.01L89.57 34H96.44L85.57 46.19L96.84 62H89.95L81.84 50.45L78.82 53.75V62H73.22Z" fill="#F1641E"/>
-  <path d="M102.37 62V34H107.97V57.18H119.37V62H102.37Z" fill="#F1641E"/>
+  <rect x="8" y="8" width="144" height="80" rx="10" fill="#FFFFFF" stroke="#F2E2D3"/>
+  <text
+    x="26"
+    y="57"
+    fill="#F1641E"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="38"
+    font-weight="700"
+    letter-spacing="-1.2"
+  >
+    Etsy
+  </text>
 </svg>

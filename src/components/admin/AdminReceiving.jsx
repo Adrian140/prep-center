@@ -1540,6 +1540,15 @@ useEffect(() => {
     setSelectedShipment(null);
   };
 
+  const closeShipmentDetail = () => {
+    restoredShipmentRef.current = null;
+    setListState((prev) => ({
+      ...(prev || listDefaults),
+      selectedShipmentId: null
+    }));
+    setSelectedShipment(null);
+  };
+
   if (detailLoading && !selectedShipment) {
     return (
       <div className="bg-white rounded-xl border border-gray-200 px-6 py-12 text-center">
@@ -1553,7 +1562,7 @@ useEffect(() => {
       <AdminReceivingDetail
         shipment={selectedShipment}
         carriers={carrierOptions}
-        onBack={() => setSelectedShipment(null)}
+        onBack={closeShipmentDetail}
         onUpdate={handleStayOnDetailRefresh}
       />
     );
