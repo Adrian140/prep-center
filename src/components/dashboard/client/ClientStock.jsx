@@ -1209,6 +1209,8 @@ const [receptionForm, setReceptionForm] = useSessionStorage(
   `${storagePrefix}-receptionForm`,
   createReceptionFormState()
 );
+const [receptionTransparencyByRowId, setReceptionTransparencyByRowId] = useState({});
+const [receptionTransparencyUploadingByRowId, setReceptionTransparencyUploadingByRowId] = useState({});
 const [photoItem, setPhotoItem] = useState(null);
 const [photoCounts, setPhotoCounts] = useState({});
 const [trackingDraft, setTrackingDraft] = useState('');
@@ -2393,6 +2395,70 @@ const resetReceptionForm = () => {
   setReceptionForm(() => createReceptionFormState());
   setTrackingPanelOpen(false);
   setTrackingDraft('');
+  setReceptionTransparencyByRowId({});
+  setReceptionTransparencyUploadingByRowId({});
+};
+
+const handleReceptionTransparencyUpload = async (row, file) => {
+  if (!row?.id) {
+    setToast({ type: 'error', text: 'Missing product reference for Transparency upload.' });
+    return;
+  }
+  if (!profile?.company_id) {
+    setToast({ type: 'error', text: 'Missing company id for Transparency upload.' });
+    return;
+  }
+  if (!file || String(file.type || '').toLowerCase() !== 'application/pdf') {
+    setToast({ type: 'error', text: 'Upload a PDF file for Transparency labels.' });
+    return;
+  }
+  try {
+    setReceptionTransparencyUploadingByRowId((prev) => ({ ...prev, [row.id]: true }));
+    const previous = receptionTransparencyByRowId[row.id] || null;
+    const { error: uploadError, path } = await supabaseHelpers.uploadTransparencyLabel({
+      companyId: profile.company_id,
+      itemType: 'stock-reception-item',
+      itemId: row.id,
+      file
+    });
+    if (uploadError) throw uploadError;
+    if (previous?.path && previous.path !== path) {
+      await supabaseHelpers.deleteTransparencyLabel(previous.path);
+    }
+    setReceptionTransparencyByRowId((prev) => ({
+      ...prev,
+      [row.id]: {
+        path,
+        fileName: file.name || null,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: profile?.id || null
+      }
+    }));
+    setToast({ type: 'success', text: `Transparency PDF uploaded for ${row.asin || row.sku || 'item'}.` });
+  } catch (error) {
+    setToast({ type: 'error', text: error?.message || 'Unable to upload Transparency PDF.' });
+  } finally {
+    setReceptionTransparencyUploadingByRowId((prev) => ({ ...prev, [row.id]: false }));
+  }
+};
+
+const handleReceptionTransparencyRemove = async (row) => {
+  const rowId = row?.id;
+  const current = rowId ? receptionTransparencyByRowId[rowId] : null;
+  if (!rowId || !current) return;
+  try {
+    if (current.path) {
+      await supabaseHelpers.deleteTransparencyLabel(current.path);
+    }
+    setReceptionTransparencyByRowId((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+    setToast({ type: 'success', text: `Transparency PDF removed for ${row?.asin || row?.sku || 'item'}.` });
+  } catch (error) {
+    setToast({ type: 'error', text: error?.message || 'Unable to remove Transparency PDF.' });
+  }
 };
 
   const notifyPrepCenterAboutReception = async (header, basePayload) => {
@@ -2779,6 +2845,7 @@ const openReception = async () => {
     items: selectedRows.map(r => {
       const units = Number(rowEdits[r.id]?.units_to_send || 0);
       const fbaInfo = getReceptionFbaForRow(r.id, units);
+      const transparencyInfo = receptionTransparencyByRowId[r.id] || null;
       return {
       stock_item_id: r.id,
       ean: r.ean || null,
@@ -2788,6 +2855,10 @@ const openReception = async () => {
       units_requested: units,
       send_to_fba: fbaInfo.send_to_fba,
       fba_qty: fbaInfo.fba_qty,
+      transparency_file_path: transparencyInfo?.path || null,
+      transparency_file_name: transparencyInfo?.fileName || null,
+      transparency_uploaded_at: transparencyInfo?.uploadedAt || null,
+      transparency_uploaded_by: transparencyInfo?.uploadedBy || null,
     };
     }),
     status: 'submitted',
@@ -3384,6 +3455,10 @@ const saveReqChanges = async () => {
         onTrackingRemove={handleTrackingRemove}
         onReceptionFbaModeChange={handleReceptionFbaModeChange}
         selectedRows={selectedRows}
+        receptionTransparencyByRowId={receptionTransparencyByRowId}
+        receptionTransparencyUploadingByRowId={receptionTransparencyUploadingByRowId}
+        onReceptionTransparencyUpload={handleReceptionTransparencyUpload}
+        onReceptionTransparencyRemove={handleReceptionTransparencyRemove}
         rowEdits={rowEdits}
         updateEdit={updateEdit}
         openPrep={openPrep}
@@ -3396,6 +3471,8 @@ const saveReqChanges = async () => {
           setSelectionActionWarning('');
           setListingWarningIds(new Set());
           setListingWarningDetails({});
+          setReceptionTransparencyByRowId({});
+          setReceptionTransparencyUploadingByRowId({});
           setSelectedIdList([]);
         }}
         returnError={returnError}

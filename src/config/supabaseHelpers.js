@@ -1,5 +1,6 @@
 import {
   supabase,
+  supabaseHelpers as baseSupabaseHelpers,
   ensureReceivingColumnSupport,
   canUseReceivingFbaMode,
   canUseReceivingItemFbaColumns,
@@ -54,7 +55,7 @@ const isMissingColumnError = (error, column) => {
 };
 
 const receivingItemColumnMissing = (error) =>
-  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) =>
+  ['send_to_fba', 'fba_qty', 'stock_item_id', 'transparency_file_path', 'transparency_file_name', 'transparency_uploaded_at', 'transparency_uploaded_by'].some((col) =>
     isMissingColumnError(error, col)
   );
 
@@ -306,6 +307,9 @@ const ensureStockItemForPrepBusiness = async (companyId, userId, item) => {
 };
 
 export const supabaseHelpers = {
+  uploadTransparencyLabel: (...args) => baseSupabaseHelpers.uploadTransparencyLabel(...args),
+  createTransparencyLabelSignedUrl: (...args) => baseSupabaseHelpers.createTransparencyLabelSignedUrl(...args),
+  deleteTransparencyLabel: (...args) => baseSupabaseHelpers.deleteTransparencyLabel(...args),
   getCarriers: async () => {
     return await supabase
       .from('carriers')
@@ -611,7 +615,11 @@ export const supabaseHelpers = {
           remaining_action: encodeRemainingAction(
             !!it.send_to_fba,
             it.fba_qty ?? unitsRequested
-          )
+          ),
+          transparency_file_path: it.transparency_file_path || null,
+          transparency_file_name: it.transparency_file_name || null,
+          transparency_uploaded_at: it.transparency_uploaded_at || null,
+          transparency_uploaded_by: it.transparency_uploaded_by || null
         };
         if (withFbaFields) {
           base.stock_item_id = it.stock_item_id || null;

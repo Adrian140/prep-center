@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const ClientStockSelectionBar = ({
   t,
@@ -19,6 +19,10 @@ const ClientStockSelectionBar = ({
   onTrackingRemove,
   onReceptionFbaModeChange, // kept for compatibility, not used
   selectedRows,
+  receptionTransparencyByRowId = {},
+  receptionTransparencyUploadingByRowId = {},
+  onReceptionTransparencyUpload,
+  onReceptionTransparencyRemove,
   rowEdits,
   updateEdit,
   openPrep,
@@ -43,6 +47,7 @@ const ClientStockSelectionBar = ({
   if (!selectedIds?.size) return null;
   const [storeFieldOpen, setStoreFieldOpen] = useState(false);
   const [notesFieldOpen, setNotesFieldOpen] = useState(false);
+  const transparencyInputRefs = useRef({});
   const rawReturnLabel = t('ClientStock.return.cta') || t('ClientStock.cta.return');
   const returnLabel =
     rawReturnLabel && !String(rawReturnLabel).includes('ClientStock.cta.return')
@@ -214,6 +219,68 @@ const ClientStockSelectionBar = ({
                       <span className="text-blue-500">· {selectedUnits} {unitsLabel}</span>
                     )}
                   </span>
+                </div>
+              )}
+              {selectedRows.length > 0 && (
+                <div className="mt-3 border rounded-md bg-white max-h-48 overflow-y-auto divide-y">
+                  <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide bg-gray-50 text-text-secondary border-b">
+                    Transparency PDFs per ASIN
+                  </div>
+                  {selectedRows.map((row) => {
+                    const uploadState = receptionTransparencyByRowId[row.id] || null;
+                    const uploadBusy = Boolean(receptionTransparencyUploadingByRowId[row.id]);
+                    const hasFile = Boolean(uploadState?.path);
+                    return (
+                      <div key={`transparency-${row.id}`} className="px-3 py-2 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium text-text-primary truncate" title={row.name || row.asin || row.sku}>
+                            {row.name || row.asin || row.sku || row.ean || 'Item'}
+                          </div>
+                          <div className="text-[11px] text-text-secondary truncate">
+                            ASIN: {row.asin || '—'} · SKU: {row.sku || '—'}
+                          </div>
+                          <div className={`mt-1 text-[11px] ${hasFile ? 'text-green-700' : 'text-gray-500'}`}>
+                            {hasFile
+                              ? `PDF uploaded${uploadState?.fileName ? `: ${uploadState.fileName}` : ''}`
+                              : 'Optional at creation. Upload if this ASIN needs Transparency.'}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded border border-primary text-primary hover:bg-blue-50 disabled:opacity-50"
+                            disabled={uploadBusy}
+                            onClick={() => transparencyInputRefs.current[row.id]?.click()}
+                          >
+                            {uploadBusy ? 'Uploading…' : hasFile ? 'Replace PDF' : 'Add Transparency'}
+                          </button>
+                          {hasFile && (
+                            <button
+                              type="button"
+                              className="text-[11px] font-semibold text-red-500 hover:underline"
+                              disabled={uploadBusy}
+                              onClick={() => onReceptionTransparencyRemove?.(row)}
+                            >
+                              Remove
+                            </button>
+                          )}
+                          <input
+                            ref={(el) => {
+                              if (el) transparencyInputRefs.current[row.id] = el;
+                            }}
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const [file] = Array.from(e.target.files || []);
+                              if (file) onReceptionTransparencyUpload?.(row, file);
+                              e.target.value = '';
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
