@@ -18,6 +18,7 @@ const FieldLabel = ({ label, action = null, children }) => (
 // Small inline placeholder (60x60 light gray) to avoid network failures
 const placeholderImg =
   'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><rect width="60" height="60" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-size="10">SKU</text></svg>';
+const TRANSPARENCY_BUCKET = 'transparency-labels';
 
 const PREP_LABELS = {
   ITEM_POLYBAGGING: 'Polybagging',
@@ -327,6 +328,7 @@ export default function FbaStep1Inventory({
   const [inventoryLoading, setInventoryLoading] = useState(false);
   const [addSkuBusyKey, setAddSkuBusyKey] = useState('');
   const [addSkuQtyByKey, setAddSkuQtyByKey] = useState({});
+  const [transparencyDownloadingBySku, setTransparencyDownloadingBySku] = useState({});
   const [recheckingSkuId, setRecheckingSkuId] = useState('');
   const [listingAttrDraftsBySku, setListingAttrDraftsBySku] = useState({});
   const [listingAttrSavingBySku, setListingAttrSavingBySku] = useState({});
@@ -1783,6 +1785,8 @@ export default function FbaStep1Inventory({
       (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
     const prepList = formatPrepList(sku.prepInstructions || sku.prepNotes || []);
     const transparencyAlert = String(sku.transparencyAlert || '').trim();
+    const transparencyFilePath = String(sku.transparencyFilePath || '').trim();
+    const transparencyFileName = String(sku.transparencyFileName || '').trim();
     const needsPrepNotice =
       sku.prepRequired || prepList.length > 0 || sku.manufacturerBarcodeEligible === false;
     const prepNeedsAction = prepList.length > 0 || sku.prepRequired;
@@ -1899,6 +1903,26 @@ export default function FbaStep1Inventory({
       ? Math.max(1, parsePositiveInteger(sku.boxesCount) || Math.ceil((Number(sku.units || 0) || 0) / unitsPerBox) || 1)
       : null;
     const effectiveUnits = Number(sku.units || 0) || 0;
+    const downloadTransparencyPdf = async () => {
+      if (!transparencyFilePath) return;
+      try {
+        setTransparencyDownloadingBySku((prev) => ({ ...prev, [sku.id]: true }));
+        const { data, error } = await supabase.storage.from(TRANSPARENCY_BUCKET).createSignedUrl(transparencyFilePath, 60 * 60);
+        if (error) throw error;
+        const link = document.createElement('a');
+        link.href = data?.signedUrl || '';
+        link.download = transparencyFileName || `${sku.sku || sku.asin || 'transparency'}.pdf`;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      } catch (error) {
+        console.error('transparency download failed', error);
+      } finally {
+        setTransparencyDownloadingBySku((prev) => ({ ...prev, [sku.id]: false }));
+      }
+    };
     return (
       <tr key={sku.id} className="align-top">
         <td className="py-3 w-[320px] min-w-[320px]">
@@ -2007,6 +2031,25 @@ export default function FbaStep1Inventory({
                 {transparencyAlert.toLowerCase() !== 'transparency code required' && (
                   <div className="mt-1 text-xs font-medium text-red-700">{transparencyAlert}</div>
                 )}
+                <div className="mt-2 flex flex-col items-start gap-1">
+                  {transparencyFilePath ? (
+                    <>
+                      <button
+                        type="button"
+                        className="text-xs text-red-800 underline disabled:opacity-60"
+                        disabled={Boolean(transparencyDownloadingBySku[sku.id])}
+                        onClick={downloadTransparencyPdf}
+                      >
+                        {transparencyDownloadingBySku[sku.id] ? tr('downloading') : tr('printTransparencyLabels')}
+                      </button>
+                      {transparencyFileName ? (
+                        <div className="text-[11px] font-medium text-red-700">{transparencyFileName}</div>
+                      ) : null}
+                    </>
+                  ) : (
+                    <div className="text-[11px] font-medium text-red-700">{tr('noTransparencyPdfUploaded')}</div>
+                  )}
+                </div>
               </div>
             )}
             <div className="flex flex-col items-start gap-1">

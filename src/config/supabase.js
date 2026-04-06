@@ -33,10 +33,25 @@ const PHOTO_SUBSCRIPTION_SERVICE = 'Photo storage subscription';
 const PHOTO_MANUAL_SERVICE = 'Manual photo capture';
 const PHOTO_SUBSCRIPTION_PRICE = 3;
 const PHOTO_MANUAL_PRICE = 1;
+export const TRANSPARENCY_LABELS_BUCKET = 'transparency-labels';
 
 const pad2 = (value) => String(value).padStart(2, '0');
 const formatSqlDate = (date = new Date()) =>
   `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+
+const sanitizeFileName = (value) =>
+  String(value || 'file.pdf')
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'file.pdf';
+
+const buildTransparencyStoragePath = (companyId, itemType, itemId, fileName) => {
+  const safeCompanyId = String(companyId || 'common').trim();
+  const safeItemType = String(itemType || 'item').trim();
+  const safeItemId = String(itemId || 'unknown').trim();
+  const safeName = sanitizeFileName(fileName);
+  return `${safeCompanyId}/${safeItemType}/${safeItemId}/${Date.now()}-${safeName}`;
+};
 
 let supportsReceivingFbaMode = true;
 let supportsReceivingItemFbaColumns = true;
@@ -55,7 +70,7 @@ const isMissingColumnError = (error, column) => {
 };
 
 const receivingItemColumnMissing = (error) =>
-  ['send_to_fba', 'fba_qty', 'stock_item_id'].some((col) =>
+  ['send_to_fba', 'fba_qty', 'stock_item_id', 'transparency_file_path', 'transparency_file_name', 'transparency_uploaded_at', 'transparency_uploaded_by'].some((col) =>
     isMissingColumnError(error, col)
   );
 
@@ -551,6 +566,10 @@ const sanitizeItemPayload = (payload) => {
   delete clone.send_to_fba;
   delete clone.fba_qty;
   delete clone.received_units;
+  delete clone.transparency_file_path;
+  delete clone.transparency_file_name;
+  delete clone.transparency_uploaded_at;
+  delete clone.transparency_uploaded_by;
   return clone;
 };
 
@@ -2028,6 +2047,10 @@ const items = (draftData.items || []).map((it) => ({
   units_requested: Number(
     it.units_requested != null ? it.units_requested : it.units
   ),
+  transparency_file_path: it.transparency_file_path ?? null,
+  transparency_file_name: it.transparency_file_name ?? null,
+  transparency_uploaded_at: it.transparency_uploaded_at ?? null,
+  transparency_uploaded_by: it.transparency_uploaded_by ?? null,
 }));
 
       if (items.length === 0) {
@@ -2049,6 +2072,35 @@ const items = (draftData.items || []).map((it) => ({
   createPrepRequest(payload) {
   return this.createPrepRequestDraft(payload);
 },
+
+  uploadTransparencyLabel: async ({ companyId, itemType, itemId, file }) => {
+    const path = buildTransparencyStoragePath(
+      companyId,
+      itemType,
+      itemId,
+      file?.name || 'transparency.pdf'
+    );
+    const { data, error } = await supabase.storage
+      .from(TRANSPARENCY_LABELS_BUCKET)
+      .upload(path, file, {
+        upsert: false,
+        contentType: file?.type || 'application/pdf',
+        cacheControl: '3600'
+      });
+    return { data, error, path };
+  },
+
+  createTransparencyLabelSignedUrl: async (path, expiresIn = 60 * 60) => {
+    if (!path) return { data: null, error: new Error('Missing storage path') };
+    return await supabase.storage
+      .from(TRANSPARENCY_LABELS_BUCKET)
+      .createSignedUrl(path, expiresIn);
+  },
+
+  deleteTransparencyLabel: async (path) => {
+    if (!path) return { data: null, error: null };
+    return await supabase.storage.from(TRANSPARENCY_LABELS_BUCKET).remove([path]);
+  },
 
   // Client history (O SINGURĂ definiție)
   listClientPrepRequests: async (companyId) => {
@@ -4425,7 +4477,11 @@ getAllReceivingShipments: async (options = {}) => {
             product_name: stockRow?.name || item.product_name || null,
             asin: stockRow?.asin || normalizedAsin || null,
             sku: stockRow?.sku || normalizedSku || null,
-            units_requested: fbaQty
+            units_requested: fbaQty,
+            transparency_file_path: item.transparency_file_path || null,
+            transparency_file_name: item.transparency_file_name || null,
+            transparency_uploaded_at: item.transparency_uploaded_at || null,
+            transparency_uploaded_by: item.transparency_uploaded_by || null
           });
         }
       }

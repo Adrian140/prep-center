@@ -417,6 +417,10 @@ export const supabaseHelpers = {
         asin: it.asin || null,
         sku: it.sku || null,
         units_requested: Math.max(0, Math.floor(Number(it.units_requested) || 0)),
+        transparency_file_path: it.transparency_file_path || null,
+        transparency_file_name: it.transparency_file_name || null,
+        transparency_uploaded_at: it.transparency_uploaded_at || null,
+        transparency_uploaded_by: it.transparency_uploaded_by || null,
       }));
 
       const { error: err2 } = await supabase

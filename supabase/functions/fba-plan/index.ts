@@ -49,6 +49,10 @@ type PrepRequestItem = {
   box_weight_kg?: number | null;
   expiration_date?: string | null;
   expiration_source?: string | null;
+  transparency_file_path?: string | null;
+  transparency_file_name?: string | null;
+  transparency_uploaded_at?: string | null;
+  transparency_uploaded_by?: string | null;
   stock_item_id?: number | null;
   stock_item?: {
     image_url?: string | null;
@@ -2296,7 +2300,7 @@ serve(async (req) => {
     const { data: reqDataRaw, error: reqErr } = await supabase
       .from("prep_requests")
       .select(
-        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source)"
+        "id, destination_country, warehouse_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source, transparency_file_path, transparency_file_name, transparency_uploaded_at, transparency_uploaded_by)"
       )
       .eq("id", requestId)
       .maybeSingle();
@@ -2355,7 +2359,7 @@ serve(async (req) => {
         const { data: refetchReq, error: refetchErr } = await supabase
           .from("prep_requests")
           .select(
-            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source)"
+            "id, destination_country, company_id, user_id, inbound_plan_id, placement_option_id, packing_option_id, fba_shipment_id, amazon_snapshot, step1_box_plan, prep_request_items(id, asin, sku, product_name, units_requested, units_sent, packing_template_id, packing_template_name, packing_template_type, units_per_box, boxes_count, box_length_cm, box_width_cm, box_height_cm, box_weight_kg, stock_item_id, expiration_date, expiration_source, transparency_file_path, transparency_file_name, transparency_uploaded_at, transparency_uploaded_by)"
           )
           .eq("id", requestId)
           .maybeSingle();
@@ -2573,6 +2577,8 @@ serve(async (req) => {
       box_width_cm: number | null;
       box_height_cm: number | null;
       box_weight_kg: number | null;
+      transparency_file_path: string | null;
+      transparency_file_name: string | null;
     };
     const collapsedItems: CollapsedItem[] = (() => {
       const map = new Map<string, CollapsedItem>();
@@ -2595,6 +2601,8 @@ serve(async (req) => {
           if (!existing.box_width_cm && it.box_width_cm) existing.box_width_cm = Number(it.box_width_cm) || null;
           if (!existing.box_height_cm && it.box_height_cm) existing.box_height_cm = Number(it.box_height_cm) || null;
           if (!existing.box_weight_kg && it.box_weight_kg) existing.box_weight_kg = Number(it.box_weight_kg) || null;
+          if (!existing.transparency_file_path && it.transparency_file_path) existing.transparency_file_path = it.transparency_file_path;
+          if (!existing.transparency_file_name && it.transparency_file_name) existing.transparency_file_name = it.transparency_file_name;
         } else {
           map.set(skuKey, {
             sku: skuKey,
@@ -2610,7 +2618,9 @@ serve(async (req) => {
             box_length_cm: Number(it.box_length_cm || 0) || null,
             box_width_cm: Number(it.box_width_cm || 0) || null,
             box_height_cm: Number(it.box_height_cm || 0) || null,
-            box_weight_kg: Number(it.box_weight_kg || 0) || null
+            box_weight_kg: Number(it.box_weight_kg || 0) || null,
+            transparency_file_path: it.transparency_file_path || null,
+            transparency_file_name: it.transparency_file_name || null
           });
         }
       }
@@ -2985,6 +2995,8 @@ serve(async (req) => {
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
           transparencyRequired,
           transparencyAlert,
+          transparencyFilePath: c.transparency_file_path || null,
+          transparencyFileName: c.transparency_file_name || null,
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: true
@@ -4540,6 +4552,8 @@ serve(async (req) => {
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
           transparencyRequired,
           transparencyAlert,
+          transparencyFilePath: c.transparency_file_path || null,
+          transparencyFileName: c.transparency_file_name || null,
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: false
@@ -5070,6 +5084,8 @@ serve(async (req) => {
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
         transparencyRequired,
         transparencyAlert,
+        transparencyFilePath: c.transparency_file_path || null,
+        transparencyFileName: c.transparency_file_name || null,
         manufacturerBarcodeEligible,
         labelOwner,
         labelOwnerSource,

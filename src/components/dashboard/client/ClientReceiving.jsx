@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Edit, Trash2, Send } from 'lucide-react';
 import { useSupabaseAuth } from '../../../contexts/SupabaseAuthContext';
 import { supabaseHelpers } from '../../../config/supabase';
@@ -104,6 +104,11 @@ const DATE_LOCALE_MAP = {
 
 const DESTINATION_COUNTRIES = ['FR', 'DE', 'IT', 'ES', 'UK'];
 const HISTORY_COUNTRIES = ['FR', 'DE'];
+const isPdfFile = (file) =>
+  !!file && (
+    String(file.type || '').toLowerCase() === 'application/pdf' ||
+    String(file.name || '').toLowerCase().endsWith('.pdf')
+  );
 
 const normalizeCountryCode = (value, fallback = 'FR') => {
   const code = String(value || '').trim().toUpperCase();
@@ -206,6 +211,9 @@ function ClientReceiving() {
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryDraftQty, setInventoryDraftQty] = useState({});
   const [shipmentsSearch, setShipmentsSearch] = useState('');
+  const [transparencyUploadingByItem, setTransparencyUploadingByItem] = useState({});
+  const [transparencyDownloadingByItem, setTransparencyDownloadingByItem] = useState({});
+  const transparencyInputRefs = useRef({});
   const [activeCountry, setActiveCountry] = useState(() => {
     const market = normalizeCountryCode(currentMarket, '');
     return HISTORY_COUNTRIES.includes(market) ? market : 'FR';
@@ -487,6 +495,10 @@ const resolveBoxesCount = (shipment) => {
           purchase_price: item.purchase_price ?? null,
           send_to_fba: !!item.send_to_fba,
           fba_qty: item.send_to_fba ? Math.max(0, Number(item.fba_qty) || 0) : 0,
+          transparency_file_path: item.transparency_file_path || null,
+          transparency_file_name: item.transparency_file_name || null,
+          transparency_uploaded_at: item.transparency_uploaded_at || null,
+          transparency_uploaded_by: item.transparency_uploaded_by || null,
           line_number: baseLine
         };
       };
@@ -658,6 +670,10 @@ const resolveBoxesCount = (shipment) => {
         purchase_price: stockItem.purchase_price ?? null,
         send_to_fba: false,
         fba_qty: null,
+        transparency_file_path: null,
+        transparency_file_name: null,
+        transparency_uploaded_at: null,
+        transparency_uploaded_by: null,
         image_url: stockItem.image_url ?? null,
         stock_item: stockItem
       }
@@ -665,6 +681,90 @@ const resolveBoxesCount = (shipment) => {
     setInventoryDraftQty((prev) => ({ ...prev, [stockId]: '' }));
     setMessage('');
     setMessageType(null);
+  };
+
+  const handleTransparencyDownload = async (item) => {
+    const itemId = item?.id;
+    const path = item?.transparency_file_path;
+    if (!itemId || !path) return;
+    try {
+      setTransparencyDownloadingByItem((prev) => ({ ...prev, [itemId]: true }));
+      const { data, error } = await supabaseHelpers.createTransparencyLabelSignedUrl(path, 60 * 60);
+      if (error) throw error;
+      const link = document.createElement('a');
+      link.href = data?.signedUrl || '';
+      link.download = item?.transparency_file_name || 'transparency-labels.pdf';
+      link.target = '_blank';
+      link.rel = 'noreferrer';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      setMessage(error?.message || 'Unable to download Transparency PDF.');
+      setMessageType('error');
+    } finally {
+      setTransparencyDownloadingByItem((prev) => ({ ...prev, [itemId]: false }));
+    }
+  };
+
+  const handleTransparencyUpload = async (item, file) => {
+    const itemId = item?.id;
+    if (!itemId) {
+      setMessage('Save the reception first, then upload the Transparency PDF.');
+      setMessageType('error');
+      return;
+    }
+    if (!profile?.company_id) {
+      setMessage('Missing company id for Transparency upload.');
+      setMessageType('error');
+      return;
+    }
+    if (!isPdfFile(file)) {
+      setMessage('Upload a PDF file for Transparency labels.');
+      setMessageType('error');
+      return;
+    }
+    try {
+      setTransparencyUploadingByItem((prev) => ({ ...prev, [itemId]: true }));
+      const oldPath = item?.transparency_file_path || null;
+      const { error: uploadError, path } = await supabaseHelpers.uploadTransparencyLabel({
+        companyId: profile.company_id,
+        itemType: 'receiving-item',
+        itemId,
+        file
+      });
+      if (uploadError) throw uploadError;
+      const patch = {
+        transparency_file_path: path,
+        transparency_file_name: file.name || null,
+        transparency_uploaded_at: new Date().toISOString(),
+        transparency_uploaded_by: profile?.id || null
+      };
+      await supabaseHelpers.updateReceivingItem(itemId, patch);
+      if (oldPath && oldPath !== path) {
+        await supabaseHelpers.deleteTransparencyLabel(oldPath);
+      }
+      setSelectedShipment((prev) =>
+        prev
+          ? {
+              ...prev,
+              receiving_items: (prev.receiving_items || []).map((row) =>
+                row.id === itemId ? { ...row, ...patch } : row
+              )
+            }
+          : prev
+      );
+      setEditItems((prev) => prev.map((row) => (row.id === itemId ? { ...row, ...patch } : row)));
+      setMessage('Transparency PDF uploaded successfully.');
+      setMessageType('success');
+    } catch (error) {
+      setMessage(error?.message || 'Unable to upload Transparency PDF.');
+      setMessageType('error');
+    } finally {
+      setTransparencyUploadingByItem((prev) => ({ ...prev, [itemId]: false }));
+      const input = transparencyInputRefs.current[itemId];
+      if (input) input.value = '';
+    }
   };
 
   if (loading) {
@@ -1154,6 +1254,9 @@ const resolveBoxesCount = (shipment) => {
                   const lineEditable = editMode && !fullyReceived;
                   const imageUrl = resolveImageUrl(item);
                   const identifiers = resolveIdentifiers(item);
+                  const hasTransparencyPdf = Boolean(item.transparency_file_path);
+                  const uploadBusy = Boolean(transparencyUploadingByItem[item.id]);
+                  const downloadBusy = Boolean(transparencyDownloadingByItem[item.id]);
                   return (
                     <tr key={item.id || idx} className={rowClasses.join(' ')}>
                       <td className="px-4 py-3">
@@ -1192,6 +1295,51 @@ const resolveBoxesCount = (shipment) => {
                       <td className="px-4 py-3">
                         <div className="space-y-2">
                           <div>{item.product_name}</div>
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            {item.id ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => transparencyInputRefs.current[item.id]?.click()}
+                                  disabled={uploadBusy}
+                                  className="text-blue-600 underline disabled:opacity-60"
+                                >
+                                  {hasTransparencyPdf
+                                    ? (uploadBusy ? 'Uploading…' : 'Replace Transparency PDF')
+                                    : (uploadBusy ? 'Uploading…' : 'Add Transparency PDF')}
+                                </button>
+                                {hasTransparencyPdf && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTransparencyDownload(item)}
+                                    disabled={downloadBusy}
+                                    className="text-emerald-700 underline disabled:opacity-60"
+                                  >
+                                    {downloadBusy ? 'Downloading…' : 'Download Transparency PDF'}
+                                  </button>
+                                )}
+                                <input
+                                  ref={(el) => {
+                                    if (el) transparencyInputRefs.current[item.id] = el;
+                                  }}
+                                  type="file"
+                                  accept="application/pdf,.pdf"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleTransparencyUpload(item, file);
+                                  }}
+                                />
+                              </>
+                            ) : (
+                              <span className="text-text-secondary">Save the reception first to add Transparency PDF.</span>
+                            )}
+                            <span className={hasTransparencyPdf ? 'text-emerald-700' : 'text-slate-500'}>
+                              {hasTransparencyPdf
+                                ? `PDF uploaded${item.transparency_file_name ? `: ${item.transparency_file_name}` : ''}`
+                                : 'No Transparency PDF uploaded'}
+                            </span>
+                          </div>
                           {itemEvents.length > 0 && (
                             <div className="text-[11px] text-text-secondary space-y-1">
                               {itemEvents.map((event) => {
