@@ -1574,13 +1574,7 @@ export default function FbaStep1Inventory({
       const items = Array.isArray(group?.items) ? group.items : [];
       if (!items.length) return;
       const groupId = group.packingGroupId || group.id || `pack-${idx + 1}`;
-      rows.push({
-        type: 'group',
-        label: tr('packGroupN', '', { index: idx + 1 }),
-        subtitle: tr('itemsBelowPackedTogether'),
-        key: groupId,
-        groupId
-      });
+      const matchedRows = [];
       items.forEach((it) => {
         const keys = getItemCandidateKeys(it);
         let matched = null;
@@ -1595,7 +1589,7 @@ export default function FbaStep1Inventory({
         }
         if (matched && matchedToken) {
           usedTokens.add(matchedToken);
-          rows.push({
+          matchedRows.push({
             type: 'sku',
             sku: matched,
             key: matched.id,
@@ -1604,6 +1598,15 @@ export default function FbaStep1Inventory({
           });
         }
       });
+      if (!matchedRows.length) return;
+      rows.push({
+        type: 'group',
+        label: tr('packGroupN', '', { index: idx + 1 }),
+        subtitle: tr('itemsBelowPackedTogether'),
+        key: groupId,
+        groupId
+      });
+      rows.push(...matchedRows);
     });
     const unassigned = skus.filter((sku, idx) => !usedTokens.has(getSkuToken(sku, idx)));
     if (unassigned.length) {
