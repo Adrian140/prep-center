@@ -65,6 +65,8 @@ type PrepGuidance = {
   prepInstructions: string[];
   barcodeInstruction?: string | null;
   guidance?: string | null;
+  transparencyRequired?: boolean;
+  transparencyMessages?: string[];
 };
 
 type AmazonIntegration = {
@@ -335,6 +337,89 @@ function deriveLabelOwner(prepInfo: any): OwnerVal {
   if (prepInfo?.prepRequired) return "SELLER";
   if (isManufacturerBarcodeEligible(barcodeInstruction)) return "NONE";
   return "SELLER";
+}
+
+function normalizeTransparencyMessage(input: string) {
+  const text = String(input || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  if (/transparency code required/i.test(text)) return "Transparency code required";
+  return text;
+}
+
+function extractTransparencySignals(value: any) {
+  const messages = new Set<string>();
+  let required = false;
+  const seen = new WeakSet<object>();
+
+  const visit = (node: any, path = "", depth = 0) => {
+    if (node === null || node === undefined || depth > 6) return;
+
+    if (typeof node === "string") {
+      if (/transparen/i.test(node) || /transparency code required/i.test(node)) {
+        const normalized = normalizeTransparencyMessage(node);
+        if (normalized) messages.add(normalized);
+        required = true;
+      }
+      return;
+    }
+
+    if (typeof node === "boolean") {
+      if (node && /transparen/i.test(path)) {
+        messages.add("Transparency code required");
+        required = true;
+      }
+      return;
+    }
+
+    if (typeof node !== "object") return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, path, depth + 1);
+      return;
+    }
+
+    for (const [key, val] of Object.entries(node)) {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (/transparen/i.test(key)) {
+        if (toBool(val) === true) {
+          messages.add("Transparency code required");
+          required = true;
+        } else if (typeof val === "string") {
+          const normalized = normalizeTransparencyMessage(val);
+          if (normalized) messages.add(normalized);
+          required = true;
+        }
+      }
+      visit(val, nextPath, depth + 1);
+    }
+  };
+
+  visit(value);
+  return {
+    required,
+    messages: Array.from(messages)
+  };
+}
+
+function mergePrepGuidance(base: PrepGuidance, patch: Partial<PrepGuidance>): PrepGuidance {
+  const mergedMessages = Array.from(
+    new Set([...(base.transparencyMessages || []), ...(patch.transparencyMessages || [])].filter(Boolean))
+  );
+  return {
+    ...base,
+    ...patch,
+    prepInstructions: patch.prepInstructions || base.prepInstructions || [],
+    transparencyRequired: Boolean(base.transparencyRequired || patch.transparencyRequired),
+    transparencyMessages: mergedMessages
+  };
+}
+
+function buildTransparencyAlert(prepInfo: PrepGuidance) {
+  if (!prepInfo?.transparencyRequired) return null;
+  const firstMessage = Array.isArray(prepInfo.transparencyMessages) ? prepInfo.transparencyMessages[0] : "";
+  return normalizeTransparencyMessage(firstMessage || "Transparency code required");
 }
 
 const KNOWN_PREP_TYPES = new Set([
@@ -1696,6 +1781,7 @@ async function fetchPrepGuidance(params: {
       : [];
     const guidance = entry.PrepGuidance || entry.prepGuidance || null;
     const barcodeInstruction = entry.BarcodeInstruction || entry.barcodeInstruction || null;
+    const transparency = extractTransparencySignals(entry);
     const guidanceToken = normalizeToken(guidance);
     const prepTokens = prepInstructions.map((p) => normalizeToken(p));
     const hasNonTrivialPrep = prepTokens.some((p) => {
@@ -1717,7 +1803,9 @@ async function fetchPrepGuidance(params: {
       prepRequired,
       prepInstructions,
       guidance,
-      barcodeInstruction
+      barcodeInstruction,
+      transparencyRequired: transparency.required,
+      transparencyMessages: transparency.messages
     };
   }
   const warning = skippedSkuWithComma
@@ -2601,6 +2689,8 @@ serve(async (req) => {
           expiryRequired: requiresExpiry,
           prepRequired: prepInfo?.prepRequired || false,
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+          transparencyRequired: Boolean(prepInfo?.transparencyRequired),
+          transparencyAlert: buildTransparencyAlert(prepInfo),
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: true
@@ -3012,6 +3102,16 @@ serve(async (req) => {
         labelOwnerConstraintBySku[msku] = ownerFromConstraint(e?.labelOwnerConstraint);
         const rawCategory = String(e?.prepCategory || "").toUpperCase().trim();
         prepCategoryBySku[msku] = rawCategory || null;
+        const transparency = extractTransparencySignals(e);
+        prepGuidanceMap[msku] = mergePrepGuidance(prepGuidanceMap[msku] || {
+          sku: e?.msku || null,
+          asin: e?.asin || null,
+          prepRequired: false,
+          prepInstructions: []
+        }, {
+          transparencyRequired: transparency.required,
+          transparencyMessages: transparency.messages
+        });
       }
     };
 
@@ -3969,6 +4069,8 @@ serve(async (req) => {
           expiryRequired: requiresExpiry,
           prepRequired: prepInfo?.prepRequired || false,
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
+          transparencyRequired: Boolean(prepInfo?.transparencyRequired),
+          transparencyAlert: buildTransparencyAlert(prepInfo),
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: false
@@ -4076,6 +4178,8 @@ serve(async (req) => {
             expiryRequired: requiresExpiry,
             prepRequired: prepInfo.prepRequired || false,
             prepNotes: (prepInfo.prepInstructions || []).join(", "),
+            transparencyRequired: Boolean(prepInfo?.transparencyRequired),
+            transparencyAlert: buildTransparencyAlert(prepInfo),
             manufacturerBarcodeEligible:
               (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
             readyToPack: true,
@@ -4483,6 +4587,8 @@ serve(async (req) => {
         expiryRequired: requiresExpiry,
         prepRequired,
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
+        transparencyRequired: Boolean(prepInfo?.transparencyRequired),
+        transparencyAlert: buildTransparencyAlert(prepInfo),
         manufacturerBarcodeEligible,
         labelOwner,
         labelOwnerSource,

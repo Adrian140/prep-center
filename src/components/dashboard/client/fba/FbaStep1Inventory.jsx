@@ -1766,6 +1766,7 @@ export default function FbaStep1Inventory({
       (labelRequired || labelOwner === null) &&
       (['amazon-override', 'prep-guidance'].includes(labelOwnerSource) || true);
     const prepList = formatPrepList(sku.prepInstructions || sku.prepNotes || []);
+    const transparencyAlert = String(sku.transparencyAlert || '').trim();
     const needsPrepNotice =
       sku.prepRequired || prepList.length > 0 || sku.manufacturerBarcodeEligible === false;
     const prepNeedsAction = prepList.length > 0 || sku.prepRequired;
@@ -1984,6 +1985,14 @@ export default function FbaStep1Inventory({
               </div>
             )}
             {needsExpiry && <div className="text-xs text-amber-700">{tr('expirationDateRequired')}</div>}
+            {transparencyAlert && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
+                <div>{tr('transparencyCodeRequired')}</div>
+                {transparencyAlert.toLowerCase() !== 'transparency code required' && (
+                  <div className="mt-1 text-xs font-medium text-red-700">{transparencyAlert}</div>
+                )}
+              </div>
+            )}
             <div className="flex flex-col items-start gap-1">
               {showLabelButton && (
                 <button
