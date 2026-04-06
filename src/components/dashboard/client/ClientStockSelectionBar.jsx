@@ -47,6 +47,7 @@ const ClientStockSelectionBar = ({
   if (!selectedIds?.size) return null;
   const [storeFieldOpen, setStoreFieldOpen] = useState(false);
   const [notesFieldOpen, setNotesFieldOpen] = useState(false);
+  const [transparencyFieldOpen, setTransparencyFieldOpen] = useState(false);
   const transparencyInputRefs = useRef({});
   const rawReturnLabel = t('ClientStock.return.cta') || t('ClientStock.cta.return');
   const returnLabel =
@@ -100,6 +101,12 @@ const ClientStockSelectionBar = ({
   useEffect(() => {
     if (receptionForm?.notes) setNotesFieldOpen(true);
   }, [receptionForm?.notes]);
+
+  useEffect(() => {
+    if (Object.values(receptionTransparencyByRowId || {}).some((entry) => entry?.path)) {
+      setTransparencyFieldOpen(true);
+    }
+  }, [receptionTransparencyByRowId]);
 
   const renderDestinationSelector = (className = 'w-full sm:w-48') => (
     <div className={`flex flex-col gap-1 ${className}`}>
@@ -190,6 +197,17 @@ const ClientStockSelectionBar = ({
                     >
                       {t('notes') || 'Notes'}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setTransparencyFieldOpen((prev) => !prev)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 font-medium transition-colors ${
+                        transparencyFieldOpen || Object.values(receptionTransparencyByRowId || {}).some((entry) => entry?.path)
+                          ? 'border-primary bg-blue-50 text-primary'
+                          : 'border-gray-300 text-gray-600 hover:border-primary hover:text-primary'
+                      }`}
+                    >
+                      Transparency PDFs
+                    </button>
                   </div>
                   {storeFieldOpen && (
                     <input
@@ -221,7 +239,7 @@ const ClientStockSelectionBar = ({
                   </span>
                 </div>
               )}
-              {selectedRows.length > 0 && (
+              {transparencyFieldOpen && selectedRows.length > 0 && (
                 <div className="mt-3 border rounded-md bg-white max-h-48 overflow-y-auto divide-y">
                   <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide bg-gray-50 text-text-secondary border-b">
                     Transparency PDFs per ASIN
@@ -236,14 +254,14 @@ const ClientStockSelectionBar = ({
                           <div className="text-sm font-medium text-text-primary truncate" title={row.name || row.asin || row.sku}>
                             {row.name || row.asin || row.sku || row.ean || 'Item'}
                           </div>
-                          <div className="text-[11px] text-text-secondary truncate">
+                          <div className="mt-1 text-[11px] text-text-secondary break-all">
                             ASIN: {row.asin || '—'} · SKU: {row.sku || '—'}
                           </div>
-                          <div className={`mt-1 text-[11px] ${hasFile ? 'text-green-700' : 'text-gray-500'}`}>
-                            {hasFile
-                              ? `PDF uploaded${uploadState?.fileName ? `: ${uploadState.fileName}` : ''}`
-                              : 'Optional at creation. Upload if this ASIN needs Transparency.'}
-                          </div>
+                          {hasFile && (
+                            <div className="mt-1 text-[11px] text-green-700 break-all">
+                              PDF uploaded{uploadState?.fileName ? `: ${uploadState.fileName}` : ''}
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <button
