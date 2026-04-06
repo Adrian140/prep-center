@@ -69,6 +69,12 @@ type PrepGuidance = {
   transparencyMessages?: string[];
 };
 
+type TransparencySchemaSignal = {
+  required: boolean;
+  messages: string[];
+  matchedPaths: string[];
+};
+
 type AmazonIntegration = {
   user_id: string | null;
   company_id: string | null;
@@ -420,6 +426,103 @@ function buildTransparencyAlert(prepInfo: PrepGuidance) {
   if (!prepInfo?.transparencyRequired) return null;
   const firstMessage = Array.isArray(prepInfo.transparencyMessages) ? prepInfo.transparencyMessages[0] : "";
   return normalizeTransparencyMessage(firstMessage || "Transparency code required");
+}
+
+function normalizeLocaleForMarketplace(marketplaceId: string) {
+  const map: Record<string, string> = {
+    A13V1IB3VIYZZH: "fr_FR",
+    A1PA6795UKMFR9: "de_DE",
+    A1RKKUPIHCS9HS: "es_ES",
+    APJ6JRA9NG5V4: "it_IT",
+    A1F83G8C2ARO7P: "en_GB",
+    ATVPDKIKX0DER: "en_US"
+  };
+  return map[String(marketplaceId || "").trim()] || "en_US";
+}
+
+function detectTransparencyFromSchema(schema: any): TransparencySchemaSignal {
+  const messages = new Set<string>();
+  const matchedPaths = new Set<string>();
+  let required = false;
+  const seen = new WeakSet<object>();
+
+  const addMatch = (path: string, text?: string | null) => {
+    if (path) matchedPaths.add(path);
+    const normalized = normalizeTransparencyMessage(text || "Transparency code required");
+    if (normalized) messages.add(normalized);
+  };
+
+  const visit = (node: any, path = "", ancestorRequired = false, depth = 0) => {
+    if (node === null || node === undefined || depth > 10) return;
+
+    if (typeof node === "string") {
+      if (/transparen/i.test(node)) {
+        addMatch(path, node);
+        required = required || ancestorRequired;
+      }
+      return;
+    }
+
+    if (typeof node !== "object") return;
+    if (seen.has(node)) return;
+    seen.add(node);
+
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item, path, ancestorRequired, depth + 1);
+      return;
+    }
+
+    const localRequired = new Set(
+      Array.isArray((node as any).required)
+        ? ((node as any).required as any[]).map((item) => String(item || "").trim()).filter(Boolean)
+        : []
+    );
+
+    for (const [key, val] of Object.entries(node)) {
+      const nextPath = path ? `${path}.${key}` : key;
+      const keyHasTransparency = /transparen/i.test(key);
+      const desc =
+        typeof (node as any).title === "string"
+          ? (node as any).title
+          : typeof (node as any).description === "string"
+          ? (node as any).description
+          : null;
+      const childRequired = ancestorRequired || localRequired.has(String(key));
+
+      if (keyHasTransparency) {
+        addMatch(nextPath, typeof val === "string" ? val : desc);
+        required = required || childRequired || localRequired.has(String(key)) || path.endsWith(".required");
+      }
+
+      if (typeof val === "string" && /transparen/i.test(val)) {
+        addMatch(nextPath, val);
+        required = required || childRequired;
+      }
+
+      if (Array.isArray(val) && /enumNames|enum|examples/i.test(key)) {
+        for (const item of val) {
+          if (typeof item === "string" && /transparen/i.test(item)) {
+            addMatch(nextPath, item);
+            required = required || childRequired;
+          }
+        }
+      }
+
+      if ((key === "title" || key === "description" || key === "displayName") && typeof val === "string" && /transparen/i.test(val)) {
+        addMatch(nextPath, val);
+        required = required || ancestorRequired;
+      }
+
+      visit(val, nextPath, childRequired, depth + 1);
+    }
+  };
+
+  visit(schema);
+  return {
+    required: required || matchedPaths.size > 0,
+    messages: Array.from(messages),
+    matchedPaths: Array.from(matchedPaths)
+  };
 }
 
 const KNOWN_PREP_TYPES = new Set([
@@ -1210,6 +1313,18 @@ async function spapiGet(opts: {
     sellerId
   });
   return { res: out.res, text: out.text, json: out.json };
+}
+
+async function fetchJsonWithOptionalAuth(url: string, headers?: Record<string, string>) {
+  const res = await fetch(url, { headers });
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
+  return { res, text, json };
 }
 
 type CatalogApiResult = {
@@ -2668,6 +2783,11 @@ serve(async (req) => {
         const expiryKey = normalizeSku(c.sku || "");
         const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
         const expiryVal = expirations[expiryKey] || "";
+        const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
+        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+        const transparencyAlert = transparencyRequired
+          ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
+          : null;
         return {
           id: c.itemIds?.[0] || `sku-${idx + 1}`,
           title: c.product_name || c.sku || `SKU ${idx + 1}`,
@@ -2689,8 +2809,8 @@ serve(async (req) => {
           expiryRequired: requiresExpiry,
           prepRequired: prepInfo?.prepRequired || false,
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
-          transparencyRequired: Boolean(prepInfo?.transparencyRequired),
-          transparencyAlert: buildTransparencyAlert(prepInfo),
+          transparencyRequired,
+          transparencyAlert,
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: true
@@ -2724,6 +2844,8 @@ serve(async (req) => {
     const prepOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
     const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
     const prepCategoryBySku: Record<string, string | null> = {};
+    const transparencyBySku: Record<string, { required: boolean; messages: string[] }> = {};
+    const transparencyByProductType = new Map<string, { required: boolean; messages: string[] }>();
 
     const buildPlanBody = (overrides: Record<string, InboundFix> = {}) => {
       // Amazon limitează câmpul name la 40 caractere; folosim un id scurt ca să evităm 400 InvalidInput.
@@ -3343,6 +3465,101 @@ serve(async (req) => {
       return { warnings };
     };
 
+    const fetchTransparencyForProductType = async (productTypeRaw: string) => {
+      const productType = String(productTypeRaw || "").trim();
+      if (!productType) return { required: false, messages: [] };
+      if (transparencyByProductType.has(productType)) {
+        return transparencyByProductType.get(productType) || { required: false, messages: [] };
+      }
+
+      const query =
+        `marketplaceIds=${encodeURIComponent(marketplaceId)}` +
+        `&sellerId=${encodeURIComponent(sellerId)}` +
+        `&requirements=LISTING` +
+        `&requirementsEnforced=ENFORCED` +
+        `&locale=${encodeURIComponent(normalizeLocaleForMarketplace(marketplaceId))}`;
+      const defRes = await spapiGet({
+        host,
+        region: awsRegion,
+        path: `/definitions/2020-09-01/productTypes/${encodeURIComponent(productType)}`,
+        query,
+        lwaToken: lwaAccessToken,
+        tempCreds,
+        traceId,
+        operationName: "definitions.getDefinitionsProductType",
+        marketplaceId,
+        sellerId
+      });
+
+      if (!defRes.res.ok) {
+        const empty = { required: false, messages: [] };
+        transparencyByProductType.set(productType, empty);
+        return empty;
+      }
+
+      const schemaLink =
+        defRes.json?.schema?.link?.resource ||
+        defRes.json?.payload?.schema?.link?.resource ||
+        defRes.json?.schema?.link?.href ||
+        defRes.json?.payload?.schema?.link?.href ||
+        null;
+      const inlineSchema = defRes.json?.schema?.schema || defRes.json?.payload?.schema?.schema || null;
+      let signal = inlineSchema ? detectTransparencyFromSchema(inlineSchema) : { required: false, messages: [], matchedPaths: [] };
+
+      if (!signal.required && schemaLink) {
+        const schemaRes = await fetchJsonWithOptionalAuth(String(schemaLink), {
+          accept: "application/schema+json, application/json"
+        });
+        if (schemaRes.res.ok && schemaRes.json) {
+          signal = detectTransparencyFromSchema(schemaRes.json);
+        }
+      }
+
+      const normalized = {
+        required: signal.required,
+        messages: signal.messages.length ? signal.messages : signal.required ? ["Transparency code required"] : []
+      };
+      transparencyByProductType.set(productType, normalized);
+      return normalized;
+    };
+
+    const detectTransparencyRequirements = async () => {
+      const uniqueSkus = Array.from(new Set(collapsedItems.map((c) => normalizeSku(c.sku)).filter(Boolean)));
+      for (const skuKey of uniqueSkus) {
+        const getRes = await spapiGet({
+          host,
+          region: awsRegion,
+          path: `/listings/2021-08-01/items/${encodeURIComponent(sellerId)}/${encodeURIComponent(skuKey)}`,
+          query: `marketplaceIds=${encodeURIComponent(marketplaceId)}&includedData=summaries,issues`,
+          lwaToken: lwaAccessToken,
+          tempCreds,
+          traceId,
+          operationName: "listings.getItem.transparency",
+          marketplaceId,
+          sellerId
+        });
+        if (!getRes.res.ok) continue;
+
+        const summaries = getRes.json?.summaries || getRes.json?.payload?.summaries || [];
+        const summary =
+          (Array.isArray(summaries) ? summaries : []).find(
+            (s: any) => String(s?.marketplaceId || s?.marketplace_id || "") === String(marketplaceId)
+          ) || (Array.isArray(summaries) ? summaries[0] : null);
+        const productType = String(summary?.productType || summary?.product_type || "").trim();
+        if (!productType) continue;
+
+        const schemaSignal = await fetchTransparencyForProductType(productType);
+        const issueSignal = extractTransparencySignals(getRes.json?.issues || getRes.json?.payload?.issues || []);
+        const required = Boolean(schemaSignal.required || issueSignal.required);
+        if (!required) continue;
+
+        transparencyBySku[skuKey] = {
+          required: true,
+          messages: Array.from(new Set([...(schemaSignal.messages || []), ...(issueSignal.messages || [])]))
+        };
+      }
+    };
+
     const formatAddress = (addr?: Record<string, string | undefined | null>) => {
       if (!addr) return "—";
       const parts = [addr.addressLine1, addr.addressLine2, addr.city, addr.stateOrProvinceCode, addr.postalCode, addr.countryCode]
@@ -3674,6 +3891,7 @@ serve(async (req) => {
       const preflight = await preflightPrepDetailsForStep1();
       if (preflight.warnings.length) planWarnings.push(...preflight.warnings);
     }
+    await detectTransparencyRequirements();
 
     const lockId = `LOCK-${traceId}`;
     let hasPlanLock = false;
@@ -4048,6 +4266,11 @@ serve(async (req) => {
         const requiresExpiry =
           (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
           expiryRequiredBySku[normalizeSku(c.sku || "")] === true;
+        const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
+        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+        const transparencyAlert = transparencyRequired
+          ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
+          : null;
         return {
           id: c.itemIds?.[0] || `sku-${idx + 1}`,
           title: c.product_name || c.sku || `SKU ${idx + 1}`,
@@ -4069,8 +4292,8 @@ serve(async (req) => {
           expiryRequired: requiresExpiry,
           prepRequired: prepInfo?.prepRequired || false,
           prepNotes: (prepInfo?.prepInstructions || []).join(", "),
-          transparencyRequired: Boolean(prepInfo?.transparencyRequired),
-          transparencyAlert: buildTransparencyAlert(prepInfo),
+          transparencyRequired,
+          transparencyAlert,
           manufacturerBarcodeEligible:
             (prepInfo?.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
           readyToPack: false
@@ -4157,6 +4380,11 @@ serve(async (req) => {
             (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
             expiryRequiredBySku[it.sku || ""] === true;
           const key = normalizeSku(it.sku || it.asin || "");
+          const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
+          const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+          const transparencyAlert = transparencyRequired
+            ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
+            : null;
           return {
             id: it.id || `sku-${idx + 1}`,
             title: it.product_name || stock?.name || it.sku || stock?.sku || `SKU ${idx + 1}`,
@@ -4178,8 +4406,8 @@ serve(async (req) => {
             expiryRequired: requiresExpiry,
             prepRequired: prepInfo.prepRequired || false,
             prepNotes: (prepInfo.prepInstructions || []).join(", "),
-            transparencyRequired: Boolean(prepInfo?.transparencyRequired),
-            transparencyAlert: buildTransparencyAlert(prepInfo),
+            transparencyRequired,
+            transparencyAlert,
             manufacturerBarcodeEligible:
               (prepInfo.barcodeInstruction || "").toLowerCase() === "manufacturerbarcode",
             readyToPack: true,
@@ -4563,6 +4791,11 @@ serve(async (req) => {
       const asinKey = String(c.asin || "").trim().toUpperCase();
       const image = (asinKey ? stockImageByAsin[asinKey] : null) || (asinKey ? listingImages[asinKey] : null) || null;
       const expiryVal = expirations[skuKey] || "";
+      const transparencySignal = transparencyBySku[skuKey] || { required: false, messages: [] };
+      const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+      const transparencyAlert = transparencyRequired
+        ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
+        : null;
       return {
         // Folosim id-ul real din prep_request_items pentru a evita erorile de tip UUID în UI/DB.
         id: c.itemIds?.[0] || `sku-${idx + 1}`,
@@ -4587,8 +4820,8 @@ serve(async (req) => {
         expiryRequired: requiresExpiry,
         prepRequired,
         prepNotes: (prepInfo.prepInstructions || []).join(", "),
-        transparencyRequired: Boolean(prepInfo?.transparencyRequired),
-        transparencyAlert: buildTransparencyAlert(prepInfo),
+        transparencyRequired,
+        transparencyAlert,
         manufacturerBarcodeEligible,
         labelOwner,
         labelOwnerSource,
