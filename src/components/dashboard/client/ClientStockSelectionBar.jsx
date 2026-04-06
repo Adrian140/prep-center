@@ -139,9 +139,12 @@ const ClientStockSelectionBar = ({
           const uploadBusy = Boolean(receptionTransparencyUploadingByRowId[row.id]);
           const hasFile = Boolean(uploadState?.path);
           return (
-            <div key={`transparency-${row.id}`} className="px-3 py-2 flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-text-primary truncate" title={row.name || row.asin || row.sku}>
+            <div key={`transparency-${row.id}`} className="px-3 py-2 flex items-start justify-between gap-3 overflow-hidden">
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <div
+                  className="text-sm font-medium text-text-primary overflow-hidden text-ellipsis leading-5 line-clamp-2 break-words"
+                  title={row.name || row.asin || row.sku}
+                >
                   {row.name || row.asin || row.sku || row.ean || 'Item'}
                 </div>
                 <div className="mt-1 text-[11px] text-text-secondary break-all">
