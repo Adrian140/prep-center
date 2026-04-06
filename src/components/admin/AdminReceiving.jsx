@@ -1447,6 +1447,16 @@ useEffect(() => {
       const { error } = await supabaseHelpers.markMultipleAsReceived(shipmentIds, profile.id);
       if (error) throw error;
 
+      const prepBusinessShipments = shipments.filter(
+        (shipment) =>
+          shipmentIds.includes(shipment.id) &&
+          String(shipment.import_source || '').trim().toLowerCase() === 'prepbusiness'
+      );
+      for (const shipment of prepBusinessShipments) {
+        const { error: syncError } = await supabaseHelpers.notifyPrepBusinessReceived(shipment.id);
+        if (syncError) throw syncError;
+      }
+
       setMessage(`${selectedIds.size} reception(s) marked as received.`);
       setSelectedIds(new Set());
       loadShipments();

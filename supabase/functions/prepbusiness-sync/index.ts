@@ -711,6 +711,217 @@ async function fetchInboundItems(merchantId: string, shipmentId: string | number
   return [];
 }
 
+function normalizeComparable(value: unknown) {
+  return String(normalizeText(value) || "")
+    .trim()
+    .toUpperCase();
+}
+
+function normalizeLooseComparable(value: unknown) {
+  return normalizeComparable(value).replace(/[^A-Z0-9]+/g, "");
+}
+
+function numbersEqual(left: unknown, right: unknown) {
+  const a = Number(left);
+  const b = Number(right);
+  return Number.isFinite(a) && Number.isFinite(b) && a === b;
+}
+
+function getConfirmedReceivingQty(item: Record<string, unknown>) {
+  const receivedUnits = Number(item?.received_units ?? 0);
+  if (Number.isFinite(receivedUnits) && receivedUnits > 0) {
+    return Math.max(0, Math.floor(receivedUnits));
+  }
+  const expectedUnits = Number(item?.quantity_received ?? 0);
+  if (item?.is_received && Number.isFinite(expectedUnits) && expectedUnits > 0) {
+    return Math.max(0, Math.floor(expectedUnits));
+  }
+  return 0;
+}
+
+function normalizePrepInboundItem(raw: Record<string, unknown>) {
+  const normalized = normalizeInboundItem(raw);
+  return {
+    ...raw,
+    ...normalized,
+    shipment_item_id: raw?.id ?? null,
+    item_id: raw?.item_id ?? (raw?.item as Record<string, unknown> | null)?.id ?? null,
+    expected_quantity: Number((raw?.expected as Record<string, unknown> | null)?.quantity ?? 0) || 0,
+    actual_quantity: Number((raw?.actual as Record<string, unknown> | null)?.quantity ?? 0) || 0,
+    expected_item_group_configurations: Array.isArray((raw?.expected as Record<string, unknown> | null)?.item_group_configurations)
+      ? (((raw?.expected as Record<string, unknown>).item_group_configurations as Array<Record<string, unknown>>))
+      : [],
+    actual_item_group_configurations: Array.isArray((raw?.actual as Record<string, unknown> | null)?.item_group_configurations)
+      ? (((raw?.actual as Record<string, unknown>).item_group_configurations as Array<Record<string, unknown>>))
+      : []
+  };
+}
+
+function scoreInboundItemMatch(
+  localItem: Record<string, unknown>,
+  remoteItem: Record<string, unknown>,
+  localIndex: number,
+  remoteIndex: number
+) {
+  const localSku = normalizeComparable(localItem?.sku);
+  const localAsin = normalizeComparable(localItem?.asin);
+  const localEan = normalizeComparable(localItem?.ean || localItem?.ean_asin);
+  const localName = normalizeLooseComparable(localItem?.product_name);
+  const localQty = Number(localItem?.quantity_received ?? 0) || 0;
+
+  const remoteSku = normalizeComparable(remoteItem?.sku);
+  const remoteAsin = normalizeComparable(remoteItem?.asin);
+  const remoteEan = normalizeComparable(remoteItem?.ean);
+  const remoteName = normalizeLooseComparable(remoteItem?.product_name || remoteItem?.title);
+  const remoteQty = Number(remoteItem?.expected_quantity ?? 0) || 0;
+
+  if (localSku && remoteSku && localSku === remoteSku && localAsin && remoteAsin && localAsin === remoteAsin) {
+    return 1000 + (numbersEqual(localQty, remoteQty) ? 50 : 0) - Math.abs(localIndex - remoteIndex);
+  }
+  if (localSku && remoteSku && localSku === remoteSku) {
+    return 850 + (numbersEqual(localQty, remoteQty) ? 25 : 0) - Math.abs(localIndex - remoteIndex);
+  }
+  if (localAsin && remoteAsin && localAsin === remoteAsin) {
+    return 800 + (numbersEqual(localQty, remoteQty) ? 25 : 0) - Math.abs(localIndex - remoteIndex);
+  }
+  if (localEan && remoteEan && localEan === remoteEan) {
+    return 700 + (numbersEqual(localQty, remoteQty) ? 25 : 0) - Math.abs(localIndex - remoteIndex);
+  }
+  if (localName && remoteName && localName === remoteName) {
+    return 500 + (numbersEqual(localQty, remoteQty) ? 25 : 0) - Math.abs(localIndex - remoteIndex);
+  }
+  if (numbersEqual(localQty, remoteQty) && localIndex === remoteIndex) {
+    return 100;
+  }
+  return -1;
+}
+
+async function syncInboundReceivedQuantities({
+  receivingShipmentId,
+  merchantId,
+  sourceId
+}: {
+  receivingShipmentId: string;
+  merchantId: string;
+  sourceId: string;
+}) {
+  const { data: localItems, error: localItemsError } = await supabase
+    .from("receiving_items")
+    .select("id, line_number, product_name, asin, sku, ean, ean_asin, quantity_received, received_units, is_received")
+    .eq("shipment_id", receivingShipmentId)
+    .order("line_number", { ascending: true });
+  if (localItemsError) {
+    throw new Error(`Failed to load receiving items: ${localItemsError.message || localItemsError}`);
+  }
+
+  const localConfirmedItems = (Array.isArray(localItems) ? localItems : [])
+    .map((item) => ({
+      ...item,
+      confirmed_quantity: getConfirmedReceivingQty(item as Record<string, unknown>)
+    }))
+    .filter((item) => Number(item.confirmed_quantity || 0) > 0);
+
+  if (!localConfirmedItems.length) {
+    return { updated: 0, skipped: 0, unmatched: 0 };
+  }
+
+  const remoteItemsRaw = await fetchInboundItems(merchantId, sourceId);
+  const remoteItems = (Array.isArray(remoteItemsRaw) ? remoteItemsRaw : []).map((item) =>
+    normalizePrepInboundItem(item as Record<string, unknown>)
+  );
+  if (!remoteItems.length) {
+    throw new Error("PrepBusiness inbound has no items to update.");
+  }
+
+  const usedRemoteIndexes = new Set<number>();
+  const matches: Array<{ local: Record<string, unknown>; remote: Record<string, unknown> }> = [];
+  const unmatched: Array<Record<string, unknown>> = [];
+
+  localConfirmedItems.forEach((localItem, localIndex) => {
+    let bestIndex = -1;
+    let bestScore = -1;
+    remoteItems.forEach((remoteItem, remoteIndex) => {
+      if (usedRemoteIndexes.has(remoteIndex)) return;
+      const score = scoreInboundItemMatch(localItem as Record<string, unknown>, remoteItem as Record<string, unknown>, localIndex, remoteIndex);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = remoteIndex;
+      }
+    });
+    if (bestIndex < 0 || bestScore < 0) {
+      unmatched.push(localItem as Record<string, unknown>);
+      return;
+    }
+    usedRemoteIndexes.add(bestIndex);
+    matches.push({
+      local: localItem as Record<string, unknown>,
+      remote: remoteItems[bestIndex] as Record<string, unknown>
+    });
+  });
+
+  if (unmatched.length > 0) {
+    const labels = unmatched
+      .map((item) => normalizeText(item.product_name) || normalizeText(item.sku) || normalizeText(item.asin) || String(item.id || "unknown"))
+      .slice(0, 5)
+      .join(", ");
+    throw new Error(`Could not map ${unmatched.length} received line(s) to PrepBusiness inbound items: ${labels}`);
+  }
+
+  const base = PREP_BASE_URL.replace(/\/+$/, "");
+  for (const { local, remote } of matches) {
+    const itemId = Number(remote.item_id ?? 0) || Number((remote.item as Record<string, unknown> | null)?.id ?? 0) || 0;
+    if (!itemId) {
+      throw new Error(`PrepBusiness inbound item is missing item_id for line ${String(local.line_number || local.id || "")}`);
+    }
+    const expectedQuantity = Math.max(
+      0,
+      Number(remote.expected_quantity ?? local.quantity_received ?? local.confirmed_quantity ?? 0) || 0
+    );
+    const actualQuantity = Math.max(0, Number(local.confirmed_quantity ?? 0) || 0);
+    const payload = {
+      item_id: itemId,
+      expected: [
+        {
+          quantity: expectedQuantity,
+          item_group_configurations: Array.isArray(remote.expected_item_group_configurations)
+            ? remote.expected_item_group_configurations
+            : []
+        }
+      ],
+      actual: [
+        {
+          quantity: actualQuantity,
+          item_group_configurations: Array.isArray(remote.actual_item_group_configurations)
+            ? remote.actual_item_group_configurations
+            : []
+        }
+      ]
+    };
+
+    const resp = await fetch(`${base}/shipments/inbound/${sourceId}/update-item`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PREP_TOKEN}`,
+        "X-Api-Key": PREP_TOKEN,
+        "X-Selected-Client-Id": String(merchantId),
+        Accept: "application/json",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`PrepBusiness update-item failed for item ${itemId}: ${resp.status} ${text || resp.statusText}`);
+    }
+  }
+
+  return {
+    updated: matches.length,
+    skipped: localConfirmedItems.length - matches.length,
+    unmatched: 0
+  };
+}
+
 async function fetchInventoryItem(merchantId: string, itemId: string | number) {
   const base = PREP_BASE_URL.replace(/\/+$/, "");
   const url = `${base}/inventory/${itemId}`;
@@ -858,7 +1069,23 @@ async function syncPendingReceives() {
       .eq("id", receivingShipmentId)
       .maybeSingle();
     if (shipmentError || !shipment) continue;
-    if (String(shipment.status || "").toLowerCase() !== "received") continue;
+    if (!["received", "processed"].includes(String(shipment.status || "").toLowerCase())) continue;
+
+    let quantitySync;
+    try {
+      quantitySync = await syncInboundReceivedQuantities({
+        receivingShipmentId,
+        merchantId,
+        sourceId
+      });
+    } catch (error) {
+      results.push({
+        error: `Receive quantity sync failed: ${error instanceof Error ? error.message : String(error)}`,
+        source_id: sourceId,
+        merchant_id: merchantId
+      });
+      continue;
+    }
 
     const base = PREP_BASE_URL.replace(/\/+$/, "");
     const url = `${base}/shipments/inbound/${sourceId}/receive`;
@@ -886,7 +1113,13 @@ async function syncPendingReceives() {
       .from("prep_business_imports")
       .update({ status: "received" })
       .eq("id", (row as any).id);
-    results.push({ ok: true, source_id: sourceId, merchant_id: merchantId, action: "receive-sync" });
+    results.push({
+      ok: true,
+      source_id: sourceId,
+      merchant_id: merchantId,
+      action: "receive-sync",
+      quantity_sync: quantitySync
+    });
   }
   return results;
 }
@@ -936,6 +1169,14 @@ async function handleSync(req: Request) {
       return jsonResponse({ error: "Missing source_id or merchant_id for PrepBusiness receive." }, 400);
     }
 
+    const quantitySync = receivingShipmentId
+      ? await syncInboundReceivedQuantities({
+          receivingShipmentId,
+          merchantId,
+          sourceId
+        })
+      : { updated: 0, skipped: 0, unmatched: 0 };
+
     const base = PREP_BASE_URL.replace(/\/+$/, "");
     const url = `${base}/shipments/inbound/${sourceId}/receive`;
     const resp = await fetch(url, {
@@ -960,7 +1201,7 @@ async function handleSync(req: Request) {
         .eq("receiving_shipment_id", receivingShipmentId);
     }
 
-    return jsonResponse({ ok: true, source_id: sourceId, merchant_id: merchantId });
+    return jsonResponse({ ok: true, source_id: sourceId, merchant_id: merchantId, quantity_sync: quantitySync });
   }
 
   if (req.method === "POST" && ["archive", "delete"].includes(String(normalizeText(body.action) || "").toLowerCase())) {
