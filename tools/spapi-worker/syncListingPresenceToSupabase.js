@@ -20,8 +20,21 @@ const TARGET_MARKETS = [
 const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000);
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 240);
-const TIME_BUDGET_MS = Number(process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_MS || 16_200_000); // 4.5h
-const TIME_BUDGET_BUFFER_MS = Number(process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_BUFFER_MS || 180_000); // 3m
+const configuredListingPresenceTimeBudget = process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_MS || '';
+const configuredListingPresenceTimeBudgetBuffer =
+  process.env.SPAPI_LISTING_PRESENCE_TIME_BUDGET_BUFFER_MS || '';
+const TIME_BUDGET_MS =
+  configuredListingPresenceTimeBudget &&
+  Number.isFinite(Number(configuredListingPresenceTimeBudget)) &&
+  Number(configuredListingPresenceTimeBudget) > 0
+    ? Number(configuredListingPresenceTimeBudget)
+    : Number.POSITIVE_INFINITY;
+const TIME_BUDGET_BUFFER_MS =
+  configuredListingPresenceTimeBudgetBuffer &&
+  Number.isFinite(Number(configuredListingPresenceTimeBudgetBuffer)) &&
+  Number(configuredListingPresenceTimeBudgetBuffer) >= 0
+    ? Number(configuredListingPresenceTimeBudgetBuffer)
+    : 0;
 const DEBUG_SKUS = new Set(
   (process.env.LISTING_PRESENCE_DEBUG_SKUS || '')
     .split(',')

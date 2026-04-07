@@ -11,13 +11,13 @@ const LISTING_REPORT_TYPE = 'GET_MERCHANT_LISTINGS_ALL_DATA';
 const REPORT_POLL_INTERVAL = Number(process.env.SPAPI_REPORT_POLL_MS || 10_000); // ms
 const REPORT_POLL_LIMIT = Number(process.env.SPAPI_REPORT_POLL_LIMIT || 300); // 300 * 10s ≈ 50 min
 
-const MAX_INTEGRATIONS_PER_RUN = Number(
+const configuredMaxIntegrationsPerRun =
   process.env.SPAPI_LISTING_MAX_INTEGRATIONS_PER_RUN ||
-    process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
-    20
-);
+  process.env.SPAPI_MAX_INTEGRATIONS_PER_RUN ||
+  '';
+const MAX_INTEGRATIONS_PER_RUN = Number(configuredMaxIntegrationsPerRun);
 const MAX_INTEGRATIONS_PER_RUN_LIMIT =
-  Number.isFinite(MAX_INTEGRATIONS_PER_RUN) && MAX_INTEGRATIONS_PER_RUN > 0
+  configuredMaxIntegrationsPerRun && Number.isFinite(MAX_INTEGRATIONS_PER_RUN) && MAX_INTEGRATIONS_PER_RUN > 0
     ? MAX_INTEGRATIONS_PER_RUN
     : Number.POSITIVE_INFINITY;
 const LISTING_SYNC_STATE_KEY =

@@ -3829,6 +3829,26 @@ createReceivingShipment: async (shipmentData) => {
       .eq('id', shipmentId);
   },
 
+  notifyPrepBusinessReceived: async (receivingShipmentId) => {
+    if (!receivingShipmentId) {
+      return { data: null, error: new Error('Missing receiving shipment id') };
+    }
+    const { data, error } = await supabase.functions.invoke('prepbusiness-sync', {
+      body: { action: 'receive', receiving_shipment_id: receivingShipmentId }
+    });
+    return { data, error };
+  },
+
+  syncPrepBusinessQuantities: async (receivingShipmentId) => {
+    if (!receivingShipmentId) {
+      return { data: null, error: new Error('Missing receiving shipment id') };
+    }
+    const { data, error } = await supabase.functions.invoke('prepbusiness-sync', {
+      body: { action: 'sync_quantities', receiving_shipment_id: receivingShipmentId }
+    });
+    return { data, error };
+  },
+
 createReceivingItems: async (items) => {
   await ensureReceivingColumnSupport();
   // Acceptă un singur obiect sau un array de obiecte
