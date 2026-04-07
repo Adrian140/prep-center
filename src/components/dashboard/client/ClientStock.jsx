@@ -113,7 +113,7 @@ const normalizeFulfillmentChannel = (value) => {
   return normalized;
 };
 
-const getFulfillmentKind = (row, channelRows = []) => {
+const getFulfillmentKind = (row, channelRows = [], listingPresence = []) => {
   const normalizedChannels = Array.from(
     new Set(
       (channelRows || [])
@@ -142,6 +142,9 @@ const getFulfillmentKind = (row, channelRows = []) => {
     Number(row?.amazon_reserved || 0) > 0 ||
     Number(row?.amazon_unfulfillable || 0) > 0;
   if (amazonSignal) return 'FBA';
+
+  const hasMarketplaceListing = Array.isArray(listingPresence) && listingPresence.length > 0;
+  if (hasMarketplaceListing) return 'LISTED';
 
   return 'UNKNOWN';
 };
@@ -1840,20 +1843,32 @@ useEffect(() => {
     }
     if (fulfillmentFilter === 'both') {
       base = base.filter((r) => {
-        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBA' || kind === 'FBM' || kind === 'UNKNOWN';
+        const kind = getFulfillmentKind(
+          r,
+          listingChannelsByItemId?.[r.id] || [],
+          listingPresenceByItemId?.[r.id] || []
+        );
+        return kind === 'FBA' || kind === 'FBM' || kind === 'LISTED' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fba') {
       base = base.filter((r) => {
-        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBA' || kind === 'UNKNOWN';
+        const kind = getFulfillmentKind(
+          r,
+          listingChannelsByItemId?.[r.id] || [],
+          listingPresenceByItemId?.[r.id] || []
+        );
+        return kind === 'FBA' || kind === 'LISTED' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fbm') {
       base = base.filter((r) => {
-        const kind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
-        return kind === 'FBM' || kind === 'UNKNOWN';
+        const kind = getFulfillmentKind(
+          r,
+          listingChannelsByItemId?.[r.id] || [],
+          listingPresenceByItemId?.[r.id] || []
+        );
+        return kind === 'FBM' || kind === 'LISTED' || kind === 'UNKNOWN';
       });
     }
     return base;
@@ -1863,7 +1878,8 @@ useEffect(() => {
     pendingShipmentFilter,
     pendingShipmentByItemId,
     fulfillmentFilter,
-    listingChannelsByItemId
+    listingChannelsByItemId,
+    listingPresenceByItemId
   ]);
 
   const quickFiltered = useMemo(() => {
@@ -3687,9 +3703,16 @@ const saveReqChanges = async () => {
     const warningDest = listingWarningDetails?.[r.id]?.destination || null;
     const etsyListings = etsyListingsByItemId?.[r.id] || [];
     const etsyOrders = etsyOrdersByItemId?.[r.id] || null;
-    const fulfillmentKind = getFulfillmentKind(r, listingChannelsByItemId?.[r.id] || []);
+    const fulfillmentKind = getFulfillmentKind(
+      r,
+      listingChannelsByItemId?.[r.id] || [],
+      listingPresenceByItemId?.[r.id] || []
+    );
     const fulfillmentBadges =
-      fulfillmentKind === 'FBA' || fulfillmentKind === 'FBM' || fulfillmentKind === 'UNKNOWN'
+      fulfillmentKind === 'FBA' ||
+      fulfillmentKind === 'FBM' ||
+      fulfillmentKind === 'LISTED' ||
+      fulfillmentKind === 'UNKNOWN'
         ? [fulfillmentKind]
         : [];
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
@@ -3790,10 +3813,18 @@ const saveReqChanges = async () => {
                 ? 'bg-sky-100 text-sky-700'
                 : badge === 'FBM'
                   ? 'bg-slate-200 text-slate-700'
+                  : badge === 'LISTED'
+                    ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-amber-100 text-amber-800'
             }`}
           >
-            {badge}
+            {badge === 'FBA'
+              ? t('ClientStock.fulfillmentBadges.fba')
+              : badge === 'FBM'
+                ? t('ClientStock.fulfillmentBadges.fbm')
+                : badge === 'LISTED'
+                  ? t('ClientStock.fulfillmentBadges.listed')
+                  : t('ClientStock.fulfillmentBadges.unknown')}
           </span>
         ))}
       </div>

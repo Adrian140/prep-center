@@ -527,6 +527,12 @@
       "listingPresence": {
         "label": "Listings on:"
       },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "LISTED",
+        "unknown": "UNKNOWN"
+      },
       "guides": {
         "button": "Video tutorial",
         "firstTime": "First time here?",
@@ -1913,6 +1919,12 @@
       },
       "listingPresence": {
         "label": "Listing-uri pe:"
+      },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "LISTAT",
+        "unknown": "NECUNOSCUT"
       },
       "createProduct": {
         "button": "Creează produs",
@@ -3341,6 +3353,12 @@
       "listingPresence": {
         "label": "Listings sur :"
       },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "EN LIGNE",
+        "unknown": "INCONNU"
+      },
       "createProduct": {
         "button": "Créer un produit",
         "title": "Créer un produit",
@@ -4545,6 +4563,12 @@
       "listingPresence": {
         "label": "Listings auf:"
       },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "GELISTET",
+        "unknown": "UNBEKANNT"
+      },
       "createProduct": {
         "button": "Produkt erstellen",
         "title": "Produkt erstellen",
@@ -5634,6 +5658,12 @@
       "listingPresence": {
         "label": "Listing su:"
       },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "ATTIVO",
+        "unknown": "SCONOSCIUTO"
+      },
       "createProduct": {
         "button": "Crea prodotto",
         "title": "Crea prodotto",
@@ -6722,6 +6752,12 @@
       },
       "listingPresence": {
         "label": "Listings en:"
+      },
+      "fulfillmentBadges": {
+        "fba": "FBA",
+        "fbm": "FBM",
+        "listed": "ACTIVO",
+        "unknown": "DESCONOCIDO"
       },
       "createProduct": {
         "button": "Crear producto",
