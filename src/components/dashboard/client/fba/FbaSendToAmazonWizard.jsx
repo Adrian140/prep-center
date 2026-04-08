@@ -1234,7 +1234,8 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     return { groups, ordered, signatureMap, buildPlanSignature };
   }, [step1BoxPlanForMarket]);
   const resolvePlanGroupForPackGroup = useCallback(
-    (group) => {
+    (group, options = {}) => {
+      const allowFirstGroupFallback = options?.allowFirstGroupFallback !== false;
       const key =
         group?.step1PlanGroupKey ||
         group?.packingGroupId ||
@@ -1249,10 +1250,12 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
         const entry = step1PlanGroupsData.signatureMap.get(sig);
         return { planGroup: entry?.value || null, planGroupKey: entry?.key || null };
       }
-      // fallback: dacă nu găsim după id sau semnătură, ia primul grup din plan (evită payload gol)
-      const fallback = Array.isArray(step1PlanGroupsData.ordered) ? step1PlanGroupsData.ordered[0] : null;
-      if (fallback?.value) {
-        return { planGroup: fallback.value, planGroupKey: fallback.key || key };
+      if (allowFirstGroupFallback) {
+        // fallback: dacă nu găsim după id sau semnătură, ia primul grup din plan (evită payload gol)
+        const fallback = Array.isArray(step1PlanGroupsData.ordered) ? step1PlanGroupsData.ordered[0] : null;
+        if (fallback?.value) {
+          return { planGroup: fallback.value, planGroupKey: fallback.key || key };
+        }
       }
       return { planGroup: null, planGroupKey: key };
     },
@@ -3012,7 +3015,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
 
   const decoratePackGroup = useCallback(
     (g) => {
-      const { planGroup } = resolvePlanGroupForPackGroup(g);
+      const { planGroup } = resolvePlanGroupForPackGroup(g, { allowFirstGroupFallback: false });
       const planBoxes = Array.isArray(planGroup?.boxes) ? planGroup.boxes : [];
       const planBoxItems = Array.isArray(planGroup?.boxItems) ? planGroup.boxItems : [];
       const planPerBoxDetails = planBoxes
@@ -3220,7 +3223,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       const id = String(g?.packingGroupId || g?.id || '').trim();
       if (!id) return false;
       if (!hasGroupItems(g)) return false;
-      const { planGroup } = resolvePlanGroupForPackGroup(g);
+      const { planGroup } = resolvePlanGroupForPackGroup(g, { allowFirstGroupFallback: false });
       if (planGroupIsComplete(planGroup)) return true;
       const packMode = String(g?.packMode || 'single').toLowerCase();
       if (packMode === 'multiple') {
@@ -5425,7 +5428,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       plan?.sourceAddress || warehouseShipFrom
     );
     return packGroups.map((g, idx) => {
-      const { planGroup } = resolvePlanGroupForPackGroup(g);
+      const { planGroup } = resolvePlanGroupForPackGroup(g, { allowFirstGroupFallback: false });
       const boxCount = Math.max(1, Number(g.boxes) || 1);
       const dims = g.boxDimensions || {};
       const packingGroupId = getPackingGroupKey(g);
@@ -6951,6 +6954,10 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     const tracked = Array.isArray(tracking) ? tracking.filter((t) => t.trackingId).length : 0;
     return { totalBoxes, tracked };
   }, [shipments, tracking, shipmentMode?.method]);
+  const derivedShipmentsForDisplay = useMemo(
+    () => deriveShipmentsFromPacking(shipments),
+    [deriveShipmentsFromPacking, shipments]
+  );
   const shipmentFallbackTotals = useMemo(() => {
     const skuCountFallback = Array.isArray(plan?.skus) ? plan.skus.length : 0;
     const unitsFallback = packUnits || unitCount || 0;
@@ -6958,12 +6965,49 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
   }, [plan?.skus, packUnits, unitCount]);
   const shipmentsWithFallback = useMemo(() => {
     if (!Array.isArray(shipments)) return [];
-    return shipments.map((sh) => ({
-      ...sh,
-      skuCount: sh?.skuCount ?? shipmentFallbackTotals.skuCountFallback,
-      units: resolveShipmentUnits(sh, { units: shipmentFallbackTotals.unitsFallback })
-    }));
-  }, [shipments, shipmentFallbackTotals]);
+    const derivedByShipmentId = new Map();
+    const derivedByGroupId = new Map();
+    derivedShipmentsForDisplay.forEach((shipment) => {
+      const shipmentId = String(shipment?.shipmentId || shipment?.id || '').trim();
+      const packingGroupId = getPackingGroupKey(shipment);
+      if (shipmentId) derivedByShipmentId.set(shipmentId, shipment);
+      if (packingGroupId) derivedByGroupId.set(packingGroupId, shipment);
+    });
+    return shipments.map((sh, idx) => {
+      const shipmentId = String(sh?.shipmentId || sh?.id || '').trim();
+      const packingGroupId = getPackingGroupKey(sh);
+      const derived =
+        (shipmentId ? derivedByShipmentId.get(shipmentId) : null) ||
+        (packingGroupId ? derivedByGroupId.get(packingGroupId) : null) ||
+        null;
+      const boxes =
+        getFiniteNumber(sh?.boxes) ??
+        getFiniteNumber(sh?.boxCount) ??
+        getFiniteNumber(sh?.boxesCount) ??
+        getFiniteNumber(derived?.boxes) ??
+        0;
+      const resolvedSkuCount =
+        getFiniteNumber(sh?.skuCount) ??
+        getFiniteNumber(derived?.skuCount) ??
+        shipmentFallbackTotals.skuCountFallback;
+      const resolvedUnits = resolveShipmentUnits(sh, {
+        units:
+          getFiniteNumber(derived?.units) ??
+          (idx === 0 ? shipmentFallbackTotals.unitsFallback : 0)
+      });
+      return {
+        ...derived,
+        ...sh,
+        skuCount: resolvedSkuCount,
+        boxes: boxes > 0 ? boxes : 0,
+        boxesDetail:
+          Array.isArray(sh?.boxesDetail) && sh.boxesDetail.length
+            ? sh.boxesDetail
+            : (Array.isArray(derived?.boxesDetail) ? derived.boxesDetail : []),
+        units: resolvedUnits
+      };
+    });
+  }, [shipments, derivedShipmentsForDisplay, shipmentFallbackTotals]);
   const autoShipPlanRef = useRef({ planId: null, attempted: false });
 
   const isCompleted = (key) => completedSteps.includes(key);

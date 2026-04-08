@@ -3,6 +3,11 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon reported an issue for this SKU. Review and try again.',
     opMissingPrep: 'Prep classification is missing for this SKU. Choose prep and submit again.',
     opNotEligible: 'This product is currently not eligible for inbound on the selected marketplace.',
+    noFulfillmentCenterDestination: 'There is currently no fulfillment center in the destination country capable of receiving this product.',
+    noFulfillmentCenterGeneric: 'There is currently no fulfillment center capable of receiving this product.',
+    deleteProductOrContactSupport: 'Please delete this product from the shipment or contact Seller Support if you believe this is an error.',
+    dangerousGoodsNoCapacity:
+      'No fulfillment centers are currently available to receive the total quantity of dangerous goods units in this shipment. Please return to Step 1 and try again.',
     approvalRequiredIssue: 'Approval is required before this item can be sent to Amazon.',
     planCreationFailedApprovalRequired:
       'Amazon could not create the shipping plan for this request. Amazon reason: approval is required before this item can be sent to Amazon. Check the items marked in red and try again. The Amazon plan is in ERROR status. I reset the plan; retry Step 1.',
@@ -191,6 +196,12 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon a raportat o problemă pentru acest SKU. Verifică și încearcă din nou.',
     opMissingPrep: 'Lipsește categoria de pregătire (prep) pentru acest SKU. Selectează prep și retrimite.',
     opNotEligible: 'Acest produs nu este eligibil momentan pentru inbound pe marketplace-ul selectat.',
+    noFulfillmentCenterDestination: 'Momentan nu există niciun centru de fulfillment în țara de destinație care să poată primi acest produs.',
+    noFulfillmentCenterGeneric: 'Momentan nu există niciun centru de fulfillment care să poată primi acest produs.',
+    deleteProductOrContactSupport:
+      'Șterge acest produs din shipment sau contactează Seller Support dacă crezi că este o eroare.',
+    dangerousGoodsNoCapacity:
+      'Momentan nu există centre de fulfillment disponibile pentru a primi cantitatea totală de produse periculoase din acest shipment. Revino la Pasul 1 și încearcă din nou.',
     approvalRequiredIssue: 'Este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon.',
     planCreationFailedApprovalRequired:
       'Amazon nu a putut crea planul de trimitere pentru această cerere. Motiv Amazon: este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon. Verifică produsele marcate cu roșu și încearcă din nou. Planul Amazon este în status ERROR. Am resetat planul; reîncearcă Pasul 1.',
@@ -379,6 +390,13 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon a signalé un problème pour ce SKU. Vérifiez et réessayez.',
     opMissingPrep: 'La classification prep est manquante pour ce SKU. Sélectionnez-la et renvoyez.',
     opNotEligible: 'Ce produit n’est pas éligible à l’inbound sur la marketplace sélectionnée.',
+    noFulfillmentCenterDestination:
+      'Aucun centre de fulfillment dans le pays de destination n’est actuellement capable de recevoir ce produit.',
+    noFulfillmentCenterGeneric: 'Aucun centre de fulfillment n’est actuellement capable de recevoir ce produit.',
+    deleteProductOrContactSupport:
+      'Supprimez ce produit de l’expédition ou contactez le Seller Support si vous pensez qu’il s’agit d’une erreur.',
+    dangerousGoodsNoCapacity:
+      'Aucun centre de fulfillment n’est actuellement disponible pour recevoir la quantité totale d’unités de marchandises dangereuses de cette expédition. Revenez à l’étape 1 et réessayez.',
     approvalRequiredIssue: 'L’approbation est requise avant que cet article puisse être envoyé à Amazon.',
     planCreationFailedApprovalRequired:
       'Amazon n’a pas pu créer le plan d’expédition pour cette demande. Motif Amazon : l’approbation est requise avant que cet article puisse être envoyé à Amazon. Vérifiez les produits marqués en rouge puis réessayez. Le plan Amazon est au statut ERROR. Je l’ai réinitialisé ; relancez l’étape 1.',
@@ -566,6 +584,13 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon hat ein Problem für diese SKU gemeldet. Prüfen und erneut versuchen.',
     opMissingPrep: 'Die Prep-Klassifizierung fehlt für diese SKU. Bitte auswählen und erneut senden.',
     opNotEligible: 'Dieses Produkt ist für Inbound auf dem gewählten Marktplatz derzeit nicht berechtigt.',
+    noFulfillmentCenterDestination:
+      'Derzeit gibt es im Zielland kein Fulfillment-Center, das dieses Produkt annehmen kann.',
+    noFulfillmentCenterGeneric: 'Derzeit gibt es kein Fulfillment-Center, das dieses Produkt annehmen kann.',
+    deleteProductOrContactSupport:
+      'Bitte entferne dieses Produkt aus der Sendung oder kontaktiere den Seller Support, wenn du dies für einen Fehler hältst.',
+    dangerousGoodsNoCapacity:
+      'Derzeit stehen keine Fulfillment-Center zur Verfügung, um die Gesamtmenge an Gefahrgut-Einheiten in dieser Sendung anzunehmen. Gehe zu Schritt 1 zurück und versuche es erneut.',
     approvalRequiredIssue: 'Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann.',
     planCreationFailedApprovalRequired:
       'Amazon konnte den Versandplan für diese Anfrage nicht erstellen. Amazon-Grund: Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann. Prüfe die rot markierten Produkte und versuche es erneut. Der Amazon-Plan hat den Status ERROR. Ich habe den Plan zurückgesetzt; starte Schritt 1 erneut.',
@@ -753,6 +778,16 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon ha segnalato un problema per questo SKU. Controlla e riprova.',
     opMissingPrep: 'Manca la classificazione prep per questo SKU. Selezionala e invia di nuovo.',
     opNotEligible: 'Questo prodotto non è idoneo all’inbound sul marketplace selezionato.',
+    noFulfillmentCenterDestination:
+      'Al momento non esiste alcun centro di fulfillment nel paese di destinazione in grado di ricevere questo prodotto.',
+    noFulfillmentCenterGeneric: 'Al momento non esiste alcun centro di fulfillment in grado di ricevere questo prodotto.',
+    deleteProductOrContactSupport:
+      'Rimuovi questo prodotto dalla spedizione o contatta il Seller Support se ritieni che si tratti di un errore.',
+    dangerousGoodsNoCapacity:
+      'Al momento non ci sono centri di fulfillment disponibili per ricevere la quantità totale di unità di merci pericolose in questa spedizione. Torna allo Step 1 e riprova.',
+    approvalRequiredIssue: 'È richiesta un’approvazione prima che questo articolo possa essere inviato ad Amazon.',
+    planCreationFailedApprovalRequired:
+      'Amazon non ha potuto creare il piano di spedizione per questa richiesta. Motivo Amazon: è richiesta un’approvazione prima che questo articolo possa essere inviato ad Amazon. Controlla i prodotti evidenziati in rosso e riprova. Il piano Amazon è in stato ERROR. Ho reimpostato il piano; riprova lo Step 1.',
     validationMissingBoxes: 'Aggiungi almeno una scatola per ogni gruppo con unità.',
     validationMissingAssignments: 'Distribuisci tutte le unità nelle scatole (Assigned deve essere uguale a Units).',
     validationMissingDims: 'Aggiungi dimensioni e peso per ogni scatola.',
@@ -798,6 +833,16 @@ export const STEP1_COPY = {
     opDefaultIssue: 'Amazon informó un problema para este SKU. Revísalo e inténtalo de nuevo.',
     opMissingPrep: 'Falta la clasificación prep para este SKU. Selecciónala y vuelve a enviar.',
     opNotEligible: 'Este producto no es apto para inbound en el marketplace seleccionado.',
+    noFulfillmentCenterDestination:
+      'Actualmente no hay ningún centro de fulfillment en el país de destino capaz de recibir este producto.',
+    noFulfillmentCenterGeneric: 'Actualmente no hay ningún centro de fulfillment capaz de recibir este producto.',
+    deleteProductOrContactSupport:
+      'Elimina este producto del envío o contacta con Seller Support si crees que se trata de un error.',
+    dangerousGoodsNoCapacity:
+      'Actualmente no hay centros de fulfillment disponibles para recibir la cantidad total de unidades de mercancías peligrosas de este envío. Vuelve al Paso 1 e inténtalo de nuevo.',
+    approvalRequiredIssue: 'Se requiere aprobación antes de que este artículo pueda enviarse a Amazon.',
+    planCreationFailedApprovalRequired:
+      'Amazon no pudo crear el plan de envío para esta solicitud. Motivo de Amazon: se requiere aprobación antes de que este artículo pueda enviarse a Amazon. Revisa los productos marcados en rojo y vuelve a intentarlo. El plan de Amazon está en estado ERROR. Restablecí el plan; vuelve a intentar el Paso 1.',
     validationMissingBoxes: 'Añade al menos una caja para cada grupo con unidades.',
     validationMissingAssignments: 'Distribuye todas las unidades en cajas (Assigned debe ser igual a Units).',
     validationMissingDims: 'Añade dimensiones y peso para cada caja.',

@@ -246,6 +246,33 @@ export default function FbaStep1Inventory({
         }
         return tr('approvalRequiredIssue');
       }
+      const replacements = [
+        {
+          pattern: /there is currently no fulfillment center in the destination country capable of receiving this product\.?/gi,
+          replacement: tr('noFulfillmentCenterDestination')
+        },
+        {
+          pattern: /there is currently no fulfillment center capable of receiving this product\.?/gi,
+          replacement: tr('noFulfillmentCenterGeneric')
+        },
+        {
+          pattern: /please delete this product from the shipment or contact seller support if you believe this is an error\.?/gi,
+          replacement: tr('deleteProductOrContactSupport')
+        },
+        {
+          pattern: /no fulfillment centers are currently available to receive the total quantity of dangerous goods units in this shipment\. please return to step 1 and try again\.?/gi,
+          replacement: tr('dangerousGoodsNoCapacity')
+        }
+      ];
+      let localized = raw;
+      let changed = false;
+      replacements.forEach(({ pattern, replacement }) => {
+        if (pattern.test(localized)) {
+          localized = localized.replace(pattern, replacement);
+          changed = true;
+        }
+      });
+      if (changed) return localized;
       return raw;
     },
     [normalizeReasonText, tr]
