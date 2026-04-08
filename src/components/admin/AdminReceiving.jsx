@@ -1713,6 +1713,22 @@ useEffect(() => {
                 const isPrepBusinessShipment = isPrepBusinessSource(shipment);
                 const displayClientName = getClientDisplayName(shipment);
                 const hasFbaIntent = Boolean(shipment.has_fba_intent);
+                const totalUnits = (Array.isArray(shipment.receiving_items) ? shipment.receiving_items : []).reduce(
+                  (sum, item) =>
+                    sum +
+                    Math.max(
+                      0,
+                      Number(
+                        item?.quantity_received ??
+                          item?.units_requested ??
+                          item?.qty ??
+                          item?.quantity ??
+                          item?.requested ??
+                          0
+                      ) || 0
+                    ),
+                  0
+                );
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
                   : shipment.isArchive
@@ -1801,6 +1817,7 @@ useEffect(() => {
                       {shipment.line_count || 0}
                     </span>
                     <p className="text-[11px] uppercase tracking-wide text-text-secondary">Lines</p>
+                    <p className="text-[11px] text-text-secondary">{totalUnits} units</p>
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-sm text-text-secondary space-y-1">
