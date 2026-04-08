@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X, Mail } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, RefreshCcw, Trash2, Upload, CheckCircle2, Pencil, X, Mail, Search } from 'lucide-react';
 import Section from '../common/Section';
 import { supabase, supabaseHelpers } from '../../config/supabase';
 import { useMarket } from '@/contexts/MarketContext';
@@ -62,6 +62,7 @@ export default function AdminReturns({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('pending');
+  const [search, setSearch] = useState('');
   const [savingId, setSavingId] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editNotes, setEditNotes] = useState('');
@@ -289,9 +290,31 @@ export default function AdminReturns({
   }, [currentMarket, currentMarketProp, companyId, profile?.id]);
 
   const filtered = useMemo(() => {
-    if (!filter) return rows;
-    return rows.filter((r) => r.status === filter);
-  }, [rows, filter]);
+    const normalizedSearch = String(search || '').trim().toLowerCase();
+    return rows.filter((row) => {
+      if (filter && row.status !== filter) return false;
+      if (!normalizedSearch) return true;
+
+      const itemMatches = (Array.isArray(row?.return_items) ? row.return_items : []).some((item) => {
+        const fields = [
+          item?.asin,
+          item?.sku,
+          item?.stock_item?.asin,
+          item?.stock_item?.sku,
+          item?.stock_item?.name
+        ];
+        return fields.some((value) => String(value || '').toLowerCase().includes(normalizedSearch));
+      });
+      if (itemMatches) return true;
+
+      const trackingMatches = (Array.isArray(row?.return_service_lines) ? row.return_service_lines : []).some((line) =>
+        String(line?.transport_tracking_id || '').toLowerCase().includes(normalizedSearch)
+      );
+      if (trackingMatches) return true;
+
+      return false;
+    });
+  }, [rows, filter, search]);
 
   const resolveStockItem = async (item, companyId) => {
     if (item.stock_item_id) {
@@ -638,6 +661,16 @@ export default function AdminReturns({
       title="Retururi"
       right={
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="w-4 h-4 text-text-secondary absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Caută ASIN, produs sau Track ID"
+              className="border rounded pl-9 pr-3 py-1.5 text-sm w-[260px]"
+            />
+          </div>
           <select
             className="border rounded px-2 py-1 text-sm"
             value={filter}
