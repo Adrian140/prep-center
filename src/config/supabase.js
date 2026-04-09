@@ -82,6 +82,66 @@ const normalizeCode = (value) => {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 };
+const getReceivingRequestedUnits = (item) => {
+  const value = Number(
+    item?.quantity_received ??
+      item?.units_requested ??
+      item?.qty ??
+      item?.quantity ??
+      item?.requested ??
+      0
+  );
+  return Number.isFinite(value) && value > 0 ? value : 0;
+};
+const enrichReceivingShipmentSearchRows = async (rows = []) => {
+  const shipmentIds = rows.map((row) => row?.id).filter(Boolean);
+  if (shipmentIds.length === 0) return rows;
+
+  const modernItemsByShipment = {};
+  const legacyItemsByShipment = {};
+
+  try {
+    const { data: modernItems, error: modernError } = await supabase
+      .from('receiving_items')
+      .select('shipment_id, quantity_received')
+      .in('shipment_id', shipmentIds);
+    if (modernError) throw modernError;
+
+    (modernItems || []).forEach((item) => {
+      if (!item?.shipment_id) return;
+      (modernItemsByShipment[item.shipment_id] ||= []).push(item);
+    });
+
+    const missingLegacyIds = shipmentIds.filter((id) => !modernItemsByShipment[id]?.length);
+    if (missingLegacyIds.length > 0) {
+      const { data: legacyItems, error: legacyError } = await supabase
+        .from('receiving_shipment_items')
+        .select('shipment_id, quantity_received, qty, quantity, requested')
+        .in('shipment_id', missingLegacyIds);
+      if (legacyError) throw legacyError;
+
+      (legacyItems || []).forEach((item) => {
+        if (!item?.shipment_id) return;
+        (legacyItemsByShipment[item.shipment_id] ||= []).push(item);
+      });
+    }
+  } catch (error) {
+    console.warn('[searchAdminReceivingShipments] failed to enrich unit totals', error);
+    return rows;
+  }
+
+  return rows.map((row) => {
+    const items = modernItemsByShipment[row.id]?.length
+      ? modernItemsByShipment[row.id]
+      : legacyItemsByShipment[row.id] || [];
+    const totalUnits = items.reduce((sum, item) => sum + getReceivingRequestedUnits(item), 0);
+    return {
+      ...row,
+      receiving_items: items,
+      total_units: totalUnits
+    };
+  });
+};
 const pickPrepBusinessMerchantName = (payload = null, merchantId = null) => {
   const source =
     payload && typeof payload === 'object' && !Array.isArray(payload)
@@ -4260,8 +4320,9 @@ getAllReceivingShipments: async (options = {}) => {
     if (!error) {
       const rows = Array.isArray(data) ? data : [];
       const count = Number(rows[0]?.total_count || 0);
+      const enrichedRows = await enrichReceivingShipmentSearchRows(rows);
       return {
-        data: rows.map(({ total_count, ...row }) => row),
+        data: enrichedRows.map(({ total_count, ...row }) => row),
         error: null,
         count
       };

@@ -77,6 +77,7 @@ returns table (
   import_source text,
   fba_mode text,
   line_count integer,
+  total_units integer,
   has_fba_intent boolean,
   latest_received_at timestamptz,
   total_count bigint
@@ -211,6 +212,7 @@ item_stats as (
   select
     ri.shipment_id,
     count(*)::int as modern_count,
+    coalesce(sum(greatest(coalesce(ri.quantity_received, 0), 0)), 0)::int as modern_total_units,
     count(*) filter (
       where greatest(coalesce(ri.received_units, 0), 0) > 0
     )::int as any_received_count,
@@ -229,7 +231,11 @@ item_stats as (
 legacy_stats as (
   select
     rsi.shipment_id,
-    count(*)::int as legacy_count
+    count(*)::int as legacy_count,
+    coalesce(
+      sum(greatest(coalesce(rsi.quantity_received, rsi.quantity, rsi.requested, 0), 0)),
+      0
+    )::int as legacy_total_units
   from public.receiving_shipment_items rsi
   join shipment_base sb on sb.id = rsi.shipment_id
   group by rsi.shipment_id
@@ -257,6 +263,7 @@ combined as (
     sb.import_source,
     sb.fba_mode,
     coalesce(item_stats.modern_count, 0) + coalesce(legacy_stats.legacy_count, 0) as line_count,
+    coalesce(item_stats.modern_total_units, legacy_stats.legacy_total_units, 0) as total_units,
     (coalesce(sb.fba_mode, 'none') <> 'none' or coalesce(item_stats.has_item_fba, false)) as has_fba_intent,
     coalesce(item_stats.latest_event_at, sb.received_at, sb.updated_at, sb.created_at) as latest_received_at,
     case
@@ -315,6 +322,7 @@ select
   ranked.import_source,
   ranked.fba_mode,
   ranked.line_count,
+  ranked.total_units,
   ranked.has_fba_intent,
   ranked.latest_received_at,
   ranked.total_count

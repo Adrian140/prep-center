@@ -1713,21 +1713,27 @@ useEffect(() => {
                 const isPrepBusinessShipment = isPrepBusinessSource(shipment);
                 const displayClientName = getClientDisplayName(shipment);
                 const hasFbaIntent = Boolean(shipment.has_fba_intent);
-                const totalUnits = (Array.isArray(shipment.receiving_items) ? shipment.receiving_items : []).reduce(
-                  (sum, item) =>
-                    sum +
-                    Math.max(
-                      0,
-                      Number(
-                        item?.quantity_received ??
-                          item?.units_requested ??
-                          item?.qty ??
-                          item?.quantity ??
-                          item?.requested ??
-                          0
-                      ) || 0
-                    ),
-                  0
+                const totalUnits = Math.max(
+                  0,
+                  Number(
+                    shipment.total_units ??
+                      (Array.isArray(shipment.receiving_items) ? shipment.receiving_items : []).reduce(
+                        (sum, item) =>
+                          sum +
+                          Math.max(
+                            0,
+                            Number(
+                              item?.quantity_received ??
+                                item?.units_requested ??
+                                item?.qty ??
+                                item?.quantity ??
+                                item?.requested ??
+                                0
+                            ) || 0
+                          ),
+                        0
+                      )
+                  ) || 0
                 );
                 const rowClass = hasFbaIntent
                   ? 'border-t bg-sky-50 hover:bg-sky-100/60'
