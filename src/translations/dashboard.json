@@ -394,6 +394,7 @@
         "chip": "Transparency PDFs",
         "panelTitle": "Transparency PDFs per ASIN",
         "asinLabel": "ASIN",
+        "eanLabel": "EAN",
         "skuLabel": "SKU",
         "uploaded": "PDF uploaded",
         "uploading": "Uploading…",

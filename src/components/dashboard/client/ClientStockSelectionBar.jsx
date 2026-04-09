@@ -152,7 +152,7 @@ const ClientStockSelectionBar = ({
                   {row.name || row.asin || row.sku || row.ean || 'Item'}
                 </div>
                 <div className="mt-1 text-[11px] text-text-secondary break-all">
-                  {tt('asinLabel', 'ASIN')}: {row.asin || '—'} · {tt('skuLabel', 'SKU')}: {row.sku || '—'}
+                  {tt('asinLabel', 'ASIN')}: {row.asin || '—'} · {tt('eanLabel', 'EAN')}: {row.ean || '—'} · {tt('skuLabel', 'SKU')}: {row.sku || '—'}
                 </div>
                 {hasFile && (
                   <div className="mt-1 text-[11px] text-green-700 break-all">
