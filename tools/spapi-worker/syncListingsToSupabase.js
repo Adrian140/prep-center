@@ -1579,8 +1579,8 @@ function buildFulfillmentMode(channels = []) {
   const normalized = Array.from(
     new Set((channels || []).map((value) => normalizeFulfillmentChannel(value)).filter(Boolean))
   );
-  if (normalized.includes('FBM')) return 'FBM';
   if (normalized.includes('FBA')) return 'FBA';
+  if (normalized.includes('FBM')) return 'FBM';
   return null;
 }
 

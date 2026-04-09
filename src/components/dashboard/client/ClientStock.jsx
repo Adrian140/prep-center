@@ -122,8 +122,8 @@ const getFulfillmentKind = (row, channelRows = [], listingPresence = []) => {
     )
   );
 
-  if (normalizedChannels.includes('FBM')) return 'FBM';
   if (normalizedChannels.includes('FBA')) return 'FBA';
+  if (normalizedChannels.includes('FBM')) return 'FBM';
 
   const rowChannels = Array.isArray(row?.amazon_fulfillment_channels)
     ? row.amazon_fulfillment_channels
@@ -133,8 +133,8 @@ const getFulfillmentKind = (row, channelRows = [], listingPresence = []) => {
   );
   const rowMode = normalizeFulfillmentChannel(row?.amazon_fulfillment_mode);
 
-  if (normalizedRowChannels.includes('FBM') || rowMode === 'FBM') return 'FBM';
   if (normalizedRowChannels.includes('FBA') || rowMode === 'FBA') return 'FBA';
+  if (normalizedRowChannels.includes('FBM') || rowMode === 'FBM') return 'FBM';
 
   const amazonSignal =
     Number(row?.amazon_stock || 0) > 0 ||
@@ -142,9 +142,6 @@ const getFulfillmentKind = (row, channelRows = [], listingPresence = []) => {
     Number(row?.amazon_reserved || 0) > 0 ||
     Number(row?.amazon_unfulfillable || 0) > 0;
   if (amazonSignal) return 'FBA';
-
-  const hasMarketplaceListing = Array.isArray(listingPresence) && listingPresence.length > 0;
-  if (hasMarketplaceListing) return 'LISTED';
 
   return 'UNKNOWN';
 };
@@ -1848,7 +1845,7 @@ useEffect(() => {
           listingChannelsByItemId?.[r.id] || [],
           listingPresenceByItemId?.[r.id] || []
         );
-        return kind === 'FBA' || kind === 'FBM' || kind === 'LISTED' || kind === 'UNKNOWN';
+        return kind === 'FBA' || kind === 'FBM' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fba') {
@@ -1858,7 +1855,7 @@ useEffect(() => {
           listingChannelsByItemId?.[r.id] || [],
           listingPresenceByItemId?.[r.id] || []
         );
-        return kind === 'FBA' || kind === 'LISTED' || kind === 'UNKNOWN';
+        return kind === 'FBA' || kind === 'UNKNOWN';
       });
     }
     if (fulfillmentFilter === 'fbm') {
@@ -1868,7 +1865,7 @@ useEffect(() => {
           listingChannelsByItemId?.[r.id] || [],
           listingPresenceByItemId?.[r.id] || []
         );
-        return kind === 'FBM' || kind === 'LISTED' || kind === 'UNKNOWN';
+        return kind === 'FBM' || kind === 'UNKNOWN';
       });
     }
     return base;
@@ -3711,7 +3708,6 @@ const saveReqChanges = async () => {
     const fulfillmentBadges =
       fulfillmentKind === 'FBA' ||
       fulfillmentKind === 'FBM' ||
-      fulfillmentKind === 'LISTED' ||
       fulfillmentKind === 'UNKNOWN'
         ? [fulfillmentKind]
         : [];
@@ -3813,8 +3809,6 @@ const saveReqChanges = async () => {
                 ? 'bg-sky-100 text-sky-700'
                 : badge === 'FBM'
                   ? 'bg-slate-200 text-slate-700'
-                  : badge === 'LISTED'
-                    ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-amber-100 text-amber-800'
             }`}
           >
@@ -3822,9 +3816,7 @@ const saveReqChanges = async () => {
               ? t('ClientStock.fulfillmentBadges.fba')
               : badge === 'FBM'
                 ? t('ClientStock.fulfillmentBadges.fbm')
-                : badge === 'LISTED'
-                  ? t('ClientStock.fulfillmentBadges.listed')
-                  : t('ClientStock.fulfillmentBadges.unknown')}
+                : t('ClientStock.fulfillmentBadges.unknown')}
           </span>
         ))}
       </div>

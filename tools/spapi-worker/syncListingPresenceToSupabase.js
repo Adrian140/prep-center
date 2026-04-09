@@ -454,6 +454,7 @@ async function syncIntegrationMarket(params) {
     const hitBySku = skuKey ? bySku.get(skuKey) : null;
     const hitByAsin = !hitBySku && asinKey ? byAsin.get(asinKey) : null;
     const hit = hitBySku || hitByAsin || null;
+    const allowPresence = Boolean(hitBySku || (!skuKey && hitByAsin));
     const stockPatch = buildStockPatch(item, hit, conflictIndex);
     if (stockPatch) stockPatches.push(stockPatch);
     if (shouldDebug(companyId, skuKey, asinKey)) {
@@ -473,14 +474,14 @@ async function syncIntegrationMarket(params) {
       stock_item_id: item.id,
       seller_id: sellerId,
       marketplace_id: marketId,
-      exists_on_marketplace: Boolean(hit),
+      exists_on_marketplace: allowPresence,
       resolved_sku: hit?.sku || null,
       source: hitBySku
         ? 'sku_report_match'
         : hitByAsin
         ? 'asin_report_match'
         : 'report_not_found',
-      raw_status: hit?.status || (hit ? 'LISTED' : 'NOT_FOUND'),
+      raw_status: allowPresence ? hit?.status || 'LISTED' : 'NOT_FOUND',
       checked_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
