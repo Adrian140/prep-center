@@ -2889,6 +2889,25 @@ serve(async (req) => {
     const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
     const prepCategoryBySku: Record<string, string | null> = {};
     const transparencyBySku: Record<string, { required: boolean; messages: string[] }> = {};
+    const transparencyCacheKey = reqData.company_id ? `amazon_transparency_status:${reqData.company_id}` : null;
+    let persistentTransparencyCache: Record<
+      string,
+      { required: boolean; messages?: string[]; source?: string; lastCheckedAt?: string; lastLiveCheckStatus?: string }
+    > = {};
+    if (transparencyCacheKey) {
+      try {
+        const { data: cacheRow } = await supabase
+          .from("app_settings")
+          .select("value")
+          .eq("key", transparencyCacheKey)
+          .maybeSingle();
+        if (cacheRow?.value && typeof cacheRow.value === "object" && !Array.isArray(cacheRow.value)) {
+          persistentTransparencyCache = cacheRow.value as typeof persistentTransparencyCache;
+        }
+      } catch (cacheErr) {
+        console.warn("load persistent transparency cache failed", { traceId, error: cacheErr });
+      }
+    }
     const previousTransparencyBySku =
       snapshotBase?.fba_inbound && typeof snapshotBase.fba_inbound === "object" && snapshotBase.fba_inbound.transparencyBySku
         ? snapshotBase.fba_inbound.transparencyBySku
@@ -3714,13 +3733,21 @@ serve(async (req) => {
         const asin = String(itemForSku?.asin || "").trim();
         const transparencyMessages = new Set<string>();
         let internalSignal = { required: false, messages: [] as string[] };
+        let internalCheckFailed = false;
         const previousSignal =
           previousTransparencyBySku && typeof previousTransparencyBySku === "object"
             ? previousTransparencyBySku[skuKey]
             : null;
+        const persistentCacheKey = `${String(marketplaceId || "").toUpperCase()}|${String(asin || "").toUpperCase()}`;
+        const persistentSignal = persistentTransparencyCache[persistentCacheKey] || null;
 
         if (previousSignal?.required) {
           for (const message of Array.isArray(previousSignal.messages) ? previousSignal.messages : []) {
+            if (message) transparencyMessages.add(String(message));
+          }
+        }
+        if (persistentSignal?.required) {
+          for (const message of Array.isArray(persistentSignal.messages) ? persistentSignal.messages : []) {
             if (message) transparencyMessages.add(String(message));
           }
         }
@@ -3755,6 +3782,8 @@ serve(async (req) => {
             if (cookieRes.res.ok && cookieValue === true) {
               internalSignal = { required: true, messages: ["Transparency code required"] };
               transparencyMessages.add("Transparency code required");
+            } else if (!cookieRes.res.ok) {
+              internalCheckFailed = true;
             }
           }
         }
@@ -3826,6 +3855,7 @@ serve(async (req) => {
 
         const required = Boolean(
           previousSignal?.required ||
+            persistentSignal?.required ||
             itemForSku?.transparency_file_path ||
             internalSignal.required ||
             schemaSignal.required ||
@@ -3838,6 +3868,15 @@ serve(async (req) => {
           required: true,
           messages: Array.from(transparencyMessages).filter(Boolean)
         };
+        if (asin) {
+          persistentTransparencyCache[persistentCacheKey] = {
+            required: true,
+            messages: Array.from(transparencyMessages).filter(Boolean),
+            source: itemForSku?.transparency_file_path ? "pdf_uploaded" : "amazon_or_cached",
+            lastCheckedAt: new Date().toISOString(),
+            lastLiveCheckStatus: internalSignal.required ? "live_true" : internalCheckFailed ? "live_unavailable" : "cached"
+          };
+        }
       }
     }
 
@@ -5216,6 +5255,11 @@ serve(async (req) => {
         }
       };
       await supabase.from("prep_requests").update({ amazon_snapshot: nextSnapshot }).eq("id", requestId);
+      if (transparencyCacheKey) {
+        await supabase
+          .from("app_settings")
+          .upsert({ key: transparencyCacheKey, value: persistentTransparencyCache, updated_at: new Date().toISOString() });
+      }
     } catch (persistSnapErr) {
       console.error("persist plan items signature failed", { traceId, error: persistSnapErr });
     }
