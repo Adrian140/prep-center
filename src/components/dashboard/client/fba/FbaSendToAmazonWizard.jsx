@@ -541,19 +541,6 @@ const extractFunctionInvokeError = async (err) => {
   };
 };
 
-const isInboundPlanLockedDetails = (details) => {
-  const status = Number(details?.status || 0);
-  const payloadStatus = String(details?.payload?.status || '').trim().toUpperCase();
-  const code = String(details?.code || '').trim().toUpperCase();
-  const message = String(details?.message || '').trim().toLowerCase();
-  if (status !== 409) return false;
-  return (
-    payloadStatus === 'LOCKED' ||
-    code === 'LOCKED' ||
-    message.includes('plan creation already in progress')
-  );
-};
-
 const initialData = {
   shipFrom: {
     name: 'Bucur Adrian, 5B Rue des Enclos, Gouseniere, FR',
@@ -6377,53 +6364,24 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     setPlanError('');
   }, []);
 
-  const mapFbaPlanInvokeError = useCallback(
-    async (err, fallbackMessage) => {
-      const details = await extractFunctionInvokeError(err);
-      if (isInboundPlanLockedDetails(details)) {
-        return {
-          ...details,
-          message: wizardCopy.inboundPlanWait
-        };
-      }
-      return {
-        ...details,
-        message: details.message || fallbackMessage
-      };
-    },
-    [wizardCopy.inboundPlanWait]
-  );
-
   const submitListingAttributesForSku = useCallback(
     async (sku, attrs) => {
       const requestId = resolveRequestId();
       if (!requestId) throw new Error('Missing requestId.');
       const cleanSku = String(sku || '').trim();
       if (!cleanSku) throw new Error('Missing SKU.');
-      let data = null;
-      try {
-        const response = await invokeAuthedFunction('fba-plan', {
-          request_id: requestId,
-          listingAttributesBySku: {
-            [cleanSku]: {
-              length_cm: getPositiveNumber(attrs?.length_cm),
-              width_cm: getPositiveNumber(attrs?.width_cm),
-              height_cm: getPositiveNumber(attrs?.height_cm),
-              weight_kg: getPositiveNumber(attrs?.weight_kg)
-            }
+      const { data, error } = await invokeAuthedFunction('fba-plan', {
+        request_id: requestId,
+        listingAttributesBySku: {
+          [cleanSku]: {
+            length_cm: getPositiveNumber(attrs?.length_cm),
+            width_cm: getPositiveNumber(attrs?.width_cm),
+            height_cm: getPositiveNumber(attrs?.height_cm),
+            weight_kg: getPositiveNumber(attrs?.weight_kg)
           }
-        });
-        if (response?.error) throw response.error;
-        data = response?.data || null;
-      } catch (err) {
-        const parsed = await mapFbaPlanInvokeError(err, 'Could not send attributes to Amazon.');
-        if (isInboundPlanLockedDetails(parsed)) {
-          setInboundPlanMissing(true);
-          setStep1SaveError(parsed.message);
-          setPlanError('');
         }
-        throw new Error(parsed.message);
-      }
+      });
+      if (error) throw error;
       const response = data?.plan || null;
       if (!response) throw new Error('Amazon plan did not respond.');
       const {
@@ -6463,7 +6421,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       }
     },
     [
-      mapFbaPlanInvokeError,
       resolveRequestId,
       mergeSkusWithLocal,
       snapshotServerUnits,
@@ -6683,17 +6640,7 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
       snapshotServerUnits(updates.map((u) => ({ id: u.id, units: u.units_sent })));
 
       if (fetchPlan) {
-        try {
-          await refreshStep('1');
-        } catch (err) {
-          const parsed = await mapFbaPlanInvokeError(err, wizardCopy.inboundPlanWait);
-          if (isInboundPlanLockedDetails(parsed)) {
-            setInboundPlanMissing(true);
-            setStep1SaveError(parsed.message);
-            return;
-          }
-          throw err;
-        }
+        await refreshStep('1');
       }
       const packRes = await waitForPackingGroups();
       if (!packRes?.ok) {
@@ -6756,7 +6703,6 @@ const [packGroupsPreviewError, setPackGroupsPreviewError] = useState('');
     collectSkuIdentifiers,
     completeAndNext,
     fetchPlan,
-    mapFbaPlanInvokeError,
     plan?.skus,
     removeSkuFromStep1Plan,
     skuServicesById,
