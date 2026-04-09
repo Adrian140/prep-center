@@ -223,7 +223,13 @@ export default function FbaStep1Inventory({
       ) {
         return tr('statusReasonListingDiscoverable');
       }
-      if (normalized.includes('approval is required before this item can be sent to amazon')) {
+      if (
+        normalized.includes('approval is required before this item can be sent to amazon') ||
+        normalized.includes('sku needs amazon approval before it can be sent to fba')
+      ) {
+        if (normalized.includes('sku needs amazon approval before it can be sent to fba')) {
+          return tr('approvalRequiredFbaInbound');
+        }
         return tr('approvalRequiredIssue');
       }
       return raw;
@@ -235,7 +241,13 @@ export default function FbaStep1Inventory({
       const raw = String(value || '').trim();
       if (!raw) return '';
       const normalized = normalizeReasonText(raw);
-      if (normalized.includes('approval is required before this item can be sent to amazon')) {
+      if (
+        normalized.includes('approval is required before this item can be sent to amazon') ||
+        normalized.includes('sku needs amazon approval before it can be sent to fba')
+      ) {
+        if (normalized.includes('sku needs amazon approval before it can be sent to fba')) {
+          return tr('approvalRequiredFbaInbound');
+        }
         if (
           (normalized.includes('could not create') && normalized.includes('plan')) ||
           normalized.includes('nu a putut crea planul de trimitere') ||

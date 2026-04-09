@@ -9,6 +9,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'No fulfillment centers are currently available to receive the total quantity of dangerous goods units in this shipment. Please return to Step 1 and try again.',
     approvalRequiredIssue: 'Approval is required before this item can be sent to Amazon.',
+    approvalRequiredFbaInbound: 'SKU needs Amazon approval before it can be sent to FBA.',
     planCreationFailedApprovalRequired:
       'Amazon could not create the shipping plan for this request. Amazon reason: approval is required before this item can be sent to Amazon. Check the items marked in red and try again. The Amazon plan is in ERROR status. I reset the plan; retry Step 1.',
     planCreatedContinuePacking: 'Amazon plan was created successfully. You can continue with packing (Step 1b).',
@@ -203,6 +204,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'Momentan nu există centre de fulfillment disponibile pentru a primi cantitatea totală de produse periculoase din acest shipment. Revino la Pasul 1 și încearcă din nou.',
     approvalRequiredIssue: 'Este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon.',
+    approvalRequiredFbaInbound: 'SKU-ul are nevoie de aprobare Amazon înainte să poată fi trimis către FBA.',
     planCreationFailedApprovalRequired:
       'Amazon nu a putut crea planul de trimitere pentru această cerere. Motiv Amazon: este necesară aprobarea înainte ca acest articol să poată fi trimis către Amazon. Verifică produsele marcate cu roșu și încearcă din nou. Planul Amazon este în status ERROR. Am resetat planul; reîncearcă Pasul 1.',
     planCreatedContinuePacking: 'Planul Amazon a fost creat cu succes. Poți continua cu împachetarea (Pasul 1b).',
@@ -398,6 +400,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'Aucun centre de fulfillment n’est actuellement disponible pour recevoir la quantité totale d’unités de marchandises dangereuses de cette expédition. Revenez à l’étape 1 et réessayez.',
     approvalRequiredIssue: 'L’approbation est requise avant que cet article puisse être envoyé à Amazon.',
+    approvalRequiredFbaInbound: 'Le SKU doit être approuvé par Amazon avant de pouvoir être envoyé en FBA.',
     planCreationFailedApprovalRequired:
       'Amazon n’a pas pu créer le plan d’expédition pour cette demande. Motif Amazon : l’approbation est requise avant que cet article puisse être envoyé à Amazon. Vérifiez les produits marqués en rouge puis réessayez. Le plan Amazon est au statut ERROR. Je l’ai réinitialisé ; relancez l’étape 1.',
     planCreatedContinuePacking: 'Le plan Amazon a été créé avec succès. Vous pouvez continuer vers l’emballage (étape 1b).',
@@ -592,6 +595,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'Derzeit stehen keine Fulfillment-Center zur Verfügung, um die Gesamtmenge an Gefahrgut-Einheiten in dieser Sendung anzunehmen. Gehe zu Schritt 1 zurück und versuche es erneut.',
     approvalRequiredIssue: 'Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann.',
+    approvalRequiredFbaInbound: 'Die SKU benötigt eine Amazon-Genehmigung, bevor sie an FBA gesendet werden kann.',
     planCreationFailedApprovalRequired:
       'Amazon konnte den Versandplan für diese Anfrage nicht erstellen. Amazon-Grund: Eine Genehmigung ist erforderlich, bevor dieser Artikel an Amazon gesendet werden kann. Prüfe die rot markierten Produkte und versuche es erneut. Der Amazon-Plan hat den Status ERROR. Ich habe den Plan zurückgesetzt; starte Schritt 1 erneut.',
     planCreatedContinuePacking: 'Der Amazon-Plan wurde erfolgreich erstellt. Du kannst mit dem Packen fortfahren (Schritt 1b).',
@@ -786,6 +790,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'Al momento non ci sono centri di fulfillment disponibili per ricevere la quantità totale di unità di merci pericolose in questa spedizione. Torna allo Step 1 e riprova.',
     approvalRequiredIssue: 'È richiesta un’approvazione prima che questo articolo possa essere inviato ad Amazon.',
+    approvalRequiredFbaInbound: 'Lo SKU richiede l’approvazione di Amazon prima di poter essere inviato a FBA.',
     planCreationFailedApprovalRequired:
       'Amazon non ha potuto creare il piano di spedizione per questa richiesta. Motivo Amazon: è richiesta un’approvazione prima che questo articolo possa essere inviato ad Amazon. Controlla i prodotti evidenziati in rosso e riprova. Il piano Amazon è in stato ERROR. Ho reimpostato il piano; riprova lo Step 1.',
     validationMissingBoxes: 'Aggiungi almeno una scatola per ogni gruppo con unità.',
@@ -841,6 +846,7 @@ export const STEP1_COPY = {
     dangerousGoodsNoCapacity:
       'Actualmente no hay centros de fulfillment disponibles para recibir la cantidad total de unidades de mercancías peligrosas de este envío. Vuelve al Paso 1 e inténtalo de nuevo.',
     approvalRequiredIssue: 'Se requiere aprobación antes de que este artículo pueda enviarse a Amazon.',
+    approvalRequiredFbaInbound: 'El SKU necesita aprobación de Amazon antes de poder enviarse a FBA.',
     planCreationFailedApprovalRequired:
       'Amazon no pudo crear el plan de envío para esta solicitud. Motivo de Amazon: se requiere aprobación antes de que este artículo pueda enviarse a Amazon. Revisa los productos marcados en rojo y vuelve a intentarlo. El plan de Amazon está en estado ERROR. Restablecí el plan; vuelve a intentar el Paso 1.',
     validationMissingBoxes: 'Añade al menos una caja para cada grupo con unidades.',

@@ -840,22 +840,27 @@ function extractSkuErrorReasons(primary: { json: any; text: string }): Record<st
 function extractSkuErrorReasonsFromOperationProblems(operationProblems: any[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const p of Array.isArray(operationProblems) ? operationProblems : []) {
+    const code = String(p?.code || p?.Code || "").trim().toUpperCase();
     const msg = String(p?.message || p?.Message || "").trim();
     const details = String(p?.details || p?.Details || "").trim();
     const combined = `${msg} ${details}`.trim();
     if (!combined) continue;
+    const normalizedMessage =
+      code === "FBA_INB_0021"
+        ? "SKU needs Amazon approval before it can be sent to FBA."
+        : msg || details || "Amazon reported an issue for this SKU.";
 
     const resourceMatch = combined.match(/resource\s+'([^']+)'/i);
     if (resourceMatch?.[1]) {
       const sku = normalizeSku(resourceMatch[1]);
-      if (sku) out[sku] = msg || details || "Amazon reported an issue for this SKU.";
+      if (sku) out[sku] = normalizedMessage;
       continue;
     }
 
     const skuMatch = combined.match(/\bSKU\s*[:=]\s*([A-Za-z0-9._\- ]+)/i);
     if (skuMatch?.[1]) {
       const sku = normalizeSku(skuMatch[1]);
-      if (sku) out[sku] = msg || details || "Amazon reported an issue for this SKU.";
+      if (sku) out[sku] = normalizedMessage;
     }
   }
   return out;
@@ -4733,7 +4738,9 @@ serve(async (req) => {
             expiryRequiredBySku[it.sku || ""] === true;
           const key = normalizeSku(it.sku || it.asin || "");
           const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
-          const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required || c.transparency_file_path);
+          const transparencyRequired = Boolean(
+            prepInfo?.transparencyRequired || transparencySignal.required || it.transparency_file_path
+          );
           const transparencyAlert = transparencyRequired
             ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
             : null;
