@@ -2889,6 +2889,10 @@ serve(async (req) => {
     const labelOwnerConstraintBySku: Record<string, OwnerVal | null> = {};
     const prepCategoryBySku: Record<string, string | null> = {};
     const transparencyBySku: Record<string, { required: boolean; messages: string[] }> = {};
+    const previousTransparencyBySku =
+      snapshotBase?.fba_inbound && typeof snapshotBase.fba_inbound === "object" && snapshotBase.fba_inbound.transparencyBySku
+        ? snapshotBase.fba_inbound.transparencyBySku
+        : {};
     const transparencyByProductType = new Map<string, { required: boolean; messages: string[] }>();
     let transparencyDetectionPromise: Promise<void> | null = null;
 
@@ -2968,7 +2972,7 @@ serve(async (req) => {
         const requiresExpiry = requiresExpiryFromGuidance || expiryRequiredBySku[expiryKey] === true;
         const expiryVal = expirations[expiryKey] || "";
         const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
-        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required || c.transparency_file_path);
         const transparencyAlert = transparencyRequired
           ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
           : null;
@@ -3710,6 +3714,19 @@ serve(async (req) => {
         const asin = String(itemForSku?.asin || "").trim();
         const transparencyMessages = new Set<string>();
         let internalSignal = { required: false, messages: [] as string[] };
+        const previousSignal =
+          previousTransparencyBySku && typeof previousTransparencyBySku === "object"
+            ? previousTransparencyBySku[skuKey]
+            : null;
+
+        if (previousSignal?.required) {
+          for (const message of Array.isArray(previousSignal.messages) ? previousSignal.messages : []) {
+            if (message) transparencyMessages.add(String(message));
+          }
+        }
+        if (itemForSku?.transparency_file_path) {
+          transparencyMessages.add("Transparency code required");
+        }
 
         if (asin) {
           const commonInternalReq = {
@@ -3808,13 +3825,18 @@ serve(async (req) => {
         }
 
         const required = Boolean(
-          internalSignal.required || schemaSignal.required || issueSignal.required || restrictionsSignal.required
+          previousSignal?.required ||
+            itemForSku?.transparency_file_path ||
+            internalSignal.required ||
+            schemaSignal.required ||
+            issueSignal.required ||
+            restrictionsSignal.required
         );
         if (!required) continue;
 
         transparencyBySku[skuKey] = {
           required: true,
-          messages: Array.from(transparencyMessages)
+          messages: Array.from(transparencyMessages).filter(Boolean)
         };
       }
     }
@@ -4525,7 +4547,7 @@ serve(async (req) => {
           (prepInfo.prepInstructions || []).some((p: string) => String(p || "").toLowerCase().includes("expir")) ||
           expiryRequiredBySku[normalizeSku(c.sku || "")] === true;
         const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
-        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+        const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required || c.transparency_file_path);
         const transparencyAlert = transparencyRequired
           ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
           : null;
@@ -4642,7 +4664,7 @@ serve(async (req) => {
             expiryRequiredBySku[it.sku || ""] === true;
           const key = normalizeSku(it.sku || it.asin || "");
           const transparencySignal = transparencyBySku[key] || { required: false, messages: [] };
-          const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+          const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required || c.transparency_file_path);
           const transparencyAlert = transparencyRequired
             ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
             : null;
@@ -5054,7 +5076,7 @@ serve(async (req) => {
       const image = (asinKey ? stockImageByAsin[asinKey] : null) || (asinKey ? listingImages[asinKey] : null) || null;
       const expiryVal = expirations[skuKey] || "";
       const transparencySignal = transparencyBySku[skuKey] || { required: false, messages: [] };
-      const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required);
+      const transparencyRequired = Boolean(prepInfo?.transparencyRequired || transparencySignal.required || c.transparency_file_path);
       const transparencyAlert = transparencyRequired
         ? normalizeTransparencyMessage(transparencySignal.messages?.[0] || buildTransparencyAlert(prepInfo) || "Transparency code required")
         : null;
@@ -5181,7 +5203,16 @@ serve(async (req) => {
           planItemsSignature: currentItemsSignature,
           inboundPlanId: safeInboundPlanId,
           packingOptionId: packingOptionId || null,
-          placementOptionId: reqData.placement_option_id || null
+          placementOptionId: reqData.placement_option_id || null,
+          transparencyBySku: skus.reduce((acc, sku) => {
+            const skuKey = normalizeSku(sku?.sku || "");
+            if (!skuKey || !sku?.transparencyRequired) return acc;
+            acc[skuKey] = {
+              required: true,
+              messages: sku?.transparencyAlert ? [String(sku.transparencyAlert)] : ["Transparency code required"]
+            };
+            return acc;
+          }, {} as Record<string, { required: boolean; messages: string[] }>)
         }
       };
       await supabase.from("prep_requests").update({ amazon_snapshot: nextSnapshot }).eq("id", requestId);
