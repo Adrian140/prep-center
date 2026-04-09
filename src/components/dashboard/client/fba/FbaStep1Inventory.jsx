@@ -2052,10 +2052,16 @@ export default function FbaStep1Inventory({
               </div>
             )}
             {needsExpiry && <div className="text-xs text-amber-700">{tr('expirationDateRequired')}</div>}
-            {transparencyAlert && (
-              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800">
-                <div>{tr('transparencyCodeRequired')}</div>
-                {transparencyAlert.toLowerCase() !== 'transparency code required' && (
+            {(transparencyAlert || transparencyFilePath) && (
+              <div
+                className={
+                  transparencyAlert
+                    ? 'rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800'
+                    : 'rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800'
+                }
+              >
+                <div>{transparencyAlert || tr('transparencyPdfUploaded')}</div>
+                {transparencyAlert && transparencyAlert.toLowerCase() !== 'transparency code required' && (
                   <div className="mt-1 text-xs font-medium text-red-700">{transparencyAlert}</div>
                 )}
                 <div className="mt-2 flex flex-col items-start gap-1">
@@ -2063,14 +2069,22 @@ export default function FbaStep1Inventory({
                     <>
                       <button
                         type="button"
-                        className="text-xs text-red-800 underline disabled:opacity-60"
+                        className={`text-xs underline disabled:opacity-60 ${
+                          transparencyAlert ? 'text-red-800' : 'text-emerald-800'
+                        }`}
                         disabled={Boolean(transparencyDownloadingBySku[sku.id])}
                         onClick={downloadTransparencyPdf}
                       >
                         {transparencyDownloadingBySku[sku.id] ? tr('downloading') : tr('printTransparencyLabels')}
                       </button>
                       {transparencyFileName ? (
-                        <div className="text-[11px] font-medium text-red-700">{transparencyFileName}</div>
+                        <div
+                          className={`text-[11px] font-medium ${
+                            transparencyAlert ? 'text-red-700' : 'text-emerald-700'
+                          }`}
+                        >
+                          {transparencyFileName}
+                        </div>
                       ) : null}
                     </>
                   ) : (
