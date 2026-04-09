@@ -2912,6 +2912,26 @@ serve(async (req) => {
       snapshotBase?.fba_inbound && typeof snapshotBase.fba_inbound === "object" && snapshotBase.fba_inbound.transparencyBySku
         ? snapshotBase.fba_inbound.transparencyBySku
         : {};
+    const previousTransparencyByAsin =
+      snapshotBase?.fba_inbound && typeof snapshotBase.fba_inbound === "object" && snapshotBase.fba_inbound.transparencyByAsin
+        ? snapshotBase.fba_inbound.transparencyByAsin
+        : {};
+    for (const c of collapsedItems) {
+      const asinKey = `${String(marketplaceId || "").toUpperCase()}|${String(c.asin || "").trim().toUpperCase()}`;
+      if (!c.asin) continue;
+      if (persistentTransparencyCache[asinKey]?.required) continue;
+      const previousSkuSignal = previousTransparencyBySku[normalizeSku(c.sku || "")];
+      const previousAsinSignal = previousTransparencyByAsin[String(c.asin || "").trim().toUpperCase()];
+      const previousSignal = previousAsinSignal?.required ? previousAsinSignal : previousSkuSignal;
+      if (!previousSignal?.required) continue;
+      persistentTransparencyCache[asinKey] = {
+        required: true,
+        messages: Array.isArray(previousSignal.messages) ? previousSignal.messages.filter(Boolean).map(String) : ["Transparency code required"],
+        source: "historical_snapshot",
+        lastCheckedAt: new Date().toISOString(),
+        lastLiveCheckStatus: "historical_snapshot"
+      };
+    }
     const transparencyByProductType = new Map<string, { required: boolean; messages: string[] }>();
     let transparencyDetectionPromise: Promise<void> | null = null;
 
@@ -3738,11 +3758,20 @@ serve(async (req) => {
           previousTransparencyBySku && typeof previousTransparencyBySku === "object"
             ? previousTransparencyBySku[skuKey]
             : null;
+        const previousAsinSignal =
+          previousTransparencyByAsin && typeof previousTransparencyByAsin === "object"
+            ? previousTransparencyByAsin[String(asin || "").trim().toUpperCase()]
+            : null;
         const persistentCacheKey = `${String(marketplaceId || "").toUpperCase()}|${String(asin || "").toUpperCase()}`;
         const persistentSignal = persistentTransparencyCache[persistentCacheKey] || null;
 
         if (previousSignal?.required) {
           for (const message of Array.isArray(previousSignal.messages) ? previousSignal.messages : []) {
+            if (message) transparencyMessages.add(String(message));
+          }
+        }
+        if (previousAsinSignal?.required) {
+          for (const message of Array.isArray(previousAsinSignal.messages) ? previousAsinSignal.messages : []) {
             if (message) transparencyMessages.add(String(message));
           }
         }
@@ -3855,6 +3884,7 @@ serve(async (req) => {
 
         const required = Boolean(
           previousSignal?.required ||
+            previousAsinSignal?.required ||
             persistentSignal?.required ||
             itemForSku?.transparency_file_path ||
             internalSignal.required ||
@@ -5243,6 +5273,15 @@ serve(async (req) => {
           inboundPlanId: safeInboundPlanId,
           packingOptionId: packingOptionId || null,
           placementOptionId: reqData.placement_option_id || null,
+          transparencyByAsin: skus.reduce((acc, sku) => {
+            const asinKey = String(sku?.asin || "").trim().toUpperCase();
+            if (!asinKey || !sku?.transparencyRequired) return acc;
+            acc[asinKey] = {
+              required: true,
+              messages: sku?.transparencyAlert ? [String(sku.transparencyAlert)] : ["Transparency code required"]
+            };
+            return acc;
+          }, {} as Record<string, { required: boolean; messages: string[] }>),
           transparencyBySku: skus.reduce((acc, sku) => {
             const skuKey = normalizeSku(sku?.sku || "");
             if (!skuKey || !sku?.transparencyRequired) return acc;
