@@ -37,6 +37,69 @@ const getPendingItemsSummary = (row) => {
   return { skuCount: uniqueSkus.size, unitsTotal };
 };
 
+const isAmazonShipmentId = (value) => typeof value === 'string' && /^FBA[A-Z0-9]+$/i.test(value.trim());
+
+const normalizeStep2Shipments = (value) => {
+  const list = Array.isArray(value) ? value : [];
+  return list
+    .map((shipment, index) => ({
+      shipmentId: shipment?.shipmentId || shipment?.shipment_id || shipment?.id || null,
+      amazonShipmentId: shipment?.amazonShipmentId || shipment?.amazon_shipment_id || null,
+      legacyShipmentId: shipment?.legacyShipmentId || shipment?.legacy_shipment_id || null,
+      confirmedAt:
+        shipment?.confirmedAt ||
+        shipment?.confirmed_at ||
+        shipment?.updatedAt ||
+        shipment?.updated_at ||
+        shipment?.createdAt ||
+        shipment?.created_at ||
+        null,
+      index: Number.isFinite(Number(shipment?.index)) ? Number(shipment.index) : index
+    }))
+    .filter((shipment) => shipment.shipmentId || shipment.amazonShipmentId || shipment.legacyShipmentId);
+};
+
+const extractShipmentEntries = (row) => {
+  const snapshot = row?.amazon_snapshot || {};
+  const step2Shipments = normalizeStep2Shipments(row?.step2_shipments);
+  const fallbackDate =
+    row?.completed_at ||
+    row?.step4_confirmed_at ||
+    row?.step2_confirmed_at ||
+    row?.confirmed_at ||
+    row?.created_at ||
+    null;
+  const dedup = new Set();
+  const entries = [];
+
+  step2Shipments.forEach((shipment) => {
+    const shipmentId =
+      shipment.amazonShipmentId ||
+      [shipment.legacyShipmentId, shipment.shipmentId].find((value) => isAmazonShipmentId(value)) ||
+      null;
+    const normalizedId = shipmentId ? String(shipmentId).trim().toUpperCase() : null;
+    if (!normalizedId || dedup.has(normalizedId)) return;
+    dedup.add(normalizedId);
+    entries.push({
+      id: normalizedId,
+      date: shipment.confirmedAt || fallbackDate
+    });
+  });
+
+  const fallbackCandidates = [
+    row?.fba_shipment_id,
+    snapshot?.shipment_id
+  ];
+  fallbackCandidates.forEach((candidate) => {
+    const normalizedId = isAmazonShipmentId(candidate) ? String(candidate).trim().toUpperCase() : null;
+    if (!normalizedId || dedup.has(normalizedId)) return;
+    dedup.add(normalizedId);
+    entries.push({ id: normalizedId, date: fallbackDate });
+  });
+
+  return entries;
+};
+
 const StatusPill = ({ s, label }) => {
   const map = {
     pending: 'bg-yellow-100 text-yellow-800',
@@ -382,9 +445,26 @@ export default function AdminPrepRequests() {
                 <tr key={r.id} className="border-t align-top">
                   <td className="px-4 py-3">{new Date(r.created_at).toLocaleString(locale)}</td>
                   <td className="px-4 py-3">
-                    {r.completed_at || r.step4_confirmed_at || r.confirmed_at
-                      ? new Date(r.completed_at || r.step4_confirmed_at || r.confirmed_at).toLocaleString(locale)
-                      : t('common.none')}
+                    {(() => {
+                      const shipmentEntries = extractShipmentEntries(r);
+                      const fallbackDate =
+                        r.completed_at || r.step4_confirmed_at || r.step2_confirmed_at || r.confirmed_at || null;
+                      if (!shipmentEntries.length) {
+                        return fallbackDate ? new Date(fallbackDate).toLocaleString(locale) : t('common.none');
+                      }
+                      return (
+                        <div className="space-y-2">
+                          {shipmentEntries.map((entry) => (
+                            <div key={`${r.id}-${entry.id}`} className="leading-tight">
+                              <div className="font-mono text-xs text-text-primary">sFBA ID: {entry.id}</div>
+                              <div className="text-xs text-text-secondary">
+                                {entry.date ? new Date(entry.date).toLocaleString(locale) : t('common.none')}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-semibold">
