@@ -116,7 +116,6 @@ export default function FbaStep1bPacking({
       { skus: 0, units: 0 }
     );
   }, [visibleGroups]);
-
   const normalizedPackingOptions = useMemo(() => {
     const normalizeStatus = (val) => String(val || '').toUpperCase();
     const shippingModes = (opt) => {
@@ -430,9 +429,17 @@ export default function FbaStep1bPacking({
       const boxCount = clampBoxes(boxes);
       if ((group.packMode || 'single') === 'multiple') {
         const perBox = (perBoxDetails || []).slice(0, boxCount);
-        return perBox.some((b) => resolveGroupNumber(b.weight) >= MAX_STANDARD_BOX_KG);
+        const perBoxUnits = (resolveBoxState(group).perBoxItems || [])
+          .slice(0, boxCount)
+          .map((box) =>
+            Object.values(box || {}).reduce((sum, qty) => sum + resolveGroupNumber(qty), 0)
+          );
+        return perBox.some((b, idx) => {
+          const boxUnits = perBoxUnits[idx] || 0;
+          return resolveGroupNumber(b.weight) >= MAX_STANDARD_BOX_KG && boxUnits !== 1;
+        });
       }
-      return resolveGroupNumber(weight) >= MAX_STANDARD_BOX_KG;
+      return resolveGroupNumber(weight) >= MAX_STANDARD_BOX_KG && resolveTotalUnits(group) !== 1;
     });
     if (overweight) {
       return MAX_STANDARD_BOX_MSG;
@@ -755,7 +762,10 @@ export default function FbaStep1bPacking({
     if (!hasWeights) {
       validationMessages.push('Completeaza greutatea pentru fiecare cutie.');
     }
-    const overweightBoxes = perBoxDetails.some((d) => resolveGroupNumber(d?.weight) >= MAX_STANDARD_BOX_KG);
+    const overweightBoxes = perBoxDetails.some((d, idx) => {
+      const boxUnits = perBoxTotals[idx] || 0;
+      return resolveGroupNumber(d?.weight) >= MAX_STANDARD_BOX_KG && boxUnits !== 1;
+    });
     if (overweightBoxes) {
       validationMessages.push(MAX_STANDARD_BOX_MSG);
     }

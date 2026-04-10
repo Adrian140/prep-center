@@ -1766,9 +1766,9 @@ export default function FbaStep1Inventory({
         if (!length || !width || !height || !weight) missingDims += 1;
         const maxDim = Math.max(length, width, height);
         const isOversize = maxDim > MAX_STANDARD_BOX_CM;
-        if (weight > MAX_STANDARD_BOX_KG) overweight += 1;
         const items = boxItems[idx] || {};
         const assigned = Object.values(items).reduce((sum, val) => sum + Number(val || 0), 0);
+        if (weight > MAX_STANDARD_BOX_KG && assigned !== 1) overweight += 1;
         if (assigned <= 0) emptyBoxes += 1;
         // EU SPD rule: boxes peste 63.5 cm devin DOAR avertisment; nu mai blocăm continuarea.
         if (isOversize && assigned !== 1) oversize += 1;
