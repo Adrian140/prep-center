@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/config/supabase';
-import { AlertTriangle, CheckCircle, ChevronDown, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, ChevronDown, Loader2, RefreshCw, Search } from 'lucide-react';
 import { useEtsyI18n } from '@/i18n/etsyI18n';
 
 const INTEGRATIONS_KEY = 'integrations_visibility';
@@ -182,6 +182,7 @@ export default function AdminPrepBusinessIntegrations() {
   const [savingToken, setSavingToken] = useState('');
   const [savingDeskToken, setSavingDeskToken] = useState('');
   const [amazonPage, setAmazonPage] = useState(1);
+  const [clientSearch, setClientSearch] = useState('');
 
   const load = async () => {
     setRefreshing(true);
@@ -437,18 +438,51 @@ export default function AdminPrepBusinessIntegrations() {
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [amazonByUser, profilesById]);
 
-  const amazonTotalPages = Math.max(1, Math.ceil(amazonRows.length / AMAZON_PAGE_SIZE));
+  const normalizedClientSearch = String(clientSearch || '').trim().toLowerCase();
+  const matchesClientSearch = (profile, extraValues = []) => {
+    if (!normalizedClientSearch) return true;
+    const haystack = [
+      displayClient(profile),
+      profile?.email,
+      profile?.company_name,
+      profile?.store_name,
+      profile?.first_name,
+      profile?.last_name,
+      ...extraValues
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(normalizedClientSearch);
+  };
+
+  const filteredAmazonRows = useMemo(
+    () =>
+      amazonRows.filter(({ item, profile }) =>
+        matchesClientSearch(profile, [
+          item?.company_id,
+          Array.from(item?.marketplace_ids || []).join(' ')
+        ])
+      ),
+    [amazonRows, normalizedClientSearch]
+  );
+
+  const amazonTotalPages = Math.max(1, Math.ceil(filteredAmazonRows.length / AMAZON_PAGE_SIZE));
   const safeAmazonPage = Math.min(amazonPage, amazonTotalPages);
   const amazonPageRows = useMemo(() => {
     const from = (safeAmazonPage - 1) * AMAZON_PAGE_SIZE;
-    return amazonRows.slice(from, from + AMAZON_PAGE_SIZE);
-  }, [amazonRows, safeAmazonPage]);
+    return filteredAmazonRows.slice(from, from + AMAZON_PAGE_SIZE);
+  }, [filteredAmazonRows, safeAmazonPage]);
 
   useEffect(() => {
     if (amazonPage > amazonTotalPages) {
       setAmazonPage(amazonTotalPages);
     }
   }, [amazonPage, amazonTotalPages]);
+
+  useEffect(() => {
+    setAmazonPage(1);
+  }, [normalizedClientSearch]);
 
   const profitPathRows = useMemo(() => {
     return Object.entries(prepRowsByUser)
@@ -460,6 +494,13 @@ export default function AdminPrepBusinessIntegrations() {
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [prepRowsByUser, profilesById]);
+  const filteredProfitPathRows = useMemo(
+    () =>
+      profitPathRows.filter(({ row, profile }) =>
+        matchesClientSearch(profile, [row?.email_prep_business, row?.profit_path_token_id, row?.merchant_id])
+      ),
+    [profitPathRows, normalizedClientSearch]
+  );
 
   const profitDeskRows = useMemo(() => {
     return Object.entries(prepRowsByUser)
@@ -471,6 +512,13 @@ export default function AdminPrepBusinessIntegrations() {
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [prepRowsByUser, profilesById]);
+  const filteredProfitDeskRows = useMemo(
+    () =>
+      profitDeskRows.filter(({ row, profile }) =>
+        matchesClientSearch(profile, [row?.email_profit_desk, row?.profit_desk_token_id])
+      ),
+    [profitDeskRows, normalizedClientSearch]
+  );
 
   const arbitrageRows = useMemo(() => {
     return Object.entries(prepRowsByUser)
@@ -482,24 +530,49 @@ export default function AdminPrepBusinessIntegrations() {
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [prepRowsByUser, profilesById]);
+  const filteredArbitrageRows = useMemo(
+    () =>
+      arbitrageRows.filter(({ row, profile }) =>
+        matchesClientSearch(profile, [row?.email_arbitrage_one, row?.merchant_id])
+      ),
+    [arbitrageRows, normalizedClientSearch]
+  );
 
   const upsRows = useMemo(() => {
     return Object.entries(upsByUser)
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [upsByUser, profilesById]);
+  const filteredUpsRows = useMemo(
+    () => upsRows.filter(({ row, profile }) => matchesClientSearch(profile, [row?.status, row?.last_error])),
+    [upsRows, normalizedClientSearch]
+  );
 
   const etsyRows = useMemo(() => {
     return Object.entries(etsyByUser)
       .map(([userId, row]) => ({ userId, row, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [etsyByUser, profilesById]);
+  const filteredEtsyRows = useMemo(
+    () =>
+      etsyRows.filter(({ row, profile }) =>
+        matchesClientSearch(profile, [row?.shop_name, row?.shop_id, row?.shop_url])
+      ),
+    [etsyRows, normalizedClientSearch]
+  );
 
   const qogitaRows = useMemo(() => {
     return Object.entries(qogitaByUser)
       .map(([userId, rows]) => ({ userId, rows, profile: profilesById[userId] }))
       .sort((a, b) => displayClient(a.profile).localeCompare(displayClient(b.profile)));
   }, [qogitaByUser, profilesById]);
+  const filteredQogitaRows = useMemo(
+    () =>
+      qogitaRows.filter(({ rows, profile }) =>
+        matchesClientSearch(profile, rows.flatMap((row) => [row?.qogita_email, row?.status]))
+      ),
+    [qogitaRows, normalizedClientSearch]
+  );
 
   const emptyBlock = <div className="text-sm text-text-secondary border rounded-lg p-4">Niciun client pentru integrarea asta.</div>;
 
@@ -545,9 +618,19 @@ export default function AdminPrepBusinessIntegrations() {
               onVisibilityChange={(value) => saveGlobalVisibility(integration.settingField, value)}
             >
               {savingVisibility && <div className="text-xs text-text-secondary">Saving visibility…</div>}
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
+                <input
+                  type="text"
+                  value={clientSearch}
+                  onChange={(e) => setClientSearch(e.target.value)}
+                  placeholder="Cauta client dupa nume sau email..."
+                  className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-text-primary outline-none focus:border-primary"
+                />
+              </div>
 
               {integration.id === 'amazon' && (
-                amazonRows.length ? (
+                filteredAmazonRows.length ? (
                   <div className="space-y-3">
                     <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
                     {amazonPageRows.map(({ rowKey, item, profile }) => (
@@ -570,7 +653,7 @@ export default function AdminPrepBusinessIntegrations() {
                       </div>
                     ))}
                   </div>
-                  {amazonRows.length > AMAZON_PAGE_SIZE && (
+                  {filteredAmazonRows.length > AMAZON_PAGE_SIZE && (
                     <div className="flex items-center justify-between text-xs text-text-secondary">
                       <span>Page {safeAmazonPage} / {amazonTotalPages}</span>
                       <div className="flex items-center gap-2">
@@ -598,9 +681,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'etsy' && (
-                etsyRows.length ? (
+                filteredEtsyRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {etsyRows.map(({ userId, row, profile }) => (
+                    {filteredEtsyRows.map(({ userId, row, profile }) => (
                       <div key={`etsy-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[260px]">
                           <div className="font-medium text-text-primary">{displayClient(profile)}</div>
@@ -621,9 +704,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'profitPath' && (
-                profitPathRows.length ? (
+                filteredProfitPathRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {profitPathRows.map(({ userId, row, profile }) => (
+                    {filteredProfitPathRows.map(({ userId, row, profile }) => (
                       <div key={`pp-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
                         <div className="flex-1 min-w-[280px]">
                           <div className="font-medium text-text-primary">{displayClient(profile)}</div>
@@ -656,9 +739,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'profitDesk' && (
-                profitDeskRows.length ? (
+                filteredProfitDeskRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {profitDeskRows.map(({ userId, row, profile }) => (
+                    {filteredProfitDeskRows.map(({ userId, row, profile }) => (
                       <div key={`pd-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
                         <div className="flex-1 min-w-[280px]">
                           <div className="font-medium text-text-primary">{displayClient(profile)}</div>
@@ -690,9 +773,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'arbitrageOne' && (
-                arbitrageRows.length ? (
+                filteredArbitrageRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {arbitrageRows.map(({ userId, row, profile }) => (
+                    {filteredArbitrageRows.map(({ userId, row, profile }) => (
                       <div key={`a1-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-start gap-3">
                         <div className="flex-1 min-w-[280px]">
                           <div className="font-medium text-text-primary">{displayClient(profile)}</div>
@@ -726,9 +809,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'ups' && (
-                upsRows.length ? (
+                filteredUpsRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {upsRows.map(({ userId, row, profile }) => (
+                    {filteredUpsRows.map(({ userId, row, profile }) => (
                       <div key={`ups-${userId}`} className="px-4 py-3 bg-white flex flex-wrap items-center gap-3">
                         <div className="flex-1 min-w-[260px]">
                           <div className="font-medium text-text-primary">{displayClient(profile)}</div>
@@ -744,9 +827,9 @@ export default function AdminPrepBusinessIntegrations() {
               )}
 
               {integration.id === 'qogita' && (
-                qogitaRows.length ? (
+                filteredQogitaRows.length ? (
                   <div className="divide-y border border-gray-200 rounded-xl overflow-hidden">
-                    {qogitaRows.map(({ userId, rows, profile }) => {
+                    {filteredQogitaRows.map(({ userId, rows, profile }) => {
                       const latest = rows[0] || null;
                       const status = latest?.status || (rows.length ? 'active' : 'inactive');
                       return (
