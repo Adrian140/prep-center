@@ -3714,12 +3714,13 @@ const saveReqChanges = async () => {
       const renderIdentifierField = (label, value, key, placeholder, copyKey) => {
         if (enableIdentifierEdit) {
           const currentValue = (edit[key] ?? value ?? '').toString();
+          const inputWidthClass = key === 'sku' ? 'w-56' : 'w-28';
           return (
             <div className="flex items-center text-xs gap-2">
               <span className="font-semibold text-gray-500 select-none">{label}</span>
               <input
                 type="text"
-                className="border rounded px-2 py-1 text-xs w-28"
+                className={`border rounded px-2 py-1 text-xs ${inputWidthClass}`}
                 value={currentValue}
                 placeholder={placeholder}
                 onChange={(e) => updateEdit(r.id, { [key]: e.target.value })}
